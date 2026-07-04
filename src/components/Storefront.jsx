@@ -195,7 +195,7 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
       {/* Header */}
       <header className="app-header">
         <div className="logo-container" onClick={() => setSelectedCategory('all')} style={{ cursor: 'pointer' }}>
-          <div className="logo-icon">P</div>
+          <img src="/favicon.svg" alt="Pyjama DZ Logo" className="logo-img" style={{ width: '48px', height: '48px', borderRadius: '50%', boxShadow: '0 4px 15px rgba(122, 34, 52, 0.25)', border: '2px solid var(--rose-primary)', objectFit: 'cover', background: '#fff' }} />
           <div className="logo-text">
             <h1>{settings?.storeName || "Pyjama DZ"}</h1>
             <span>Collection Luxe & Confort</span>
