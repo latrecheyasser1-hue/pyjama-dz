@@ -392,7 +392,8 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
                 style={{ width: '100%', marginTop: '8px' }}
               >
                 <ShoppingBag size={18} />
-                <span>إضافة إلى السلة (Ajouter au Panier)</span>
+                <span className="desktop-btn-text">إضافة إلى السلة (Ajouter au Panier)</span>
+                <span className="mobile-btn-text">إضافة للسلة 🛍️</span>
               </button>
             </div>
           </div>
