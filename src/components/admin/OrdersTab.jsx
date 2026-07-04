@@ -155,7 +155,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                 <th>Produit & Taille</th>
                 <th>Montant</th>
                 <th>تغيير الحالة (Statut)</th>
-                <th style={{ minWidth: '180px', textAlign: 'center' }}>الإجراء (Action)</th>
+                <th style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>الإجراء (Action)</th>
               </tr>
             </thead>
             <tbody>
@@ -237,7 +237,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                     <td style={{ textAlign: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {order.status === 'nouvelle' && (
-                          <span style={{ color: '#AAA', fontSize: '0.8rem' }}>اختر الحالة من القائمة...</span>
+                          <span style={{ color: '#888', fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>👈 حدد الحالة</span>
                         )}
 
                         {order.status === 'confirmee' && (

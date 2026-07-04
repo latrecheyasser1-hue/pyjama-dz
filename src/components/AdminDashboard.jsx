@@ -189,7 +189,7 @@ export default function AdminDashboard({
       />
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
+      <main style={{ flex: 1, padding: '24px', overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
         {activeTab === 'orders' && (
           <OrdersTab
             orders={orders}

@@ -13,7 +13,7 @@ export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, onLoc
 
   return (
     <aside style={{
-      width: '280px',
+      width: '250px',
       background: 'var(--burgundy-dark)',
       color: 'white',
       display: 'flex',
