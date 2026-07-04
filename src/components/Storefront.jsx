@@ -176,6 +176,8 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
   else if (waNumber.startsWith('0')) waNumber = '213' + waNumber.substring(1);
   const waUrl = `https://wa.me/${waNumber}`;
 
+  const storeNameDisplay = (settings?.storeName || "Pyjama DZ").replace(/\s*-\s*Luxury\s*Homewear/i, '').trim();
+
   return (
     <>
       <div className="storefront-wrapper animate-fade-up">
@@ -197,8 +199,7 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
         <div className="logo-container" onClick={() => setSelectedCategory('all')} style={{ cursor: 'pointer' }}>
           <img src="/favicon.svg?v=3" alt="Pyjama DZ Logo" className="logo-img" style={{ width: '48px', height: '48px', borderRadius: '50%', boxShadow: '0 4px 15px rgba(122, 34, 52, 0.25)', border: '2px solid var(--rose-primary)', objectFit: 'cover', background: '#fff' }} />
           <div className="logo-text">
-            <h1>{settings?.storeName || "Pyjama DZ"}</h1>
-            <span>Collection Luxe & Confort</span>
+            <h1>{storeNameDisplay}</h1>
           </div>
         </div>
 
@@ -403,8 +404,8 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px', marginBottom: '32px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--rose-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.2rem' }}>P</div>
-              <span style={{ fontSize: '1.3rem', fontWeight: 800 }}>{settings?.storeName || "Pyjama DZ"}</span>
+              <img src="/favicon.svg?v=3" alt="Pyjama DZ" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', background: '#fff' }} />
+              <span style={{ fontSize: '1.3rem', fontWeight: 800 }}>{storeNameDisplay}</span>
             </div>
             <p style={{ color: 'var(--champagne)', fontSize: '0.9rem', lineHeight: 1.6 }}>
               المتجر الأول في الجزائر المتخصص في بيجامات الساتان الفاخرة، القطن الطبيعي وأطقم العرائس. جودة عالية وأسعار في متناول الجميع!

@@ -22,7 +22,7 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   const [phoneList, setPhoneList] = useState(() => parsePhones(settings?.phoneOrders));
   const [address, setAddress] = useState(settings?.address || 'Bab Ezzouar & Hydra, Alger');
   const [googleMapsUrl, setGoogleMapsUrl] = useState(settings?.googleMapsUrl || 'https://maps.google.com/?q=Bab+Ezzouar+Alger');
-  const [storeName, setStoreName] = useState(settings?.storeName || 'Pyjama DZ - Luxury Homewear');
+  const [storeName, setStoreName] = useState((settings?.storeName || 'Pyjama DZ').replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       if (settings.phoneOrders !== undefined) setPhoneList(parsePhones(settings.phoneOrders));
       if (settings.address !== undefined) setAddress(settings.address);
       if (settings.googleMapsUrl !== undefined) setGoogleMapsUrl(settings.googleMapsUrl);
-      if (settings.storeName !== undefined) setStoreName(settings.storeName);
+      if (settings.storeName !== undefined) setStoreName(settings.storeName.replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
     }
   }, [settings]);
 
