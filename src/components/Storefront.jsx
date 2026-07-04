@@ -159,7 +159,7 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
       return settings.phoneOrders.map(p => String(p).trim()).filter(Boolean);
     }
     if (typeof settings?.phoneOrders === 'string' && settings.phoneOrders.trim()) {
-      return settings.phoneOrders.split('-').map(s => s.trim()).filter(Boolean);
+      return settings.phoneOrders.split(/[-,\/]/).map(s => s.trim()).filter(Boolean);
     }
     if (settings?.whatsapp) {
       return [String(settings.whatsapp).trim()];
@@ -170,7 +170,8 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
   const rawPhone = phoneList[0] || "0555123456";
   const phoneUrl = `tel:${rawPhone}`;
 
-  const rawWa = (settings?.whatsapp || settings?.phoneOrders || "0771335039").split('-')[0].trim().replace(/\D/g, '');
+  const rawWaSource = settings?.whatsapp || (Array.isArray(settings?.phoneOrders) ? settings.phoneOrders[0] : (typeof settings?.phoneOrders === 'string' ? settings.phoneOrders : "0771335039"));
+  const rawWa = String(rawWaSource).split(/[-,\/]/)[0].trim().replace(/\D/g, '');
   let waNumber = rawWa;
   if (waNumber.startsWith('00')) waNumber = waNumber.substring(2);
   else if (waNumber.startsWith('0')) waNumber = '213' + waNumber.substring(1);

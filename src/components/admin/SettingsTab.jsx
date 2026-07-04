@@ -9,9 +9,9 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   const [pinMessage, setPinMessage] = useState(null);
 
   const parsePhones = (val) => {
-    if (Array.isArray(val) && val.length > 0) return val.map(v => String(v));
+    if (Array.isArray(val) && val.length > 0) return val.map(v => String(v).trim()).filter(Boolean);
     if (typeof val === 'string' && val.trim()) {
-      return val.split('-').map(s => s.trim()).filter(Boolean);
+      return val.split(/[-,\/]/).map(s => s.trim()).filter(Boolean);
     }
     return ['0555123456'];
   };

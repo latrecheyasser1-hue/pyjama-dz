@@ -281,11 +281,14 @@ export default function App() {
     setSettings(prev => ({ ...prev, ...newSettings }));
     for (const [key, value] of Object.entries(newSettings)) {
       if (value === undefined || value === null) continue;
-      const { data: existing } = await supabase.from('settings').select('id').eq('key', key);
-      if (existing && existing.length > 0) {
-        await supabase.from('settings').update({ value: String(value) }).eq('key', key);
-      } else {
-        await supabase.from('settings').insert({ key, value: String(value) });
+      const valStr = Array.isArray(value) ? value.join(' - ') : (typeof value === 'object' ? JSON.stringify(value) : String(value));
+      const { data: updated, error: updateError } = await supabase
+        .from('settings')
+        .update({ value: valStr })
+        .eq('key', key)
+        .select();
+      if (!updated || updated.length === 0) {
+        await supabase.from('settings').insert({ key, value: valStr });
       }
     }
     await fetchSettings();
