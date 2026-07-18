@@ -6,6 +6,8 @@ import CashierPOS from './components/CashierPOS';
 import EmballagePOS from './components/EmballagePOS';
 import ToastContainer from './components/ToastContainer';
 import { supabase } from './lib/supabaseClient';
+import { processOrderDelivery } from './services/deliveryApi';
+
 
 const playNotificationSound = () => {
   try {
@@ -272,6 +274,19 @@ export default function App() {
       }
     }
     
+    // Process delivery API if status is changed to confirmee and no tracking number exists
+    if (newStatus === 'confirmee' && orderToUpdate && !orderToUpdate.trackingNumber) {
+      const deliveryResult = await processOrderDelivery(orderToUpdate);
+      if (deliveryResult.success) {
+        updatePayload.trackingNumber = deliveryResult.trackingNumber;
+        updatePayload.shippingLabelUrl = deliveryResult.shippingLabelUrl;
+        updatePayload.deliveryCompany = deliveryResult.deliveryCompany;
+      } else {
+        // Optionally handle API failure (e.g. show alert)
+        console.error('Failed to process delivery API', deliveryResult.error);
+      }
+    }
+
     const { error } = await supabase.from('orders').update(updatePayload).eq('id', orderId);
     if (!error) {
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updatePayload } : o));

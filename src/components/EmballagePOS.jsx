@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Search, LogOut, CheckCircle2, RotateCcw, Clock, Box, ShieldCheck, ArrowLeft, Delete, Truck } from 'lucide-react';
+import { Package, Search, LogOut, CheckCircle2, RotateCcw, Clock, Box, ShieldCheck, ArrowLeft, Delete, Truck, Printer } from 'lucide-react';
 import { showToast } from '../utils/toast';
 
 export default function EmballagePOS({ settings = {}, products = [], orders = [], onUpdateStatus, onGoBack }) {
@@ -122,6 +122,30 @@ export default function EmballagePOS({ settings = {}, products = [], orders = []
     }
   };
 
+  const handlePrintTickets = () => {
+    // Only get orders that are currently displayed and have a shipping label
+    const printableOrders = displayedOrders.filter(o => o.shippingLabelUrl);
+    
+    if (printableOrders.length === 0) {
+      alert('لا توجد تذاكر توصيل جاهزة للطباعة في هذه القائمة.');
+      return;
+    }
+    
+    showToast(`جاري تجهيز ${printableOrders.length} تذاكر توصيل للطباعة...`, 'success');
+    
+    // MOCK PRINTING: In reality, we'd combine PDFs or send to a print server.
+    // For now, we simulate opening them or just showing success.
+    printableOrders.forEach((order, index) => {
+      setTimeout(() => {
+        console.log(`[PRINT] Label for order ${order.id}: ${order.shippingLabelUrl}`);
+      }, index * 200);
+    });
+    
+    setTimeout(() => {
+      alert(`تم إرسال ${printableOrders.length} تذاكر للطابعة بنجاح!`);
+    }, 1000);
+  };
+
   if (!isAuthenticated) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F4F1EA', padding: '20px' }}>
@@ -224,6 +248,30 @@ export default function EmballagePOS({ settings = {}, products = [], orders = []
               style={{ width: '100%', padding: '15px 45px 15px 15px', border: '2px solid #F3F4F6', borderRadius: '12px', fontSize: '16px', outline: 'none' }}
             />
           </div>
+          {activeTab !== 'history' && (
+            <button 
+              onClick={handlePrintTickets}
+              style={{ 
+                background: '#10B981', 
+                color: 'white', 
+                border: 'none', 
+                padding: '0 20px', 
+                borderRadius: '12px', 
+                fontWeight: 'bold', 
+                fontSize: '16px', 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
+              onMouseOut={e => e.currentTarget.style.opacity = '1'}
+            >
+              <Printer size={20} />
+              طباعة تذاكر التوصيل
+            </button>
+          )}
         </div>
 
         {/* Orders List */}

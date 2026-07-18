@@ -799,6 +799,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
   const [wilaya, setWilaya] = useState(ALGERIA_WILAYAS[15]); // Default Alger
   const [commune, setCommune] = useState('');
   const [deliveryMode, setDeliveryMode] = useState('Livraison Domicile (توصيل للمنزل)');
+  const [deliveryCompany, setDeliveryCompany] = useState('yalidine');
 
   // Prevent body scroll when cart is open
   useEffect(() => {
@@ -996,6 +997,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
       wilaya,
       commune,
       deliveryMode,
+      deliveryCompany,
       product: productTitles,
       items: orderItems,
       price: cartTotal,
@@ -1009,6 +1011,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
     setClientName('');
     setPhone('');
     setCommune('');
+    setDeliveryCompany('yalidine');
   };
 
   // Social & contact links
@@ -1636,6 +1639,17 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
                       >
                         <option value="Livraison Domicile (توصيل للمنزل)">🏠 توصيل للمنزل (Livraison Domicile)</option>
                         <option value="Livraison Bureau (توصيل للمكتب)">🏢 توصيل للمكتب (Livraison Bureau)</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '18px' }}>
+                      <label className="form-label" style={{ fontWeight: 700 }}>شركة التوصيل (Société de Livraison)</label>
+                      <select 
+                        className="form-select" style={{ padding: '12px 16px', fontSize: '1rem' }}
+                        value={deliveryCompany} onChange={(e) => setDeliveryCompany(e.target.value)}
+                      >
+                        <option value="yalidine">Yalidine (ياليدين)</option>
+                        <option value="zrexpress">ZR Express</option>
                       </select>
                     </div>
                   </div>
