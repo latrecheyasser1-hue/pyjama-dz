@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Store, Search, Plus, Trash2, X, Printer, ShoppingBag } from 'lucide-react';
+import { showToast } from '../../utils/toast';
 
 export default function PosModal({
   show,
@@ -22,11 +23,17 @@ export default function PosModal({
 
   if (!show && !printingOrder) return null;
 
-  const filteredPosProducts = products.filter(p => 
-    p.title?.toLowerCase().includes(posSearch.toLowerCase()) ||
-    p.category?.toLowerCase().includes(posSearch.toLowerCase()) ||
-    (p.barcode && String(p.barcode).includes(posSearch))
-  );
+  const filteredPosProducts = products.filter(p => {
+    if (!p.category || !p.category.startsWith('boutique__')) return false;
+    
+    const q = posSearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (p.title && p.title.toLowerCase().startsWith(q)) ||
+      (p.category && p.category.toLowerCase().startsWith(q)) ||
+      (p.barcode && String(p.barcode).startsWith(q))
+    );
+  });
 
   const handleUpdatePosItem = (index, field, value) => {
     setPosCart(prevCart => {
@@ -48,7 +55,7 @@ export default function PosModal({
       // If price or qty changed, recalculate total
       if (field === 'price' || field === 'qty') {
         const p = Number(field === 'price' ? value : item.price) || 0;
-        const q = Math.max(1, Number(field === 'qty' ? value : item.qty) || 1);
+        const q = Math.max(0, Number(field === 'qty' ? value : item.qty) || 0);
         item.total = p * q;
       }
 
@@ -63,17 +70,19 @@ export default function PosModal({
 
   const handleConfirmPosOrder = (e) => {
     if (e) e.preventDefault();
-    if (posCart.length === 0) {
-      alert("الرجاء إضافة منتج واحد على الأقل للطلب أو مسحه بالسكانير");
+    const activeCart = posCart.filter(it => (Number(it.qty) || 0) > 0);
+    if (activeCart.length === 0) {
+      showToast("⚠️ الرجاء إضافة منتج واحد على الأقل بكمية أكبر من 0 للطلب", 'warning');
       return;
     }
 
-    const cartSubtotal = posCart.reduce((acc, it) => acc + (it.total || 0), 0);
+    const cartSubtotal = activeCart.reduce((acc, it) => acc + (it.total || 0), 0);
     const finalTotal = Math.max(0, cartSubtotal - (Number(posDiscount) || 0));
 
     // Deduct stock if possible
-    posCart.forEach(it => {
-      const prodToUpdate = products.find(p => p.id === it.productId || p.title === it.product);
+    activeCart.forEach(it => {
+      const prodToUpdate = products.find(p => p.id === it.productId) || 
+                           products.find(p => p.title === it.product && p.category && p.category.startsWith('boutique__'));
       if (prodToUpdate && onUpdateProduct && prodToUpdate.colorVariants) {
         const updatedVariants = prodToUpdate.colorVariants.map(cv => {
           if (cv.color === it.color && cv.stock && cv.stock[it.size] !== undefined) {
@@ -102,10 +111,10 @@ export default function PosModal({
       wilaya: 'الجزائر العاصمة',
       commune: 'المتجر الحضوري',
       deliveryMode: posPaymentMode,
-      product: posCart.length === 1 && posCart[0].color && posCart[0].color !== 'Standard' ? `${posCart[0].product} (${posCart[0].color})` : posCart.map(it => `${it.product}`).join(' + '),
-      size: posCart.length === 1 ? (posCart[0].qty > 1 ? `${posCart[0].size} (x${posCart[0].qty})` : posCart[0].size) : posCart.map(it => `${it.size} (x${it.qty})`).join(', '),
+      product: activeCart.length === 1 && activeCart[0].color && activeCart[0].color !== 'Standard' ? `${activeCart[0].product} (${activeCart[0].color})` : activeCart.map(it => `${it.product}`).join(' + '),
+      size: activeCart.length === 1 ? (activeCart[0].qty > 1 ? `${activeCart[0].size} (x${activeCart[0].qty})` : activeCart[0].size) : activeCart.map(it => `${it.size} (x${it.qty})`).join(', '),
       price: finalTotal,
-      items: posCart,
+      items: activeCart,
       discount: Number(posDiscount) || 0,
       status: 'confirmee',
       archived: true,
@@ -375,15 +384,15 @@ export default function PosModal({
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdatePosItem(idx, 'qty', Math.max(1, (Number(it.qty) || 1) - 1))}
+                                    onClick={() => handleUpdatePosItem(idx, 'qty', Math.max(0, (Number(it.qty) || 0) - 1))}
                                     style={{ width: 26, height: 26, borderRadius: 6, background: '#E0E0E0', border: 'none', fontWeight: 800, cursor: 'pointer' }}
                                   >-</button>
                                   <input
                                     type="number"
-                                    min="1"
+                                    min="0"
                                     value={it.qty}
                                     onChange={(e) => handleUpdatePosItem(idx, 'qty', e.target.value)}
-                                    style={{ width: '45px', padding: '4px', textAlign: 'center', borderRadius: 6, border: '1px solid #CCC', fontWeight: 800 }}
+                                    style={{ width: '45px', padding: '4px', textAlign: 'center', borderRadius: 6, border: '1px solid #CCC', fontWeight: 800, background: Number(it.qty) === 0 ? '#FFEBEE' : '#FFF', color: Number(it.qty) === 0 ? '#D32F2F' : '#000' }}
                                   />
                                   <button
                                     type="button"
@@ -393,7 +402,7 @@ export default function PosModal({
                                 </div>
                               </td>
                               <td style={{ padding: '10px 12px', fontWeight: 900, color: 'var(--burgundy)' }}>
-                                {((Number(it.price) || 0) * (Number(it.qty) || 1)).toLocaleString()} DA
+                                {((Number(it.price) || 0) * (Number(it.qty) || 0)).toLocaleString()} DA
                               </td>
                               <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                                 <button
@@ -561,13 +570,17 @@ export default function PosModal({
             )}
 
             {/* Total */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '1.1rem', fontWeight: 900, borderBottom: '2px dashed #333', paddingBottom: '12px', marginBottom: '12px' }}>
-              <span>المجموع الإجمالي:</span>
-              <span style={{ direction: 'ltr' }}>{(printingOrder.price || 0).toLocaleString()} د.ج</span>
-            </div>
+            <table style={{ width: '100%', fontSize: '1.2rem', fontWeight: 900, borderTop: '2px dashed #333', marginTop: '8px', marginBottom: '8px' }}>
+              <tbody>
+                <tr>
+                  <td style={{ paddingTop: '12px', border: 'none', textAlign: 'right' }}>المجموع الإجمالي:</td>
+                  <td style={{ paddingTop: '12px', border: 'none', textAlign: 'left', direction: 'ltr' }}>{(printingOrder.price || 0).toLocaleString()} د.ج</td>
+                </tr>
+              </tbody>
+            </table>
 
             {/* Notice Box */}
-            <div style={{ border: '1.5px dashed #444', borderRadius: '8px', padding: '8px', textAlign: 'center', fontSize: '0.75rem', lineHeight: '1.6', marginBottom: '14px', background: '#F9F9F9' }}>
+            <div style={{ border: '1.5px dashed #444', borderRadius: '8px', padding: '8px', textAlign: 'center', fontSize: '0.75rem', lineHeight: '1.5', marginBottom: '4px', background: '#F9F9F9' }}>
               <strong style={{ display: 'block', marginBottom: '2px' }}>تنبيه:</strong>
               السلع المباعة تُستبدل ولا تُرد خلال مدة أقصاها 48 ساعة من تاريخ الاستلام، مع إحضار فاتورة الشراء.
             </div>

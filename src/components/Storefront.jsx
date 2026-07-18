@@ -1,13 +1,794 @@
-import React, { useState, useEffect } from 'react';
-import { ALGERIA_WILAYAS } from '../data/mockData';
-import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ALGERIA_WILAYAS, DEFAULT_CATEGORIES } from '../data/mockData';
+import { showToast } from '../utils/toast';
+import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2, Check, Heart, Star, Search, User } from 'lucide-react';
 
-export default function Storefront({ products, settings, onPlaceOrder }) {
+const getProductDisplayCategory = (prodCategory, categoriesList) => {
+  if (!Array.isArray(categoriesList)) return prodCategory || 'Pyjama DZ';
+  const exact = categoriesList.find(c => c && typeof c === 'object' && c.id === prodCategory);
+  if (exact) return exact.title || prodCategory || 'Pyjama DZ';
+  
+  const pCat = (prodCategory || '').toLowerCase().trim();
+  if (pCat === 'satin' || pCat === 'coton' || pCat === 'ensembles' || pCat.includes('pyjama')) {
+    const pyjamasCat = categoriesList.find(c => c && typeof c === 'object' && (c.title || '').toLowerCase().includes('pyjama'));
+    if (pyjamasCat) return pyjamasCat.title || prodCategory || 'Pyjama DZ';
+  }
+  if (pCat === 'mariee' || pCat === 'abayas' || pCat.includes('robe') || pCat.includes('mari')) {
+    const robesCat = categoriesList.find(c => c && typeof c === 'object' && ((c.title || '').toLowerCase().includes('robe') || (c.title || '').toLowerCase().includes('mari')));
+    if (robesCat) return robesCat.title || prodCategory || 'Pyjama DZ';
+  }
+  return prodCategory || 'Pyjama DZ';
+};
+
+const getProductCategoryGroupId = (prodCategory, categoriesList) => {
+  if (!Array.isArray(categoriesList)) return prodCategory;
+  const exact = categoriesList.find(c => c && typeof c === 'object' && c.id === prodCategory);
+  if (exact) return exact.id || prodCategory;
+  
+  const pCat = (prodCategory || '').toLowerCase().trim();
+  if (pCat === 'satin' || pCat === 'coton' || pCat === 'ensembles' || pCat.includes('pyjama')) {
+    const pyjamasCat = categoriesList.find(c => c && typeof c === 'object' && (c.title || '').toLowerCase().includes('pyjama'));
+    if (pyjamasCat) return pyjamasCat.id || prodCategory;
+  }
+  if (pCat === 'mariee' || pCat === 'abayas' || pCat.includes('robe') || pCat.includes('mari')) {
+    const robesCat = categoriesList.find(c => c && typeof c === 'object' && ((c.title || '').toLowerCase().includes('robe') || (c.title || '').toLowerCase().includes('mari')));
+    if (robesCat) return robesCat.id || prodCategory;
+  }
+  return prodCategory;
+};
+
+const getProductTotalStock = (product) => {
+  if (!product) return 0;
+  if (Array.isArray(product.colorVariants) && product.colorVariants.length > 0) {
+    let total = 0;
+    product.colorVariants.forEach(cv => {
+      if (cv.stock && typeof cv.stock === 'object') {
+        Object.values(cv.stock).forEach(qty => {
+          total += Number(qty || 0);
+        });
+      }
+    });
+    return total;
+  }
+  return Number(product.stock || 0);
+};
+
+function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList }) {
+  const [selectedVariantIdx, setSelectedVariantIdx] = useState(null);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+
+  const activeVariant = (selectedVariantIdx !== null && Array.isArray(product?.colorVariants) && product.colorVariants.length > selectedVariantIdx) 
+    ? product.colorVariants[selectedVariantIdx] 
+    : (Array.isArray(product?.colorVariants) && product.colorVariants.length > 0 ? product.colorVariants[0] : null);
+
+  const allProductImages = Array.isArray(product?.images) && product.images.length > 0 ? product.images : [product?.image || ''];
+  const displayImages = (selectedVariantIdx !== null && activeVariant?.image)
+    ? [activeVariant.image]
+    : allProductImages;
+
+  const rawSizes = activeVariant?.stock && typeof activeVariant.stock === 'object'
+    ? Object.keys(activeVariant.stock)
+    : (Array.isArray(product?.sizes) ? product.sizes : (typeof product?.sizes === 'string' ? product.sizes.split(/[,/-]/).map(s => s.trim()).filter(Boolean) : ["Standard"]));
+  const availableSizes = Array.isArray(rawSizes) && rawSizes.length > 0 ? rawSizes : ["Standard"];
+
+  return (
+    <div className="wd-product product-card" onClick={() => onSelect(product)} style={{ cursor: 'pointer' }}>
+      <div className="product-image-container" style={{ position: 'relative', overflow: 'hidden' }}>
+        {/* Wishlist Button (Mazyoud style) */}
+        <button 
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsWishlisted(!isWishlisted);
+          }}
+          className={`wd-wishlist-btn ${isWishlisted ? 'active' : ''}`}
+          title="Ajouter aux favoris"
+        >
+          <Heart size={18} fill={isWishlisted ? "#E53935" : "none"} color={isWishlisted ? "#E53935" : "#666666"} />
+        </button>
+
+        {product?.oldPrice && Number(product.oldPrice) > Number(product?.price || 0) && (
+          <span className="badge-tag badge-promo" style={{ position: 'absolute', top: 14, left: 14, zIndex: 10 }}>
+            Promo
+          </span>
+        )}
+        <div style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch', width: '100%', height: '100%', scrollbarWidth: 'none' }}>
+          {Array.isArray(displayImages) && displayImages.map((img, idx) => (
+            <div key={idx} style={{ flex: '0 0 100%', scrollSnapAlign: 'start', height: '100%', position: 'relative' }}>
+              <img src={img || ''} alt={product?.title || ''} className="product-image" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {displayImages.length > 1 && (
+                <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: '6px', pointerEvents: 'none' }}>
+                  {displayImages.map((_, dotIdx) => (
+                    <div key={dotIdx} style={{ width: 6, height: 6, borderRadius: '50%', background: idx === dotIdx ? 'white' : 'rgba(255,255,255,0.5)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="product-info">
+        <span 
+          className="product-cat"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onCategorySelect) {
+              const matchedId = getProductCategoryGroupId(product?.category, categoriesList);
+              onCategorySelect(matchedId);
+            }
+          }}
+          style={{ 
+            cursor: 'pointer',
+            transition: 'color 0.2s',
+          }}
+          onMouseOver={(e) => e.currentTarget.style.color = 'var(--burgundy)'}
+          onMouseOut={(e) => e.currentTarget.style.color = '#888'}
+        >
+          {getProductDisplayCategory(product?.category, categoriesList)}
+        </span>
+        <h3 className="product-title" style={{ fontSize: '1.15rem', marginBottom: '6px' }}>{product?.title || ''}</h3>
+        
+        {/* WoodMart 5-Star Golden Rating */}
+        <div className="star-rating">
+          <Star size={15} fill="#F59E0B" color="#F59E0B" />
+          <Star size={15} fill="#F59E0B" color="#F59E0B" />
+          <Star size={15} fill="#F59E0B" color="#F59E0B" />
+          <Star size={15} fill="#F59E0B" color="#F59E0B" />
+          <Star size={15} fill="#F59E0B" color="#F59E0B" />
+          <span>(4.8 / 5)</span>
+        </div>
+        
+        {/* Urgency Warning */}
+        {product?.stock > 0 && product.stock <= 5 && (
+          <div style={{ fontSize: '0.8rem', color: '#D32F2F', fontWeight: 800, margin: '4px 0 8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            ⏳ Il ne reste que {product.stock} {product.stock > 1 ? 'pièces' : 'pièce'} !
+          </div>
+        )}
+
+        {/* Clickable Colored Squares (moraba3aat mlwliin) - strict image variant binding */}
+        {Array.isArray(product?.colorVariants) && product.colorVariants.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+              🎨 الألوان (Couleurs) : <strong style={{ color: 'var(--burgundy)' }}>{activeVariant?.color || 'Sélectionner'}</strong>
+            </div>
+            <div className="color-swatches-row">
+              {product.colorVariants.map((cv, cvIdx) => {
+                const isSelected = selectedVariantIdx === cvIdx;
+                return (
+                  <button
+                    key={cvIdx}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedVariantIdx(cvIdx);
+                    }}
+                    onMouseEnter={() => setSelectedVariantIdx(cvIdx)}
+                    title={`${cv?.color || ''}`}
+                    className={`color-swatch-square ${isSelected ? 'active' : ''}`}
+                    style={{
+                      background: cv?.colorHex || '#CBD5E1',
+                      border: isSelected ? '2px solid var(--burgundy)' : '1px solid #CBD5E1',
+                      boxShadow: isSelected ? '0 0 0 2px rgba(128,0,32,0.25)' : 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {isSelected && <Check size={14} color={cv?.colorHex && (cv.colorHex.toLowerCase() === '#ffffff' || cv.colorHex.toLowerCase() === '#fff') ? '#000' : '#FFF'} style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="sizes-list" style={{ marginBottom: '12px' }}>
+          {availableSizes.map(size => (
+            <span key={size} className="size-pill">{size}</span>
+          ))}
+        </div>
+
+        <p style={{ fontSize: '0.85rem', color: '#7D6B70', marginBottom: '16px', flex: 1, lineClamp: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {(product?.description || '').split('|||')[0]}
+        </p>
+
+        <div className="price-container" style={{ marginBottom: '14px' }}>
+          <span className="price-current" style={{ fontSize: '1.3rem', fontWeight: 900, color: '#C8102E' }}>{(Number(product?.price) || 0).toLocaleString()} DA</span>
+          {product?.oldPrice && Number(product.oldPrice) > Number(product?.price || 0) && (
+            <span className="price-old" style={{ fontSize: '0.92rem', color: '#888888', textDecoration: 'line-through' }}>{(Number(product.oldPrice) || 0).toLocaleString()} DA</span>
+          )}
+        </div>
+
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(product);
+          }}
+          className="wd-add-to-cart-btn"
+        >
+          <ShoppingBag size={18} />
+          <span>Choix des options / إضافة للسلة 🛍️</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProductDetailPage({ product, products, categoriesList, onBack, onAddToCart, onCategorySelect }) {
+  const [selectedVariantIdx, setSelectedVariantIdx] = useState(null);
+  const [selectedSize, setSelectedSize] = useState(null);
+  const [quantity, setQuantity] = useState(1);
+  const [activeImageIdx, setActiveImageIdx] = useState(0);
+
+  const linkedProducts = useMemo(() => {
+    if (!product || !product.description || !Array.isArray(products)) return [];
+    try {
+      const parts = product.description.split('|||');
+      if (parts[1]) {
+        const meta = JSON.parse(parts[1]);
+        const ids = meta.linkedProductIds || [];
+        return products.filter(p => ids.includes(p.id) && getProductTotalStock(p) > 0);
+      }
+    } catch(e) {}
+    return [];
+  }, [product, products]);
+
+  const colorVariants = Array.isArray(product?.colorVariants) ? product.colorVariants : [];
+  const activeVariant = selectedVariantIdx !== null ? colorVariants[selectedVariantIdx] : null;
+
+  // Sizes available for the active variant or product (showing all sizes including 0 stock)
+  const rawSizes = activeVariant?.stock && typeof activeVariant.stock === 'object'
+    ? Object.keys(activeVariant.stock)
+    : (Array.isArray(product?.sizes) ? product.sizes : (typeof product?.sizes === 'string' ? product.sizes.split(/[,/-]/).map(s => s.trim()).filter(Boolean) : ["Standard"]));
+  const availableSizes = (Array.isArray(rawSizes) && rawSizes.length > 0 ? rawSizes : ["Standard"]).sort((a, b) => {
+    const numA = Number(a);
+    const numB = Number(b);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    return 0; // maintain original order for clothes (e.g. S, M, L)
+  });
+
+  // Clear selected size if it's no longer available or out of stock in the newly selected color variant
+  useEffect(() => {
+    if (selectedSize) {
+      const sizeStock = activeVariant?.stock && typeof activeVariant.stock === 'object' && activeVariant.stock[selectedSize] !== undefined
+        ? Number(activeVariant.stock[selectedSize])
+        : null;
+      if (!availableSizes.includes(selectedSize) || (sizeStock !== null && sizeStock <= 0)) {
+        setSelectedSize(null);
+      }
+    }
+  }, [selectedVariantIdx]);
+
+  // Sync main image when variant changes
+  useEffect(() => {
+    if (activeVariant?.image) {
+      const imgList = Array.isArray(product?.images) && product.images.length > 0 ? product.images : [product?.image || ''];
+      const matchedIdx = imgList.indexOf(activeVariant.image);
+      if (matchedIdx !== -1) {
+        setActiveImageIdx(matchedIdx);
+      }
+    }
+  }, [selectedVariantIdx]);
+
+  const allImages = Array.isArray(product?.images) && product.images.length > 0 
+    ? product.images 
+    : [product?.image || ''];
+
+  const handleAdd = () => {
+    if (colorVariants.length > 0 && selectedVariantIdx === null) {
+      showToast("يرجى اختيار اللون أولاً / Veuillez choisir une couleur", "error");
+      return;
+    }
+    if (selectedSize === null) {
+      showToast("يرجى اختيار المقاس أولاً / Veuillez choisir une taille", "error");
+      return;
+    }
+    
+    onAddToCart(product, selectedVariantIdx !== null ? selectedVariantIdx : 0, {
+      color: activeVariant ? activeVariant.color : 'Couleur Standard',
+      colorHex: activeVariant ? activeVariant.colorHex : '#CBD5E1',
+      size: selectedSize,
+      image: activeVariant?.image || allImages[activeImageIdx] || product.image,
+      qty: quantity
+    });
+  };
+
+  return (
+    <div className="mazyoud-pdp-container">
+      {/* Back Button */}
+      <button type="button" className="mazyoud-pdp-back-btn" onClick={onBack}>
+        <ArrowRight size={18} style={{ transform: 'rotate(180deg)', marginLeft: '8px' }} />
+        <span>العودة للمتجر / Retour à la boutique</span>
+      </button>
+
+      <div className="mazyoud-pdp-grid">
+        {/* Left Column: Image Gallery */}
+        <div className="mazyoud-pdp-gallery">
+          <div className="mazyoud-pdp-main-image-container">
+            <img 
+              src={allImages[activeImageIdx] || product.image || ''} 
+              alt={product.title} 
+              className="mazyoud-pdp-main-image" 
+            />
+            {product.oldPrice && Number(product.oldPrice) > Number(product.price) && (
+              <span className="mazyoud-pdp-promo-badge">Promo</span>
+            )}
+          </div>
+          {allImages.length > 1 && (
+            <div className="mazyoud-pdp-thumbnails">
+              {allImages.map((img, idx) => (
+                <div 
+                  key={idx} 
+                  className={`mazyoud-pdp-thumbnail-wrapper ${idx === activeImageIdx ? 'active' : ''}`}
+                  onClick={() => setActiveImageIdx(idx)}
+                >
+                  <img src={img} alt={`${product.title} thumbnail ${idx}`} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Product Info & Actions */}
+        <div className="mazyoud-pdp-details">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span 
+                className="mazyoud-pdp-category"
+                onClick={() => {
+                  if (onCategorySelect) {
+                    const matchedId = getProductCategoryGroupId(product?.category, categoriesList);
+                    onCategorySelect(matchedId);
+                  }
+                }}
+                style={{ 
+                  cursor: 'pointer',
+                  transition: 'color 0.2s',
+                  textDecoration: 'underline'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.color = 'var(--burgundy)'}
+                onMouseOut={(e) => e.currentTarget.style.color = '#888'}
+              >
+                {getProductDisplayCategory(product?.category, categoriesList)}
+              </span>
+              <h1 className="mazyoud-pdp-title" style={{ margin: 0 }}>{product.title}</h1>
+
+              {/* Golden Stars Rating */}
+              <div className="mazyoud-pdp-rating" style={{ margin: 0, marginTop: '4px' }}>
+                <div className="stars">
+                  <Star size={16} fill="#F59E0B" color="#F59E0B" />
+                  <Star size={16} fill="#F59E0B" color="#F59E0B" />
+                  <Star size={16} fill="#F59E0B" color="#F59E0B" />
+                  <Star size={16} fill="#F59E0B" color="#F59E0B" />
+                  <Star size={16} fill="#F59E0B" color="#F59E0B" />
+                </div>
+                <span className="rating-text">4.8 / 5 (زبائن حقيقيون)</span>
+              </div>
+            </div>
+
+            {/* Quick Linked Product Thumbnail */}
+            {linkedProducts.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                {linkedProducts.slice(0, 2).map(lp => {
+                  const firstImg = lp.images?.[0] || lp.image || '';
+                  return (
+                    <div 
+                      key={lp.id}
+                      onClick={() => {
+                        const cv = lp.colorVariants?.[0];
+                        const defaultColor = cv?.color || 'Standard';
+                        let defaultSize = 'Standard';
+                        if (cv?.stock && typeof cv.stock === 'object') {
+                          const sizes = Object.keys(cv.stock).filter(sz => cv.stock[sz] > 0);
+                          if (sizes.length > 0) defaultSize = sizes[0];
+                        } else if (Array.isArray(lp.sizes) && lp.sizes.length > 0) {
+                          defaultSize = lp.sizes[0];
+                        }
+                        
+                        onAddToCart(lp, 0, {
+                          color: defaultColor,
+                          colorHex: cv?.colorHex || '#CBD5E1',
+                          size: defaultSize,
+                          image: cv?.image || lp.image,
+                          qty: 1
+                        });
+                        showToast("🛒 تمت إضافة المنتج المكمل للسلة! يمكنك تعديل مقاسه ولونه داخل السلة.", 'success');
+                      }}
+                      style={{ 
+                        width: '120px', 
+                        height: '120px', 
+                        borderRadius: '12px', 
+                        border: '3px solid var(--burgundy)', 
+                        background: 'white',
+                        position: 'relative',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                        transition: 'transform 0.2s',
+                        overflow: 'hidden'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                      onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                      title={`اضغط لإضافة ${lp.title} إلى السلة`}
+                    >
+                      <img src={firstImg} alt={lp.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="mazyoud-pdp-price-box">
+            <span className="current-price">{(Number(product.price) || 0).toLocaleString()} DA</span>
+            {product.oldPrice && Number(product.oldPrice) > Number(product.price) && (
+              <span className="old-price">{(Number(product.oldPrice) || 0).toLocaleString()} DA</span>
+            )}
+          </div>
+
+          {(() => {
+            let bulkPrice5 = 0;
+            if (product.description) {
+              try {
+                const parts = product.description.split('|||');
+                if (parts[1]) {
+                  const meta = JSON.parse(parts[1]);
+                  bulkPrice5 = Number(meta.bulkPrice5 || 0);
+                }
+              } catch(e) {}
+            }
+            if (bulkPrice5 > 0) {
+              return (
+                <div style={{ background: '#FDF2F8', color: '#DB2777', padding: '10px 16px', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 850, border: '1px solid #FBCFE8', display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '8px', marginBottom: '8px' }}>
+                  <span>🎁 عرض خاص:</span>
+                  <span><strong>{bulkPrice5.toLocaleString()} DA</strong> للقطعة عند شراء 5 حبات فما فوق!</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          <p className="mazyoud-pdp-desc">{(product.description || '').split('|||')[0]}</p>
+
+          <hr className="mazyoud-pdp-divider" />
+
+          {/* Color Selection */}
+          {colorVariants.length > 0 && (
+            <div className="mazyoud-pdp-option-section">
+              <div className="option-label">
+                <span>🎨 الألوان (Couleurs) :</span>
+                <strong className="selected-value" style={{ marginRight: '6px' }}>{activeVariant?.color || 'يرجى الاختيار / Veuillez choisir'}</strong>
+              </div>
+              <div className="color-swatches-grid">
+                {colorVariants.map((cv, idx) => {
+                  const isSelected = selectedVariantIdx === idx;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`color-swatch-circle ${isSelected ? 'active' : ''}`}
+                      style={{ backgroundColor: cv.colorHex || '#CBD5E1' }}
+                      onClick={() => setSelectedVariantIdx(idx)}
+                      title={cv.color}
+                    >
+                      {isSelected && <Check size={14} color={cv.colorHex && (cv.colorHex.toLowerCase() === '#ffffff' || cv.colorHex.toLowerCase() === '#fff') ? '#000' : '#FFF'} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Size Selection */}
+          <div className="mazyoud-pdp-option-section">
+            <div className="option-label">
+              <span>📏 المقاسات (Tailles) :</span>
+              <strong className="selected-value" style={{ marginRight: '6px' }}>{selectedSize || 'يرجى الاختيار / Veuillez choisir'}</strong>
+            </div>
+            <div className="size-swatches-grid">
+              {availableSizes.map((size) => {
+                const isSelected = selectedSize === size;
+                const sizeStock = activeVariant?.stock && typeof activeVariant.stock === 'object' && activeVariant.stock[size] !== undefined
+                  ? Number(activeVariant.stock[size])
+                  : null;
+                const isZeroStock = sizeStock !== null && sizeStock <= 0;
+
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    className={`size-swatch-pill ${isSelected ? 'active' : ''}`}
+                    onClick={() => !isZeroStock && setSelectedSize(size)}
+                    disabled={isZeroStock}
+                    style={isZeroStock ? { opacity: 0.45, border: '1px dashed #94A3B8', color: '#94A3B8', cursor: 'not-allowed', background: '#F1F5F9', textDecoration: 'line-through' } : {}}
+                  >
+                    {size} {isZeroStock && <span style={{ fontSize: '0.75em', display: 'block', fontWeight: 800, color: '#94A3B8' }}>(0)</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Quantity Selector */}
+          <div className="mazyoud-pdp-option-section">
+            <div className="option-label">
+              <span>🔢 الكمية (Quantité) :</span>
+            </div>
+            <div className="mazyoud-pdp-qty-selector">
+              <button 
+                type="button" 
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="qty-btn"
+              >
+                <Minus size={16} />
+              </button>
+              <span className="qty-value">{quantity}</span>
+              <button 
+                type="button" 
+                onClick={() => setQuantity(quantity + 1)}
+                className="qty-btn"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Add to Cart Button */}
+          <button 
+            type="button" 
+            className="mazyoud-pdp-add-btn" 
+            onClick={handleAdd}
+          >
+            <ShoppingCart size={20} style={{ marginLeft: '8px' }} />
+            <span>إضافة إلى السلة / Ajouter au Panier</span>
+          </button>
+
+          {/* Trust Guarantees */}
+          <div className="mazyoud-pdp-guarantees">
+            <div className="guarantee-item">
+              <Truck size={20} style={{ marginLeft: '10px' }} />
+              <div>
+                <h4>توصيل سريع لـ 58 ولاية</h4>
+                <p>Livraison rapide à domicile</p>
+              </div>
+            </div>
+            <div className="guarantee-item">
+              <ShieldCheck size={20} style={{ marginLeft: '10px' }} />
+              <div>
+                <h4>الدفع عند الاستلام</h4>
+                <p>Paiement cash à la livraison</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Linked Products (Cross-sell) */}
+      {linkedProducts.length > 0 && (
+        <div style={{ marginTop: '40px', background: '#F8FAFC', padding: '24px', borderRadius: '16px', border: '1px dashed #CBD5E1', direction: 'rtl' }}>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--burgundy-dark)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            ✨ اشتري معه أيضاً (Frequently Bought Together)
+          </h3>
+          <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: '20px' }}>
+            اقتراحات مميزة تناسب هذا المنتج وتكمل أناقتك:
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
+            {linkedProducts.map(lp => {
+              const firstImage = lp.images?.[0] || lp.image || '';
+              
+              return (
+                <div 
+                  key={lp.id} 
+                  style={{ 
+                    background: 'white', 
+                    borderRadius: '12px', 
+                    padding: '12px', 
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.03)', 
+                    border: '1px solid #E2E8F0', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '12px',
+                    position: 'relative'
+                  }}
+                >
+                  {firstImage && (
+                    <div style={{ position: 'relative', width: '100%', height: '180px', overflow: 'hidden', borderRadius: '8px' }}>
+                      <img src={firstImage} alt={lp.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                    <h4 style={{ fontSize: '0.92rem', fontWeight: 800, margin: '4px 0', color: '#334155', minHeight: '36px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', textAlign: 'right' }}>
+                      {lp.title}
+                    </h4>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', direction: 'ltr' }}>
+                      <span style={{ color: 'var(--burgundy)', fontWeight: 900, fontSize: '1rem' }}>
+                        {lp.price?.toLocaleString()} DA
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cv = lp.colorVariants?.[0];
+                      const defaultColor = cv?.color || 'Standard';
+                      let defaultSize = 'Standard';
+                      if (cv?.stock && typeof cv.stock === 'object') {
+                        const sizes = Object.keys(cv.stock).filter(sz => cv.stock[sz] > 0);
+                        if (sizes.length > 0) defaultSize = sizes[0];
+                      } else if (Array.isArray(lp.sizes) && lp.sizes.length > 0) {
+                        defaultSize = lp.sizes[0];
+                      }
+                      
+                      onAddToCart(lp, 0, {
+                        color: defaultColor,
+                        colorHex: cv?.colorHex || '#CBD5E1',
+                        size: defaultSize,
+                        image: cv?.image || lp.image,
+                        qty: 1
+                      });
+                      showToast("🛒 تمت إضافة المنتج المكمل للسلة! يمكنك تعديل مقاسه ولونه داخل السلة.", 'success');
+                    }}
+                    style={{
+                      background: 'var(--burgundy-dark)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '10px',
+                      fontSize: '0.85rem',
+                      fontWeight: 750,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      width: '100%'
+                    }}
+                  >
+                    <Plus size={14} />
+                    <span>إضافة للسلة / Ajouter</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Storefront({ products, settings, onPlaceOrder, onUpdateSettings, onGoToGros }) {
+  const categoriesList = useMemo(() => {
+    let list = settings?.categories && Array.isArray(settings.categories) && settings.categories.length > 0
+      ? [...settings.categories]
+      : [...DEFAULT_CATEGORIES];
+
+    if (!list.some(c => c.id === 'all')) {
+      list.unshift({ id: 'all', title: 'TOUT VOIR', icon: '✨', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' });
+    }
+    if (!list.some(c => c.id === 'promo')) {
+      list.push({ id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' });
+    }
+    return list;
+  }, [settings?.categories]);
+
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [tempSearchQuery, setTempSearchQuery] = useState('');
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [activeDetailProduct, setActiveDetailProduct] = useState(null);
+
+  const [isReclamationOpen, setIsReclamationOpen] = useState(false);
+  const [reclamationName, setReclamationName] = useState('');
+  const [reclamationWhatsapp, setReclamationWhatsapp] = useState('');
+  const [reclamationMessage, setReclamationMessage] = useState('');
+  const [isSubmittingReclamation, setIsSubmittingReclamation] = useState(false);
+
+  const handleReclamationSubmit = async (e) => {
+    e.preventDefault();
+    if (!reclamationName.trim() || !reclamationWhatsapp.trim() || !reclamationMessage.trim()) {
+      alert('الرجاء ملء جميع الخانات المتاحة.');
+      return;
+    }
+    setIsSubmittingReclamation(true);
+    try {
+      const newRecl = {
+        id: 'REC-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        clientName: reclamationName.trim(),
+        whatsappNumber: reclamationWhatsapp.trim(),
+        message: reclamationMessage.trim(),
+        status: 'nouvelle',
+        createdAt: new Date().toISOString()
+      };
+      
+      const existing = settings && Array.isArray(settings.reclamations) ? settings.reclamations : [];
+      await onUpdateSettings({ reclamations: [newRecl, ...existing] });
+      
+      setReclamationName('');
+      setReclamationWhatsapp('');
+      setReclamationMessage('');
+      setIsReclamationOpen(false);
+      
+      alert('تم إرسال شكواك بنجاح! سنتواصل معك عبر الواتساب في أقرب وقت.');
+    } catch (err) {
+      console.error('Error submitting reclamation:', err);
+      alert('حدث خطأ أثناء إرسال الشكوى. الرجاء المحاولة مرة أخرى.');
+    } finally {
+      setIsSubmittingReclamation(false);
+    }
+  };
+
+  const liveSearchResults = useMemo(() => {
+    if (!tempSearchQuery.trim()) return [];
+    const q = tempSearchQuery.toLowerCase().trim();
+    return products.filter(p => {
+      if (!p) return false;
+      if (!p.category || p.category.includes('__')) return false;
+      if (getProductTotalStock(p) <= 0) return false;
+      const cleanDesc = (p.description || '').split('|||')[0].toLowerCase();
+      return (p.title && p.title.toLowerCase().startsWith(q)) ||
+             (p.category && p.category.toLowerCase().startsWith(q)) ||
+             cleanDesc.includes(q);
+    }).slice(0, 15);
+  }, [tempSearchQuery, products]);
+
+  const scrollToProductsGrid = (delay = 60) => {
+    setTimeout(() => {
+      const el = document.getElementById('products-grid-anchor');
+      if (el) {
+        const yOffset = -70;
+        const targetY = Math.max(0, el.getBoundingClientRect().top + window.scrollY + yOffset);
+        window.scrollTo({ top: targetY, behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: 320, behavior: 'smooth' });
+      }
+    }, delay);
+  };
+
+  const executeSearch = () => {
+    setIsSearchFocused(false);
+    setSearchQuery(tempSearchQuery);
+    setSelectedCategory('all');
+    setActiveDetailProduct(null);
+    scrollToProductsGrid(100);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      executeSearch();
+    }
+  };
   
   // Cart State
   const [cartItems, setCartItems] = useState([]);
+  
+  const getCartItemPrice = (item) => {
+    if (!item) return 0;
+    let bulkPrice5 = 0;
+    const prodRef = item._productRef;
+    if (prodRef && prodRef.description) {
+      try {
+        const parts = prodRef.description.split('|||');
+        if (parts[1]) {
+          const meta = JSON.parse(parts[1]);
+          bulkPrice5 = Number(meta.bulkPrice5 || 0);
+        }
+      } catch (e) {}
+    }
+    
+    if (bulkPrice5 > 0) {
+      const totalQty = cartItems
+        .filter(it => it.productId === item.productId || (it._productRef && it._productRef.title === prodRef?.title))
+        .reduce((sum, it) => sum + (it.qty || 0), 0);
+      
+      if (totalQty >= 5) {
+        return bulkPrice5;
+      }
+    }
+    return Number(item.price || 0);
+  };
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -31,38 +812,107 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
     };
   }, [isCartOpen]);
 
-  const filteredProducts = products.filter(p => {
-    if (selectedCategory === 'all') return true;
-    if (selectedCategory === 'promo') return p.oldPrice && p.oldPrice > p.price;
-    return p.category === selectedCategory;
-  });
+  const filteredProducts = useMemo(() => {
+    if (!Array.isArray(products)) return [];
+    return products.filter(p => {
+      if (!p) return false;
 
-  const handleAddToCart = (product) => {
-    // Default color & size
-    let defaultColor = 'Standard';
+      // Exclude wholesale (gros) and POS (boutique) products from the retail Storefront
+      if (!p.category || p.category.includes('__')) {
+        return false;
+      }
+
+      // Hide out-of-stock products from the retail Storefront
+      if (getProductTotalStock(p) <= 0) {
+        return false;
+      }
+
+      // If a search query is active, ignore selectedCategory and search all retail products
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const cleanDesc = (p.description || '').split('|||')[0].toLowerCase();
+        return (p.title && p.title.toLowerCase().startsWith(q)) || 
+               (p.category && p.category.toLowerCase().startsWith(q)) ||
+               cleanDesc.includes(q);
+      }
+
+      if (selectedCategory === 'all') return true;
+      if (selectedCategory === 'promo') return p.oldPrice && Number(p.oldPrice) > Number(p.price || 0);
+      
+      // Direct exact match
+      if (p.category === selectedCategory) return true;
+      
+      const selectedCatObj = categoriesList.find(c => c && c.id === selectedCategory);
+      if (selectedCatObj) {
+        const title = (selectedCatObj.title || '').toLowerCase().trim();
+        const pCat = (p.category || '').toLowerCase().trim();
+        
+        if (pCat === selectedCategory || p.category === selectedCatObj.id) return true;
+        
+        if (title.includes('pyjama') || title.includes('بيجاما') || title.includes('بيجامات') || title.includes('ساتان') || title.includes('satin') || title.includes('coton') || title.includes('قطن')) {
+          return pCat === 'satin' || pCat === 'coton' || pCat === 'ensembles' || pCat.includes('pyjama') || pCat.includes('بيجاما') || pCat.includes('ساتان') || pCat.includes('قطن') || pCat === selectedCategory;
+        }
+        if (title.includes('robe') || title.includes('mariée') || title.includes('mariee') || title.includes('روب') || title.includes('أرواب') || title.includes('عرائس') || title.includes('عباي') || title.includes('عبايات')) {
+          return pCat === 'mariee' || pCat === 'abayas' || pCat.includes('robe') || pCat.includes('mari') || pCat.includes('روب') || pCat.includes('عباي') || pCat === selectedCategory;
+        }
+        return pCat === selectedCategory || pCat === title;
+      }
+      
+      return p.category === selectedCategory;
+    });
+  }, [products, searchQuery, selectedCategory, categoriesList]);
+
+  const handleAddToCart = (product, selectedVariantIndex = 0, customOptions = null) => {
+    let defaultColor = 'Couleur Standard';
     let defaultSize = 'Standard';
-    
-    if (product.colorVariants && product.colorVariants.length > 0) {
-      defaultColor = product.colorVariants[0].color;
-      const availableSizes = Object.keys(product.colorVariants[0].stock || {});
+    let defaultImage = (product.images && product.images.length > 0) ? product.images[0] : product.image;
+    let defaultHex = '#CBD5E1';
+    let defaultQty = 1;
+
+    if (customOptions) {
+      defaultColor = customOptions.color || 'Couleur Standard';
+      defaultHex = customOptions.colorHex || '#CBD5E1';
+      defaultSize = customOptions.size || 'Standard';
+      defaultImage = customOptions.image || defaultImage;
+      defaultQty = customOptions.qty || 1;
+    } else if (product.colorVariants && product.colorVariants.length > 0) {
+      const safeIdx = (selectedVariantIndex !== null && selectedVariantIndex !== undefined && selectedVariantIndex >= 0) ? selectedVariantIndex : 0;
+      const variant = product.colorVariants[safeIdx] || product.colorVariants[0];
+      defaultColor = variant.color || 'Couleur Standard';
+      defaultHex = variant.colorHex || '#CBD5E1';
+      if (variant.image) defaultImage = variant.image;
+      const availableSizes = variant.stock ? Object.keys(variant.stock) : [];
       defaultSize = availableSizes[0] || product.sizes?.[0] || 'Standard';
     } else {
       defaultSize = product.sizes?.[0] || 'Standard';
     }
 
-    const newItem = {
-      cartItemId: Date.now() + Math.random(),
-      productId: product.id,
-      product: product.title,
-      image: (product.images && product.images.length > 0) ? product.images[0] : product.image,
-      price: product.price,
-      color: defaultColor,
-      size: defaultSize,
-      qty: 1,
-      _productRef: product // Keep full product to allow variant changes in cart
-    };
+    const existingIdx = cartItems.findIndex(item => 
+      item.productId === product.id && 
+      item.color === defaultColor && 
+      item.size === defaultSize
+    );
 
-    setCartItems([...cartItems, newItem]);
+    if (existingIdx !== -1) {
+      const updated = [...cartItems];
+      updated[existingIdx].qty += defaultQty;
+      setCartItems(updated);
+    } else {
+      const newItem = {
+        cartItemId: Date.now() + Math.random(),
+        productId: product.id,
+        product: product.title,
+        image: defaultImage,
+        price: product.price,
+        color: defaultColor,
+        colorHex: defaultHex,
+        size: defaultSize,
+        qty: defaultQty,
+        _productRef: product // Keep full product to allow variant changes in cart
+      };
+      setCartItems([...cartItems, newItem]);
+    }
+
     setIsCartOpen(true);
     setCheckoutStep(false);
     setOrderSuccess(false);
@@ -71,14 +921,31 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
   const updateCartItem = (id, field, value) => {
     setCartItems(cartItems.map(item => {
       if (item.cartItemId === id) {
+        if (field === 'qty') {
+          return { ...item, qty: Math.max(0, Number(value) || 0) };
+        }
+        if (field === 'colorVariant') {
+          const availableSizes = value.stock ? Object.keys(value.stock) : [];
+          const nextSize = availableSizes.includes(item.size) ? item.size : (availableSizes[0] || item.size);
+          return {
+            ...item,
+            color: value.color,
+            colorHex: value.colorHex || '#CBD5E1',
+            image: value.image || item.image,
+            size: nextSize
+          };
+        }
         const updated = { ...item, [field]: value };
-        // If color changes, we might need to reset size if it's no longer available
         if (field === 'color' && item._productRef?.colorVariants) {
           const matched = item._productRef.colorVariants.find(c => c.color === value);
-          if (matched && matched.stock) {
-            const sizes = Object.keys(matched.stock);
-            if (sizes.length > 0 && !sizes.includes(item.size)) {
-              updated.size = sizes[0];
+          if (matched) {
+            updated.colorHex = matched.colorHex || '#CBD5E1';
+            if (matched.image) updated.image = matched.image;
+            if (matched.stock) {
+              const sizes = Object.keys(matched.stock);
+              if (sizes.length > 0 && !sizes.includes(item.size)) {
+                updated.size = sizes[0];
+              }
             }
           }
         }
@@ -96,24 +963,28 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
     }
   };
 
-  const cartTotal = cartItems.reduce((acc, item) => acc + (item.price * item.qty), 0);
+  const cartTotal = cartItems.reduce((acc, item) => acc + (getCartItemPrice(item) * item.qty), 0);
 
   const handleSubmitOrder = (e) => {
     e.preventDefault();
     if (!clientName || !phone || !commune) {
-      alert("Veuillez remplir tous les champs obligatoires (Nom, Téléphone et Commune)");
+      showToast("⚠️ الرجاء ملء جميع الحقول الإلزامية (الاسم الكامل، رقم الهاتف والبلدية)", 'warning');
       return;
     }
-    if (cartItems.length === 0) return;
+    const activeCartItems = cartItems.filter(item => item.qty > 0);
+    if (activeCartItems.length === 0) {
+      showToast("⚠️ السلة لا تحتوي على منتجات بكمية أكبر من 0! يرجى إدخال كمية للمنتجات المطلوبة.", 'warning');
+      return;
+    }
 
     // Build items for order
-    const orderItems = cartItems.map(item => ({
+    const orderItems = activeCartItems.map(item => ({
       productId: item.productId,
       product: item.color !== 'Standard' ? `${item.product} (${item.color})` : item.product,
       color: item.color,
       size: item.size,
       qty: item.qty,
-      price: item.price
+      price: getCartItemPrice(item)
     }));
 
     const productTitles = orderItems.map(i => `${i.product} (x${i.qty})`).join(' + ');
@@ -177,270 +1048,418 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
   else if (waNumber.startsWith('0')) waNumber = '213' + waNumber.substring(1);
   const waUrl = `https://wa.me/${waNumber}`;
 
-  const storeNameDisplay = (settings?.storeName || "Pyjama DZ").replace(/\s*-\s*Luxury\s*Homewear/i, '').trim();
+  const totalCartCount = cartItems.reduce((sum, item) => sum + (item.qty || item.quantity || 1), 0);
+  const storeNameDisplay = settings?.storeName || "PYJAMA DZ";
 
   return (
     <>
       <div className="storefront-wrapper animate-fade-up">
-      {/* Top Trust Ticker Banner */}
-      <div className="top-ticker">
-        <div className="ticker-content">
-          <span className="ticker-item"><Truck size={14} /> Livraison Rapide 58 Wilayas à Domicile</span>
-          <span className="ticker-item"><Sparkles size={14} /> الأناقة مش غالية… خليكِ مميزة بأقل التكاليف!</span>
-          <span className="ticker-item"><ShieldCheck size={14} /> +591,000 Abonnées sur Instagram (@pyjama_dz)</span>
-          <span className="ticker-item">💵 Paiement à la Livraison (الدفع عند الاستلام)</span>
-          <span className="ticker-item"><Truck size={14} /> Livraison Rapide 58 Wilayas à Domicile</span>
-          <span className="ticker-item"><Sparkles size={14} /> الأناقة مش غالية… خليكِ مميزة بأقل التكاليف!</span>
-          <span className="ticker-item"><ShieldCheck size={14} /> +591,000 Abonnées sur Instagram (@pyjama_dz)</span>
-        </div>
-      </div>
+        {/* 1. EXACT MAZYOUD HERO BANNER & HEADER REPLICA */}
+        <section className={`mazyoud-hero-container ${(selectedCategory !== 'all' || searchQuery.trim() || activeDetailProduct) ? 'category-page-mode' : ''}`}>
+          {(selectedCategory === 'all' && !searchQuery.trim() && !activeDetailProduct) && <div className="mazyoud-hero-overlay"></div>}
 
-      {/* Header */}
-      <header className="app-header">
-        <div className="logo-container" onClick={() => setSelectedCategory('all')} style={{ cursor: 'pointer' }}>
-          <img src="/favicon.svg?v=3" alt="Pyjama DZ Logo" className="logo-img" style={{ width: '48px', height: '48px', borderRadius: '50%', boxShadow: '0 4px 15px rgba(122, 34, 52, 0.25)', border: '2px solid var(--rose-primary)', objectFit: 'cover', background: '#fff' }} />
-          <div className="logo-text">
-            <h1>{storeNameDisplay}</h1>
-          </div>
-        </div>
+          {/* Top Header + Category Bar Layer */}
+          <div className="mazyoud-top-nav-wrapper">
+            {/* Main Luxury Transparent/Glass Header */}
+            <header className="mazyoud-header">
+              {/* Left: Brand Logo */}
+              <div 
+                className="mazyoud-brand" 
+                onClick={() => { setSelectedCategory('all'); setSearchQuery(''); setTempSearchQuery(''); setActiveDetailProduct(null); }}
+              >
+                <img 
+                  src="/favicon.svg?v=3" 
+                  alt="Pyjama DZ" 
+                  style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #FFFFFF', boxShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
+                />
+                <span className="mazyoud-brand-text">{storeNameDisplay || 'PYJAMA DZ'}</span>
+              </div>
 
-        <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* 1. Instagram */}
-          <a 
-            href={instaUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            title="إنستغرام (Instagram - @pyjama_dz)"
-            style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(220, 39, 67, 0.25)', transition: 'all 0.2s ease', textDecoration: 'none' }}
-            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
-          </a>
+              {/* Center: Glass Pill Search Box */}
+              <form 
+                className="mazyoud-search-wrapper" 
+                onSubmit={(e) => { 
+                  e.preventDefault(); 
+                  executeSearch(); 
+                }}
+                style={{ position: 'relative' }}
+              >
+                <input 
+                  type="text"
+                  className="mazyoud-search-input"
+                  placeholder="Comment pouvons - nous vous aider ?"
+                  value={tempSearchQuery}
+                  onChange={(e) => setTempSearchQuery(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 250)}
+                />
+                {tempSearchQuery && (
+                  <button 
+                    type="button" 
+                    className="mazyoud-search-clear-btn" 
+                    onClick={() => { setTempSearchQuery(''); setSearchQuery(''); setIsSearchFocused(false); }}
+                    style={{ position: 'absolute', right: '48px', color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', zIndex: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', top: 0, padding: 0 }}
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+                <button 
+                  type="submit" 
+                  className="mazyoud-search-icon-btn" 
+                  aria-label="Rechercher"
+                >
+                  <Search size={20} />
+                </button>
+              </form>
 
-          {/* 2. Google Maps */}
-          <a 
-            href={mapsUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            title="الموقع على خريطة جوجل (Google Maps)"
-            style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #4285F4, #34A853, #FBBC05, #EA4335)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(66, 133, 244, 0.25)', transition: 'all 0.2s ease', textDecoration: 'none' }}
-            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            <MapPin size={20} strokeWidth={2.2} />
-          </a>
+              {/* Right: Circle Glass Action Buttons */}
+              <div className="mazyoud-actions">
+                {/* Wholesale Portal Button */}
+                <a 
+                  href="/gros"
+                  onClick={(e) => { e.preventDefault(); onGoToGros && onGoToGros(); }}
+                  className="mazyoud-circle-btn"
+                  title="Wholesale / الجملة"
+                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <ShoppingBag size={22} />
+                </a>
 
-          {/* 3. Phone Call */}
-          <button 
-            type="button"
-            onClick={() => {
-              if (phoneList.length > 1) setIsPhoneModalOpen(true);
-              else window.location.href = `tel:${rawPhone}`;
-            }}
-            title={`اتصل بنا هاتفياً (${phoneList.join(' - ')})`}
-            style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', color: 'white', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(59, 130, 246, 0.25)', transition: 'all 0.2s ease', cursor: 'pointer' }}
-            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            <PhoneCall size={20} strokeWidth={2.2} />
-          </button>
+                {/* Shopping Cart Button */}
+                <button 
+                  type="button"
+                  className="mazyoud-circle-btn"
+                  onClick={() => setIsCartOpen(true)}
+                  title="Panier / السلة"
+                >
+                  <ShoppingCart size={22} />
+                  {totalCartCount > 0 && (
+                    <span className="mazyoud-cart-badge">{totalCartCount}</span>
+                  )}
+                </button>
 
-          {/* 4. WhatsApp */}
-          <a 
-            href={waUrl}
-            target="_blank" 
-            rel="noopener noreferrer"
-            title="تواصل معنا عبر واتساب (WhatsApp)"
-            style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #25D366, #128C7E)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(37, 211, 102, 0.25)', transition: 'all 0.2s ease', textDecoration: 'none' }}
-            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            <svg width="22" height="22" viewBox="0 0 16 16" fill="currentColor"><path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.248c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/></svg>
-          </a>
-        </div>
-      </header>
+                {/* WhatsApp Quick Order Button */}
+                <a 
+                  href={waUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mazyoud-circle-btn mazyoud-whatsapp-btn"
+                  title="WhatsApp"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                    <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.333 4.982L2 22l5.233-1.372a9.948 9.948 0 0 0 4.777 1.217h.005c5.505 0 9.989-4.478 9.99-9.984A9.974 9.974 0 0 0 12.012 2zm5.727 14.126c-.304.857-1.47 1.57-2.029 1.631-.56.06-1.12.083-4.256-1.22-3.136-1.303-5.132-4.502-5.289-4.71-.157-.209-1.282-1.709-1.282-3.262 0-1.554.811-2.317 1.101-2.617.29-.3.633-.375.845-.375.213 0 .426.002.612.011.196.01.46-.073.719.553.266.641.91 2.223.988 2.385.079.162.132.35.025.564-.107.214-.162.348-.321.533-.159.186-.334.412-.477.553-.159.157-.326.329-.142.646.184.318.82 1.353 1.758 2.193.937.84 1.728 1.103 2.106 1.293.379.19.601.157.822-.1.22-.257.939-1.092 1.192-1.467.254-.376.508-.314.857-.183.349.131 2.22 1.05 2.599 1.24.38.19.633.284.724.444.092.16.092.923-.212 1.78z" />
+                  </svg>
+                </a>
 
-      {/* Hero Section */}
-      <section className="hero-section">
-        <h2 className="hero-title">
-          الأناقة مش غالية…<br />خليكِ مميزة بأقل التكاليف!
-        </h2>
-        <p className="hero-subtitle">
-          Découvrez la plus belle sélection de pyjamas en satin de soie, loungewear en coton respirant et coffrets trousseau de mariée en Algérie.
-        </p>
+                {/* Telephone Button */}
+                <a 
+                  href={phoneUrl}
+                  className="mazyoud-circle-btn mazyoud-phone-btn"
+                  title="Téléphone / الهاتف"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <PhoneCall size={20} />
+                </a>
 
-        <div className="hero-stats">
-          <div className="stat-item">
-            <h3>+591K</h3>
-            <p>Abonnées fidèles</p>
-          </div>
-          <div className="stat-item">
-            <h3>58</h3>
-            <p>Wilayas couvertes</p>
-          </div>
-          <div className="stat-item">
-            <h3>100%</h3>
-            <p>Paiement à la livraison</p>
-          </div>
-        </div>
-      </section>
+                {/* Instagram Button */}
+                <a 
+                  href={instaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mazyoud-circle-btn mazyoud-insta-btn"
+                  title="Instagram"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                  </svg>
+                </a>
 
-      {/* Category Pills */}
-      <nav className="categories-bar">
-        <button 
-          className={`cat-pill ${selectedCategory === 'all' ? 'active' : ''}`}
-          onClick={() => setSelectedCategory('all')}
-        >
-          🌟 Tout Découvrir ({products.length})
-        </button>
-        <button 
-          className={`cat-pill ${selectedCategory === 'satin' ? 'active' : ''}`}
-          onClick={() => setSelectedCategory('satin')}
-        >
-          ✨ Pyjamas Satin (ساتان)
-        </button>
-        <button 
-          className={`cat-pill ${selectedCategory === 'coton' ? 'active' : ''}`}
-          onClick={() => setSelectedCategory('coton')}
-        >
-          🧸 Coton & Confort (قطن)
-        </button>
-        <button 
-          className={`cat-pill ${selectedCategory === 'mariee' ? 'active' : ''}`}
-          onClick={() => setSelectedCategory('mariee')}
-        >
-          👰 Trousseau Mariée (جهاز العروس)
-        </button>
-        <button 
-          className={`cat-pill ${selectedCategory === 'promo' ? 'active' : ''}`}
-          onClick={() => setSelectedCategory('promo')}
-        >
-          🔥 Promotions
-        </button>
-      </nav>
+                {/* Google Map Button */}
+                <a 
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mazyoud-circle-btn mazyoud-map-btn"
+                  title="Google Maps"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <MapPin size={20} />
+                </a>
+              </div>
+            </header>
 
-      {/* Product Grid */}
-      <main className="products-grid">
-        {filteredProducts.map(product => (
-          <div key={product.id} className="product-card">
-            <div className="product-image-container" style={{ position: 'relative', overflow: 'hidden' }}>
-              {product.oldPrice && product.oldPrice > product.price && (
-                <span className="badge-tag badge-promo" style={{ position: 'absolute', top: 12, left: 12, zIndex: 10 }}>
-                  Promo
-                </span>
-              )}
-              <div style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch', width: '100%', height: '100%', scrollbarWidth: 'none' }}>
-                {(product.images && product.images.length > 0 ? product.images : [product.image]).map((img, idx) => (
-                  <div key={idx} style={{ flex: '0 0 100%', scrollSnapAlign: 'start', height: '100%', position: 'relative' }}>
-                    <img src={img} alt={product.title} className="product-image" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    {/* Dots indicator */}
-                    {(product.images && product.images.length > 1) && (
-                      <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: '6px', pointerEvents: 'none' }}>
-                         {product.images.map((_, dotIdx) => (
-                           <div key={dotIdx} style={{ width: 6, height: 6, borderRadius: '50%', background: idx === dotIdx ? 'white' : 'rgba(255,255,255,0.5)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
-                         ))}
-                      </div>
+            {/* Secondary Category Menu Bar (Horizontally Centered with Badges) */}
+            <nav className="mazyoud-category-bar">
+              {categoriesList.map((cat) => {
+                let badgeText = cat.badge || null;
+                let badgeColor = { bg: '#DC2626', color: '#FFFFFF' };
+                if (cat.id === 'promo' && !badgeText) {
+                  badgeText = '🔥 تخفيضات';
+                  badgeColor = { bg: '#DC2626', color: '#FFFFFF' };
+                } else if (cat.badge) {
+                  badgeColor = { bg: '#581845', color: '#FFFFFF' };
+                }
+
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    className={`mazyoud-cat-link ${selectedCategory === cat.id ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedCategory(cat.id);
+                      setSearchQuery('');
+                      setTempSearchQuery('');
+                      setActiveDetailProduct(null);
+                      scrollToProductsGrid(120);
+                    }}
+                  >
+                    {badgeText && (
+                      <span 
+                        className="mazyoud-cat-badge"
+                        style={{ backgroundColor: badgeColor.bg, color: badgeColor.color }}
+                      >
+                        {badgeText}
+                      </span>
                     )}
+                    <span>{cat.title}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Live Search Dropdown Panel (Full Width) */}
+            {tempSearchQuery.trim().length > 0 && isSearchFocused && (
+              <div className="mazyoud-search-results-panel">
+                {liveSearchResults.length > 0 ? (
+                  <>
+                    <div className="mazyoud-search-results-grid">
+                      {liveSearchResults.map((prod) => (
+                        <div 
+                          key={prod.id} 
+                          className="mazyoud-search-prod-card"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                          }}
+                          onClick={() => {
+                            setActiveDetailProduct(prod);
+                            setIsSearchFocused(false);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                        >
+                          <img src={(prod.images && prod.images[0]) || prod.image || ''} alt={prod.title} className="mazyoud-search-prod-img" />
+                          <div className="mazyoud-search-prod-info">
+                            <h4 className="mazyoud-search-prod-title">
+                              {prod.title}
+                            </h4>
+                            <span className="mazyoud-search-prod-price">
+                              {prod.price ? Number(prod.price).toLocaleString() : '0'} DA
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="mazyoud-search-no-results">
+                    Aucun produit trouvé pour "{searchQuery}" / لا يوجد أي منتج بهذا الاسم
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="product-info">
-              <span className="product-cat">
-                {product.category === 'satin' ? 'Collection Satin' : product.category === 'coton' ? '100% Coton Doux' : 'Coffret Mariée VIP'}
-              </span>
-              <h3 className="product-title">{product.title}</h3>
-              {/* Urgency Warning */}
-              {product.stock > 0 && product.stock <= 5 && (
-                <div style={{ fontSize: '0.8rem', color: '#D32F2F', fontWeight: 800, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  ⏳ Il ne reste que {product.stock} {product.stock > 1 ? 'pièces' : 'pièce'} !
-                </div>
-              )}
-
-              {/* Display colors if available */}
-              {product.colorVariants && product.colorVariants.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-                  {product.colorVariants.map(cv => (
-                    <span key={cv.color} style={{ fontSize: '0.7rem', background: '#F5EBE6', color: 'var(--burgundy)', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
-                      🎨 {cv.color}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div className="sizes-list">
-                {product.sizes?.map(size => (
-                  <span key={size} className="size-pill">{size}</span>
-                ))}
-              </div>
-
-              <p style={{ fontSize: '0.85rem', color: '#7D6B70', marginBottom: '16px', flex: 1 }}>
-                {product.description}
-              </p>
-
-              <div className="price-container">
-                <span className="price-current">{product.price.toLocaleString()} DA</span>
-                {product.oldPrice && product.oldPrice > product.price && (
-                  <span className="price-old">{product.oldPrice.toLocaleString()} DA</span>
                 )}
               </div>
-
-              <button 
-                onClick={() => handleAddToCart(product)}
-                className="btn btn-primary"
-                style={{ width: '100%', marginTop: '8px' }}
-              >
-                <ShoppingBag size={18} />
-                <span className="desktop-btn-text">إضافة إلى السلة (Ajouter au Panier)</span>
-                <span className="mobile-btn-text">إضافة للسلة 🛍️</span>
-              </button>
-            </div>
+            )}
           </div>
-        ))}
-      </main>
 
-      {/* Luxury Footer */}
-      <footer style={{ background: 'var(--burgundy-dark)', color: 'white', padding: '48px 24px 24px', marginTop: '64px', paddingBottom: '100px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px', marginBottom: '32px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <img src="/favicon.svg?v=3" alt="Pyjama DZ" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', background: '#fff' }} />
-              <span style={{ fontSize: '1.3rem', fontWeight: 800 }}>{storeNameDisplay}</span>
+          {/* Hero Brand Content */}
+          {(selectedCategory === 'all' && !searchQuery.trim() && !activeDetailProduct) && (
+            <div className="mazyoud-hero-content">
+              <p className="mazyoud-hero-subtitle">أناقتك تبدأ من البيت — ملابس نوم فاخرة بجودة عالية</p>
+              <p className="mazyoud-hero-tagline">Livraison partout en Algérie</p>
             </div>
-            <p style={{ color: 'var(--champagne)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-              المتجر الأول في الجزائر المتخصص في بيجامات الساتان الفاخرة، القطن الطبيعي وأطقم العرائس. جودة عالية وأسعار في متناول الجميع!
+          )}
+        </section>
+
+      {activeDetailProduct ? (
+        <ProductDetailPage 
+          product={activeDetailProduct} 
+          products={products}
+          categoriesList={categoriesList}
+          onBack={() => setActiveDetailProduct(null)} 
+          onAddToCart={handleAddToCart}
+          onCategorySelect={(catId) => {
+            setSelectedCategory(catId);
+            setSearchQuery('');
+            setTempSearchQuery('');
+            setActiveDetailProduct(null);
+            scrollToProductsGrid(120);
+          }}
+        />
+      ) : (
+        <>
+          {/* Product Grid Section Header */}
+          <div id="products-grid-anchor" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '24px 0 16px', padding: '0 8px', borderBottom: '2px solid #F1F5F9', paddingBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.6rem' }}>
+                {searchQuery.trim() ? '🔍' : (categoriesList.find(c => c && c.id === selectedCategory)?.icon || '✨')}
+              </span>
+              <div>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#1E293B', margin: 0 }}>
+                  {searchQuery.trim() ? `نتائج البحث عن: "${searchQuery}"` : (selectedCategory === 'all' ? 'جميع المنتجات (Catalogue Général)' : categoriesList.find(c => c && c.id === selectedCategory)?.title || 'المنتجات')}
+                </h2>
+                <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 700 }}>
+                  {filteredProducts.length} منتج متاح حالياً
+                </span>
+              </div>
+            </div>
+            {(selectedCategory !== 'all' || searchQuery.trim()) && (
+              <button
+                type="button"
+                onClick={() => { setSelectedCategory('all'); setSearchQuery(''); setTempSearchQuery(''); scrollToProductsGrid(120); }}
+                style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '8px 16px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 800, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                عرض جميع المنتجات <ArrowRight size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Product Grid */}
+          <main className="products-grid">
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map(product => (
+                <ProductCardItem 
+                  key={product.id} 
+                  product={product} 
+                  categoriesList={categoriesList}
+                  onSelect={(p) => {
+                    setActiveDetailProduct(p);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }} 
+                  onCategorySelect={(catId) => {
+                    setSelectedCategory(catId);
+                    setSearchQuery('');
+                    setTempSearchQuery('');
+                    setActiveDetailProduct(null);
+                    scrollToProductsGrid(120);
+                  }}
+                />
+              ))
+            ) : (
+              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px', background: '#FFFFFF', borderRadius: '20px', border: '1px dashed #CBD5E1', margin: '20px 0' }}>
+                <span style={{ fontSize: '3rem', display: 'block', marginBottom: '12px' }}>📭</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#334155', margin: '0 0 8px' }}>لا توجد منتجات في هذا القسم حالياً</h3>
+                <p style={{ fontSize: '0.95rem', color: '#64748B', margin: '0 0 18px' }}>يمكنك تصفح بقية الأقسام أو العودة للكل</p>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory('all')}
+                  style={{ background: 'linear-gradient(135deg, #800020, #E11D48)', color: '#FFF', border: 'none', padding: '10px 24px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' }}
+                >
+                  عرض كل المنتجات ({products.length})
+                </button>
+              </div>
+            )}
+          </main>
+        </>
+      )}
+
+      {/* WoodMart Footer (whb-footer) */}
+      <footer className="whb-footer">
+        <div className="whb-footer-columns">
+          {/* Column 1: Brand & Bio */}
+          <div className="whb-footer-col">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <img src="/favicon.svg?v=3" alt="Pyjama DZ" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', background: '#fff' }} />
+              <span style={{ fontSize: '1.35rem', fontWeight: 900, color: '#FFFFFF' }}>{storeNameDisplay}</span>
+            </div>
+            <p>
+              المتجر الأول في الجزائر المتخصص في بيجامات الساتان الفاخرة، القطن الطبيعي وأطقم العرائس. جودة عالية وأسعار في متناول الجميع مع خدمة توصيل سريعة والدفع عند الاستلام.
             </p>
           </div>
 
-          <div>
-            <h4 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: 16, color: '#FFD700' }}>📞 للطلب والاستفسار (Contacts)</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.85)' }}>
-              <div 
-                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+          {/* Column 2: Catégories Populaires */}
+          <div className="whb-footer-col">
+            <h4>Catégories Populaires</h4>
+            <ul>
+              <li onClick={() => { setSelectedCategory('satin'); scrollToProductsGrid(120); }}>✨ Collection Satin de Soie</li>
+              <li onClick={() => { setSelectedCategory('coton'); scrollToProductsGrid(120); }}>🧸 100% Coton Confort</li>
+              <li onClick={() => { setSelectedCategory('mariee'); scrollToProductsGrid(120); }}>👰 Trousseau Mariée VIP</li>
+              <li onClick={() => { setSelectedCategory('promo'); scrollToProductsGrid(120); }}>🔥 Promotions et Soldes</li>
+            </ul>
+          </div>
+
+          {/* Column 3: Service & Livraison */}
+          <div className="whb-footer-col">
+            <h4>Service & Livraison</h4>
+            <ul>
+              <li>🚚 Livraison Rapide 58 Wilayas</li>
+              <li>💵 Paiement à la Livraison (الدفع عند الاستلام)</li>
+              <li>📐 Guide des Tailles & Coupe Standard</li>
+              <li>🔄 Échange et Garantie Client</li>
+            </ul>
+          </div>
+
+          {/* Column 4: Contact & Réseaux */}
+          <div className="whb-footer-col">
+            <h4>📞 Contact & Réseaux</h4>
+            <ul>
+              <li>
+                <a href={instaUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#CBD5E1', textDecoration: 'none' }}>
+                  <span>📸 Instagram : +591,000 Abonnées</span>
+                </a>
+              </li>
+              <li>
+                <a href={waUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#CBD5E1', textDecoration: 'none' }}>
+                  <span>💬 WhatsApp : {rawWa}</span>
+                </a>
+              </li>
+              <li 
                 onClick={() => {
                   if (phoneList.length > 1) setIsPhoneModalOpen(true);
                   else window.location.href = `tel:${rawPhone}`;
                 }}
+                style={{ cursor: 'pointer' }}
               >
-                <PhoneCall size={16} color="var(--rose-primary)" />
-                <span>الهاتف : {phoneList.join(' - ')}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <MapPin size={16} color="var(--rose-primary)" />
-                <span>العنوان : {settings?.address || "Bab Ezzouar & Hydra, Alger"}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Truck size={16} color="var(--rose-primary)" />
-                <span>التوصيل : سريع لـ 58 ولاية والدفع عند الاستلام</span>
-              </div>
-            </div>
+                📞 Téléphone : {phoneList.join(' - ')}
+              </li>
+              <li>📍 {settings?.address || "Bab Ezzouar & Hydra, Alger"}</li>
+            </ul>
+          </div>
+
+          {/* Column 5: Réclamation */}
+          <div className="whb-footer-col" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', paddingTop: '4px' }}>
+            <button 
+              onClick={() => setIsReclamationOpen(true)}
+              style={{
+                background: '#E11D48',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '14px 20px',
+                fontSize: '1rem',
+                fontWeight: 900,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(225, 29, 72, 0.25)',
+                transition: 'all 0.2s',
+                width: '100%',
+                justifyContent: 'center',
+                boxSizing: 'border-box'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = '#BE123C'; }}
+              onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = '#E11D48'; }}
+            >
+              <span>📢</span>
+              <span>تقديم شكوى أو اقتراح</span>
+            </button>
           </div>
         </div>
 
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
-          © 2026 Pyjama DZ. Tous droits réservés. Conçu avec excellence pour l'Algérie 🇩🇿
+        <div className="whb-copyright-bar">
+          <div>© 2026 {storeNameDisplay}. Tous droits réservés. Conçu avec excellence pour l'Algérie 🇩🇿</div>
+          <div>Paiement à la livraison 100% sécurisé (الدفع عند الاستلام)</div>
         </div>
       </footer>
       </div>
@@ -626,32 +1645,63 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {cartItems.map((item) => {
                     const currentProduct = item._productRef;
-                    const availableColors = currentProduct?.colorVariants || [];
-                    const currentColorObj = availableColors.find(cv => cv.color === item.color);
-                    const availableSizes = currentColorObj?.stock ? Object.keys(currentColorObj.stock) : (currentProduct?.sizes || ["Standard"]);
+                    const availableColors = Array.isArray(currentProduct?.colorVariants) ? currentProduct.colorVariants : [];
+                    const currentColorObj = availableColors.find(cv => cv?.color && item.color && cv.color.trim().toLowerCase() === item.color.trim().toLowerCase());
+                    const itemDisplayImage = currentColorObj?.image || item.image || '';
+                    const rawCartSizes = currentColorObj?.stock && typeof currentColorObj.stock === 'object' ? Object.keys(currentColorObj.stock) : (Array.isArray(currentProduct?.sizes) ? currentProduct.sizes : (typeof currentProduct?.sizes === 'string' ? currentProduct.sizes.split(/[,/-]/).map(s => s.trim()).filter(Boolean) : ["Standard"]));
+                    const availableSizes = Array.isArray(rawCartSizes) && rawCartSizes.length > 0 ? rawCartSizes : ["Standard"];
 
                     return (
                       <div key={item.cartItemId} style={{ background: 'white', borderRadius: '16px', padding: '16px', display: 'flex', gap: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', position: 'relative' }}>
-                        <img src={item.image} alt={item.product} style={{ width: '85px', height: '110px', objectFit: 'cover', borderRadius: '10px' }} />
+                        <img src={itemDisplayImage} alt={item.product || ''} style={{ width: '85px', height: '110px', objectFit: 'cover', borderRadius: '10px' }} />
                         <div style={{ flex: 1 }}>
-                          <h4 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '4px', paddingRight: '24px' }}>{item.product}</h4>
-                          <p style={{ color: 'var(--burgundy)', fontWeight: 900, fontSize: '1.05rem', marginBottom: '12px' }}>{item.price.toLocaleString()} DA</p>
+                          <h4 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '4px', paddingRight: '24px' }}>{item.product || ''}</h4>
+                           <p style={{ color: 'var(--burgundy)', fontWeight: 900, fontSize: '1.05rem', marginBottom: '12px' }}>
+                             {(Number(getCartItemPrice(item)) || 0).toLocaleString()} DA
+                             {getCartItemPrice(item) < Number(item.price) && (
+                               <span style={{ fontSize: '0.82rem', color: '#64748B', textDecoration: 'line-through', marginRight: '6px', fontWeight: 500 }}>
+                                 {(Number(item.price) || 0).toLocaleString()} DA
+                               </span>
+                             )}
+                           </p>
                           
                           {/* Options */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {/* Color */}
+                            {/* Color selection with colored squares (moraba3aat mlwliin) */}
                             {availableColors.length > 0 && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '0.8rem', color: '#777', width: '45px' }}>Couleur:</span>
-                                <select 
-                                  value={item.color}
-                                  onChange={(e) => updateCartItem(item.cartItemId, 'color', e.target.value)}
-                                  style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #DDD', fontSize: '0.85rem', flex: 1, outline: 'none' }}
-                                >
-                                  {availableColors.map(cv => (
-                                    <option key={cv.color} value={cv.color}>{cv.color}</option>
-                                  ))}
-                                </select>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <span style={{ fontSize: '0.8rem', color: '#555', fontWeight: 700 }}>
+                                  🎨 اللون: <strong style={{ color: 'var(--burgundy)' }}>{item.color || ''}</strong>
+                                </span>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                  {availableColors.map((cv, cvIdx) => {
+                                    const isSelected = item.color === cv?.color;
+                                    return (
+                                      <button
+                                        key={cv?.color || cvIdx}
+                                        type="button"
+                                        onClick={() => updateCartItem(item.cartItemId, 'colorVariant', cv)}
+                                        title={`${cv?.color || ''}`}
+                                        style={{
+                                          width: '30px',
+                                          height: '30px',
+                                          borderRadius: '8px',
+                                          background: cv?.colorHex || '#CBD5E1',
+                                          border: isSelected ? '3px solid var(--burgundy)' : '2px solid #E2E8F0',
+                                          boxShadow: isSelected ? '0 0 0 2px rgba(128,0,32,0.3)' : '0 2px 4px rgba(0,0,0,0.1)',
+                                          cursor: 'pointer',
+                                          transform: isSelected ? 'scale(1.1)' : 'scale(1)',
+                                          transition: 'all 0.2s ease',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center'
+                                        }}
+                                      >
+                                        {isSelected && <Check size={16} color={cv?.colorHex && (cv.colorHex.toLowerCase() === '#ffffff' || cv.colorHex.toLowerCase() === '#fff') ? '#000' : '#FFF'} style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             )}
                             
@@ -659,7 +1709,7 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <span style={{ fontSize: '0.8rem', color: '#777', width: '45px' }}>Taille:</span>
                               <select 
-                                value={item.size}
+                                value={item.size || ''}
                                 onChange={(e) => updateCartItem(item.cartItemId, 'size', e.target.value)}
                                 style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #DDD', fontSize: '0.85rem', flex: 1, outline: 'none' }}
                               >
@@ -672,8 +1722,8 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
                             {/* Qty & Remove */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', background: '#F5F5F5', borderRadius: '8px', padding: '4px' }}>
-                                <button type="button" onClick={() => updateCartItem(item.cartItemId, 'qty', Math.max(1, item.qty - 1))} style={{ background: 'white', border: '1px solid #DDD', borderRadius: '6px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Minus size={14} /></button>
-                                <span style={{ width: '36px', textAlign: 'center', fontWeight: 700, fontSize: '0.95rem' }}>{item.qty}</span>
+                                <button type="button" onClick={() => updateCartItem(item.cartItemId, 'qty', Math.max(0, item.qty - 1))} style={{ background: 'white', border: '1px solid #DDD', borderRadius: '6px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Minus size={14} /></button>
+                                <input type="number" min="0" value={item.qty} onChange={(e) => updateCartItem(item.cartItemId, 'qty', e.target.value)} style={{ width: '40px', textAlign: 'center', fontWeight: 700, fontSize: '0.95rem', border: '1px solid #DDD', borderRadius: '4px', background: item.qty === 0 ? '#FFF0F0' : 'white', color: item.qty === 0 ? '#D32F2F' : '#333' }} />
                                 <button type="button" onClick={() => updateCartItem(item.cartItemId, 'qty', item.qty + 1)} style={{ background: 'white', border: '1px solid #DDD', borderRadius: '6px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Plus size={14} /></button>
                               </div>
                             </div>
@@ -699,7 +1749,7 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
               <div style={{ background: 'white', padding: '24px', borderTop: '1px solid #E5E5E5', boxShadow: '0 -4px 20px rgba(0,0,0,0.05)', flexShrink: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                   <span style={{ fontSize: '1.2rem', color: '#555', fontWeight: 600 }}>Total</span>
-                  <span style={{ fontSize: '1.6rem', color: 'var(--burgundy-dark)', fontWeight: 900 }}>{cartTotal.toLocaleString()} DA</span>
+                  <span style={{ fontSize: '1.6rem', color: 'var(--burgundy-dark)', fontWeight: 900 }}>{(Number(cartTotal) || 0).toLocaleString()} DA</span>
                 </div>
                 
                 {checkoutStep ? (
@@ -820,6 +1870,120 @@ export default function Storefront({ products, settings, onPlaceOrder }) {
                 </a>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+      {/* Reclamation Modal */}
+      {isReclamationOpen && (
+        <div 
+          onClick={() => setIsReclamationOpen(false)}
+          style={{ 
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+            background: 'rgba(0,0,0,0.6)', 
+            backdropFilter: 'blur(8px)',
+            zIndex: 10000, 
+            display: 'flex', 
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="animate-scale-up"
+            style={{ 
+              background: 'white', 
+              borderRadius: '24px', 
+              padding: '32px 28px', 
+              width: '100%', 
+              maxWidth: '450px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              position: 'relative',
+              direction: 'rtl'
+            }}
+          >
+            <button 
+              type="button"
+              onClick={() => setIsReclamationOpen(false)}
+              style={{ position: 'absolute', top: '20px', left: '20px', background: '#F5F5F5', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#666', transition: 'background 0.2s' }}
+            >
+              <X size={20} />
+            </button>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#FEF2F2', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '1.5rem' }}>📢</span>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--burgundy-dark)', margin: 0 }}>
+                  تقديم شكوى أو اقتراح
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: '#64748B', margin: '4px 0 0' }}>
+                  نهتم برأيكم ونبذل قصارى جهدنا لحل مشاكلكم
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleReclamationSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ textAlign: 'right' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>الاسم الكامل *</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="مثال: محمد بن محمد"
+                  value={reclamationName}
+                  onChange={(e) => setReclamationName(e.target.value)}
+                  style={{ width: '100%', padding: '12px 16px', border: '1px solid #CBD5E1', borderRadius: '12px', fontSize: '0.92rem', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>رقم الواتساب *</label>
+                <input 
+                  type="tel" 
+                  required
+                  placeholder="مثال: 0555123456"
+                  value={reclamationWhatsapp}
+                  onChange={(e) => setReclamationWhatsapp(e.target.value)}
+                  style={{ width: '100%', padding: '12px 16px', border: '1px solid #CBD5E1', borderRadius: '12px', fontSize: '0.92rem', outline: 'none', textAlign: 'left', direction: 'ltr', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>تفاصيل الشكوى أو الاقتراح *</label>
+                <textarea 
+                  required
+                  rows="4"
+                  placeholder="اكتب رسالتك أو تفاصيل الشكوى بالتفصيل هنا..."
+                  value={reclamationMessage}
+                  onChange={(e) => setReclamationMessage(e.target.value)}
+                  style={{ width: '100%', padding: '12px 16px', border: '1px solid #CBD5E1', borderRadius: '12px', fontSize: '0.92rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <button 
+                type="submit"
+                disabled={isSubmittingReclamation}
+                style={{ 
+                  background: 'var(--burgundy)', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '12px', 
+                  padding: '14px', 
+                  fontSize: '0.95rem', 
+                  fontWeight: 800, 
+                  cursor: 'pointer', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(136, 19, 55, 0.15)',
+                  transition: 'opacity 0.2s' 
+                }}
+              >
+                {isSubmittingReclamation ? 'جاري الإرسال...' : 'إرسال الشكوى 📢'}
+              </button>
+            </form>
           </div>
         </div>
       )}

@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Phone, MapPin, Building, Package } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
+import { showToast } from '../../utils/toast';
 
 export default function SuppliersTab({ suppliers, onAddSupplier, onUpdateSupplier, onDeleteSupplier }) {
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, targetId: null, targetName: '' });
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
@@ -31,7 +34,7 @@ export default function SuppliersTab({ suppliers, onAddSupplier, onUpdateSupplie
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!name || !phone) {
-      alert("Veuillez remplir le nom et le téléphone");
+      showToast("⚠️ الرجاء إدخال اسم المورد ورقم الهاتف", 'warning');
       return;
     }
 
@@ -117,7 +120,7 @@ export default function SuppliersTab({ suppliers, onAddSupplier, onUpdateSupplie
                 <button onClick={() => handleOpenEdit(s)} style={{ background: '#F5F5F5', border: 'none', padding: 8, borderRadius: 8, cursor: 'pointer' }} title="Modifier">
                   <Edit2 size={16} color="#1565C0" />
                 </button>
-                <button onClick={() => { if(window.confirm("Supprimer ce fournisseur ?")) onDeleteSupplier(s.id); }} style={{ background: '#FFEBEE', border: 'none', padding: 8, borderRadius: 8, cursor: 'pointer' }} title="Supprimer">
+                <button onClick={() => setDeleteModal({ isOpen: true, targetId: s.id, targetName: s.name })} style={{ background: '#FFEBEE', border: 'none', padding: 8, borderRadius: 8, cursor: 'pointer' }} title="Supprimer">
                   <Trash2 size={16} color="#D32F2F" />
                 </button>
               </div>
@@ -136,6 +139,20 @@ export default function SuppliersTab({ suppliers, onAddSupplier, onUpdateSupplie
           </div>
         ))}
       </div>
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="تأكيد حذف المورد"
+        message={`هل أنت متأكد من رغبتك في حذف المورد "${deleteModal.targetName}"؟ لا يمكن التراجع عن هذا الإجراء.`}
+        confirmText="نعم، حذف المورد"
+        cancelText="تراجع وإلغاء"
+        onConfirm={() => {
+          if (deleteModal.targetId) {
+            onDeleteSupplier(deleteModal.targetId);
+          }
+        }}
+        onClose={() => setDeleteModal({ isOpen: false, targetId: null, targetName: '' })}
+      />
     </div>
   );
 }

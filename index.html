@@ -2,9 +2,51 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pyjama DZ</title>
+    <script>
+      // Clear service workers and cache storage to fix F5 refresh white screen issues caused by conflicts on port 5173
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (var i = 0; i < registrations.length; i++) {
+            registrations[i].unregister().then(function(success) {
+              if (success) {
+                console.log('Cleared conflicting Service Worker');
+                window.location.reload(true);
+              }
+            });
+          }
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(keys) {
+          keys.forEach(function(key) {
+            caches.delete(key);
+          });
+        });
+      }
+
+      window.addEventListener('error', function(e) {
+        var root = document.getElementById('root');
+        var errDiv = document.createElement('div');
+        errDiv.style.cssText = 'padding: 30px; font-family: sans-serif; background: #FFF0F0; color: #D32F2F; border: 2px solid #D32F2F; margin: 20px; border-radius: 12px; z-index: 999999; position: relative;';
+        errDiv.innerHTML = '<h2 style="margin-top: 0; font-size: 1.4rem;">⚠️ خطأ في تحميل الصفحة (Erreur d\'exécution JS)</h2><p style="font-weight: bold; font-size: 1.1rem;">' + (e.message || e.error) + '</p><pre style="background: #FFE5E5; padding: 15px; border-radius: 8px; overflow: auto; color: #900; font-size: 0.9rem; direction: ltr; text-align: left;">' + (e.error && e.error.stack ? e.error.stack : (e.filename + ' at line ' + e.lineno + ':' + e.colno)) + '</pre>';
+        if (root) root.appendChild(errDiv);
+        else document.body.appendChild(errDiv);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var root = document.getElementById('root');
+        var errDiv = document.createElement('div');
+        errDiv.style.cssText = 'padding: 30px; font-family: sans-serif; background: #FFF0F0; color: #D32F2F; border: 2px solid #D32F2F; margin: 20px; border-radius: 12px; z-index: 999999; position: relative;';
+        errDiv.innerHTML = '<h2 style="margin-top: 0; font-size: 1.4rem;">⚠️ خطأ في الاستجابة (Unhandled Promise Rejection)</h2><p style="font-weight: bold; font-size: 1.1rem;">' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</p><pre style="background: #FFE5E5; padding: 15px; border-radius: 8px; overflow: auto; color: #900; font-size: 0.9rem; direction: ltr; text-align: left;">' + (e.reason && e.reason.stack ? e.reason.stack : e.reason) + '</pre>';
+        if (root) root.appendChild(errDiv);
+        else document.body.appendChild(errDiv);
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

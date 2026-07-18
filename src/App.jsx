@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Storefront from './components/Storefront';
 import AdminDashboard from './components/AdminDashboard';
+import GrosStorefront from './components/GrosStorefront';
+import CashierPOS from './components/CashierPOS';
+import ToastContainer from './components/ToastContainer';
 import { supabase } from './lib/supabaseClient';
 
 const playNotificationSound = () => {
@@ -121,15 +124,52 @@ export default function App() {
     if (!error && data) {
       const obj = {};
       data.forEach(item => {
-        if (item && item.key) obj[item.key] = item.value;
+        if (item && item.key) {
+          if (item.key === 'categories') {
+            try {
+              const parsed = JSON.parse(item.value);
+              obj[item.key] = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+              console.error("Error parsing categories", e);
+              obj[item.key] = [];
+            }
+          } else {
+            obj[item.key] = item.value;
+          }
+        }
       });
       setSettings(prev => ({ ...prev, ...obj }));
     }
   };
 
+  const sanitizeProductForDb = (prodObj) => {
+    const validProductColumns = ['title', 'category', 'purchasePrice', 'price', 'oldPrice', 'supplier', 'images', 'barcode', 'description', 'colorVariants', 'created_at'];
+    const sanitized = {};
+    validProductColumns.forEach(col => {
+      if (prodObj && prodObj[col] !== undefined) {
+        sanitized[col] = prodObj[col];
+      }
+    });
+    return sanitized;
+  };
+
   const handlePlaceOrder = async (newOrder) => {
     const { id, ...orderWithoutId } = newOrder;
-    const { data: insertedOrder, error } = await supabase.from('orders').insert(orderWithoutId).select().single();
+    
+    // Sanitise payload: only include valid DB columns of 'orders' table
+    const validColumns = ['clientName', 'phone', 'wilaya', 'commune', 'deliveryMode', 'product', 'price', 'quantity', 'status', 'archived', 'date', 'items'];
+    const sanitizedOrder = {};
+    validColumns.forEach(col => {
+      if (orderWithoutId[col] !== undefined) {
+        sanitizedOrder[col] = orderWithoutId[col];
+      }
+    });
+
+    const { data: insertedOrder, error } = await supabase.from('orders').insert(sanitizedOrder).select().single();
+    
+    if (error) {
+      console.error("Supabase Order Insert Error:", error);
+    }
     
     if (!error) {
       setOrders(prev => [...prev, insertedOrder]);
@@ -154,9 +194,11 @@ export default function App() {
             } else if (product.stock !== undefined) {
                updatedPayload.stock = Math.max(0, product.stock - (item.qty || 1));
             }
-            if (Object.keys(updatedPayload).length > 0) {
-              await supabase.from('products').update(updatedPayload).eq('id', product.id);
-            }
+             const safePayload = sanitizeProductForDb(updatedPayload);
+             if (Object.keys(safePayload).length > 0) {
+               await supabase.from('products').update(safePayload).eq('id', product.id);
+               setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
+             }
           }
         }
       } 
@@ -165,10 +207,16 @@ export default function App() {
         const product = products.find(p => p.id === newOrder.productId);
         if (product && product.stock !== undefined) {
           const newStock = Math.max(0, product.stock - (newOrder.qty || 1));
-          await supabase.from('products').update({ stock: newStock }).eq('id', product.id);
+           const safePayload = sanitizeProductForDb({ stock: newStock });
+           if (Object.keys(safePayload).length > 0) {
+             await supabase.from('products').update(safePayload).eq('id', product.id);
+             setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
+           }
         }
       }
+      return insertedOrder;
     }
+    return null;
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus, archived) => {
@@ -177,8 +225,12 @@ export default function App() {
     
     const orderToUpdate = orders.find(o => o.id === orderId);
     
-    // If order is being cancelled, restore stock
-    if (orderToUpdate && orderToUpdate.status !== 'annulee' && newStatus === 'annulee') {
+    // If order is being cancelled or returned, restore stock
+    const wasAlreadyReturned = orderToUpdate?.status === 'annulee' || orderToUpdate?.status === 'retour';
+    const isNowReturned = newStatus === 'annulee' || newStatus === 'retour';
+    const shouldRestoreStock = isNowReturned && !wasAlreadyReturned;
+
+    if (orderToUpdate && shouldRestoreStock) {
       if (orderToUpdate.items) {
         for (const item of orderToUpdate.items) {
           const product = products.find(p => p.id === item.productId || p.title === item.product);
@@ -199,16 +251,22 @@ export default function App() {
             } else if (product.stock !== undefined) {
                updatedPayload.stock = product.stock + (item.qty || 1);
             }
-            if (Object.keys(updatedPayload).length > 0) {
-              await supabase.from('products').update(updatedPayload).eq('id', product.id);
-            }
+             const safePayload = sanitizeProductForDb(updatedPayload);
+             if (Object.keys(safePayload).length > 0) {
+               await supabase.from('products').update(safePayload).eq('id', product.id);
+               setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
+             }
           }
         }
       } else if (orderToUpdate.productId) {
         const product = products.find(p => p.id === orderToUpdate.productId);
         if (product && product.stock !== undefined) {
           const newStock = product.stock + (orderToUpdate.qty || 1);
-          await supabase.from('products').update({ stock: newStock }).eq('id', product.id);
+           const safePayload = sanitizeProductForDb({ stock: newStock });
+           if (Object.keys(safePayload).length > 0) {
+             await supabase.from('products').update(safePayload).eq('id', product.id);
+             setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
+           }
         }
       }
     }
@@ -224,24 +282,25 @@ export default function App() {
   };
 
   const handleAddProduct = async (newProd) => {
-    const { id, ...prodWithoutId } = newProd;
-    const { data, error } = await supabase.from('products').insert(prodWithoutId).select();
+    const sanitizedProd = sanitizeProductForDb(newProd);
+    const { data, error } = await supabase.from('products').insert(sanitizedProd).select();
     if (error) {
       console.error(error);
       alert("Erreur lors de l'ajout du produit: " + error.message);
     } else if (data && data.length > 0) {
-      setProducts(prev => [data[0], ...prev]);
+      setProducts(prev => [{ ...newProd, ...data[0] }, ...prev]);
     }
   };
 
   const handleUpdateProduct = async (updatedProd) => {
-    const { id, ...prodWithoutId } = updatedProd;
-    const { data, error } = await supabase.from('products').update(prodWithoutId).eq('id', id).select();
+    const { id } = updatedProd;
+    const sanitizedProd = sanitizeProductForDb(updatedProd);
+    const { data, error } = await supabase.from('products').update(sanitizedProd).eq('id', id).select();
     if (error) {
       console.error(error);
       alert("Erreur lors de la modification du produit: " + error.message);
     } else if (data && data.length > 0) {
-      setProducts(prev => prev.map(p => p.id === id ? data[0] : p));
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updatedProd, ...data[0] } : p));
     } else {
       alert("Erreur: La modification a été bloquée (vérifiez que RLS est bien désactivé).");
     }
@@ -281,7 +340,7 @@ export default function App() {
     setSettings(prev => ({ ...prev, ...newSettings }));
     for (const [key, value] of Object.entries(newSettings)) {
       if (value === undefined || value === null) continue;
-      const valStr = Array.isArray(value) ? value.join(' - ') : (typeof value === 'object' ? JSON.stringify(value) : String(value));
+      const valStr = (key === 'categories' || typeof value === 'object') ? JSON.stringify(value) : (Array.isArray(value) ? value.join(' - ') : String(value));
       const { data: updated, error: updateError } = await supabase
         .from('settings')
         .update({ value: valStr })
@@ -300,6 +359,8 @@ export default function App() {
   };
 
   const isAdminRoute = currentPath.toLowerCase().startsWith('/admin');
+  const isGrosRoute = currentPath.toLowerCase().startsWith('/gros');
+  const isCashierRoute = currentPath.toLowerCase().startsWith('/cashier');
 
   const enrichedOrders = useMemo(() => {
     if (!orders || !Array.isArray(orders)) return [];
@@ -311,12 +372,13 @@ export default function App() {
     
     const idToTicket = {};
     sorted.forEach((order, index) => {
-      idToTicket[order.id] = index < 10 ? `0${index}` : `${index}`;
+      const ticketNum = index + 1;
+      idToTicket[order.id] = ticketNum < 10 ? `0${ticketNum}` : `${ticketNum}`;
     });
 
     return orders.map(order => ({
       ...order,
-      ticketNumber: idToTicket[order.id] || '00'
+      ticketNumber: idToTicket[order.id] || '01'
     }));
   }, [orders]);
 
@@ -351,6 +413,23 @@ export default function App() {
           onUpdateSettings={handleUpdateSettings}
           onSwitchToClient={() => navigateTo('/')}
         />
+      ) : isCashierRoute ? (
+        <CashierPOS 
+          products={products}
+          settings={settings}
+          orders={enrichedOrders}
+          onPlaceOrder={handlePlaceOrder}
+          onGoBack={() => navigateTo('/')}
+          onUpdateStatus={handleUpdateOrderStatus}
+          onUpdateProduct={handleUpdateProduct}
+        />
+      ) : isGrosRoute ? (
+        <GrosStorefront 
+          products={products}
+          settings={settings}
+          onPlaceOrder={handlePlaceOrder}
+          onGoToRetail={() => navigateTo('/')}
+        />
       ) : (
         <Storefront 
           products={products}
@@ -358,6 +437,7 @@ export default function App() {
           onPlaceOrder={handlePlaceOrder}
         />
       )}
+      <ToastContainer />
     </div>
   );
 }

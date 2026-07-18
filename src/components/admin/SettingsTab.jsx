@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { KeyRound, Lock, Save, Globe, Phone, MapPin, Share2, Check, Plus, Trash2 } from 'lucide-react';
+import { KeyRound, Lock, Save, Globe, Plus, Trash2 } from 'lucide-react';
+import { showToast } from '../../utils/toast';
 
 export default function SettingsTab({ settings, onUpdateSettings, currentPin, onChangePin }) {
   // PIN change state
@@ -25,6 +26,10 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   const [storeName, setStoreName] = useState((settings?.storeName || 'Pyjama DZ').replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  // Cashier PIN state
+  const [cashierPinInput, setCashierPinInput] = useState(() => settings?.cashierPin || '123456');
+  const [cashierSuccess, setCashierSuccess] = useState(false);
+
   useEffect(() => {
     if (settings) {
       if (settings.instagramUrl !== undefined) setInstaUrl(settings.instagramUrl);
@@ -33,6 +38,10 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       if (settings.address !== undefined) setAddress(settings.address);
       if (settings.googleMapsUrl !== undefined) setGoogleMapsUrl(settings.googleMapsUrl);
       if (settings.storeName !== undefined) setStoreName(settings.storeName.replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
+      if (settings.categories && Array.isArray(settings.categories) && settings.categories.length > 0) {
+        // Categories handled in separate tab
+      }
+      if (settings.cashierPin !== undefined) setCashierPinInput(settings.cashierPin);
     }
   }, [settings]);
 
@@ -77,18 +86,33 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 
+  const handleSaveCashierPin = (e) => {
+    e.preventDefault();
+    const cleanPin = cashierPinInput.trim();
+    if (cleanPin.length !== 6 || !/^\d+$/.test(cleanPin)) {
+      alert('⚠️ كود دخول الكاشير يجب أن يتكون من 6 أرقام بالضبط (Ex: 123456).');
+      return;
+    }
+    onUpdateSettings({
+      ...settings,
+      cashierPin: cleanPin
+    });
+    setCashierSuccess(true);
+    setTimeout(() => setCashierSuccess(false), 3000);
+  };
+
   return (
-    <div className="animate-fade-up">
+    <div className="animate-fade-up" style={{ paddingBottom: '64px' }}>
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--burgundy-dark)' }}>
-          ⚙️ إعدادات المتجر والأمان (Paramètres & Sécurité)
+          ⚙️ إعدادات المتجر والأقسام (Paramètres & Catégories)
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-          Gérez votre code secret d'accès (PIN) et les liens de vos réseaux sociaux affichés aux clients.
+          Gérez vos catégories de produits Mazyoud, votre code secret PIN et vos liens de réseaux sociaux.
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
         {/* Security PIN Change Card */}
         <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
@@ -103,14 +127,14 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
 
           <form onSubmit={handlePinChangeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div className="form-group">
-              <label className="form-label">الرمز السري القديم الحالي (Ancien PIN) *</label>
+              <label className="form-label">الرمز السري الحالي (Ancien PIN) *</label>
               <input 
-                type="password" 
+                type="text" 
                 required 
                 value={oldPinInput} 
                 onChange={(e) => setOldPinInput(e.target.value)} 
                 className="form-input" 
-                placeholder="••••••" 
+                placeholder="Ex: 123456" 
               />
             </div>
             <div className="form-group">
@@ -236,6 +260,54 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
             </button>
           </form>
         </div>
+      </div>
+
+      {/* Cashier PIN Management Card */}
+      <div style={{ background: 'white', padding: '28px', borderRadius: '16px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px', borderBottom: '2px solid #F1F5F9', paddingBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ background: '#E0F2FE', padding: 12, borderRadius: 12, color: '#0284C7', border: '1px solid #BAE6FD' }}>
+              <Lock size={24} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1E293B', margin: 0 }}>🧑‍💼 إدارة دخول الكاشير والعمال (POS Caissier)</h3>
+              <span style={{ fontSize: '0.85rem', color: '#64748B' }}>الرمز السري الخاص بالعمال للدخول إلى واجهة الكاشير المبسطة</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                window.open('/cashier', '_blank');
+              }}
+              style={{ background: '#F1F5F9', color: '#0F172A', border: '1px solid #CBD5E1', padding: '10px 18px', borderRadius: '10px', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s' }}
+            >
+              🚀 فتح صفحة الكاشير (POS)
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveCashierPin} style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '450px' }}>
+          <div className="form-group">
+            <label className="form-label">كود دخول الكاشير (Code PIN Caissier) *</label>
+            <input 
+              type="text" 
+              required 
+              value={cashierPinInput} 
+              onChange={(e) => setCashierPinInput(e.target.value)} 
+              className="form-input" 
+              placeholder="Ex: 123456 أو 000000" 
+              maxLength={6}
+              style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '2px' }}
+            />
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>يستخدم العمال هذا الكود (6 أرقام) للدخول إلى شاشة البيع المباشر دون الوصول إلى الإعدادات أو الأرباح.</span>
+          </div>
+
+          <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', padding: '12px', width: 'fit-content' }}>
+            <Save size={16} />
+            <span>{cashierSuccess ? "✅ تم حفظ كود الكاشير بنجاح !" : "💾 حفظ كود الكاشير"}</span>
+          </button>
+        </form>
       </div>
     </div>
   );

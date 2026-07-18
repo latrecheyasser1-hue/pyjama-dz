@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Lock, Unlock, ArrowLeft, RefreshCw, Volume2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { showToast } from '../utils/toast';
 import AdminLogin from './admin/AdminLogin';
 import Sidebar from './admin/Sidebar';
 import OrdersTab from './admin/OrdersTab';
@@ -9,7 +10,10 @@ import SuppliersTab from './admin/SuppliersTab';
 import AnalyticsTab from './admin/AnalyticsTab';
 import HistoryTab from './admin/HistoryTab';
 import SettingsTab from './admin/SettingsTab';
+import CategoriesTab from './admin/CategoriesTab';
 import PosModal from './admin/PosModal';
+import ClientsTab from './admin/ClientsTab';
+import ReclamationsTab from './admin/ReclamationsTab';
 
 export default function AdminDashboard({
   orders,
@@ -79,6 +83,7 @@ export default function AdminDashboard({
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (!showPosModal) return;
       const currentTime = Date.now();
       if (currentTime - lastKeyTimeRef.current > 150) {
         barcodeBufferRef.current = '';
@@ -101,7 +106,7 @@ export default function AdminDashboard({
             return;
           } else if (barcodeBufferRef.current.length >= 6) {
             e.preventDefault();
-            alert(`⚠️ تنبيه: الكود بار الممسوح (${scannedCode}) غير مسجل في المخزون!`);
+            showToast(`⚠️ تنبيه: الكود بار الممسوح (${scannedCode}) غير مسجل في المخزون!`, 'warning');
             barcodeBufferRef.current = '';
             return;
           }
@@ -114,7 +119,7 @@ export default function AdminDashboard({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [products]);
+  }, [products, showPosModal]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -168,6 +173,11 @@ export default function AdminDashboard({
   // Active new orders count
   const newOrdersCount = orders.filter(o => o.status === 'nouvelle').length;
 
+  const reclamationsCount = React.useMemo(() => {
+    const list = settings?.reclamations && Array.isArray(settings.reclamations) ? settings.reclamations : [];
+    return list.filter(r => r.status === 'nouvelle').length;
+  }, [settings?.reclamations]);
+
   if (authLoading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F4F1EA', color: 'var(--burgundy)', fontWeight: 700 }}>جاري التحميل...</div>;
 
   if (!session) {
@@ -182,6 +192,7 @@ export default function AdminDashboard({
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         newOrdersCount={newOrdersCount}
+        reclamationsCount={reclamationsCount}
         onLock={async () => await supabase.auth.signOut()}
         onSwitchToClient={onSwitchToClient}
         playNotificationSound={playNotificationSound}
@@ -203,13 +214,26 @@ export default function AdminDashboard({
           />
         )}
 
-        {activeTab === 'stock' && (
+        {activeTab.startsWith('stock_') && (
           <StockTab
             products={products}
             suppliers={suppliers}
+            settings={settings}
             onAddProduct={onAddProduct}
             onUpdateProduct={onUpdateProduct}
             onDeleteProduct={onDeleteProduct}
+            stockMode={activeTab.replace('stock_', '')}
+            onTabChange={setActiveTab}
+            isPosOpen={showPosModal}
+          />
+        )}
+
+        {activeTab === 'categories' && (
+          <CategoriesTab
+            settings={settings}
+            onUpdateSettings={onUpdateSettings}
+            products={products}
+            setActiveTab={setActiveTab}
           />
         )}
 
@@ -219,6 +243,20 @@ export default function AdminDashboard({
             onAddSupplier={onAddSupplier}
             onUpdateSupplier={onUpdateSupplier}
             onDeleteSupplier={onDeleteSupplier}
+          />
+        )}
+
+        {activeTab === 'clients' && (
+          <ClientsTab
+            orders={orders}
+            products={products}
+          />
+        )}
+
+        {activeTab === 'reclamations' && (
+          <ReclamationsTab
+            settings={settings}
+            onUpdateSettings={onUpdateSettings}
           />
         )}
 
@@ -240,6 +278,7 @@ export default function AdminDashboard({
             onUpdateStatus={onUpdateStatus}
             onUpdateProduct={onUpdateProduct}
             onDeleteOrder={onDeleteOrder}
+            onUpdateSettings={onUpdateSettings}
           />
         )}
 

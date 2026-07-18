@@ -2,12 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Calendar, Wallet, AlertTriangle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getTopSellingProducts, getTopWilayas, getDeliveryStats, getDeadStock } from '../../utils/analytics';
+import { showToast } from '../../utils/toast';
 
 export default function AnalyticsTab({ orders, products, expenses, onAddExpense, onDeleteExpense }) {
   const [desc, setDesc] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [period, setPeriod] = useState('all');
+  const [saleType, setSaleType] = useState('all');
   const [expenseSearchDate, setExpenseSearchDate] = useState('');
 
   // Helper to filter by date
@@ -58,7 +60,25 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
     });
   };
 
-  const filteredOrders = useMemo(() => filterByPeriod(orders, 'created_at'), [orders, period]);
+  const filteredOrders = useMemo(() => {
+    let filtered = filterByPeriod(orders, 'created_at');
+    
+    if (saleType !== 'all') {
+      filtered = filtered.filter(o => {
+        const isPos = o.isPos || o.clientName === 'زبون المحل (بيع حضوري)' || o.commune === 'المتجر الحضوري';
+        const isGros = (o.product && o.product.includes('(جملة -')) || 
+                       (o.clientName && o.clientName.includes('(واتساب:')) ||
+                       (o.items && o.items.some(it => it.size === 'Série')) || 
+                       o.stockMode === 'gros';
+                       
+        if (saleType === 'gros') return isGros;
+        if (saleType === 'retail') return !isGros; // Includes POS and Livraison
+        return true;
+      });
+    }
+    
+    return filtered;
+  }, [orders, period, saleType]);
   const filteredExpenses = useMemo(() => filterByPeriod(expenses, 'date'), [expenses, period]);
 
   // Calculate confirmed + delivered + shipped orders (exclude annulee and retour for CA)
@@ -97,7 +117,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!desc || !amount) {
-      alert("Veuillez entrer le nom et le montant de la dépense");
+      showToast("⚠️ الرجاء إدخال اسم المصروف والمبلغ", 'warning');
       return;
     }
 
@@ -123,7 +143,17 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
             Suivi complet du Chiffre d'Affaires, coût d'achat des pyjamas vendus, et soustraction automatique de vos dépenses.
           </p>
         </div>
-        <div>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <select 
+            value={saleType} 
+            onChange={(e) => setSaleType(e.target.value)}
+            className="form-select"
+            style={{ fontWeight: 800, padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-light)', cursor: 'pointer' }}
+          >
+            <option value="all">كل المبيعات (Toutes les ventes)</option>
+            <option value="retail">التجزئة والحضوري (Détail & Boutique)</option>
+            <option value="gros">الجملة فقط (Gros uniquement)</option>
+          </select>
           <select 
             value={period} 
             onChange={(e) => setPeriod(e.target.value)}

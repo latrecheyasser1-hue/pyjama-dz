@@ -1,3 +1,15 @@
+export const DEFAULT_CATEGORIES = [
+  { id: 'all', title: 'TOUT VOIR', icon: '✨', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' },
+  { id: 'satin', title: 'SATIN DE SOIE', icon: '👗', image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&q=80' },
+  { id: 'coton', title: 'COTON CONFORT', icon: '🧸', image: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=300&q=80' },
+  { id: 'mariee', title: 'ROBES & MARIÉE', icon: '👰', image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=300&q=80' },
+  { id: 'ensembles', title: 'ENSEMBLES 2P', icon: '👘', image: 'https://images.unsplash.com/photo-1502716119720-b23a93e5fc1b?w=300&q=80' },
+  { id: 'abayas', title: 'ABAYAS & ROUPAS', icon: '🧕', image: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=300&q=80' },
+  { id: 'chaussures', title: 'PANTOUFLES & SOULIERS', icon: '🥿', image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=300&q=80' },
+  { id: 'accessoires', title: 'ACCESSOIRES VIP', icon: '👑', image: 'https://images.unsplash.com/photo-1611591471441-615f64d26214?w=300&q=80' },
+  { id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' }
+];
+
 export const INITIAL_SUPPLIERS = [
   { id: 1, name: "Atelier Satin Luxe (Algiers)", phone: "0551234567" },
   { id: 2, name: "Importateur Coton Turc (Sétif)", phone: "0669876543" },
@@ -50,7 +62,7 @@ export const INITIAL_PRODUCTS = [
     colorVariants: [
       { color: "Écru", stock: { "M": 15, "L": 20, "XL": 14, "2XL": 8 } }
     ],
-    images: ["https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
+    images: ["https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
     barcode: "100795289030",
     promo: false,
     badge: "Nouveau ✨",
@@ -87,7 +99,7 @@ export const INITIAL_PRODUCTS = [
     colorVariants: [
       { color: "Bordeaux", stock: { "S": 8, "M": 14, "L": 10, "XL": 5 } }
     ],
-    images: ["https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
+    images: ["https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
     barcode: "100399877873",
     promo: true,
     badge: "Promo -25%",
@@ -105,7 +117,7 @@ export const INITIAL_PRODUCTS = [
     colorVariants: [
       { color: "Gris Perle", stock: { "S": 10, "M": 18, "L": 15, "XL": 9, "2XL": 6 } }
     ],
-    images: ["https://images.unsplash.com/photo-1485968579580-b6d095142e6e?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
+    images: ["https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
     barcode: "100729385180",
     promo: false,
     badge: "Confort 🧸",

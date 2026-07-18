@@ -1,11 +1,32 @@
-import React from 'react';
-import { Package, ShoppingBag, Users, BarChart3, History, Settings, Lock, ExternalLink, Bell, Volume2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, ShoppingBag, Users, BarChart3, History, Settings, Lock, ExternalLink, Bell, Volume2, ChevronDown, ChevronUp } from 'lucide-react';
 
-export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, onLock, onSwitchToClient, playNotificationSound, onOpenPos }) {
+export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, reclamationsCount = 0, onLock, onSwitchToClient, playNotificationSound, onOpenPos }) {
+  const [stockExpanded, setStockExpanded] = useState(activeTab.startsWith('stock_'));
+
+  useEffect(() => {
+    if (activeTab.startsWith('stock_')) {
+      setStockExpanded(true);
+    }
+  }, [activeTab]);
+
   const menuItems = [
     { id: 'orders', label: '📥 الطلبيات الجديدة', desc: 'Commandes en temps réel', badge: newOrdersCount > 0 ? newOrdersCount : null },
-    { id: 'stock', label: '📦 المخزون والمنتجات', desc: 'Gestion catalogue & tailles' },
+    {
+      id: 'stock',
+      label: '📦 المخزون والمنتجات',
+      desc: 'Gestion catalogue & tailles',
+      isFolder: true,
+      subItems: [
+        { id: 'stock_livraison', label: '🚚 مخزن التوصيل (Livraison)', desc: 'Stock site web' },
+        { id: 'stock_boutique', label: '🏪 مخزن المحل (Boutique)', desc: 'Stock magasin physique' },
+        { id: 'stock_gros', label: '📦 مخزن الجملة (Gros & Super Gros)', desc: 'Ventes en gros et super gros' }
+      ]
+    },
+    { id: 'categories', label: '🏷️ الأقسام والتصنيفات', desc: 'Gestion des catégories' },
     { id: 'suppliers', label: '🤝 الموردين', desc: 'Annuaire fournisseurs' },
+    { id: 'clients', label: '👥 إدارة الزبائن', desc: 'Bon / Mauvais Clients' },
+    { id: 'reclamations', label: '📢 الشكاوي والاقتراحات', desc: 'Gestion des réclamations', badge: reclamationsCount > 0 ? reclamationsCount : null },
     { id: 'analytics', label: '📊 التحليلات والمصاريف', desc: 'Marge, Achats & Caisse' },
     { id: 'history', label: '📜 سجل الطلبيات', desc: 'Historique complet' },
     { id: 'settings', label: '⚙️ الإعدادات', desc: 'Code PIN & Réseaux' }
@@ -36,10 +57,77 @@ export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, onLoc
           </div>
         </div>
 
-
         {/* Navigation Menu */}
         <nav style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {menuItems.map(item => {
+            if (item.isFolder) {
+              const isStockActive = activeTab.startsWith('stock_');
+              return (
+                <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <button
+                    onClick={() => {
+                      setStockExpanded(!stockExpanded);
+                      if (!stockExpanded && !isStockActive) {
+                        setActiveTab('stock_livraison');
+                      }
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      background: isStockActive ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                      color: 'white',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.2s ease',
+                      fontFamily: 'var(--font-primary)'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: isStockActive ? 800 : 600, fontSize: '0.95rem' }}>{item.label}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>{item.desc}</div>
+                    </div>
+                    {stockExpanded ? <ChevronUp size={16} style={{ opacity: 0.7 }} /> : <ChevronDown size={16} style={{ opacity: 0.7 }} />}
+                  </button>
+
+                  {stockExpanded && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '12px', borderLeft: '2px solid rgba(255,255,255,0.15)', marginLeft: '14px', marginTop: '4px' }}>
+                      {item.subItems.map(sub => {
+                        const isSubActive = activeTab === sub.id;
+                        return (
+                          <button
+                            key={sub.id}
+                            onClick={() => setActiveTab(sub.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: 'none',
+                              background: isSubActive ? 'var(--rose-primary)' : 'transparent',
+                              color: 'white',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              transition: 'all 0.2s ease',
+                              fontFamily: 'var(--font-primary)'
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontWeight: isSubActive ? 800 : 600, fontSize: '0.85rem' }}>{sub.label}</div>
+                              <div style={{ fontSize: '0.7rem', color: isSubActive ? 'white' : 'rgba(255,255,255,0.5)' }}>{sub.desc}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             const isActive = activeTab === item.id;
             return (
               <button
