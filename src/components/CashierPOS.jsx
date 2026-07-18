@@ -165,12 +165,55 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
   const storeAddress = settings?.address || 'الجزائر العاصمة';
   const validPin = settings?.cashierPin || '0000';
 
-  // Auto-focus barcode input if scanner is active
+  // Global robust barcode scanner listener
   useEffect(() => {
-    if (isAuthenticated && isScannerActive && barcodeInputRef.current) {
-      barcodeInputRef.current.focus();
-    }
-  }, [isAuthenticated, isScannerActive, selectedProductModal, showReceiptModal]);
+    if (!isAuthenticated || showReceiptModal || showHistoryModal || selectedProductModal) return;
+
+    let buffer = '';
+    let lastKeyTime = Date.now();
+
+    const handleKeyDown = (e) => {
+      // Ignore if pressing a modifier key alone
+      if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') return;
+
+      const currentTime = Date.now();
+      
+      // If time between keystrokes is more than 50ms, assume it's human typing and reset
+      // Barcode scanners usually type much faster (often 10-20ms per character)
+      if (currentTime - lastKeyTime > 60) {
+        buffer = '';
+      }
+      
+      if (e.key === 'Enter' && buffer.length > 0) {
+        // Prevent default form submission if focused on an input
+        e.preventDefault();
+        
+        const scannedCode = buffer.trim();
+        const foundProduct = products.find(p => 
+          p.barcode && 
+          String(p.barcode).trim() === scannedCode &&
+          p.category && 
+          p.category.startsWith('boutique__')
+        );
+        
+        if (foundProduct) {
+          openProductCard(foundProduct);
+          // Optional: clear standard barcode input if it was active
+          setBarcodeInput('');
+        } else {
+          showToast(`⚠️ لم يتم العثور على منتج بالباركود: ${scannedCode}`, 'warning');
+        }
+        buffer = '';
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { 
+        buffer += e.key;
+      }
+      
+      lastKeyTime = currentTime;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAuthenticated, showReceiptModal, showHistoryModal, selectedProductModal, products]);
 
   // Handle PIN Login
   const handlePinLogin = (e) => {
