@@ -3,6 +3,7 @@ import Storefront from './components/Storefront';
 import AdminDashboard from './components/AdminDashboard';
 import GrosStorefront from './components/GrosStorefront';
 import CashierPOS from './components/CashierPOS';
+import EmballagePOS from './components/EmballagePOS';
 import ToastContainer from './components/ToastContainer';
 import { supabase } from './lib/supabaseClient';
 
@@ -361,6 +362,7 @@ export default function App() {
   const isAdminRoute = currentPath.toLowerCase().startsWith('/admin');
   const isGrosRoute = currentPath.toLowerCase().startsWith('/gros');
   const isCashierRoute = currentPath.toLowerCase().startsWith('/cashier');
+  const isEmballageRoute = currentPath.toLowerCase().startsWith('/embalage') || currentPath.toLowerCase().startsWith('/emballage');
 
   const enrichedOrders = useMemo(() => {
     if (!orders || !Array.isArray(orders)) return [];
@@ -422,6 +424,14 @@ export default function App() {
           onGoBack={() => navigateTo('/')}
           onUpdateStatus={handleUpdateOrderStatus}
           onUpdateProduct={handleUpdateProduct}
+        />
+      ) : isEmballageRoute ? (
+        <EmballagePOS 
+          products={products}
+          settings={settings}
+          orders={enrichedOrders}
+          onUpdateStatus={handleUpdateOrderStatus}
+          onGoBack={() => navigateTo('/')}
         />
       ) : isGrosRoute ? (
         <GrosStorefront 

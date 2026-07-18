@@ -249,6 +249,24 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
     setCart([]);
   };
 
+  // Keyboard support for PIN pad
+  useEffect(() => {
+    if (isAuthenticated) return;
+
+    const handleKeyDown = (e) => {
+      if (/^[0-9]$/.test(e.key)) {
+        handleKeypadPress(e.key);
+      } else if (e.key === 'Backspace') {
+        handleKeypadDelete();
+      } else if (e.key === 'Enter') {
+        handlePinLogin();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAuthenticated, pinInput, validPin]);
+
   // Filter Boutique/Hanoot products only (categories starting with 'boutique__')
   const availableProducts = products.filter(p => {
     if (!p) return false;
