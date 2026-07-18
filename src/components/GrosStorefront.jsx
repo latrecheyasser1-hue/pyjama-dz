@@ -17,7 +17,8 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
   const [checkoutWhatsapp, setCheckoutWhatsapp] = useState('');
   const [checkoutWilaya, setCheckoutWilaya] = useState('');
   const [checkoutCommune, setCheckoutCommune] = useState('');
-  const [checkoutDeliveryMode, setCheckoutDeliveryMode] = useState('Yalidine (Domicile)');
+  const [checkoutDeliveryMode, setCheckoutDeliveryMode] = useState('Livraison Domicile (توصيل للمنزل)');
+  const [checkoutDeliveryCompany, setCheckoutDeliveryCompany] = useState('');
   const [orderSuccess, setOrderSuccess] = useState(false);
 
   // Per-product inputs state: { [productId]: { qty: number, selectedColors: { [color]: boolean } } }
@@ -209,6 +210,10 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
       showToast("⚠️ يرجى ملء الحقول الأساسية: الاسم، الهاتف، والولاية.", 'warning');
       return;
     }
+    if (checkoutDeliveryMode.includes('Livraison') && !checkoutDeliveryCompany) {
+      showToast("⚠️ الرجاء إختيار شركة التوصيل.", 'warning');
+      return;
+    }
 
     const productNames = cartItems.map(it => `${it.product} (جملة - ${it.color} x${it.qty})`).join(' + ');
 
@@ -218,6 +223,7 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
       wilaya: checkoutWilaya,
       commune: checkoutCommune.trim() || 'غير محددة',
       deliveryMode: checkoutDeliveryMode,
+      deliveryCompany: checkoutDeliveryMode.includes('Livraison') ? checkoutDeliveryCompany : '',
       product: productNames,
       items: cartItems.map(it => ({
         qty: it.qty,
@@ -239,6 +245,7 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
     setCheckoutPhone('');
     setCheckoutWhatsapp('');
     setCheckoutCommune('');
+    setCheckoutDeliveryCompany('');
   };
 
   return (
@@ -747,12 +754,28 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
                         value={checkoutDeliveryMode}
                         onChange={(e) => setCheckoutDeliveryMode(e.target.value)}
                       >
-                        <option value="Yalidine (Domicile)">Yalidine إلى باب المنزل (Domicile)</option>
-                        <option value="Yalidine (Bureau)">Yalidine إلى مكتب البريد (Bureau)</option>
-                        <option value="شاحنة نقل بضائع (Transporteur)">مع معارف التاجر / شاحنة نقل بضائع</option>
-                        <option value="استلام من المحل (Boutique)">استلام شخصي من المحل</option>
+                        <option value="Livraison Domicile (توصيل للمنزل)">🏠 توصيل للمنزل (Livraison Domicile)</option>
+                        <option value="Livraison Bureau (توصيل للمكتب)">🏢 توصيل للمكتب (Livraison Bureau)</option>
+                        <option value="شاحنة نقل بضائع (Transporteur)">🚚 مع معارف التاجر / شاحنة نقل بضائع</option>
+                        <option value="استلام من المحل (Boutique)">🏬 استلام شخصي من المحل</option>
                       </select>
                     </div>
+
+                    {checkoutDeliveryMode.includes('Livraison') && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '12px' }}>
+                        <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#475569' }}>شركة التوصيل (Société de Livraison) *</label>
+                        <select 
+                          className="form-input-gros"
+                          value={checkoutDeliveryCompany}
+                          onChange={(e) => setCheckoutDeliveryCompany(e.target.value)}
+                          required
+                        >
+                          <option value="" disabled>-- إختر شركة التوصيل --</option>
+                          <option value="yalidine">Yalidine (ياليدين)</option>
+                          <option value="zrexpress">ZR Express</option>
+                        </select>
+                      </div>
+                    )}
 
                     <button
                       type="submit"
