@@ -799,7 +799,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
   const [wilaya, setWilaya] = useState(ALGERIA_WILAYAS[15]); // Default Alger
   const [commune, setCommune] = useState('');
   const [deliveryMode, setDeliveryMode] = useState('Livraison Domicile (توصيل للمنزل)');
-  const [deliveryCompany, setDeliveryCompany] = useState('yalidine');
+  const [deliveryCompany, setDeliveryCompany] = useState('');
 
   // Prevent body scroll when cart is open
   useEffect(() => {
@@ -968,8 +968,8 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
 
   const handleSubmitOrder = (e) => {
     e.preventDefault();
-    if (!clientName || !phone || !commune) {
-      showToast("⚠️ الرجاء ملء جميع الحقول الإلزامية (الاسم الكامل، رقم الهاتف والبلدية)", 'warning');
+    if (!clientName || !phone || !commune || !deliveryCompany) {
+      showToast("⚠️ الرجاء ملء جميع الحقول الإلزامية (الاسم الكامل، رقم الهاتف، البلدية وشركة التوصيل)", 'warning');
       return;
     }
     const activeCartItems = cartItems.filter(item => item.qty > 0);
@@ -1011,7 +1011,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
     setClientName('');
     setPhone('');
     setCommune('');
-    setDeliveryCompany('yalidine');
+    setDeliveryCompany('');
   };
 
   // Social & contact links
@@ -1643,11 +1643,13 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '18px' }}>
-                      <label className="form-label" style={{ fontWeight: 700 }}>شركة التوصيل (Société de Livraison)</label>
+                      <label className="form-label" style={{ fontWeight: 700 }}>شركة التوصيل (Société de Livraison) *</label>
                       <select 
                         className="form-select" style={{ padding: '12px 16px', fontSize: '1rem' }}
                         value={deliveryCompany} onChange={(e) => setDeliveryCompany(e.target.value)}
+                        required
                       >
+                        <option value="" disabled>-- إختر شركة التوصيل --</option>
                         <option value="yalidine">Yalidine (ياليدين)</option>
                         <option value="zrexpress">ZR Express</option>
                       </select>
