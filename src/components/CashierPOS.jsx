@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Lock, Unlock, Search, Scan, ShoppingCart, Plus, Minus, Trash2, Check, Printer, LogOut, Package, AlertCircle, ArrowLeft, ArrowRight, X, CheckCircle2, Clock } from 'lucide-react';
 import { showToast } from '../utils/toast';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export default function CashierPOS({ products = [], settings = {}, onPlaceOrder, onGoBack, orders = [], onUpdateStatus, onUpdateProduct }) {
+  const { isInstallable, promptInstall } = usePWAInstall();
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return sessionStorage.getItem('pyjama_dz_pos_auth') === 'true';
@@ -665,6 +667,15 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
             <Clock size={16} />
             سجل المحل
           </button>
+
+          {isInstallable && (
+            <button 
+              onClick={promptInstall}
+              style={{ background: '#EF4444', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '12px', fontWeight: 'bold', display: 'flex', gap: '6px', alignItems: 'center', cursor: 'pointer' }}
+            >
+              تثبيت التطبيق 📱
+            </button>
+          )}
         </div>
       </header>
 

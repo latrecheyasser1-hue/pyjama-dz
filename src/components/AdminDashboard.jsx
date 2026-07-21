@@ -15,6 +15,8 @@ import PosModal from './admin/PosModal';
 import ClientsTab from './admin/ClientsTab';
 import ReclamationsTab from './admin/ReclamationsTab';
 
+import { usePWAInstall } from '../hooks/usePWAInstall';
+
 export default function AdminDashboard({
   orders,
   products,
@@ -35,6 +37,7 @@ export default function AdminDashboard({
   onUpdateSettings,
   onSwitchToClient
 }) {
+  const { isInstallable, promptInstall } = usePWAInstall();
   const [session, setSession] = useState(null);
   const [activeTab, setActiveTab] = useState('orders');
   const [authLoading, setAuthLoading] = useState(true);
@@ -200,7 +203,17 @@ export default function AdminDashboard({
       />
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, padding: '24px', overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
+      <main style={{ flex: 1, padding: '24px', overflowY: 'auto', overflowX: 'hidden', minWidth: 0, position: 'relative' }}>
+        
+        {isInstallable && (
+          <button 
+            onClick={promptInstall}
+            style={{ position: 'absolute', top: 24, right: 24, zIndex: 50, background: 'var(--burgundy)', color: 'white', padding: '10px 16px', borderRadius: '8px', border: 'none', fontWeight: 'bold', display: 'flex', gap: '8px', alignItems: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+          >
+            تثبيت التطبيق 📱
+          </button>
+        )}
+
         {activeTab === 'orders' && (
           <OrdersTab
             orders={orders}

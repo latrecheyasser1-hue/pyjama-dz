@@ -1,35 +1,30 @@
 <!doctype html>
-<html lang="en">
+<html lang="ar">
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pyjama DZ</title>
-    <script>
-      // Clear service workers and cache storage to fix F5 refresh white screen issues caused by conflicts on port 5173
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (var i = 0; i < registrations.length; i++) {
-            registrations[i].unregister().then(function(success) {
-              if (success) {
-                console.log('Cleared conflicting Service Worker');
-                window.location.reload(true);
-              }
-            });
-          }
-        });
-      }
-      if ('caches' in window) {
-        caches.keys().then(function(keys) {
-          keys.forEach(function(key) {
-            caches.delete(key);
-          });
-        });
-      }
+    
+    <!-- Primary Meta Tags -->
+    <title>Pyjama DZ - متجر بيجامات الجزائر</title>
+    <meta name="title" content="Pyjama DZ - متجر بيجامات الجزائر">
+    <meta name="description" content="أفضل متجر لبيع البيجامات وملابس النوم الفاخرة والمريحة في الجزائر. أسعار تنافسية، توصيل سريع لجميع الولايات، والدفع عند الاستلام.">
+    <meta name="keywords" content="بيجامات، ملابس نوم، الجزائر، بيجامة نسائية، بيجامة صيفية، بيجامة شتوية، Pyjama DZ, Pyjamas Algérie, Vêtements de nuit">
+    <meta name="theme-color" content="#8B1818">
+    <meta name="author" content="Pyjama DZ">
 
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pyjama-dz.com/">
+    <meta property="og:title" content="Pyjama DZ - متجر بيجامات الجزائر">
+    <meta property="og:description" content="أفضل متجر لبيع البيجامات وملابس النوم في الجزائر. الدفع عند الاستلام والتوصيل متوفر.">
+    <meta property="og:image" content="/luxury_pyjama_store_hero_1783543440843.png">
+    
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
+    <link rel="apple-touch-icon" href="/favicon.svg?v=3">
+    <script>
       window.addEventListener('error', function(e) {
         var root = document.getElementById('root');
         var errDiv = document.createElement('div');

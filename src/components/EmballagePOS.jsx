@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Package, Search, LogOut, CheckCircle2, RotateCcw, Clock, Box, ShieldCheck, ArrowLeft, Delete, Truck, Printer } from 'lucide-react';
 import { showToast } from '../utils/toast';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export default function EmballagePOS({ settings = {}, products = [], orders = [], onUpdateStatus, onGoBack }) {
+  const { isInstallable, promptInstall } = usePWAInstall();
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return sessionStorage.getItem('pyjama_dz_embalage_auth') === 'true';
   });
@@ -208,9 +210,19 @@ export default function EmballagePOS({ settings = {}, products = [], orders = []
             <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>إدارة وتجهيز الطلبيات المؤكدة</p>
           </div>
         </div>
-        <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', background: '#FEF2F2', color: '#EF4444', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer' }}>
-          <LogOut size={18} /> خروج
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          {isInstallable && (
+            <button 
+              onClick={promptInstall}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', background: 'var(--burgundy)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              تثبيت التطبيق 📱
+            </button>
+          )}
+          <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', background: '#FEF2F2', color: '#EF4444', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer' }}>
+            <LogOut size={18} /> خروج
+          </button>
+        </div>
       </header>
 
       <div style={{ padding: '30px', maxWidth: '1400px', margin: '0 auto' }}>

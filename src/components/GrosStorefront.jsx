@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ALGERIA_WILAYAS } from '../data/mockData';
 import { showToast } from '../utils/toast';
 import { ShoppingBag, ArrowRight, MapPin, Trash2, Check, Search, Phone, ShoppingCart } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 
 export default function GrosStorefront({ products, settings, onPlaceOrder, onGoToRetail }) {
   const categoriesList = settings?.categories || [];
@@ -250,7 +251,11 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
 
   return (
     <div className="gros-storefront" style={{ minHeight: '100vh', background: '#F8FAFC', padding: '24px 16px', fontFamily: 'system-ui, sans-serif' }}>
-      
+      <Helmet>
+        <title>فضاء تجار الجملة - Pyjama DZ</title>
+        <meta name="description" content="منصة الجملة لمتجر Pyjama DZ. أسعار خاصة للتجار، جودة عالية، وتوصيل لجميع الولايات. سجل الآن للوصول إلى أسعار الجملة." />
+      </Helmet>
+
       {/* Vanilla CSS styling */}
       <style>{`
         .gros-storefront * {

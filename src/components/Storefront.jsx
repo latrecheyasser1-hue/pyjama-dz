@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ALGERIA_WILAYAS, DEFAULT_CATEGORIES } from '../data/mockData';
 import { showToast } from '../utils/toast';
+import { supabase } from '../lib/supabaseClient';
 import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2, Check, Heart, Star, Search, User } from 'lucide-react';
-
+import { Helmet } from 'react-helmet-async';
 const getProductDisplayCategory = (prodCategory, categoriesList) => {
   if (!Array.isArray(categoriesList)) return prodCategory || 'Pyjama DZ';
   const exact = categoriesList.find(c => c && typeof c === 'object' && c.id === prodCategory);
@@ -220,6 +221,12 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
   const [selectedSize, setSelectedSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  
+  const [waitlistName, setWaitlistName] = useState('');
+  const [waitlistWhatsapp, setWaitlistWhatsapp] = useState('');
+  const [isWaitlistSubmitting, setIsWaitlistSubmitting] = useState(false);
+  const [waitlistSuccess, setWaitlistSuccess] = useState(false);
+  const [showWaitlistForm, setShowWaitlistForm] = useState(false);
 
   const linkedProducts = useMemo(() => {
     if (!product || !product.description || !Array.isArray(products)) return [];
@@ -238,9 +245,29 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
   const activeVariant = selectedVariantIdx !== null ? colorVariants[selectedVariantIdx] : null;
 
   // Sizes available for the active variant or product (showing all sizes including 0 stock)
-  const rawSizes = activeVariant?.stock && typeof activeVariant.stock === 'object'
-    ? Object.keys(activeVariant.stock)
-    : (Array.isArray(product?.sizes) ? product.sizes : (typeof product?.sizes === 'string' ? product.sizes.split(/[,/-]/).map(s => s.trim()).filter(Boolean) : ["Standard"]));
+  let rawSizes = [];
+  if (activeVariant?.stock && typeof activeVariant.stock === 'object') {
+    rawSizes = Object.keys(activeVariant.stock);
+  } else if (Array.isArray(product?.colorVariants) && product.colorVariants.length > 0) {
+    const allVariantSizes = new Set();
+    product.colorVariants.forEach(cv => {
+      if (cv.stock && typeof cv.stock === 'object') {
+        Object.keys(cv.stock).forEach(sz => allVariantSizes.add(sz));
+      }
+    });
+    rawSizes = Array.from(allVariantSizes);
+  }
+  
+  if (rawSizes.length === 0) {
+    if (Array.isArray(product?.sizes)) {
+      rawSizes = product.sizes;
+    } else if (typeof product?.sizes === 'string') {
+      rawSizes = product.sizes.split(/[,/-]/).map(s => s.trim()).filter(Boolean);
+    } else {
+      rawSizes = ["Standard"];
+    }
+  }
+
   const availableSizes = (Array.isArray(rawSizes) && rawSizes.length > 0 ? rawSizes : ["Standard"]).sort((a, b) => {
     const numA = Number(a);
     const numB = Number(b);
@@ -248,17 +275,22 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
     return 0; // maintain original order for clothes (e.g. S, M, L)
   });
 
-  // Clear selected size if it's no longer available or out of stock in the newly selected color variant
+  // Clear selected size if it's no longer available in the newly selected color variant
+  // Note: we no longer clear it if stock <= 0, so the user can select out-of-stock sizes to join waitlist
   useEffect(() => {
     if (selectedSize) {
-      const sizeStock = activeVariant?.stock && typeof activeVariant.stock === 'object' && activeVariant.stock[selectedSize] !== undefined
-        ? Number(activeVariant.stock[selectedSize])
-        : null;
-      if (!availableSizes.includes(selectedSize) || (sizeStock !== null && sizeStock <= 0)) {
+      if (!availableSizes.includes(selectedSize)) {
         setSelectedSize(null);
       }
     }
+    setWaitlistSuccess(false); // Reset waitlist success message when changing variant
+    setShowWaitlistForm(false); // Reset waitlist form
   }, [selectedVariantIdx]);
+
+  useEffect(() => {
+    setWaitlistSuccess(false); // Reset waitlist success message when changing size
+    setShowWaitlistForm(false); // Reset waitlist form
+  }, [selectedSize]);
 
   // Sync main image when variant changes
   useEffect(() => {
@@ -285,6 +317,18 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
       return;
     }
     
+    // Check stock zero logic
+    let currentSizeStock = null;
+    if (activeVariant?.stock && typeof activeVariant.stock === 'object') {
+      currentSizeStock = activeVariant.stock[selectedSize] !== undefined ? Number(activeVariant.stock[selectedSize]) : 0;
+    }
+    const isZeroStock = currentSizeStock !== null && currentSizeStock <= 0;
+
+    if (isZeroStock) {
+      setShowWaitlistForm(true);
+      return;
+    }
+
     onAddToCart(product, selectedVariantIdx !== null ? selectedVariantIdx : 0, {
       color: activeVariant ? activeVariant.color : 'Couleur Standard',
       colorHex: activeVariant ? activeVariant.colorHex : '#CBD5E1',
@@ -296,6 +340,13 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
 
   return (
     <div className="mazyoud-pdp-container">
+      <Helmet>
+        <title>{product?.title ? `${product.title} - Pyjama DZ` : 'تفاصيل المنتج - Pyjama DZ'}</title>
+        <meta name="description" content={product?.description ? (product.description.split('|||')[0]).substring(0, 160) : 'أفضل متجر بيجامات في الجزائر'} />
+        <meta property="og:title" content={product?.title || 'Pyjama DZ'} />
+        <meta property="og:image" content={allImages[0] || '/luxury_pyjama_store_hero_1783543440843.png'} />
+      </Helmet>
+
       {/* Back Button */}
       <button type="button" className="mazyoud-pdp-back-btn" onClick={onBack}>
         <ArrowRight size={18} style={{ transform: 'rotate(180deg)', marginLeft: '8px' }} />
@@ -488,9 +539,10 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
             <div className="size-swatches-grid">
               {availableSizes.map((size) => {
                 const isSelected = selectedSize === size;
-                const sizeStock = activeVariant?.stock && typeof activeVariant.stock === 'object' && activeVariant.stock[size] !== undefined
-                  ? Number(activeVariant.stock[size])
-                  : null;
+                let sizeStock = null;
+                if (activeVariant?.stock && typeof activeVariant.stock === 'object') {
+                  sizeStock = activeVariant.stock[size] !== undefined ? Number(activeVariant.stock[size]) : 0;
+                }
                 const isZeroStock = sizeStock !== null && sizeStock <= 0;
 
                 return (
@@ -498,11 +550,9 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                     key={size}
                     type="button"
                     className={`size-swatch-pill ${isSelected ? 'active' : ''}`}
-                    onClick={() => !isZeroStock && setSelectedSize(size)}
-                    disabled={isZeroStock}
-                    style={isZeroStock ? { opacity: 0.45, border: '1px dashed #94A3B8', color: '#94A3B8', cursor: 'not-allowed', background: '#F1F5F9', textDecoration: 'line-through' } : {}}
+                    onClick={() => setSelectedSize(size)}
                   >
-                    {size} {isZeroStock && <span style={{ fontSize: '0.75em', display: 'block', fontWeight: 800, color: '#94A3B8' }}>(0)</span>}
+                    {size}
                   </button>
                 );
               })}
@@ -533,15 +583,87 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
             </div>
           </div>
 
-          {/* Add to Cart Button */}
-          <button 
-            type="button" 
-            className="mazyoud-pdp-add-btn" 
-            onClick={handleAdd}
-          >
-            <ShoppingCart size={20} style={{ marginLeft: '8px' }} />
-            <span>إضافة إلى السلة / Ajouter au Panier</span>
-          </button>
+          {/* Waitlist Logic */}
+          {(() => {
+            if (showWaitlistForm) {
+              return (
+                <div style={{ marginTop: '20px', background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '16px', padding: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#E11D48', marginBottom: '15px', fontWeight: 'bold' }}>
+                    <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                    <span>عذراً، نفدت الكمية من هذا المقاس واللون!</span>
+                  </div>
+                  
+                  {waitlistSuccess ? (
+                    <div style={{ background: '#ECFCCB', color: '#4D7C0F', padding: '15px', borderRadius: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <CheckCircle2 size={20} />
+                      تم تسجيل طلبك بنجاح! سنخبرك عبر الواتساب فور توفره.
+                    </div>
+                  ) : (
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      if(!waitlistName || !waitlistWhatsapp) return;
+                      setIsWaitlistSubmitting(true);
+                      
+                      const { error } = await supabase.from('waitlist').insert([{
+                        client_name: waitlistName,
+                        whatsapp_number: waitlistWhatsapp,
+                        product_id: product.id,
+                        product_title: product.title,
+                        color: activeVariant ? activeVariant.color : 'Standard',
+                        size: selectedSize,
+                        status: 'pending'
+                      }]);
+                      
+                      setIsWaitlistSubmitting(false);
+                      if(!error) {
+                        setWaitlistSuccess(true);
+                        setWaitlistName('');
+                        setWaitlistWhatsapp('');
+                      } else {
+                        showToast("حدث خطأ أثناء تسجيل الطلب", "error");
+                      }
+                    }}>
+                      <p style={{ margin: '0 0 15px', fontSize: '0.9rem', color: '#4B5563' }}>سجل معلوماتك لنعلمك عبر الواتساب فور توفر هذه القطعة:</p>
+                      <input 
+                        type="text" 
+                        placeholder="الاسم واللقب" 
+                        required 
+                        value={waitlistName}
+                        onChange={(e) => setWaitlistName(e.target.value)}
+                        style={{ width: '100%', padding: '12px', border: '1px solid #FECDD3', borderRadius: '10px', marginBottom: '10px', outline: 'none' }}
+                      />
+                      <input 
+                        type="tel" 
+                        placeholder="رقم الواتساب (مثال: 0555...)" 
+                        required 
+                        value={waitlistWhatsapp}
+                        onChange={(e) => setWaitlistWhatsapp(e.target.value)}
+                        style={{ width: '100%', padding: '12px', border: '1px solid #FECDD3', borderRadius: '10px', marginBottom: '15px', outline: 'none', direction: 'ltr', textAlign: 'left' }}
+                      />
+                      <button 
+                        type="submit" 
+                        disabled={isWaitlistSubmitting}
+                        style={{ width: '100%', background: '#E11D48', color: 'white', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 'bold', cursor: isWaitlistSubmitting ? 'wait' : 'pointer', transition: 'all 0.2s' }}
+                      >
+                        {isWaitlistSubmitting ? 'جاري التسجيل...' : 'أعلمني عند التوفر 🔔'}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <button 
+                type="button" 
+                className="mazyoud-pdp-add-btn" 
+                onClick={handleAdd}
+              >
+                <ShoppingCart size={20} style={{ marginLeft: '8px' }} />
+                <span>إضافة إلى السلة / Ajouter au Panier</span>
+              </button>
+            );
+          })()}
 
           {/* Trust Guarantees */}
           <div className="mazyoud-pdp-guarantees">
@@ -666,6 +788,9 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
 
     if (!list.some(c => c.id === 'all')) {
       list.unshift({ id: 'all', title: 'TOUT VOIR', icon: '✨', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' });
+    }
+    if (!list.some(c => c.id === 'hot_sale')) {
+      list.splice(1, 0, { id: 'hot_sale', title: '🔥 الأكثر مبيعاً (HOT SALE)', icon: '🔥', badge: '🔥 Tendance' });
     }
     if (!list.some(c => c.id === 'promo')) {
       list.push({ id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' });
@@ -839,6 +964,18 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
 
       if (selectedCategory === 'all') return true;
       if (selectedCategory === 'promo') return p.oldPrice && Number(p.oldPrice) > Number(p.price || 0);
+      
+      if (selectedCategory === 'hot_sale') {
+        let hotSaleIds = [];
+        try {
+          if (typeof settings?.hot_sale_products === 'string') {
+            hotSaleIds = JSON.parse(settings.hot_sale_products);
+          } else if (Array.isArray(settings?.hot_sale_products)) {
+            hotSaleIds = settings.hot_sale_products;
+          }
+        } catch(e) {}
+        return hotSaleIds.includes(p.id);
+      }
       
       // Direct exact match
       if (p.category === selectedCategory) return true;
@@ -1056,6 +1193,10 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
 
   return (
     <>
+      <Helmet>
+        <title>Pyjama DZ - متجر بيجامات الجزائر</title>
+        <meta name="description" content="أفضل متجر لبيع البيجامات وملابس النوم الفاخرة والمريحة في الجزائر. أسعار تنافسية، توصيل سريع لجميع الولايات، والدفع عند الاستلام." />
+      </Helmet>
       <div className="storefront-wrapper animate-fade-up">
         {/* 1. EXACT MAZYOUD HERO BANNER & HEADER REPLICA */}
         <section className={`mazyoud-hero-container ${(selectedCategory !== 'all' || searchQuery.trim() || activeDetailProduct) ? 'category-page-mode' : ''}`}>
@@ -1602,7 +1743,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '18px' }}>
-                      <label className="form-label" style={{ fontWeight: 700 }}>رقم الهاتف (Téléphone) *</label>
+                      <label className="form-label" style={{ fontWeight: 700 }}>رقم الهاتف (واتساب) *</label>
                       <input 
                         type="tel" required placeholder="Ex: 0554128933" 
                         className="form-input" style={{ padding: '12px 16px', fontSize: '1rem', direction: 'ltr', textAlign: 'left' }}

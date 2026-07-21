@@ -5,6 +5,7 @@ import GrosStorefront from './components/GrosStorefront';
 import CashierPOS from './components/CashierPOS';
 import EmballagePOS from './components/EmballagePOS';
 import ToastContainer from './components/ToastContainer';
+import CookieConsent from './components/CookieConsent';
 import { supabase } from './lib/supabaseClient';
 import { processOrderDelivery } from './services/deliveryApi';
 
@@ -160,7 +161,7 @@ export default function App() {
     const { id, ...orderWithoutId } = newOrder;
     
     // Sanitise payload: only include valid DB columns of 'orders' table
-    const validColumns = ['clientName', 'phone', 'wilaya', 'commune', 'deliveryMode', 'product', 'price', 'quantity', 'status', 'archived', 'date', 'items'];
+    const validColumns = ['clientName', 'phone', 'wilaya', 'commune', 'deliveryMode', 'deliveryCompany', 'trackingNumber', 'shippingLabelUrl', 'product', 'price', 'quantity', 'status', 'archived', 'date', 'items'];
     const sanitizedOrder = {};
     validColumns.forEach(col => {
       if (orderWithoutId[col] !== undefined) {
@@ -290,6 +291,9 @@ export default function App() {
     const { error } = await supabase.from('orders').update(updatePayload).eq('id', orderId);
     if (!error) {
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updatePayload } : o));
+    } else {
+      console.error("Supabase Order Update Error:", error);
+      alert("خطأ تقني من قاعدة البيانات: \n" + (error.message || JSON.stringify(error)) + "\n\nصورلي هاد الخطأ باش نعرف المشكل وين راه بالظبط!");
     }
   };
 
@@ -462,6 +466,7 @@ export default function App() {
           onPlaceOrder={handlePlaceOrder}
         />
       )}
+      <CookieConsent />
       <ToastContainer />
     </div>
   );
