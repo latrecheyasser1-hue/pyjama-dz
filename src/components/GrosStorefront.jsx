@@ -4,6 +4,23 @@ import { showToast } from '../utils/toast';
 import { ShoppingBag, ArrowRight, MapPin, Trash2, Check, Search, Phone, ShoppingCart } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 
+const getProductCategoryGroupId = (prodCategory, categoriesList) => {
+  if (!Array.isArray(categoriesList)) return prodCategory;
+  const exact = categoriesList.find(c => c && typeof c === 'object' && c.id === prodCategory);
+  if (exact) return exact.id || prodCategory;
+  
+  const pCat = (prodCategory || '').toLowerCase().trim();
+  if (pCat === 'satin' || pCat === 'coton' || pCat === 'ensembles' || pCat.includes('pyjama')) {
+    const pyjamasCat = categoriesList.find(c => c && typeof c === 'object' && (c.title || '').toLowerCase().includes('pyjama'));
+    if (pyjamasCat) return pyjamasCat.id || prodCategory;
+  }
+  if (pCat === 'mariee' || pCat === 'abayas' || pCat.includes('robe') || pCat.includes('mari')) {
+    const robesCat = categoriesList.find(c => c && typeof c === 'object' && ((c.title || '').toLowerCase().includes('robe') || (c.title || '').toLowerCase().includes('mari')));
+    if (robesCat) return robesCat.id || prodCategory;
+  }
+  return prodCategory;
+};
+
 export default function GrosStorefront({ products, settings, onPlaceOrder, onGoToRetail }) {
   const categoriesList = settings?.categories || [];
   const selectableCategories = categoriesList.filter(c => c.id !== 'all' && c.id !== 'promo');
@@ -32,9 +49,10 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
       if (!p.price || Number(p.price) <= 0) return false;
       
       const cleanCat = p.category.replace('gros__', '');
+      const mappedCat = getProductCategoryGroupId(cleanCat, categoriesList);
       
       // Category filter
-      if (selectedCategory !== 'all' && cleanCat !== selectedCategory) return false;
+      if (selectedCategory !== 'all' && mappedCat !== selectedCategory) return false;
 
       // Search filter (startsWith title or barcode)
       if (searchQuery.trim()) {
@@ -436,16 +454,7 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
         }
       `}</style>
 
-      {/* Header */}
-      <div className="gros-header">
-        <h1 className="gros-title">
-          <span>📦</span> طلبات الجملة السريعة (Wholesale Gros Portal)
-        </h1>
-        <button onClick={onGoToRetail} className="btn-switch">
-          <ArrowRight size={18} />
-          <span>🛒 العودة لمتجر التجزئة (Détail)</span>
-        </button>
-      </div>
+
 
       {orderSuccess ? (
         <div style={{ maxWidth: '600px', margin: '40px auto', background: 'white', padding: '40px 24px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}>
