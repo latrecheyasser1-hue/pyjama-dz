@@ -1,20 +1,16 @@
-import { createClient } from '@supabase/supabase-js';
-
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
-const DEFAULT_TOKEN = Buffer.from('RUFBZ3VhV0hHbGY4QlNQeGNnZld5SjNIQllUVG1heWRsd2dVT20zaElsV1RPamZEWkEzblRZVGU3cVVlelVYWFZaQjRJaVpBd3ZaQ09Ld0lmOWFLNHlIZHBseDBuY3Zvck9XaXV1eFRVMUs3VXVVMFYxRkRmMWJCeDlmUThqM0hiSVM5ZFNWVmhhQmxvWkFBdXBEVkVmdVVWczFVWkNkR3gySHJtS0J0N1pCbW5PVHhwSVBRaUhhYzI3MWVQdXlQVjVZeWJSa28xWkIxQnBnSE1jeXZTU2R1WkJzTTRla3VrNEc1ZE1aQVd3NVpBYW9pMHp6eDdlejNnR0lMR3poMnFaQ1pCUlhrSFBTRTNJTnNBVzJ6S1pBRENnTTZwVlA=', 'base64').toString('utf8');
+const DEFAULT_TOKEN = 'EAAguaWHGlf8BSPxcgfWyJ3HBY7TmaydlwgUOm3hIlwTOjfDZA3nTYTe7qUezUXXVZB4IiZAwvZCOKwIf9aK4yHdplx0ncvorOWiuuxTU1K7UuU0V1FDf1bBx9fQ8j3HbIS9dSVVhZBloZAAupDVEfuUVs1UZCdGx2HrmKBt7ZBmnOTxpIPQiHac271ePuyPV5YyYbRko1ZB1BpgHMcyvSSduZBsM4ekuk4G5dMZAWw5ZAaoi0zzx7ez3gGILGzh2qZCZBRXkHPSE3INsAW2zKZADCgM6pVP';
 
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || DEFAULT_TOKEN;
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'pyjama_dz_secret_verify_token';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
 const GEMINI_KEYS = [
-  Buffer.from('QVEuQWI4Uk42THJfRndDWGdzWnpvNUI3X0ZHTXV2OTJ3V2I2MFpOd3hSaUlSallMdmpB', 'base64').toString('utf8'),
-  Buffer.from('QVEuQWI4Uk42SWpweDNfcmhWYTBGZDZ4R181aUJ3M3Z4aVZDamR5OURYelBQVDBaZFJn', 'base64').toString('utf8'),
-  Buffer.from('QVEuQWI4Uk42SnFZODAtdWVvaTJfVG9RQVAwamNmblZLdnZjZFp2VmR5X24wbU9seTd3', 'base64').toString('utf8')
+  'AQ.Ab8RN6Lr_FwCXgsZzo5B7_FGMuv92wWb60ZNwxRiIRjLYLvjA',
+  'AQ.Ab8RN6Ijpx3_rhVa0Fd6xG_5iBw3vxiVCjdy9DXzPPT0ZdRg',
+  'AQ.Ab8RN6JqY80-ueoi2_ToQAP0jcfnVKvcvdZvVdy_n0mOly7w'
 ];
 
 async function generateGeminiAI(prompt, systemInstruction = "") {
@@ -64,6 +60,41 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   }
 }
 
+async function getLatestOrderForPhone(cleanPhone) {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/orders?whatsapp=ilike.*${cleanPhone}*&order=created_at.desc&limit=1`;
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    const data = await res.json();
+    return Array.isArray(data) && data.length > 0 ? data[0] : null;
+  } catch (err) {
+    console.error('Error fetching Supabase order:', err);
+    return null;
+  }
+}
+
+async function updateOrderStatus(orderId, newStatus, botStatus) {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`;
+    await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ status: newStatus, bot_status: botStatus })
+    });
+  } catch (err) {
+    console.error('Error updating order status:', err);
+  }
+}
+
 async function processIncomingPayload(body) {
   try {
     if (body.object === 'whatsapp_business_account') {
@@ -77,41 +108,8 @@ async function processIncomingPayload(body) {
               if (messageText) {
                 console.log(`Received message from ${fromPhone}: ${messageText}`);
 
-                // A. WORKER STOCK RESTOCK via REPLY
-                const refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
-                if (refMatch) {
-                  const productId = refMatch[1];
-                  const colorIdx = parseInt(refMatch[2]);
-                  const size = refMatch[3];
-                  const addedQty = parseInt(messageText.replace(/\D/g, ''));
-
-                  if (!isNaN(addedQty) && addedQty > 0) {
-                    const { data: product } = await supabase.from('products').select('*').eq('id', productId).single();
-                    if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
-                      const updatedVariants = [...product.colorVariants];
-                      const currentQty = updatedVariants[colorIdx].stock?.[size] || 0;
-                      const newQty = currentQty + addedQty;
-
-                      updatedVariants[colorIdx] = {
-                        ...updatedVariants[colorIdx],
-                        stock: { ...(updatedVariants[colorIdx].stock || {}), [size]: newQty }
-                      };
-
-                      await supabase.from('products').update({ colorVariants: updatedVariants }).eq('id', productId);
-                      await sendWhatsAppMessage(fromPhone, `✅ تم تحديث السطوك بنجاح! تم إضافة +${addedQty} حبة للمنتج "${product.title}" (${updatedVariants[colorIdx].name} - ${size}). السطوك الحالي الآن: ${newQty} حبة.`);
-                      continue;
-                    }
-                  }
-                }
-
-                // B. CUSTOMER ORDER CONFIRMATION / CANCELLATION
-                const { data: order } = await supabase
-                  .from('orders')
-                  .select('*')
-                  .ilike('whatsapp', `%${fromPhone.replace(/^\+?213/, '0')}%`)
-                  .order('created_at', { ascending: false })
-                  .limit(1)
-                  .single();
+                const cleanPhone = fromPhone.replace(/^\+?213/, '0');
+                const order = await getLatestOrderForPhone(cleanPhone);
 
                 let prompt = `رسالة الزبون: "${messageText}"`;
                 if (order) {
@@ -122,11 +120,11 @@ async function processIncomingPayload(body) {
                   const isCancellation = ["annuler", "الغاء", "إلغاء", "حبس", "لا أريد", "non", "بطّلت"].some(w => textLower.includes(w));
 
                   if (isConfirmation) {
-                    await supabase.from('orders').update({ status: 'Confirmé', bot_status: 'confirmed' }).eq('id', order.id);
+                    await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
                     await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.nom}! ❤️ تم تأكيد طلبيتك رقم #${order.id} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً.`);
                     continue;
                   } else if (isCancellation) {
-                    await supabase.from('orders').update({ status: 'Annulé', bot_status: 'canceled' }).eq('id', order.id);
+                    await updateOrderStatus(order.id, 'Annulé', 'canceled');
                     await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${order.id} بناءً على رغبتك سيد ${order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
                     continue;
                   }
