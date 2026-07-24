@@ -178,29 +178,18 @@ export default function App() {
     if (!error) {
       setOrders(prev => [...prev, insertedOrder]);
       
-      // Auto Send WhatsApp Confirmation to Customer
+      // Auto Send WhatsApp Confirmation to Customer via Serverless API
       try {
         const customerPhone = insertedOrder.whatsapp || insertedOrder.phone;
         if (customerPhone) {
-          let formattedPhone = String(customerPhone).replace(/\D/g, '');
-          if (formattedPhone.startsWith('0')) formattedPhone = '213' + formattedPhone.substring(1);
-          if (!formattedPhone.startsWith('213')) formattedPhone = '213' + formattedPhone;
-
-          fetch('https://graph.facebook.com/v25.0/1280420541815907/messages', {
+          fetch('/api/send-order-whatsapp', {
             method: 'POST',
-            headers: {
-              'Authorization': 'Bearer EAAguaWHGlf8BSPxcgfWyJ3HBY7TmaydlwgUOm3hIlwTOjfDZA3nTYTe7qUezUXXVZB4IiZAwvZCOKwIf9aK4yHdplx0ncvorOWiuuxTU1K7UuU0V1FDf1bBx9fQ8j3HbIS9dSVVhZBloZAAupDVEfuUVs1UZCdGx2HrmKBt7ZBmnOTxpIPQiHac271ePuyPV5YyYbRko1ZB1BpgHMcyvSSduZBsM4ekuk4G5dMZAWw5ZAaoi0zzx7ez3gGILGzh2qZCZBRXkHPSE3INsAW2zKZADCgM6pVP',
-              'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              messaging_product: 'whatsapp',
-              recipient_type: 'individual',
-              to: formattedPhone,
-              type: 'text',
-              text: {
-                preview_url: false,
-                body: `مرحباً سيد ${insertedOrder.nom || ''}! ❤️ تم استلام طلبيتك رقم #${insertedOrder.id} بنجاح لدى متجر Pyjama DZ.\nوسنقوم بتجهيزها وشحنها لك فوراً إلى ولاية ${insertedOrder.wilaya || ''}.`
-              }
+              phone: customerPhone,
+              nom: insertedOrder.nom,
+              id: insertedOrder.id,
+              wilaya: insertedOrder.wilaya
             })
           }).catch(e => console.error("WhatsApp trigger error:", e));
         }
