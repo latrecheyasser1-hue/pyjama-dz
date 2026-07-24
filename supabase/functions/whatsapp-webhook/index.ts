@@ -45,37 +45,75 @@ serve(async (req) => {
 
                 if (messageText) {
                   console.log(`Received message from ${fromPhone}: ${messageText}`);
-
-                  // Find if we have a pending order for this phone
-                  // (Note: in production you might want to clean the phone number format)
                   const supabase = getSupabase();
+
+                  // A. WORKER STOCK RESTOCK via REPLY
+                  // Check if message is a reply containing REF context or if the message text contains [REF:productId:colorIdx:size]
+                  const refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/) || 
+                                   (message.context && message.context.id ? null : null);
+
+                  if (refMatch) {
+                    const productId = refMatch[1];
+                    const colorIdx = parseInt(refMatch[2]);
+                    const size = refMatch[3];
+                    const addedQty = parseInt(messageText.replace(/\D/g, ''));
+
+                    if (!isNaN(addedQty) && addedQty > 0) {
+                      const { data: product } = await supabase.from('products').select('*').eq('id', productId).single();
+                      if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
+                        const updatedVariants = [...product.colorVariants];
+                        const currentQty = updatedVariants[colorIdx].stock?.[size] || 0;
+                        const newQty = currentQty + addedQty;
+
+                        updatedVariants[colorIdx] = {
+                          ...updatedVariants[colorIdx],
+                          stock: {
+                            ...(updatedVariants[colorIdx].stock || {}),
+                            [size]: newQty
+                          }
+                        };
+
+                        await supabase.from('products').update({ colorVariants: updatedVariants }).eq('id', productId);
+                        await sendWhatsAppMessage(fromPhone, `✅ تم تحديث السطوك بنجاح! تم إضافة +${addedQty} حبة للمنتج "${product.title}" (${updatedVariants[colorIdx].name} - ${size}). السطوك الحالي الآن: ${newQty} حبة.`);
+                        continue;
+                      }
+                    }
+                  }
+
+                  // B. CUSTOMER ORDER CONFIRMATION / CANCELLATION / AI SALES
                   const { data: order } = await supabase
                     .from('orders')
                     .select('*')
-                    .ilike('whatsapp', `%${fromPhone.replace(/^\+?213/, '0')}%`) // Basic matching for Algerian numbers
-                    .eq('bot_status', 'pending_3h')
+                    .ilike('whatsapp', `%${fromPhone.replace(/^\+?213/, '0')}%`)
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .single();
 
-                  let prompt = `رسالة الزبونة: "${messageText}"`;
+                  let prompt = `رسالة الزبون: "${messageText}"`;
                   if (order) {
-                    prompt += `\nمعلومات الزبونة: اسمها ${order.nom} وطلبت ${order.product_id} مقاس ${order.taille} لولاية ${order.wilaya}.`;
+                    prompt += `\nمعلومات طلب الزبون الحالي:
+- الاسم: ${order.nom}
+- رقم الطلب: ${order.id}
+- الولاية: ${order.wilaya}
+- الحالة الحالية: ${order.status}`;
                     
-                    // If the user said something like "ok" or "yes", update order to confirmed
-                    const isConfirmation = ["ok", "oui", "daweq", "sah", "confirm", "نعم", "اوكي", "أكدي"].some(word => messageText.toLowerCase().includes(word));
+                    const textLower = messageText.toLowerCase();
+                    const isConfirmation = ["ok", "oui", "daweq", "sah", "confirm", "نعم", "اوكي", "أكدي", "تأكيد", "موافق"].some(w => textLower.includes(w));
+                    const isCancellation = ["annuler", "الغاء", "إلغاء", "حبس", "لا أريد", "non", "بطّلت"].some(w => textLower.includes(w));
+
                     if (isConfirmation) {
-                      await supabase.from('orders').update({
-                        status: 'Confirmé',
-                        bot_status: 'confirmed'
-                      }).eq('id', order.id);
+                      await supabase.from('orders').update({ status: 'Confirmé', bot_status: 'confirmed' }).eq('id', order.id);
+                      await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.nom}! ❤️ تم تأكيد طلبيتك رقم #${order.id} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً.`);
+                      continue;
+                    } else if (isCancellation) {
+                      await supabase.from('orders').update({ status: 'Annulé', bot_status: 'canceled' }).eq('id', order.id);
+                      await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${order.id} بناءً على رغبتك سيد ${order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
+                      continue;
                     }
                   }
 
-                  // Generate reply
+                  // C. AI SALES & RECLAMATION ASSISTANT (Gemini Powered)
                   const aiReply = await generateGeminiResponse(prompt, SYSTEM_INSTRUCTION_REPLY);
-
-                  // Send reply
                   if (aiReply) {
                     await sendWhatsAppMessage(fromPhone, aiReply);
                   }

@@ -20,6 +20,8 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   // General settings state
   const [instaUrl, setInstaUrl] = useState(settings?.instagramUrl || 'https://www.instagram.com/pyjama_dz');
   const [whatsapp, setWhatsapp] = useState(settings?.whatsapp || '0555123456');
+  const [whatsappBoutiqueManager, setWhatsappBoutiqueManager] = useState(settings?.whatsappBoutiqueManager || '0555123456');
+  const [whatsappLivraisonManager, setWhatsappLivraisonManager] = useState(settings?.whatsappLivraisonManager || '0555123456');
   const [phoneList, setPhoneList] = useState(() => parsePhones(settings?.phoneOrders));
   const [address, setAddress] = useState(settings?.address || 'Bab Ezzouar & Hydra, Alger');
   const [googleMapsUrl, setGoogleMapsUrl] = useState(settings?.googleMapsUrl || 'https://maps.google.com/?q=Bab+Ezzouar+Alger');
@@ -34,6 +36,8 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
     if (settings) {
       if (settings.instagramUrl !== undefined) setInstaUrl(settings.instagramUrl);
       if (settings.whatsapp !== undefined) setWhatsapp(settings.whatsapp);
+      if (settings.whatsappBoutiqueManager !== undefined) setWhatsappBoutiqueManager(settings.whatsappBoutiqueManager);
+      if (settings.whatsappLivraisonManager !== undefined) setWhatsappLivraisonManager(settings.whatsappLivraisonManager);
       if (settings.phoneOrders !== undefined) setPhoneList(parsePhones(settings.phoneOrders));
       if (settings.address !== undefined) setAddress(settings.address);
       if (settings.googleMapsUrl !== undefined) setGoogleMapsUrl(settings.googleMapsUrl);
@@ -78,6 +82,8 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       instagramUrl: instaUrl,
       googleMapsUrl,
       whatsapp,
+      whatsappBoutiqueManager,
+      whatsappLivraisonManager,
       phoneOrders: finalPhones,
       address,
       storeName
@@ -248,6 +254,16 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
             <div className="form-group">
               <label className="form-label">رقم الواتساب (WhatsApp Direct)</label>
               <input type="text" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="form-input" />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="form-group">
+                <label className="form-label">📱 رقم مسؤول سطوك المحل (Boutique Stock Manager)</label>
+                <input type="text" value={whatsappBoutiqueManager} onChange={(e) => setWhatsappBoutiqueManager(e.target.value)} className="form-input" placeholder="0555123456" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">📦 رقم مسؤول سطوك التوصيل (Livraison Stock Manager)</label>
+                <input type="text" value={whatsappLivraisonManager} onChange={(e) => setWhatsappLivraisonManager(e.target.value)} className="form-input" placeholder="0555654321" />
+              </div>
             </div>
             <div className="form-group">
               <label className="form-label">العنوان والمناطق (Adresse & Localisation)</label>
