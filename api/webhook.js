@@ -4,12 +4,11 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuej
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
-const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '913186378552041';
+const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'pyjama_dz_secret_verify_token';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Multi-key Gemini AI pool selector
 async function generateGeminiAI(prompt, systemInstruction = "") {
   const keys = [];
   for (let i = 1; i <= 50; i++) {
@@ -19,8 +18,9 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
   if (keys.length === 0 && process.env.GEMINI_API_KEY) {
     keys.push(process.env.GEMINI_API_KEY);
   }
+
   if (keys.length === 0) {
-    throw new Error('No Gemini API key found');
+    throw new Error('No Gemini API key configured in process.env');
   }
 
   const selectedKey = keys[Math.floor(Math.random() * keys.length)];
@@ -48,7 +48,7 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   if (!META_ACCESS_TOKEN) return;
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   try {
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
@@ -62,6 +62,8 @@ async function sendWhatsAppMessage(toPhone, textBody) {
         text: { preview_url: false, body: textBody }
       })
     });
+    const data = await res.json();
+    console.log('WhatsApp send result:', data);
   } catch (err) {
     console.error('Send WhatsApp error:', err);
   }
