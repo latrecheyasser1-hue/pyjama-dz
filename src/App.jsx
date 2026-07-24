@@ -177,6 +177,36 @@ export default function App() {
     
     if (!error) {
       setOrders(prev => [...prev, insertedOrder]);
+      
+      // Auto Send WhatsApp Confirmation to Customer
+      try {
+        const customerPhone = insertedOrder.whatsapp || insertedOrder.phone;
+        if (customerPhone) {
+          let formattedPhone = String(customerPhone).replace(/\D/g, '');
+          if (formattedPhone.startsWith('0')) formattedPhone = '213' + formattedPhone.substring(1);
+          if (!formattedPhone.startsWith('213')) formattedPhone = '213' + formattedPhone;
+
+          fetch('https://graph.facebook.com/v25.0/913186378552041/messages', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer EAAVe61MGxPQBSCzczKogzMCE28mgH1d8gUYIJFEgIf4YZBgS07pl2r4Lf3WTFYO',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: formattedPhone,
+              type: 'text',
+              text: {
+                preview_url: false,
+                body: `مرحباً سيد ${insertedOrder.nom || ''}! ❤️ تم استلام طلبيتك رقم #${insertedOrder.id} بنجاح لدى متجر Pyjama DZ.\nوسنقوم بتجهيزها وشحنها لك فوراً إلى ولاية ${insertedOrder.wilaya || ''}.`
+              }
+            })
+          }).catch(e => console.error("WhatsApp trigger error:", e));
+        }
+      } catch (err) {
+        console.error("WhatsApp notification error:", err);
+      }
       // Deduct stock for POS orders
       if (newOrder.items) {
         for (const item of newOrder.items) {
