@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-  // CORS headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -37,7 +36,7 @@ export default async function handler(req, res) {
       type: 'text',
       text: {
         preview_url: false,
-        body: `مرحباً سيد ${nom || ''}! ❤️ تم استلام طلبيتك رقم #${id || ''} بنجاح لدى متجر Pyjama DZ.\nوسنقوم بتجهيزها وشحنها لك فوراً إلى ولاية ${wilaya || ''}.`
+        body: `مرحباً سيد ${nom || ''}! ❤️ تم تسجيل طلبيتك رقم #${id || ''} بنجاح لدى متجر Pyjama DZ.\n\nيرجى الرد بـ كلمة (تأكيد) أو (إلغاء) لتأكيد وتجهيز شحنتك فوراً إلى ولاية ${wilaya || ''}.`
       }
     };
 
