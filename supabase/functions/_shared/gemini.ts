@@ -1,7 +1,7 @@
 export async function generateGeminiResponse(prompt, systemInstruction = "") {
-  // Pool of up to 10 keys (configure these in Supabase dashboard)
+  // Pool of up to 50 keys (configure these in Supabase / Vercel dashboard)
   const keys = [];
-  for (let i = 1; i <= 10; i++) {
+  for (let i = 1; i <= 50; i++) {
     const key = Deno.env.get(`GEMINI_API_KEY_${i}`);
     if (key) keys.push(key);
   }
