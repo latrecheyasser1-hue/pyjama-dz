@@ -64,6 +64,91 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   }
 }
 
+async function processIncomingPayload(body) {
+  if (body.object === 'whatsapp_business_account') {
+    for (const entry of body.entry || []) {
+      for (const change of entry.changes || []) {
+        if (change.value && change.value.messages) {
+          for (const message of change.value.messages) {
+            const fromPhone = message.from;
+            const messageText = message.text?.body;
+
+            if (messageText) {
+              console.log(`Received message from ${fromPhone}: ${messageText}`);
+
+              // A. WORKER STOCK RESTOCK via REPLY
+              const refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
+              if (refMatch) {
+                const productId = refMatch[1];
+                const colorIdx = parseInt(refMatch[2]);
+                const size = refMatch[3];
+                const addedQty = parseInt(messageText.replace(/\D/g, ''));
+
+                if (!isNaN(addedQty) && addedQty > 0) {
+                  const { data: product } = await supabase.from('products').select('*').eq('id', productId).single();
+                  if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
+                    const updatedVariants = [...product.colorVariants];
+                    const currentQty = updatedVariants[colorIdx].stock?.[size] || 0;
+                    const newQty = currentQty + addedQty;
+
+                    updatedVariants[colorIdx] = {
+                      ...updatedVariants[colorIdx],
+                      stock: { ...(updatedVariants[colorIdx].stock || {}), [size]: newQty }
+                    };
+
+                    await supabase.from('products').update({ colorVariants: updatedVariants }).eq('id', productId);
+                    await sendWhatsAppMessage(fromPhone, `✅ تم تحديث السطوك بنجاح! تم إضافة +${addedQty} حبة للمنتج "${product.title}" (${updatedVariants[colorIdx].name} - ${size}). السطوك الحالي الآن: ${newQty} حبة.`);
+                    continue;
+                  }
+                }
+              }
+
+              // B. CUSTOMER ORDER CONFIRMATION / CANCELLATION
+              const { data: order } = await supabase
+                .from('orders')
+                .select('*')
+                .ilike('whatsapp', `%${fromPhone.replace(/^\+?213/, '0')}%`)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+              let prompt = `رسالة الزبون: "${messageText}"`;
+              if (order) {
+                prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.nom}\n- رقم الطلب: ${order.id}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
+                
+                const textLower = messageText.toLowerCase();
+                const isConfirmation = ["ok", "oui", "daweq", "sah", "confirm", "نعم", "اوكي", "أكدي", "تأكيد", "موافق"].some(w => textLower.includes(w));
+                const isCancellation = ["annuler", "الغاء", "إلغاء", "حبس", "لا أريد", "non", "بطّلت"].some(w => textLower.includes(w));
+
+                if (isConfirmation) {
+                  await supabase.from('orders').update({ status: 'Confirmé', bot_status: 'confirmed' }).eq('id', order.id);
+                  await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.nom}! ❤️ تم تأكيد طلبيتك رقم #${order.id} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً.`);
+                  continue;
+                } else if (isCancellation) {
+                  await supabase.from('orders').update({ status: 'Annulé', bot_status: 'canceled' }).eq('id', order.id);
+                  await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${order.id} بناءً على رغبتك سيد ${order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
+                  continue;
+                }
+              }
+
+              // C. AI SALES & RECLAMATION ASSISTANT (Gemini Powered)
+              const systemInstruction = `أنت مساعد ذكي ومبيعات لمتجر بيجامات نسائية فاخرة جزائري (Pyjama DZ).
+تتحدث بالدارجة الجزائرية المحترمة والودية جداً.
+الهدف: مساعدة الزبائن وإقناعهم بلباقة، والرد على استفسارات الأسعار والألوان والشكاوى والمجاملات.`;
+              const aiReply = await generateGeminiAI(prompt, systemInstruction);
+              if (aiReply) {
+                await sendWhatsAppMessage(fromPhone, aiReply);
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Background processing error:', err);
+  }
+}
+
 export default async function handler(req, res) {
   // 1. Webhook Verification (Meta Verification Challenge)
   if (req.method === 'GET') {
@@ -80,94 +165,19 @@ export default async function handler(req, res) {
 
   // 2. Incoming Messages
   if (req.method === 'POST') {
-    try {
-      const body = req.body;
-      if (body.object === 'whatsapp_business_account') {
-        for (const entry of body.entry || []) {
-          for (const change of entry.changes || []) {
-            if (change.value && change.value.messages) {
-              for (const message of change.value.messages) {
-                const fromPhone = message.from;
-                const messageText = message.text?.body;
-
-                if (messageText) {
-                  console.log(`Received message from ${fromPhone}: ${messageText}`);
-
-                  // A. WORKER STOCK RESTOCK via REPLY
-                  const refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
-                  if (refMatch) {
-                    const productId = refMatch[1];
-                    const colorIdx = parseInt(refMatch[2]);
-                    const size = refMatch[3];
-                    const addedQty = parseInt(messageText.replace(/\D/g, ''));
-
-                    if (!isNaN(addedQty) && addedQty > 0) {
-                      const { data: product } = await supabase.from('products').select('*').eq('id', productId).single();
-                      if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
-                        const updatedVariants = [...product.colorVariants];
-                        const currentQty = updatedVariants[colorIdx].stock?.[size] || 0;
-                        const newQty = currentQty + addedQty;
-
-                        updatedVariants[colorIdx] = {
-                          ...updatedVariants[colorIdx],
-                          stock: { ...(updatedVariants[colorIdx].stock || {}), [size]: newQty }
-                        };
-
-                        await supabase.from('products').update({ colorVariants: updatedVariants }).eq('id', productId);
-                        await sendWhatsAppMessage(fromPhone, `✅ تم تحديث السطوك بنجاح! تم إضافة +${addedQty} حبة للمنتج "${product.title}" (${updatedVariants[colorIdx].name} - ${size}). السطوك الحالي الآن: ${newQty} حبة.`);
-                        continue;
-                      }
-                    }
-                  }
-
-                  // B. CUSTOMER ORDER CONFIRMATION / CANCELLATION
-                  const { data: order } = await supabase
-                    .from('orders')
-                    .select('*')
-                    .ilike('whatsapp', `%${fromPhone.replace(/^\+?213/, '0')}%`)
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .single();
-
-                  let prompt = `رسالة الزبون: "${messageText}"`;
-                  if (order) {
-                    prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.nom}\n- رقم الطلب: ${order.id}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
-                    
-                    const textLower = messageText.toLowerCase();
-                    const isConfirmation = ["ok", "oui", "daweq", "sah", "confirm", "نعم", "اوكي", "أكدي", "تأكيد", "موافق"].some(w => textLower.includes(w));
-                    const isCancellation = ["annuler", "الغاء", "إلغاء", "حبس", "لا أريد", "non", "بطّلت"].some(w => textLower.includes(w));
-
-                    if (isConfirmation) {
-                      await supabase.from('orders').update({ status: 'Confirmé', bot_status: 'confirmed' }).eq('id', order.id);
-                      await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.nom}! ❤️ تم تأكيد طلبيتك رقم #${order.id} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً.`);
-                      continue;
-                    } else if (isCancellation) {
-                      await supabase.from('orders').update({ status: 'Annulé', bot_status: 'canceled' }).eq('id', order.id);
-                      await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${order.id} بناءً على رغبتك سيد ${order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
-                      continue;
-                    }
-                  }
-
-                  // C. AI SALES & RECLAMATION ASSISTANT (Gemini Powered)
-                  const systemInstruction = `أنت مساعد ذكي ومبيعات لمتجر بيجامات نسائية فاخرة جزائري (Pyjama DZ).
-تتحدث بالدارجة الجزائرية المحترمة والودية جداً.
-الهدف: مساعدة الزبائن وإقناعهم بلباقة، والرد على استفسارات الأسعار والألوان والشكاوى والمجاملات.`;
-                  const aiReply = await generateGeminiAI(prompt, systemInstruction);
-                  if (aiReply) {
-                    await sendWhatsAppMessage(fromPhone, aiReply);
-                  }
-                }
-              }
-            }
-          }
-        }
-        return res.status(200).send('EVENT_RECEIVED');
-      }
-      return res.status(404).send('Not Found');
-    } catch (err) {
-      console.error('Webhook error:', err);
-      return res.status(500).send('Internal Server Error');
+    let body = req.body;
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch(e) {}
     }
+
+    // Return 200 OK immediately within 50ms so Meta never times out!
+    res.status(200).send('EVENT_RECEIVED');
+
+    // Process AI logic & reply in background
+    if (body) {
+      processIncomingPayload(body);
+    }
+    return;
   }
 
   return res.status(405).send('Method Not Allowed');
