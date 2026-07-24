@@ -102,48 +102,75 @@ async function updateOrderStatus(orderId, newStatus, botStatus) {
 
 async function processIncomingPayload(body) {
   try {
-    if (body.object === 'whatsapp_business_account') {
-      for (const entry of body.entry || []) {
-        for (const change of entry.changes || []) {
-          if (change.value && change.value.messages) {
-            for (const message of change.value.messages) {
-              const fromPhone = message.from;
-              const messageText = message.text?.body;
+    const entries = body?.entry || (Array.isArray(body) ? body : [body]);
+    for (const entry of entries) {
+      const changes = entry?.changes || [];
+      for (const change of changes) {
+        const value = change?.value || change;
+        const messages = value?.messages || [];
+        for (const message of messages) {
+          const fromPhone = message.from;
+          const messageText = message.text?.body;
 
-              if (messageText) {
-                console.log(`Received message from ${fromPhone}: ${messageText}`);
+          if (messageText) {
+            console.log(`Received message from ${fromPhone}: ${messageText}`);
 
-                const cleanPhone = fromPhone.replace(/^\+?213/, '0');
-                const order = await getLatestOrderForPhone(cleanPhone);
+            // A. WORKER STOCK RESTOCK via REPLY
+            const refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
+            if (refMatch) {
+              const productId = refMatch[1];
+              const colorIdx = parseInt(refMatch[2]);
+              const size = refMatch[3];
+              const addedQty = parseInt(messageText.replace(/\D/g, ''));
 
-                let prompt = `رسالة الزبون: "${messageText}"`;
-                if (order) {
-                  prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.nom}\n- رقم الطلب: ${order.id}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
-                  
-                  const textLower = messageText.toLowerCase();
-                  const isConfirmation = ["ok", "oui", "daweq", "sah", "confirm", "نعم", "اوكي", "أكدي", "تأكيد", "موافق"].some(w => textLower.includes(w));
-                  const isCancellation = ["annuler", "الغاء", "إلغاء", "حبس", "لا أريد", "non", "بطّلت"].some(w => textLower.includes(w));
+              if (!isNaN(addedQty) && addedQty > 0) {
+                const { data: product } = await supabase.from('products').select('*').eq('id', productId).single();
+                if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
+                  const updatedVariants = [...product.colorVariants];
+                  const currentQty = updatedVariants[colorIdx].stock?.[size] || 0;
+                  const newQty = currentQty + addedQty;
 
-                  if (isConfirmation) {
-                    await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
-                    await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.nom}! ❤️ تم تأكيد طلبيتك رقم #${order.id} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً.`);
-                    continue;
-                  } else if (isCancellation) {
-                    await updateOrderStatus(order.id, 'Annulé', 'canceled');
-                    await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${order.id} بناءً على رغبتك سيد ${order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
-                    continue;
-                  }
-                }
+                  updatedVariants[colorIdx] = {
+                    ...updatedVariants[colorIdx],
+                    stock: { ...(updatedVariants[colorIdx].stock || {}), [size]: newQty }
+                  };
 
-                // C. AI SALES & RECLAMATION ASSISTANT (Gemini Powered with Fallback)
-                const systemInstruction = `أنت مساعد ذكي ومبيعات لمتجر بيجامات نسائية فاخرة جزائري (Pyjama DZ).
-تتحدث بالدارجة الجزائرية المحترمة والودية جداً.
-الهدف: مساعدة الزبائن وإقناعهم بلباقة، والرد على استفسارات الأسعار والألوان والشكاوى والمجاملات.`;
-                const aiReply = await generateGeminiAI(prompt, systemInstruction);
-                if (aiReply) {
-                  await sendWhatsAppMessage(fromPhone, aiReply);
+                  await supabase.from('products').update({ colorVariants: updatedVariants }).eq('id', productId);
+                  await sendWhatsAppMessage(fromPhone, `✅ تم تحديث السطوك بنجاح! تم إضافة +${addedQty} حبة للمنتج "${product.title}" (${updatedVariants[colorIdx].name} - ${size}). السطوك الحالي الآن: ${newQty} حبة.`);
+                  continue;
                 }
               }
+            }
+
+            const cleanPhone = fromPhone.replace(/^\+?213/, '0');
+            const order = await getLatestOrderForPhone(cleanPhone);
+
+            let prompt = `رسالة الزبون: "${messageText}"`;
+            if (order) {
+              prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.nom}\n- رقم الطلب: ${order.id}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
+              
+              const textLower = messageText.toLowerCase();
+              const isConfirmation = ["ok", "oui", "daweq", "sah", "confirm", "نعم", "اوكي", "أكدي", "تأكيد", "موافق"].some(w => textLower.includes(w));
+              const isCancellation = ["annuler", "الغاء", "إلغاء", "حبس", "لا أريد", "non", "بطّلت"].some(w => textLower.includes(w));
+
+              if (isConfirmation) {
+                await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
+                await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.nom}! ❤️ تم تأكيد طلبيتك رقم #${order.id} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً.`);
+                continue;
+              } else if (isCancellation) {
+                await updateOrderStatus(order.id, 'Annulé', 'canceled');
+                await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${order.id} بناءً على رغبتك سيد ${order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
+                continue;
+              }
+            }
+
+            // C. AI SALES & RECLAMATION ASSISTANT (Gemini Powered with Fallback)
+            const systemInstruction = `أنت مساعد ذكي ومبيعات لمتجر بيجامات نسائية فاخرة جزائري (Pyjama DZ).
+تتحدث بالدارجة الجزائرية المحترمة والودية جداً.
+الهدف: مساعدة الزبائن وإقناعهم بلباقة، والرد على استفسارات الأسعار والألوان والشكاوى والمجاملات.`;
+            const aiReply = await generateGeminiAI(prompt, systemInstruction);
+            if (aiReply) {
+              await sendWhatsAppMessage(fromPhone, aiReply);
             }
           }
         }
