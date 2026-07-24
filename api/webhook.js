@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
-const DEFAULT_TOKEN = Buffer.from('RUFBZ3VhV0hHbGY4QlNQeGNnZld5SjNIQllUVG1heWRsd2dVT20zaElsV1RPamZEWkEzblRZVGU3cVVlelVYWFZaQjRJaVpBd3ZaQ09Ld0lmOWFLNHlIZHBseDBuY3Zvck9XaXV1eFRVMUs3VXVVMFYxRkRmMWJCeDlmUThqM0hiSVM5ZFNWVmhhQmxvWkFBdXBEVkVmdVVWczFVWkNkR3gySHJtS0J0N1pCbW5PVHhwSVBRaUhhYzI3MWVQdXlQVjVZeWJSa28xWkIxQnBnSE1jeXZTU2R1WkJzTTRla3VrNEc1ZE1aQVd3NVpBYW9pMHp6eDdlejNnR0lMR3poMnFaQ1pCUlhrSFBTRTNJTnNBVzJ6S1pBRENnTTZwVlA=', 'base64').toString('utf8');
+const DEFAULT_TOKEN = Buffer.from('RUFBZ3VhV0hHbGY4QlNQeGNnZld5SjNIQllUVG1heWRsd2dVT20zaElsV1RPamZEZkEzblRZVGU3cVVlelVYWFZaQjRJaVpBd3ZaQ09Ld0lmOWFLNHlIZHBseDBuY3Zvck9XaXV1eFRVMUs3VXVVMFYxRkRmMWJCeDlmUThqM0hiSVM5ZFNWVmhhQmxvWkFBdXBEVkVmdVVWczFVWkNkR3gySHJtS0J0N1pCbW5PVHhwSVBRaUhhYzI3MWVQdXlQVjVZeWJSa28xWkIxQnBnSE1jeXZTU2R1WkJzTTRla3VrNEc1ZE1aQVd3NVpBYW9pMHp6eDdlejNnR0lMR3poMnFaQ1pCUlhrSFBTRTNJTnNBVzJ6S1pBRENnTTZwVlA=', 'base64').toString('utf8');
 
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || DEFAULT_TOKEN;
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
@@ -170,14 +170,11 @@ export default async function handler(req, res) {
       try { body = JSON.parse(body); } catch(e) {}
     }
 
-    // Return 200 OK immediately within 50ms so Meta never times out!
-    res.status(200).send('EVENT_RECEIVED');
-
-    // Process AI logic & reply in background
     if (body) {
-      processIncomingPayload(body);
+      await processIncomingPayload(body);
     }
-    return;
+
+    return res.status(200).send('EVENT_RECEIVED');
   }
 
   return res.status(405).send('Method Not Allowed');
