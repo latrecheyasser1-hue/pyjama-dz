@@ -140,6 +140,73 @@ async function getAllProducts() {
   }
 }
 
+async function downloadMetaMedia(mediaId) {
+  const token = await getMetaAccessToken();
+  if (!token || !mediaId) return null;
+  try {
+    const metaRes = await fetch(`https://graph.facebook.com/v25.0/${mediaId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const metaData = await metaRes.json();
+    if (metaData && metaData.url) {
+      const audioRes = await fetch(metaData.url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const arrayBuf = await audioRes.arrayBuffer();
+      const base64 = Buffer.from(arrayBuf).toString('base64');
+      const mimeType = metaData.mime_type ? metaData.mime_type.split(';')[0].trim() : 'audio/ogg';
+      return { base64, mimeType };
+    }
+  } catch (err) {
+    console.error('Error downloading Meta media:', err);
+  }
+  return null;
+}
+
+async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInstruction = "") {
+  const modelEndpoints = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-flash-latest'];
+  for (const selectedKey of GEMINI_KEYS) {
+    for (const model of modelEndpoints) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': selectedKey
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: mimeType || 'audio/ogg',
+                    data: base64Audio
+                  }
+                },
+                {
+                  text: promptText || "استمع لهذا التسجيل الصوتي للزبون الجزائري (Vocal)، وافهم طلبه أو سؤاله بدقة وأجب عليه حسب بيانات المتجر والطلبيات."
+                }
+              ]
+            }],
+            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+            generationConfig: { temperature: 0.2, maxOutputTokens: 250 }
+          })
+        });
+
+        if (res.status === 200) {
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) return text.trim();
+        }
+      } catch (err) {
+        console.error('Gemini Audio error:', err);
+      }
+    }
+  }
+  return null;
+}
+
 async function generateGeminiAI(prompt, systemInstruction = "") {
   const modelEndpoints = ['gemini-3.5-flash-lite', 'gemini-flash-latest'];
   for (const selectedKey of GEMINI_KEYS) {
@@ -295,10 +362,72 @@ async function processIncomingPayload(body) {
         for (const message of messages) {
           try {
             const fromPhone = message.from;
-            const messageText = message.text?.body;
+            const messageType = message.type;
+            let messageText = message.text?.body;
 
-            if (messageText && fromPhone) {
-              console.log(`Received message from ${fromPhone}: ${messageText}`);
+            if (fromPhone) {
+              const cleanPhone = fromPhone.replace(/^\+?213/, '0');
+              const order = await getLatestOrderForPhone(cleanPhone);
+              const products = await getAllProducts();
+              const storeSettings = await getStoreSettings();
+
+              const phonesArr = extractCleanPhonesList(
+                storeSettings.phoneOrders,
+                storeSettings.phones,
+                storeSettings.whatsapp,
+                "0771335039"
+              );
+
+              const formattedPhonesBullets = phonesArr.length > 0
+                ? phonesArr.map(p => `• ${p}`).join('\n')
+                : '• 0771335039';
+
+              const storeAddressDisplay = storeSettings.address || "ولاية الشلف - Chlef";
+              const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "";
+              const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "";
+              const storeName = storeSettings.storeName || "Pyjama DZ";
+
+              // 🎙️ VOICE NOTE / AUDIO HANDLER (Multimodal Audio Understanding)
+              if (messageType === 'audio' || messageType === 'voice') {
+                const audioId = message.audio?.id || message.voice?.id;
+                console.log(`Received Audio Note / Vocal (${audioId}) from ${fromPhone}`);
+                
+                if (audioId) {
+                  const media = await downloadMetaMedia(audioId);
+                  if (media && media.base64) {
+                    let audioPrompt = "استمع لهذا التسجيل الصوتي للزبون الجزائري، وافهم سؤاله أو طلبه بدقة وتحدث معه بأناقة ورقي.";
+                    let orderNumStr = "58";
+                    if (order) {
+                      orderNumStr = await getSequentialOrderNum(order);
+                      audioPrompt += `\nبيانات طلب الزبون الحالي من السيستم:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
+                    }
+
+                    const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
+                    const systemInstruction = `أنت مساعد مبيعات لمتجر (${storeName}).
+قوانين التنسيق والشكل الحتمية:
+1. ابدأ دائماً الرد بـ: "🌸 *متجر Pyjama DZ* 🌸".
+2. استمع للـ Vocal الخاص بالزبون بكل دقة وافهم سؤاله أو تأكيده أو استفساره.
+3. اكتب الرد بأسلوب جزائري مهذب ومدرج بنقاط واضحة ورموز تعبيرية راقية.
+4. إذا قام الزبون بتأكيد طلبيته في الصوت، أجب بـ: "شكراً لك سيد ${order?.clientName || 'الزبون'}! ❤️ تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح في السيستم وجاري تجهيزها للشحن! 🚚✨".
+
+بيانات المتجر:
+- أرقام الهاتف الرسمية:
+${formattedPhonesBullets}
+- العنوان / المقر: ${storeAddressDisplay}
+- رابط خرائط جوجل: ${storeMapsUrl}
+${catalogSummary}`;
+
+                    const audioReply = await generateGeminiAudio(media.base64, media.mimeType, audioPrompt, systemInstruction);
+                    if (audioReply) {
+                      await sendWhatsAppMessage(fromPhone, audioReply);
+                      continue;
+                    }
+                  }
+                }
+              }
+
+              if (!messageText) continue;
+              console.log(`Received text message from ${fromPhone}: ${messageText}`);
 
               // A. WORKER STOCK RESTOCK via REPLY
               const refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
@@ -340,28 +469,6 @@ async function processIncomingPayload(body) {
                   }
                 }
               }
-
-              const cleanPhone = fromPhone.replace(/^\+?213/, '0');
-              const order = await getLatestOrderForPhone(cleanPhone);
-              const products = await getAllProducts();
-              const storeSettings = await getStoreSettings();
-
-              // Extract SPOTLESS clean phone numbers array
-              const phonesArr = extractCleanPhonesList(
-                storeSettings.phoneOrders,
-                storeSettings.phones,
-                storeSettings.whatsapp,
-                "0771335039"
-              );
-
-              const formattedPhonesBullets = phonesArr.length > 0
-                ? phonesArr.map(p => `• ${p}`).join('\n')
-                : '• 0771335039';
-
-              const storeAddressDisplay = storeSettings.address || "ولاية الشلف - Chlef";
-              const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "";
-              const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "";
-              const storeName = storeSettings.storeName || "Pyjama DZ";
 
               const normText = normalizeText(messageText);
 
