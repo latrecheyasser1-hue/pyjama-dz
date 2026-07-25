@@ -303,7 +303,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                       <select
                         onClick={(e) => e.stopPropagation()}
                         value={order.status}
-                        onChange={(e) => onUpdateStatus(order.id, e.target.value, false)}
+                        onChange={(e) => onUpdateStatus(order.id, e.target.value, true)}
                         className={`status-badge status-${order.status}`}
                         style={{ border: 'none', cursor: 'pointer', fontFamily: 'var(--font-primary)', fontWeight: 800 }}
                       >

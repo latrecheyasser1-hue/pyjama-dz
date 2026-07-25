@@ -265,7 +265,7 @@ async function getLatestOrderForPhone(cleanPhone) {
   }
 }
 
-async function updateOrderStatus(orderId, newStatus) {
+async function updateOrderStatusAndArchive(orderId, newStatus) {
   try {
     const url = `${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`;
     const res = await fetch(url, {
@@ -276,9 +276,9 @@ async function updateOrderStatus(orderId, newStatus) {
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
       },
-      body: JSON.stringify({ status: newStatus })
+      body: JSON.stringify({ status: newStatus, archived: true })
     });
-    console.log('Updated order status:', orderId, newStatus, res.status);
+    console.log('Updated order status and archived:', orderId, newStatus, res.status);
   } catch (err) {
     console.error('Error updating order status:', err);
   }
@@ -382,8 +382,8 @@ async function processIncomingPayload(body) {
               const isCancellation = order && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
 
               if (isConfirmation) {
-                // 1. UPDATE DB ORDER STATUS TO EXACT VALUE 'confirmee'
-                await updateOrderStatus(order.id, 'confirmee');
+                // 1. UPDATE DB ORDER STATUS TO 'confirmee' AND SET archived: true AUTOMATICALLY!
+                await updateOrderStatusAndArchive(order.id, 'confirmee');
                 const orderNumStr = await getSequentialOrderNum(order);
 
                 // 2. SHORT & DIRECT THANK YOU & DB CONFIRMATION REPLY TO CUSTOMER
@@ -391,8 +391,8 @@ async function processIncomingPayload(body) {
                 await sendWhatsAppMessage(fromPhone, confirmMsg);
                 continue;
               } else if (isCancellation) {
-                // 1. UPDATE DB ORDER STATUS TO EXACT VALUE 'annulee'
-                await updateOrderStatus(order.id, 'annulee');
+                // 1. UPDATE DB ORDER STATUS TO 'annulee' AND SET archived: true AUTOMATICALLY!
+                await updateOrderStatusAndArchive(order.id, 'annulee');
                 const orderNumStr = await getSequentialOrderNum(order);
 
                 // 2. SHORT & DIRECT CANCELLATION CONFIRMATION REPLY TO CUSTOMER
