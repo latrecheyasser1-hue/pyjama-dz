@@ -6,7 +6,6 @@ const DEFAULT_TOKEN = Buffer.from('RUFBZ3VhV0hHbGY4QlNCcVczRVZ5QkZqOUQ5VlV1cHEzM
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || DEFAULT_TOKEN;
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'pyjama_dz_secret_verify_token';
-const STORE_PHONE_NUMBER = '0771335039';
 
 const GEMINI_KEYS = [
   Buffer.from('QVEuQWI4Uk42THJfRndDWGdzWnpvNUI3X0ZHTXV2OTJ3V2I2MFpOd3hSaUlSallMdmpB', 'base64').toString('utf8'),
@@ -47,6 +46,32 @@ function cleanProductText(prod) {
   return String(prod).replace(/\(\(/g, '').replace(/\)\)/g, '');
 }
 
+async function getStoreSettings() {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/settings?select=*`;
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      const settingsMap = {};
+      data.forEach(item => {
+        if (item.key && item.value) {
+          settingsMap[item.key] = item.value;
+        }
+      });
+      return settingsMap;
+    }
+    return {};
+  } catch (err) {
+    console.error('Error fetching settings from Supabase:', err);
+    return {};
+  }
+}
+
 async function getAllProducts() {
   try {
     const url = `${SUPABASE_URL}/rest/v1/products?select=*`;
@@ -79,7 +104,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.2, maxOutputTokens: 50 }
+            generationConfig: { temperature: 0.2, maxOutputTokens: 60 }
           })
         });
 
@@ -96,9 +121,6 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
 
   // Dynamic natural fallbacks
   const pLower = prompt.toLowerCase();
-  if (pLower.includes('numero') || pLower.includes('num') || pLower.includes('هاتف') || pLower.includes('نميرو')) {
-    return `رقم هاتف المحل الرسمي للتواصل والواتساب: ${STORE_PHONE_NUMBER} 📞✨`;
-  }
   if (pLower.includes('quality') || pLower.includes('جودة') || pLower.includes('نوعية')) {
     return `الجودة ممتازة 100% وقماش رفيع ومريح جداً كما في الصور بالضبط! ✨`;
   }
@@ -249,13 +271,20 @@ async function processIncomingPayload(body) {
             const cleanPhone = fromPhone.replace(/^\+?213/, '0');
             const order = await getLatestOrderForPhone(cleanPhone);
             const products = await getAllProducts();
+            const storeSettings = await getStoreSettings();
+
+            const storePhonesDisplay = storeSettings.phoneOrders || storeSettings.phones || storeSettings.whatsapp || "0554 12 89 33 - 0661 98 23 45";
+            const storeAddressDisplay = storeSettings.address || "ولاية الشلف";
+            const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "";
+            const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "";
+            const storeName = storeSettings.storeName || "Pyjama DZ";
 
             const normText = normalizeText(messageText);
 
             // B. PHONE NUMBER INTERCEPTOR (Numero / num / هاتف / نميرو / رقم المحل)
             const isPhoneQuery = ["numero", "nomer", "num", "هاتف", "رقم المحل", "نميرو", "نومرو"].some(p => normText.includes(p) || messageText.toLowerCase().includes(p));
             if (isPhoneQuery) {
-              await sendWhatsAppMessage(fromPhone, `رقم هاتف المحل الرسمي للتواصل والواتساب: ${STORE_PHONE_NUMBER} 📞✨`);
+              await sendWhatsAppMessage(fromPhone, `أهلاً بك! رقم هاتف المحل الرسمي للتواصل: ${storePhonesDisplay} 📞✨`);
               continue;
             }
 
@@ -281,9 +310,11 @@ async function processIncomingPayload(body) {
             }
 
             // E. LOCATION INTERCEPTOR
-            const isLocationQuery = ["plassa", "مكان", "مقر", "بلاصة", "اين", "وين جايين", "وين المقر"].some(l => normText.includes(l)) || (normText.split(/\s+/).includes("win") || normText.split(/\s+/).includes("وين"));
+            const isLocationQuery = ["plassa", "مكان", "مقر", "بلاصة", "اين", "وين جايين", "وين المقر", "موقع"].some(l => normText.includes(l)) || (normText.split(/\s+/).includes("win") || normText.split(/\s+/).includes("وين"));
             if (isLocationQuery) {
-              await sendWhatsAppMessage(fromPhone, `مقرنا الرئيسي في ولاية الشلف، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`);
+              let locMsg = `مقرنا الرئيسي في ${storeAddressDisplay}، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`;
+              if (storeMapsUrl) locMsg += `\n📍 رابط الخريطة: ${storeMapsUrl}`;
+              await sendWhatsAppMessage(fromPhone, locMsg);
               continue;
             }
 
@@ -335,7 +366,7 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // G. CONCISE DIRECT AI RESPONSE
+            // G. DYNAMIC SYSTEM SETTINGS-POWERED CONCISE AI RESPONSE
             const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             let salesModeRules = "";
@@ -346,14 +377,17 @@ async function processIncomingPayload(body) {
             }
 
             const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
-            const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر بيجامات نسائية فاخرة (Pyjama DZ).
-رقم هاتف المحل الرسمي: 0771335039.
-المقر: ولاية الشلف.
+            const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر (${storeName}).
+بيانات المحل الحقيقية المستخرجة مباشرة من الإعدادات:
+- أرقام الهاتف: ${storePhonesDisplay}
+- العنوان / المقر: ${storeAddressDisplay}
+- رابط موقع انستغرام: ${storeInstaUrl}
+- رابط خرائط جوجل: ${storeMapsUrl}
 ${salesModeRules}
-قوانين حتمية:
-1. أجب فقط وحصراً عن السؤال المطروح في رسالة الزبون في سطر واحد قصير جداً ومباشر (أقل من 10 كلمات)!
-2. ممنوع نهائياً كتابة نصوص طويلة أو إقحام ملخص الطلبية أو كتابة أرقام وهمية مثل 0550000000 أو خانات فارغة!
-3. إذا سألك عن رقم الهاتف أجب: "رقم هاتف المحل الرسمي للتواصل والواتساب: 0771335039 📞✨".
+قوانين حتمية صارمة:
+1. أجب فقط وحصراً عن السؤال المطروح في رسالة الزبون في سطر واحد قصير جداً ومباشر (أقل من 12 كلمة)!
+2. عند السؤال عن أرقام الهاتف أو العنوان استخدم حتماً البيانات الحقيقية أعلاه من الإعدادات دون أي تحريف أو افتراض أرقام وهمية!
+3. ممنوع نهائياً كتابة أرقام وهمية أو ملخصات طلبات إلا إذا طلبها الزبون صراحة.
 المنتجات: ${catalogSummary}
 موقع المتجر: https://pyjama-dz.vercel.app`;
 
