@@ -104,7 +104,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.2, maxOutputTokens: 60 }
+            generationConfig: { temperature: 0.3, maxOutputTokens: 120 }
           })
         });
 
@@ -121,6 +121,9 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
 
   // Dynamic natural fallbacks
   const pLower = prompt.toLowerCase();
+  if (pLower.includes('kayn ghir') || pLower.includes('غير هذا') || pLower.includes('اخرين')) {
+    return `عندنا عدة أرقام وموديلات متنوعة! تفضل بزيارة موقعنا لرؤية كل الموديلات والألوان: https://pyjama-dz.vercel.app ✨`;
+  }
   if (pLower.includes('quality') || pLower.includes('جودة') || pLower.includes('نوعية')) {
     return `الجودة ممتازة 100% وقماش رفيع ومريح جداً كما في الصور بالضبط! ✨`;
   }
@@ -273,7 +276,15 @@ async function processIncomingPayload(body) {
             const products = await getAllProducts();
             const storeSettings = await getStoreSettings();
 
-            const storePhonesDisplay = storeSettings.phoneOrders || storeSettings.phones || storeSettings.whatsapp || "0554 12 89 33 - 0661 98 23 45";
+            // Extract ALL store phone numbers into a comprehensive list
+            const allPhones = [
+              storeSettings.phones,
+              storeSettings.phoneOrders,
+              storeSettings.whatsapp,
+              "0771335039"
+            ].filter(Boolean).flatMap(p => String(p).split(/[-,/]/)).map(s => s.trim()).filter((v, i, a) => v && a.indexOf(v) === i);
+
+            const storePhonesDisplay = allPhones.join(' - ');
             const storeAddressDisplay = storeSettings.address || "ولاية الشلف";
             const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "";
             const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "";
@@ -284,7 +295,7 @@ async function processIncomingPayload(body) {
             // B. PHONE NUMBER INTERCEPTOR (Numero / num / هاتف / نميرو / رقم المحل)
             const isPhoneQuery = ["numero", "nomer", "num", "هاتف", "رقم المحل", "نميرو", "نومرو"].some(p => normText.includes(p) || messageText.toLowerCase().includes(p));
             if (isPhoneQuery) {
-              await sendWhatsAppMessage(fromPhone, `أهلاً بك! رقم هاتف المحل الرسمي للتواصل: ${storePhonesDisplay} 📞✨`);
+              await sendWhatsAppMessage(fromPhone, `أهلاً بك! أرقام هاتف المحل الرسمية للتواصل والواتساب:\n📞 ${storePhonesDisplay} ✨`);
               continue;
             }
 
@@ -366,30 +377,28 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // G. DYNAMIC SYSTEM SETTINGS-POWERED CONCISE AI RESPONSE
+            // G. INTELLIGENT ALGERIAN DARIJA AI ASSISTANT (UNDERSTANDS FULL MEANING & FOLLOW-UPS)
             const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             let salesModeRules = "";
             if (isWholesale) {
               salesModeRules = `الزبون يسأل عن بالجملة (Gros). أجب حصراً عن أسعار وشروط الجملة والسيريات.`;
             } else {
-              salesModeRules = `الزبون زبون عادي بالقطعة. أجب عن سؤاله فقط في سطر واحد بدون ذكر أسعار الجملة أو تفاصيل طلبية سابقة إلا إذا سألك عنها!`;
+              salesModeRules = `الزبون زبون عادي بالقطعة. أجب بفهم عميق لمعنى الرسالة وسياق الكلام بالدارجة الجزائرية.`;
             }
 
             const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
-            const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر (${storeName}).
-بيانات المحل الحقيقية المستخرجة مباشرة من الإعدادات:
-- أرقام الهاتف: ${storePhonesDisplay}
-- العنوان / المقر: ${storeAddressDisplay}
-- رابط موقع انستغرام: ${storeInstaUrl}
-- رابط خرائط جوجل: ${storeMapsUrl}
+            const systemInstruction = `أنت بائع ومساعد مبيعات ذكي جداً لمتجر (${storeName}).
+تفهم الدارجة الجزائرية 100% وتفهم المقصد الحقيقي من أي سؤال (مثل "كاين غير هذا؟" تعني هل يوجد أرقام أخرى أو موديلات أخرى).
+جميع أرقام هاتف المحل الرسمية: ${storePhonesDisplay}
+العنوان الرسمي: ${storeAddressDisplay}
+رابط الموقع: https://pyjama-dz.vercel.app
+
 ${salesModeRules}
-قوانين حتمية صارمة:
-1. أجب فقط وحصراً عن السؤال المطروح في رسالة الزبون في سطر واحد قصير جداً ومباشر (أقل من 12 كلمة)!
-2. عند السؤال عن أرقام الهاتف أو العنوان استخدم حتماً البيانات الحقيقية أعلاه من الإعدادات دون أي تحريف أو افتراض أرقام وهمية!
-3. ممنوع نهائياً كتابة أرقام وهمية أو ملخصات طلبات إلا إذا طلبها الزبون صراحة.
-المنتجات: ${catalogSummary}
-موقع المتجر: https://pyjama-dz.vercel.app`;
+قواعد الرد الذكي:
+1. إذا كان سؤال الزبون عن توفر أشياء أخرى ("Kayn ghir hada ?", "كاين غير هذا؟", "وش كاين اخر؟"): أجب بدقة أن لدينا أرقام هاتف وموديلات وتشكيلة متنوعة واسعة في الموقع.
+2. أجب بإجابة ودية وبسيطة ومباشرة بالدارجة الجزائرية المحترمة في سطر واحد أو سطرين بدون إطالة أو تعقيد.
+المنتجات المتاحة: ${catalogSummary}`;
 
             const aiReply = await generateGeminiAI(prompt, systemInstruction);
             if (aiReply) {
