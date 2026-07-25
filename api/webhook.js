@@ -395,8 +395,10 @@ async function processIncomingPayload(body) {
                 if (audioId) {
                   const media = await downloadMetaMedia(audioId);
                   if (media && media.base64) {
-                    let audioPrompt = "استمع لهذا التسجيل الصوتي للزبون الجزائري. اكتب النص الحرفي لما قاله بالضبط (Transcription) بلهجته. لا تجب على سؤاله ولا تضف أي تعليقات، فقط اكتب ما سمعته.";
-                    const systemInstruction = "أنت أداة تفريغ صوتي (Speech-to-Text). اكتب النص المسموع فقط بدون أي شروحات إضافية.";
+                    let audioPrompt = `أنت أداة Speech-to-Text. وظيفتك الوحيدة هي استخراج النص من هذا التسجيل الصوتي للزبون الجزائري.
+ممنوع كتابة أي كلمة من عندك. ممنوع التلخيص. ممنوع كتابة "الزبون يطلب" أو "النص هو".
+أخرج الكلمات التي نطقها الزبون حرفياً فقط.`;
+                    const systemInstruction = "أنت أداة تفريغ صوتي (Speech-to-Text) جزائرية. أخرج النص المسموع حرفياً فقط.";
                     
                     let transcript = await generateGeminiAudio(media.base64, media.mimeType, audioPrompt, systemInstruction);
                     if (transcript) {
@@ -530,7 +532,7 @@ async function processIncomingPayload(body) {
               }
 
               // E. LOCATION INTERCEPTOR
-              const isLocationQuery = ["plassa", "مكان", "مقر", "بلاصة", "اين", "وين جايين", "وين المقر", "موقع"].some(l => normText.includes(l)) || (normText.split(/\s+/).includes("win") || normText.split(/\s+/).includes("وين"));
+              const isLocationQuery = ["plassa", "مكان", "مقر", "بلاصة", "اين", "وين جايين", "وين المقر", "موقع", "adresse", "عنوان", "وين بلاصتكم", "وين حانوتكم"].some(l => normText.includes(l));
               if (isLocationQuery) {
                 let locMsg = `🌸 *متجر Pyjama DZ* 🌸\n\n📍 *مقرنا الرئيسي:*\n${storeAddressDisplay}\n\n🚚 *التوصيل متوفر لجميع 58 ولاية لغاية باب دارك!* ✨`;
                 if (storeMapsUrl) locMsg += `\n📍 *رابط الخريطة:* ${storeMapsUrl}`;
