@@ -57,7 +57,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.3, maxOutputTokens: 60 }
+            generationConfig: { temperature: 0.2, maxOutputTokens: 40 }
           })
         });
 
@@ -74,14 +74,14 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
 
   // Ultra-short fallbacks
   const pLower = prompt.toLowerCase();
+  if (pLower.includes('quality') || pLower.includes('جودة') || pLower.includes('نوعية')) {
+    return `الجودة ممتازة 100% وقماش رفيع ومريح جداً! ✨`;
+  }
   if (pLower.includes('winta') || pLower.includes('وقتاش') || pLower.includes('وقت')) {
-    return `التوصيل سريع جداً ويستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`;
+    return `التوصيل يستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`;
   }
   if (pLower.includes('slm') || pLower.includes('سلام')) {
     return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك؟ ✨`;
-  }
-  if (pLower.includes('gros') || pLower.includes('جملة')) {
-    return `أهلاً بك! بيع الجملة متوفر بالسيريات والدرايط بأفضل الأسعار. تواصل معنا للكميات! ✨`;
   }
   if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة')) {
     return `أهلاً بك! يمكنك الاطلاع على أسعار الموديلات بالتفصيل عبر موقعنا: https://pyjama-dz.vercel.app ✨`;
@@ -226,14 +226,21 @@ async function processIncomingPayload(body) {
 
             const normText = normalizeText(messageText);
 
-            // B. DELIVERY DURATION INTERCEPTOR (Winta / وقتاش / وقت التوصيل)
-            const isTimeQuery = ["winta", "wakt", "وقتاش", "متى", "وقت", "شحال وقت", "شحال وتقاش", "مدة"].some(t => normText.includes(t));
-            if (isTimeQuery) {
-              await sendWhatsAppMessage(fromPhone, `التوصيل سريع جداً ويستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`);
+            // B. QUALITY INTERCEPTOR (Sha quality / جودة / نوعية / قماش)
+            const isQualityQuery = ["quality", "جودة", "نوعية", "قماش", "شابة", "شباب", "نوعيتهم"].some(q => normText.includes(q) || messageText.toLowerCase().includes(q));
+            if (isQualityQuery) {
+              await sendWhatsAppMessage(fromPhone, `الجودة ممتازة 100% وقماش رفيع ومريح جداً كما في الصور بالضبط! ✨`);
               continue;
             }
 
-            // C. INSTANT 1-LINE GREETINGS & LOCATION INTERCEPTORS
+            // C. DELIVERY DURATION INTERCEPTOR (Winta / وقتاش / وقت التوصيل)
+            const isTimeQuery = ["winta", "wakt", "وقتاش", "متى", "وقت", "شحال وقت", "شحال وتقاش", "مدة"].some(t => normText.includes(t));
+            if (isTimeQuery) {
+              await sendWhatsAppMessage(fromPhone, `التوصيل يستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`);
+              continue;
+            }
+
+            // D. INSTANT 1-LINE GREETINGS & LOCATION INTERCEPTORS
             const isGreeting = ["slm", "سلام", "مرحبا", "سلام عليكم", "مرحبتين", "bonjour", "salut", "سلام عليك"].some(g => normText === g || messageText.toLowerCase().trim() === g);
             if (isGreeting) {
               await sendWhatsAppMessage(fromPhone, `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك اليوم؟ ✨`);
@@ -274,7 +281,7 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // D. CHECK IF USER ASKS FOR PRODUCT IMAGES
+            // E. CHECK IF USER ASKS FOR PRODUCT IMAGES
             const wantsImages = ["photo", "chof", "modele", "موديل", "تصاور", "صور", "شوف", "صورة", "موديلات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             if (wantsImages) {
@@ -294,24 +301,23 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // E. RETAIL vs WHOLESALE (GROS) SEPARATION
+            // F. RETAIL vs WHOLESALE (GROS) SEPARATION & STRICT CONCISE RESPONSES
             const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             let salesModeRules = "";
             if (isWholesale) {
-              salesModeRules = `ملاحظة حتمية: الزبون يسأل عن بالجملة (Gros). أجب حصراً عن أسعار الجملة، شروط السيريات، وأدنى كمية للجملة. لا تخلط إطلاقاً مع أسعار القطعة الواحدة!`;
+              salesModeRules = `ملاحظة حتمية: الزبون يسأل عن بالجملة (Gros). أجب حصراً عن أسعار الجملة.`;
             } else {
-              salesModeRules = `ملاحظة حتمية: الزبون زبون عادي بالقطعة. أجب حصراً عن سعر القطعة والتوصيل 58 ولاية. ممنوع نهائياً خلط أو ذكر أسعار الجملة أو عبارات بالجملة!`;
+              salesModeRules = `ملاحظة حتمية: الزبون زبون عادي. أجب حصراً عن موضوع رسالته فقط. ممنوع نهائياً ذكر الأسعار أو التوصيل إلا إذا سألك الزبون عنهما صراحة!`;
             }
 
-            const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
+            const catalogSummary = products.map(p => `- ${p.title}`).join('\n');
             const systemInstruction = `أنت بائع ومساعد مبيعات لمتجر بيجامات نسائية (Pyjama DZ).
-مدة التوصيل: من 24 إلى 48 ساعة فقط لجميع 58 ولاية.
-المقر الرسمي: ولاية الشلف.
 ${salesModeRules}
-قانون حتمي صارم: أجب في سطر واحد قصير جداً ومباشر فقط (أقل من 15 كلمة)!
-المنتجات: ${catalogSummary}
-موقع المتجر: https://pyjama-dz.vercel.app`;
+قانون حتمي صارم:
+1. أجب حصراً وقصراً عن السؤال المطروح فقط في رسالة الزبون بدون أي معلومات إضافية أو أسعار أو توصيل!
+2. يجب أن تكون إجابتك في سطر واحد قصير جداً ومباشر (أقل من 8 كلمات).
+المنتجات: ${catalogSummary}`;
 
             const aiReply = await generateGeminiAI(prompt, systemInstruction);
             if (aiReply) {
