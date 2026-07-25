@@ -78,7 +78,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
     return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك؟ ✨`;
   }
   if (pLower.includes('win') || pLower.includes('plassa') || pLower.includes('مكان') || pLower.includes('مقر')) {
-    return `أهلاً بك! 🌸 نحن متجر إلكتروني والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك. ✨`;
+    return `مقرنا الرئيسي في ولاية الشلف، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`;
   }
   if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة')) {
     return `أهلاً بك! يمكنك الاطلاع على أسعار الموديلات بالتفصيل عبر موقعنا: https://pyjama-dz.vercel.app ✨`;
@@ -223,10 +223,16 @@ async function processIncomingPayload(body) {
 
             const normText = normalizeText(messageText);
 
-            // B. INSTANT 1-LINE GREETINGS INTERCEPTOR
+            // B. INSTANT 1-LINE GREETINGS & LOCATION INTERCEPTORS
             const isGreeting = ["slm", "سلام", "مرحبا", "سلام عليكم", "مرحبتين", "bonjour", "salut", "سلام عليك"].some(g => normText === g || messageText.toLowerCase().trim() === g);
             if (isGreeting) {
               await sendWhatsAppMessage(fromPhone, `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك اليوم؟ ✨`);
+              continue;
+            }
+
+            const isLocationQuery = ["win", "plassa", "مكان", "مقر", "بلاصة", "ولاية", "اين", "وين جايين"].some(l => normText.includes(l));
+            if (isLocationQuery) {
+              await sendWhatsAppMessage(fromPhone, `مقرنا الرئيسي في ولاية الشلف، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`);
               continue;
             }
 
@@ -281,8 +287,9 @@ async function processIncomingPayload(body) {
             // D. AI SALES & RECLAMATION ASSISTANT (Strict Single Line / Short Answers Only)
             const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
             const systemInstruction = `أنت بائع ومساعد مبيعات لمتجر بيجامات نسائية (Pyjama DZ).
-المقر والتوصيل: نحن متجر إلكتروني كامل مع خدمة التوصيل السريع لـ 58 ولاية حتى باب المنزل.
-قانون حتمي صارم: يجب أن تكون إجابتك في سطر واحد قصير جداً ومباشر فقط (أقل من 15 كلمة)! ممنوع الفقرات أو الترحيب الطويل إطلاقاً.
+المقر الرسمي: ولاية الشلف، الجزائر. والتوصيل متوفر لـ 58 ولاية لغاية باب المنزل.
+ممنوع نهائياً ذكر العاصمة أو إطالة الإجابة!
+قانون حتمي صارم: يجب أن تكون إجابتك في سطر واحد قصير جداً ومباشر فقط (أقل من 15 كلمة)!
 المنتجات: ${catalogSummary}
 موقع المتجر الإلكتروني: https://pyjama-dz.vercel.app`;
 
