@@ -244,7 +244,32 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
   return null;
 }
 
-async function generateGeminiAI(prompt, systemInstruction = "") {
+function getSmartFallbackResponse(prompt, storeSettings = {}) {
+  const norm = normalizeText(prompt);
+  const pLower = prompt.toLowerCase();
+  const mapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "https://maps.app.goo.gl/algeria-pyjama-dz";
+  const address = storeSettings.address || "الشلف (Chlef)";
+
+  if (['win jayiin', 'win jayin', 'مقر', 'عنوان', 'موقع', 'بلاصة', 'لوكيشن', 'اللوكيشن', 'chlef', 'الشلف'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `*متجر Pyjama DZ*\n\nالمقر والعنوان: ${address}.\nرابط خرائط جوجل (Google Maps):\n${mapsUrl}\n\nالتوصيل متوفر لجميع 58 ولاية حتى باب المنزل. كيف يمكننا مساعدتك اليوم؟`;
+  }
+
+  if (['prix', 'سعر', 'اسعار', 'سومة', 'شحال', 'بكم', 'منتجات', 'موديلات', 'بيجامة', 'بيجامات', 'سلعة'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `*متجر Pyjama DZ*\n\nتفضل بتصفح كافة الصور، المقاسات، الألوان والأسعار المتوفرة حالياً عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nأسعارنا مناسبة جداً والتوصيل متوفر لجميع الولايات.`;
+  }
+
+  if (['livraison', 'توصيل', 'شحن', 'نوصلو', 'ولاية', 'ديكسبريس', 'يالادين'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `*متجر Pyjama DZ*\n\nالتوصيل متوفر لجميع 58 ولاية حتى باب المنزل أو المكتب.\nالدفع يكون عند الاستلام بعد معاينة طلبك.`;
+  }
+
+  if (['gros', 'جملة', 'بالجملة', 'سيري', 'تجارة'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `*متجر Pyjama DZ*\n\nالبيع بالجملة متوفر بالسيريات والكميات لصحاب المحلات والتجارة.\nيمكنك تصفح الموقع أو التواصل معنا عبر الهاتف للمزيد من التفاصيل: https://pyjama-dz.vercel.app`;
+  }
+
+  return `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك. تفضل بالاستفسار عن أي موديل أو مقاس أو سعر، نحن في خدمتك.\nرابط الموقع الرسمي: https://pyjama-dz.vercel.app`;
+}
+
+async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}) {
   const modelEndpoints = ['gemini-flash-latest', 'gemini-2.0-flash'];
   const keys = getGeminiKeys();
   for (const selectedKey of keys) {
@@ -277,7 +302,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
     }
   }
 
-  return `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك. نحن متجر Pyjama DZ في الشلف، والتوصيل متوفر لجميع 58 ولاية.\nرابط الموقع الرسمي: https://pyjama-dz.vercel.app`;
+  return getSmartFallbackResponse(prompt, storeSettings);
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
@@ -584,7 +609,7 @@ ${settingsSummary}
 ${catalogSummary}
 ${salesModeRules}`;
 
-              const aiReply = await generateGeminiAI(prompt, systemInstruction);
+              const aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings);
               if (aiReply) {
                 await sendWhatsAppMessage(fromPhone, aiReply);
               }
