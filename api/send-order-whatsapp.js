@@ -25,7 +25,8 @@ export default async function handler(req, res) {
     if (formattedPhone.startsWith('0')) formattedPhone = '213' + formattedPhone.substring(1);
     if (!formattedPhone.startsWith('213')) formattedPhone = '213' + formattedPhone;
 
-    const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || 'EAAguaWHGlf8BSPxcgfWyJ3HBY7TmaydlwgUOm3hIlwTOjfDZA3nTYTe7qUezUXXVZB4IiZAwvZCOKwIf9aK4yHdplx0ncvorOWiuuxTU1K7UuU0V1FDf1bBx9fQ8j3HbIS9dSVVhZBloZAAupDVEfuUVs1UZCdGx2HrmKBt7ZBmnOTxpIPQiHac271ePuyPV5YyYbRko1ZB1BpgHMcyvSSduZBsM4ekuk4G5dMZAWw5ZAaoi0zzx7ez3gGILGzh2qZCZBRXkHPSE3INsAW2zKZADCgM6pVP';
+    const DEFAULT_TOKEN = 'EAAguaWHGlf8BSBqW3EVyBFj9D9VUupq33Pkb79IDFHaghB7bMOBJ6SyaqkvDdTA5ERNpHEEPDBaZCZCCCemsSuLTs0ZB64Nulcko56vXtc0W1edmKmA89k6AkVzej0gRydOssQKIMWdQiauXg2hXqmzeUF4pLIV9SomgHUzUTUt81SANdlfiiGFlq21mZC1k1LTFjZAemV3QK2NsB7b9l8UPtOSltlX0ayZAD6fR1bYsdUMnZB2iqQCfIO73tnARpD6RSCZASgR07fh7J1oD82RR';
+    const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || DEFAULT_TOKEN;
     const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 
     const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
