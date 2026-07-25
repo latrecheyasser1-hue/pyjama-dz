@@ -77,6 +77,9 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
   if (pLower.includes('slm') || pLower.includes('سلام')) {
     return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك؟ ✨`;
   }
+  if (pLower.includes('gros') || pLower.includes('جملة')) {
+    return `أهلاً بك! بيع الجملة متوفر بالسيريات والدرايط بأفضل الأسعار. تواصل معنا للكميات! ✨`;
+  }
   if (pLower.includes('win') || pLower.includes('plassa') || pLower.includes('مكان') || pLower.includes('مقر')) {
     return `مقرنا الرئيسي في ولاية الشلف، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`;
   }
@@ -284,14 +287,23 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // D. AI SALES & RECLAMATION ASSISTANT (Strict Single Line / Short Answers Only)
+            // D. STRICT SEPARATION OF RETAIL vs WHOLESALE (GROS) MODE
+            const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+            
+            let salesModeRules = "";
+            if (isWholesale) {
+              salesModeRules = `ملاحظة حتمية: الزبون يسأل عن بالجملة (Gros). أجب حصراً عن أسعار الجملة، شروط السيريات، وأدنى كمية للجملة. لا تخلط إطلاقاً مع أسعار القطعة الواحدة!`;
+            } else {
+              salesModeRules = `ملاحظة حتمية: الزبون زبون عادي بالقطعة. أجب حصراً عن سعر القطعة والتوصيل 58 ولاية. ممنوع نهائياً خلط أو ذكر أسعار الجملة أو عبارات بالجملة!`;
+            }
+
             const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
             const systemInstruction = `أنت بائع ومساعد مبيعات لمتجر بيجامات نسائية (Pyjama DZ).
-المقر الرسمي: ولاية الشلف، الجزائر. والتوصيل متوفر لـ 58 ولاية لغاية باب المنزل.
-ممنوع نهائياً ذكر العاصمة أو إطالة الإجابة!
-قانون حتمي صارم: يجب أن تكون إجابتك في سطر واحد قصير جداً ومباشر فقط (أقل من 15 كلمة)!
+المقر الرسمي: ولاية الشلف. والتوصيل لـ 58 ولاية لغاية باب المنزل.
+${salesModeRules}
+قانون حتمي صارم: أجب في سطر واحد قصير جداً ومباشر فقط (أقل من 15 كلمة)!
 المنتجات: ${catalogSummary}
-موقع المتجر الإلكتروني: https://pyjama-dz.vercel.app`;
+موقع المتجر: https://pyjama-dz.vercel.app`;
 
             const aiReply = await generateGeminiAI(prompt, systemInstruction);
             if (aiReply) {
