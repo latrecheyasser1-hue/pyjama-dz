@@ -294,17 +294,26 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}) {
     return `المقر والعنوان: ${address}.\nرابط خرائط جوجل (Google Maps):\n${mapsUrl}\n\nالتوصيل متوفر لجميع 58 ولاية حتى باب المنزل. كيف يمكننا مساعدتك اليوم؟`;
   }
 
-  // 3. PRICES / CATALOG
+  // 3. PRODUCT ITEM / COLOR / STOCK / AVAILABILITY QUERY
+  if (['ensemble', 'noir', 'rouge', 'rose', 'blanc', 'bleu', 'بيجامة', 'انسامبل', 'انصامبل', 'سطوك', 'كاين', 'kaayn', 'kayn', 'dispo', 'disponibilite', 'couleur', 'taille', 'مقاس', 'لون'].some(k => norm.includes(k) || pLower.includes(k))) {
+    let matchText = "";
+    if (pLower.includes('noir') || norm.includes('اكحل') || norm.includes('اسود')) matchText = " باللون الأسود (Noir)";
+    else if (pLower.includes('ensemble') || norm.includes('انسامبل') || norm.includes('انصامبل')) matchText = " (Ensemble)";
+
+    return `أهلاً بك. نعم متوفر المنتجات والـ Ensemble${matchText} عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nتفضل بدخول الموقع لمشاهدة كافة الصور والمقاسات والأسعار وتأكيد الطلب.`;
+  }
+
+  // 4. PRICES / CATALOG
   if (['prix', 'سعر', 'اسعار', 'سومة', 'شحال', 'بكم', 'منتجات', 'موديلات', 'بيجامة', 'بيجامات', 'سلعة'].some(k => norm.includes(k) || pLower.includes(k))) {
     return `تفضل بتصفح كافة الصور، المقاسات، الألوان والأسعار المتوفرة حالياً عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nأسعارنا مناسبة جداً والتوصيل متوفر لجميع الولايات.`;
   }
 
-  // 4. DELIVERY
+  // 5. DELIVERY
   if (['livraison', 'توصيل', 'شحن', 'نوصلو', 'ولاية', 'ديكسبريس', 'يالادين'].some(k => norm.includes(k) || pLower.includes(k))) {
     return `التوصيل متوفر لجميع 58 ولاية حتى باب المنزل أو المكتب.\nالدفع يكون عند الاستلام بعد معاينة طلبك.`;
   }
 
-  // 5. WHOLESALE
+  // 6. WHOLESALE
   if (['gros', 'جملة', 'بالجملة', 'سيري', 'تجارة'].some(k => norm.includes(k) || pLower.includes(k))) {
     return `البيع بالجملة متوفر بالسيريات والكميات لصحاب المحلات والتجارة.\nيمكنك تصفح الموقع أو التواصل معنا عبر الهاتف للمزيد من التفاصيل: https://pyjama-dz.vercel.app`;
   }
@@ -328,13 +337,15 @@ async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = 
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.3, maxOutputTokens: 300 }
+            generationConfig: { temperature: 0.3, maxOutputTokens: 1000 }
           })
         });
 
         if (res.status === 200) {
           const data = await res.json();
-          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          const parts = data.candidates?.[0]?.content?.parts || [];
+          const textObj = [...parts].reverse().find(p => p.text && !p.thought);
+          const text = textObj ? textObj.text : (parts[0]?.text || null);
           if (text) return removeEmojis(text.trim());
         } else {
           console.error(`Gemini AI status for ${model}: ${res.status}`);
