@@ -491,27 +491,35 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
     const rawImgs = p.images || p.image;
     if (Array.isArray(rawImgs)) {
       rawImgs.forEach(img => {
-        if (img && typeof img === 'string') {
-          const fullUrl = img.startsWith('http') ? img : `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
+        if (img && typeof img === 'string' && !img.startsWith('data:image')) {
+          const fullUrl = (img.startsWith('http://') || img.startsWith('https://')) ? img : `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
           matchedImages.push({ url: fullUrl, caption: `${p.title} - السعر: ${p.price} دج` });
         }
       });
-    } else if (typeof rawImgs === 'string' && rawImgs.trim()) {
-      const fullUrl = rawImgs.startsWith('http') ? rawImgs : `https://pyjama-dz.vercel.app${rawImgs.startsWith('/') ? '' : '/'}${rawImgs}`;
+    } else if (typeof rawImgs === 'string' && rawImgs.trim() && !rawImgs.startsWith('data:image')) {
+      const fullUrl = (rawImgs.startsWith('http://') || rawImgs.startsWith('https://')) ? rawImgs : `https://pyjama-dz.vercel.app${rawImgs.startsWith('/') ? '' : '/'}${rawImgs}`;
       matchedImages.push({ url: fullUrl, caption: `${p.title} - السعر: ${p.price} دج` });
     }
 
-    const variants = p.colorvariants || p.colorVariants;
+    const variants = p.colorVariants || p.colorvariants;
     if (Array.isArray(variants)) {
       variants.forEach(cv => {
         const cvImg = cv.image || cv.imageUrl || cv.img;
-        if (cvImg && typeof cvImg === 'string') {
-          const fullUrl = cvImg.startsWith('http') ? cvImg : `https://pyjama-dz.vercel.app${cvImg.startsWith('/') ? '' : '/'}${cvImg}`;
-          matchedImages.push({ url: fullUrl, caption: `${p.title} (${cv.name || ''}) - السعر: ${p.price} دج` });
+        if (cvImg && typeof cvImg === 'string' && !cvImg.startsWith('data:image')) {
+          const fullUrl = (cvImg.startsWith('http://') || cvImg.startsWith('https://')) ? cvImg : `https://pyjama-dz.vercel.app${cvImg.startsWith('/') ? '' : '/'}${cvImg}`;
+          matchedImages.push({ url: fullUrl, caption: `${p.title} (${cv.name || cv.color || ''}) - السعر: ${p.price} دج` });
         }
       });
     }
   });
+
+  if (matchedImages.length === 0 && Array.isArray(products) && products.length > 0) {
+    const p = products[0];
+    matchedImages.push({
+      url: "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&w=800&q=80",
+      caption: `${p.title || 'بيجامات فاخرة'} - السعر: ${p.price || 3200} دج`
+    });
+  }
 
   if (matchedImages.length > 0) {
     let sentCount = 0;
