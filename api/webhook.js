@@ -241,23 +241,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
     }
   }
 
-  // Dynamic natural fallbacks
-  const pLower = prompt.toLowerCase();
-  if (pLower.includes('kayn ghir') || pLower.includes('غير هذا') || pLower.includes('اخرين')) {
-    return `🌸 *متجر Pyjama DZ* 🌸\n\n✨ عندنا عدة أرقام وموديلات متنوعة في السيستم!\n🛍️ تفضل بزيارة موقعنا لرؤية كافة الموديلات: https://pyjama-dz.vercel.app ✨`;
-  }
-  if (pLower.includes('quality') || pLower.includes('جودة') || pLower.includes('نوعية')) {
-    return `🌸 *متجر Pyjama DZ* 🌸\n\n✨ الجودة ممتازة 100% وقماش رفيع ومريح جداً كما في الصور بالضبط! ✨`;
-  }
-  if (pLower.includes('winta') || pLower.includes('وقتاش') || pLower.includes('وقت')) {
-    return `🌸 *متجر Pyjama DZ* 🌸\n\n🚚 *مدة التوصيل:* من 24 إلى 48 ساعة فقط لجميع الولايات 58! ✨`;
-  }
-  if (pLower.includes('slm') || pLower.includes('سلام') || pLower.includes('alo') || pLower.includes('الوو')) {
-    return `🌸 *متجر Pyjama DZ* 🌸\n\nوعليكم السلام ورحمة الله! ❤️ أهلاً بك، تفضل كيف يمكننا مساعدتك اليوم؟ ✨`;
-  }
-  if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة')) {
-    return `🌸 *متجر Pyjama DZ* 🌸\n\n🛍️ أسعارنا ممتازة ويمكنك الاطلاع على تفاصيل كافة الموديلات عبر موقعنا:\n🌐 https://pyjama-dz.vercel.app ✨`;
-  }
+  // No more rigid natural fallbacks. The AI is fully capable of answering everything naturally.
 
   return `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً وسهلاً بك! ❤️ تفضل كيف يمكننا مساعدتك في الاختيار اليوم؟ ✨`;
 }
@@ -472,8 +456,10 @@ async function processIncomingPayload(body) {
                 'annul', 'cancel', 'non', 'حبس', 'بطلت', 'ما تبعث', 'لا', 'الغاء', 'إلغاء', 'نحي', 'انولي'
               ];
 
-              const isConfirmation = order && confirmKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-              const isCancellation = order && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+              // Only trigger hardcoded confirm/cancel if the message is short (likely a direct command)
+              const wordCount = messageText.trim().split(/\s+/).length;
+              const isConfirmation = order && wordCount <= 5 && confirmKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+              const isCancellation = order && wordCount <= 5 && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
 
               if (isConfirmation) {
                 // 1. UPDATE DB ORDER STATUS TO 'confirmee' AND SET archived: true AUTOMATICALLY!
@@ -503,74 +489,6 @@ async function processIncomingPayload(body) {
                 continue;
               }
 
-              // C. ORDER LOOKUP INTERCEPTOR (Commande / طلبية / طلبيتي / شوف طلبيتي)
-              const isOrderQuery = ["commande", "طلب", "طلبية", "طلبيتي", "كوماند"].some(o => normText.includes(o));
-              if (isOrderQuery) {
-                if (order) {
-                  const orderNum = await getSequentialOrderNum(order);
-                  const isConf = (order.status === 'confirmee' || order.status === 'Confirmé');
-                  const isCanc = (order.status === 'annulee' || order.status === 'Annulé');
-                  const statusName = isConf ? 'مؤكدة وفي مرحلة الشحن 🚚' : (isCanc ? 'ملغاة ❌' : 'جديدة قيد التجهيز ⏳');
-                  const prodText = cleanProductText(order.product);
-
-                  let orderReply = `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً بك سيد ${order.clientName || 'الزبون'}! ❤️\n\n📋 *تفاصيل الطلبية:*\n━━━━━━━━━━━━━━━\n📦 *رقم الطلب:* #${orderNum}\n🛍️ *المنتجات:* ${prodText}\n🚚 *الولاية:* ${order.wilaya || ''}\n📌 *الحالة:* ${statusName}\n━━━━━━━━━━━━━━━`;
-                  
-                  if (!isConf && !isCanc) {
-                    orderReply += `\n\n✨ يرجى الرد بـ كلمة (*تأكيد*) أو (*إلغاء*) لتجهيز شحنتك فوراً!`;
-                  } else if (isConf) {
-                    orderReply += `\n\n✅ طلبك مؤكد 100% وفي مرحلة الشحن والتوصيل! شكراً لثقتك بنا.`;
-                  }
-                  
-                  await sendWhatsAppMessage(fromPhone, orderReply);
-                } else {
-                  await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\nلم نجد طلبية مسجلة برقم هاتفك الحالي. يمكنك الطلب المباشر وسنكون في خدمتك عبر موقعنا:\n🌐 https://pyjama-dz.vercel.app ✨`);
-                }
-                continue;
-              }
-
-              // D. DELIVERY DURATION INTERCEPTOR
-              const isTimeQuery = ["winta", "wakt", "وقتاش", "متى", "وقت", "شحال وقت", "شحال وتقاش", "مدة"].some(t => normText.includes(t));
-              if (isTimeQuery) {
-                await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\n⏱️ *مدة التوصيل:*\nمن 24 إلى 48 ساعة فقط لجميع الولايات 58! 🚚✨`);
-                continue;
-              }
-
-              // E. LOCATION INTERCEPTOR
-              const isLocationQuery = ["plassa", "مكان", "مقر", "بلاصة", "اين", "وين جايين", "وين المقر", "موقع", "adresse", "عنوان", "وين بلاصتكم", "وين حانوتكم"].some(l => normText.includes(l));
-              if (isLocationQuery) {
-                let locMsg = `🌸 *متجر Pyjama DZ* 🌸\n\n📍 *مقرنا الرئيسي:*\n${storeAddressDisplay}\n\n🚚 *التوصيل متوفر لجميع 58 ولاية لغاية باب دارك!* ✨`;
-                if (storeMapsUrl) locMsg += `\n📍 *رابط الخريطة:* ${storeMapsUrl}`;
-                await sendWhatsAppMessage(fromPhone, locMsg);
-                continue;
-              }
-
-              let prompt = `رسالة الزبون: "${messageText}"`;
-              let orderNumStr = "58";
-              if (order) {
-                orderNumStr = await getSequentialOrderNum(order);
-                prompt += `\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
-              }
-
-              // F. CHECK IF USER ASKS FOR PRODUCT IMAGES
-              const wantsImages = ["photo", "chof", "modele", "موديل", "تصاور", "صور", "شوف", "صورة", "موديلات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-              
-              if (wantsImages) {
-                let sentCount = 0;
-                if (products.length > 0) {
-                  for (const p of products) {
-                    const firstVar = p.colorVariants?.[0];
-                    const imgUrl = firstVar?.images?.[0] || p.image;
-                    if (imgUrl && typeof imgUrl === 'string' && imgUrl.startsWith('http')) {
-                      await sendWhatsAppImage(fromPhone, imgUrl, `✨ ${p.title}\n🎨 الألوان: ${p.colorVariants?.map(v => v.name).join(', ') || 'متعددة'}`);
-                      sentCount++;
-                      if (sentCount >= 2) break;
-                    }
-                  }
-                }
-                await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\n✨ تفضل صور أفضل الموديلات والتصاور الحقيقية عبر موقعنا:\n🌐 https://pyjama-dz.vercel.app 🛍️`);
-                continue;
-              }
-
               // G. STRICT SUPABASE SETTINGS & DATABASE STRICTNESS RULE
               const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
               
@@ -579,6 +497,13 @@ async function processIncomingPayload(body) {
                 salesModeRules = `الزبون يسأل عن بالجملة (Gros). أجب حصراً عن أسعار وشروط الجملة والسيريات من النظام.`;
               } else {
                 salesModeRules = `الزبون زبون عادي بالقطعة. أجب عن سؤاله حصراً وحقيقياً من بيانات الـ Settings والـ Database فقط.`;
+              }
+
+              let prompt = `رسالة الزبون: "${messageText}"`;
+              let orderNumStr = "58";
+              if (order) {
+                orderNumStr = await getSequentialOrderNum(order);
+                prompt += `\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
               }
 
               const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
