@@ -488,27 +488,34 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
 
   const matchedImages = [];
   (products || []).forEach(p => {
-    if (p.images && Array.isArray(p.images) && p.images.length > 0) {
-      p.images.forEach(img => {
-        if (img && typeof img === 'string' && img.startsWith('http')) {
-          matchedImages.push({ url: img, caption: `${p.title} - السعر: ${p.price} دج` });
+    const rawImgs = p.images || p.image;
+    if (Array.isArray(rawImgs)) {
+      rawImgs.forEach(img => {
+        if (img && typeof img === 'string') {
+          const fullUrl = img.startsWith('http') ? img : `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
+          matchedImages.push({ url: fullUrl, caption: `${p.title} - السعر: ${p.price} دج` });
         }
       });
-    } else if (p.image && typeof p.image === 'string' && p.image.startsWith('http')) {
-      matchedImages.push({ url: p.image, caption: `${p.title} - السعر: ${p.price} دج` });
+    } else if (typeof rawImgs === 'string' && rawImgs.trim()) {
+      const fullUrl = rawImgs.startsWith('http') ? rawImgs : `https://pyjama-dz.vercel.app${rawImgs.startsWith('/') ? '' : '/'}${rawImgs}`;
+      matchedImages.push({ url: fullUrl, caption: `${p.title} - السعر: ${p.price} دج` });
     }
 
-    if (Array.isArray(p.colorVariants)) {
-      p.colorVariants.forEach(cv => {
-        if (cv.image && typeof cv.image === 'string' && cv.image.startsWith('http')) {
-          matchedImages.push({ url: cv.image, caption: `${p.title} - اللون: ${cv.name}` });
+    const variants = p.colorvariants || p.colorVariants;
+    if (Array.isArray(variants)) {
+      variants.forEach(cv => {
+        const cvImg = cv.image || cv.imageUrl || cv.img;
+        if (cvImg && typeof cvImg === 'string') {
+          const fullUrl = cvImg.startsWith('http') ? cvImg : `https://pyjama-dz.vercel.app${cvImg.startsWith('/') ? '' : '/'}${cvImg}`;
+          matchedImages.push({ url: fullUrl, caption: `${p.title} (${cv.name || ''}) - السعر: ${p.price} دج` });
         }
       });
     }
   });
 
   if (matchedImages.length > 0) {
-    for (const item of matchedImages.slice(0, 2)) {
+    for (const item of matchedImages.slice(0, 3)) {
+      console.log('Sending product image to WhatsApp:', item.url);
       await sendWhatsAppImage(toPhone, item.url, item.caption);
     }
     return true;
