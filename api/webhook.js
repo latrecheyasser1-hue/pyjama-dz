@@ -8,18 +8,7 @@ const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'pyjama_dz_secret_verify_t
 
 async function getMetaAccessToken() {
   if (process.env.META_ACCESS_TOKEN && process.env.META_ACCESS_TOKEN.length > 20) {
-    return process.env.META_ACCESS_TOKEN;
-  }
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.meta_access_token&select=value`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    const data = await res.json();
-    if (Array.isArray(data) && data[0]?.value) {
-      return data[0].value.trim();
-    }
-  } catch (err) {
-    console.error('Error fetching Meta token from settings:', err);
+    return process.env.META_ACCESS_TOKEN.trim();
   }
   return DEFAULT_TOKEN;
 }
