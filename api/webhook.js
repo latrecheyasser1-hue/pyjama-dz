@@ -392,6 +392,10 @@ async function processIncomingPayload(body) {
                     let transcript = await generateGeminiAudio(media.base64, media.mimeType, audioPrompt, systemInstruction);
                     if (transcript) {
                       console.log(`Vocal Transcription for ${fromPhone}: ${transcript}`);
+                      if (transcript.includes("غير_مفهوم") || transcript.includes("غير مفهوم")) {
+                        await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\nأهلاً بك! عذراً، لم أتمكن من سماع الصوت بوضوح 😔.\nكيف يمكنني مساعدتك في الاختيار اليوم؟ ✨`);
+                        continue; // Skip further processing
+                      }
                       messageText = transcript; // Feed the transcript into the standard text pipeline!
                     }
                   }
@@ -517,7 +521,8 @@ async function processIncomingPayload(body) {
 3. إذا طلب الزبون رابط الموقع (link, lien, موقع, سيت)، أعطه الرابط مباشرة: https://pyjama-dz.vercel.app ولا تضف كلاماً فارغاً.
 4. إذا سأل عن مقر المتجر (وين جايين)، أعطه العنوان ورابط الخرائط مباشرة.
 5. لا تكتب ردوداً طويلة جداً أو روبوتية. تصرف كإنسان لبق ومحترف.
-6. ممنوع منعاً باتاً أن تطلب من الزبون "كتابة" طلبه أو سؤاله (لأنه قد يكون أرسل رسالة صوتية). إذا لم تفهم، قل فقط: "أهلاً بك، كيف يمكنني مساعدتك؟".
+6. ممنوع منعاً باتاً أن تطلب من الزبون "كتابة" طلبه أو سؤاله.
+7. إذا كانت رسالة الزبون قصيرة أو مجرد تحية (مثل "أوكي"، "سلام"، "شكرا")، رحب به واسأله كيف يمكنك مساعدته اليوم في طلب البيجامات، ولا تكتفِ بطباعة العنوان فقط!
 
 بيانات المتجر من الإعدادات (Settings):
 - أرقام الهاتف: ${formattedPhonesBullets}
