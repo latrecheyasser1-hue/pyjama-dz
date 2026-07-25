@@ -247,6 +247,17 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "") {
+  const pLower = prompt.toLowerCase();
+  
+  // Instant direct answers if Gemini API keys hit rate limits or 429 errors:
+  if (pLower.includes('win jayiin') || pLower.includes('وين جايين') || pLower.includes('المقر') || pLower.includes('العنوان') || pLower.includes('موقعكم')) {
+    return `🌸 *متجر Pyjama DZ* 🌸\n\n📍 *المقر والعنوان:* الشلف (Chlef - الشلف).\n🗺️ *رابط اللوكيشن (Google Maps):* https://maps.app.goo.gl/algeria-pyjama-dz\n\n✨ التوصيل متوفر لجميع الولايات حتى باب المنزل! كيف يمكننا مساعدتك في طلبك اليوم؟ ❤️`;
+  }
+  
+  if (pLower.includes('link') || pLower.includes('الرابط') || pLower.includes('الموقع') || pLower.includes('موقعك')) {
+    return `🌸 *متجر Pyjama DZ* 🌸\n\n🌐 *رابط الموقع الإلكتروني:* https://pyjama-dz.vercel.app\n\nتفضل بتصفح كافة المنتجات والأسعار المتوفرة عبر الموقع! ✨`;
+  }
+
   const modelEndpoints = ['gemini-2.0-flash', 'gemini-flash-latest'];
   const keys = getGeminiKeys();
   for (const selectedKey of keys) {
@@ -279,9 +290,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
     }
   }
 
-  // No more rigid natural fallbacks. The AI is fully capable of answering everything naturally.
-
-  return `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً وسهلاً بك! ❤️ تفضل كيف يمكننا مساعدتك في الاختيار اليوم؟ ✨`;
+  return `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً وسهلاً بك! ❤️ نحن متجر Pyjama DZ في الشلف، والتوصيل متوفر لجميع 58 ولاية.\nتفضل بتصفح موقعنا: https://pyjama-dz.vercel.app ✨`;
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
