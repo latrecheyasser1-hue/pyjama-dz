@@ -47,6 +47,11 @@ function getGeminiKeys() {
   return keys;
 }
 
+function removeEmojis(str) {
+  if (!str) return "";
+  return str.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+}
+
 function normalizeText(text) {
   if (!text) return "";
   return text.toLowerCase()
@@ -175,7 +180,6 @@ async function downloadMetaMedia(mediaId) {
         }
       });
       
-      // If CDN rejects bearer token on redirect, try without Authorization header
       if (!audioRes.ok) {
         audioRes = await fetch(metaData.url, {
           headers: { 'User-Agent': 'curl/7.68.0' }
@@ -187,11 +191,7 @@ async function downloadMetaMedia(mediaId) {
         const base64 = Buffer.from(arrayBuf).toString('base64');
         const mimeType = metaData.mime_type ? metaData.mime_type.split(';')[0].trim() : 'audio/ogg';
         return { base64, mimeType };
-      } else {
-        console.error(`Audio download failed status: ${audioRes.status}`);
       }
-    } else {
-      console.error('Meta media metadata failed:', metaData);
     }
   } catch (err) {
     console.error('Error downloading Meta media:', err);
@@ -222,7 +222,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
                   }
                 },
                 {
-                  text: promptText || "استمع لهذا التسجيل الصوتي للزبون الجزائري (Vocal)، وافهم طلبه أو سؤاله بدقة وأجب عليه حسب بيانات المتجر والطلبيات."
+                  text: promptText || "استمع لهذا التسجيل الصوتي للزبون، وافهم طلبه بدقة دون كتابة إيموجي."
                 }
               ]
             }],
@@ -234,9 +234,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
         if (res.status === 200) {
           const data = await res.json();
           const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) return text.trim();
-        } else {
-            console.error(`Gemini Audio error for ${model}: ${res.status}`);
+          if (text) return removeEmojis(text.trim());
         }
       } catch (err) {
         console.error('Gemini Audio error:', err);
@@ -249,13 +247,13 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
 async function generateGeminiAI(prompt, systemInstruction = "") {
   const pLower = prompt.toLowerCase();
   
-  // Instant direct answers if Gemini API keys hit rate limits or 429 errors:
+  // Instant direct answers without emojis:
   if (pLower.includes('win jayiin') || pLower.includes('وين جايين') || pLower.includes('المقر') || pLower.includes('العنوان') || pLower.includes('موقعكم')) {
-    return `🌸 *متجر Pyjama DZ* 🌸\n\n📍 *المقر والعنوان:* الشلف (Chlef - الشلف).\n🗺️ *رابط اللوكيشن (Google Maps):* https://maps.app.goo.gl/algeria-pyjama-dz\n\n✨ التوصيل متوفر لجميع الولايات حتى باب المنزل! كيف يمكننا مساعدتك في طلبك اليوم؟ ❤️`;
+    return `*متجر Pyjama DZ*\n\nالمقر والعنوان: الشلف (Chlef - الشلف).\nرابط خرائط جوجل (Google Maps): https://maps.app.goo.gl/algeria-pyjama-dz\n\nالتوصيل متوفر لجميع 58 ولاية حتى باب المنزل. كيف يمكننا مساعدتك في طلبك اليوم؟`;
   }
   
   if (pLower.includes('link') || pLower.includes('الرابط') || pLower.includes('الموقع') || pLower.includes('موقعك')) {
-    return `🌸 *متجر Pyjama DZ* 🌸\n\n🌐 *رابط الموقع الإلكتروني:* https://pyjama-dz.vercel.app\n\nتفضل بتصفح كافة المنتجات والأسعار المتوفرة عبر الموقع! ✨`;
+    return `*متجر Pyjama DZ*\n\nرابط الموقع الإلكتروني الرسمي: https://pyjama-dz.vercel.app\n\nتفضل بتصفح كافة المنتجات والأسعار والتفاصيل المتوفرة عبر الموقع.`;
   }
 
   const modelEndpoints = ['gemini-2.0-flash', 'gemini-flash-latest'];
@@ -280,9 +278,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
         if (res.status === 200) {
           const data = await res.json();
           const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) return text.trim();
-        } else {
-            console.error(`Gemini AI error for ${model}: ${res.status}`);
+          if (text) return removeEmojis(text.trim());
         }
       } catch (err) {
         console.error('Gemini error:', err);
@@ -290,12 +286,13 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
     }
   }
 
-  return `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً وسهلاً بك! ❤️ نحن متجر Pyjama DZ في الشلف، والتوصيل متوفر لجميع 58 ولاية.\nتفضل بتصفح موقعنا: https://pyjama-dz.vercel.app ✨`;
+  return `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك. نحن متجر Pyjama DZ في الشلف، والتوصيل متوفر لجميع الولايات.\nرابط الموقع الرسمي: https://pyjama-dz.vercel.app`;
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
   const token = await getMetaAccessToken();
   if (!token || !toPhone) return;
+  const cleanBody = removeEmojis(textBody);
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   try {
     const res = await fetch(url, {
@@ -309,7 +306,7 @@ async function sendWhatsAppMessage(toPhone, textBody) {
         recipient_type: 'individual',
         to: toPhone,
         type: 'text',
-        text: { preview_url: false, body: textBody }
+        text: { preview_url: false, body: cleanBody }
       })
     });
     const data = await res.json();
@@ -317,35 +314,6 @@ async function sendWhatsAppMessage(toPhone, textBody) {
     return data;
   } catch (err) {
     console.error('Send WhatsApp error:', err);
-  }
-}
-
-async function sendWhatsAppImage(toPhone, imageUrl, captionText = "") {
-  const token = await getMetaAccessToken();
-  if (!token || !imageUrl || !imageUrl.startsWith('http')) return;
-  const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: toPhone,
-        type: 'image',
-        image: {
-          link: imageUrl,
-          caption: captionText
-        }
-      })
-    });
-    const data = await res.json();
-    console.log('WhatsApp send image result:', data);
-  } catch (err) {
-    console.error('Send WhatsApp Image error:', err);
   }
 }
 
@@ -386,6 +354,56 @@ async function updateOrderStatusAndArchive(orderId, newStatus) {
   }
 }
 
+async function checkAndAlertLowStock(product, storeSettings) {
+  if (!product || !Array.isArray(product.colorVariants)) return;
+  
+  const boutiquePhone = storeSettings.whatsappBoutiqueManager || "0554128933";
+  const livraisonPhone = storeSettings.whatsappLivraisonManager || storeSettings.whatsapp || "0554128933";
+
+  for (let cIdx = 0; cIdx < product.colorVariants.length; cIdx++) {
+    const variant = product.colorVariants[cIdx];
+    if (!variant || !variant.stock) continue;
+
+    for (const [size, qty] of Object.entries(variant.stock)) {
+      const numQty = parseInt(qty);
+      if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
+        // Destination manager: if variant is marked as boutique vs delivery
+        const isBoutiqueStock = String(variant.name || '').toLowerCase().includes('حانيت') || String(variant.name || '').toLowerCase().includes('boutique');
+        const targetPhone = isBoutiqueStock ? boutiquePhone : livraisonPhone;
+
+        const alertMsg = `*تنبيه مخزون منخفض (سطوك 5 حبات أو أقل)*\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} قطع فقط.\n\nللإضافة في المخزون، قم بالرد على هذه الرسالة برقم الكمية المضافة فقط (مثال: 15).\n[REF:${product.id}:${cIdx}:${size}]`;
+        
+        await sendWhatsAppMessage(targetPhone, alertMsg);
+      }
+    }
+  }
+}
+
+async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc&limit=50`;
+    const res = await fetch(url, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const orders = await res.json();
+    if (!Array.isArray(orders)) return;
+
+    // Find customers who had an order or request for this product
+    const notifiedPhones = new Set();
+    for (const o of orders) {
+      if (o.phone && !notifiedPhones.has(o.phone)) {
+        notifiedPhones.add(o.phone);
+        const clientName = o.clientName || o.nom || 'الزبون الكريم';
+        const msg = `*متجر Pyjama DZ*\n\nمرحباً بك سيد ${clientName}.\nنعلمك أن المنتج الذي أردت طلبه قد توفر مجدداً في السطوك بكميات جديدة.\nيمكنك الطلب الآن مباشرة عبر موقعنا الرسمي: https://pyjama-dz.vercel.app`;
+        await sendWhatsAppMessage(o.phone, msg);
+        break; // Notify first relevant waiting customer
+      }
+    }
+  } catch (err) {
+    console.error('Error notifying waiting customers:', err);
+  }
+}
+
 async function processIncomingPayload(body) {
   try {
     const entries = body?.entry || (Array.isArray(body) ? body : [body]);
@@ -414,15 +432,15 @@ async function processIncomingPayload(body) {
               );
 
               const formattedPhonesBullets = phonesArr.length > 0
-                ? phonesArr.map(p => `• ${p}`).join('\n')
-                : '• 0771335039';
+                ? phonesArr.map(p => `- ${p}`).join('\n')
+                : '- 0771335039';
 
-              const storeAddressDisplay = storeSettings.address || "ولاية الشلف - Chlef";
-              const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "";
-              const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "";
+              const storeAddressDisplay = storeSettings.address || "ولاية الشلف (Chlef)";
+              const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "https://maps.app.goo.gl/algeria-pyjama-dz";
+              const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "https://www.instagram.com/pyjama_dz";
               const storeName = storeSettings.storeName || "Pyjama DZ";
 
-              // 🎙️ VOICE NOTE / AUDIO HANDLER (Multimodal Audio Understanding)
+              // 🎙️ VOICE NOTE / AUDIO HANDLER
               if (messageType === 'audio' || messageType === 'voice') {
                 const audioId = message.audio?.id || message.voice?.id;
                 console.log(`Received Audio Note / Vocal (${audioId}) from ${fromPhone}`);
@@ -430,30 +448,26 @@ async function processIncomingPayload(body) {
                 if (audioId) {
                   const media = await downloadMetaMedia(audioId);
                   if (media && media.base64) {
-                    let audioPrompt = `أنت أداة Speech-to-Text. وظيفتك الوحيدة هي تفريغ النص من هذا التسجيل الصوتي للزبون. الزبون يتحدث بالدارجة الجزائرية (العامية).
-اكتب الكلمات التي نطقها الزبون حرفياً كما هي بالدارجة.
-ممنوع كتابة أي كلمة من عندك. ممنوع التلخيص.
-إذا كان الصوت عبارة عن صمت تام أو ضجيج بدون أي كلام بشري، أخرج كلمة واحدة فقط: "غير_مفهوم". لا تطلب من الزبون الكتابة أبداً.`;
-                    const systemInstruction = "أنت أداة تفريغ صوتي (Speech-to-Text) جزائرية. أخرج النص المسموع حرفياً بالدارجة الجزائرية. لا تطلب من المستخدم الكتابة أبداً.";
+                    let audioPrompt = `أنت أداة تفريغ صوتي. فرغ الكلمات المسموعة بالدارجة الجزائرية بدون اختراع وبدون إيموجي.`;
+                    const systemInstruction = "أنت أداة تفريغ صوتي بالدارجة الجزائرية. أخرج النص المسموع فقط وبدون إيموجي كلياً.";
                     
                     let transcript = await generateGeminiAudio(media.base64, media.mimeType, audioPrompt, systemInstruction);
                     if (transcript) {
                       console.log(`Vocal Transcription for ${fromPhone}: ${transcript}`);
                       if (!transcript.includes("غير_مفهوم") && !transcript.includes("غير مفهوم")) {
-                        messageText = transcript; // Feed the transcript into the standard text pipeline!
+                        messageText = transcript;
                       }
                     }
                   }
                 }
 
-                // If audio transcription or download couldn't extract text, provide a helpful prompt so it's NEVER ignored!
                 if (!messageText) {
-                  messageText = "مرحباً، أرسلت رسالة صوتية وأريد الاستفسار عن منتجات المتجر وشروط الطلب والأسعار.";
+                  messageText = "مرحباً، أرسلت رسالة صوتية واستفساراً عن المنتجات والطلبيات والأسعار.";
                 }
               }
 
               if (!messageText) continue;
-              console.log(`Received text message from ${fromPhone}: ${messageText}`);
+              console.log(`Received message from ${fromPhone}: ${messageText}`);
 
               // A. WORKER STOCK RESTOCK via REPLY
               const refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
@@ -490,7 +504,11 @@ async function processIncomingPayload(body) {
                       },
                       body: JSON.stringify({ colorVariants: updatedVariants })
                     });
-                    await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\n✅ *تم تحديث السطوك بنجاح!*\n• المنتج: ${product.title}\n• اللون/المقاس: ${updatedVariants[colorIdx].name} (${size})\n• الكمية المضافة: +${addedQty}\n• السطوك الحالي: ${newQty} حبة ✨`);
+                    
+                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nتم تحديث المخزون بنجاح.\n• المنتج: ${product.title}\n• اللون/المقاس: ${updatedVariants[colorIdx].name} (${size})\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي: ${newQty} حبة.`);
+
+                    // Notify waiting customers about restock
+                    await notifyWaitingCustomers(productId, colorIdx, size, newQty);
                     continue;
                   }
                 }
@@ -498,7 +516,21 @@ async function processIncomingPayload(body) {
 
               const normText = normalizeText(messageText);
 
-              // EXPANDED CONFIRMATION & CANCELLATION KEYWORDS
+              // RECLAMATION & FEEDBACK HANDLER (Praise vs Complaint)
+              const isPraise = ['شكرا', 'مرسي', 'شكراً', 'يعطيك الصحة', 'ما شاء الله', 'روعة', 'عجبني', 'هايل', 'شباب بزاف', 'merci', 'top', 'الله يحفظك'].some(k => normText.includes(k));
+              const isComplaint = ['مشكل', 'ناقص', 'مكسور', 'ماشي شباب', 'زبل', 'عيب', 'غلطة', 'رادي', 'ما وصلنيش', 'خاسر', 'تأخرت'].some(k => normText.includes(k));
+
+              if (isPraise && !order) {
+                const clientName = order?.clientName || 'الزبون الكريم';
+                await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك سيد ${clientName}.\nشكراً جزيلاً لك على كلامك الطيب وثقتك بمتجرنا. نسعد دائماً بخدمتك ولن نتردد في تقديم الأفضل دائماً.`);
+                continue;
+              } else if (isComplaint) {
+                const clientName = order?.clientName || 'الزبون الكريم';
+                await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nأهلاً بك سيد ${clientName}.\nنعتذر منك شديد الاعتذار عن هذا المشكل. يرجى تزويدنا بكافة التفاصيل وسيتم التواصل معك ومعالجة الأمر في أقرب وقت ممكن.`);
+                continue;
+              }
+
+              // CONFIRMATION & CANCELLATION KEYWORDS
               const confirmKeywords = [
                 'takid', 'taekid', 'taked', 'ta3kid', 'taakid', 'confirm', 'confirmi', 'confirmer',
                 'aked', 'akedha', 'akedli', 'akedhali', 'akedii', 'akidli', 'akedna',
@@ -511,85 +543,75 @@ async function processIncomingPayload(body) {
                 'annul', 'cancel', 'non', 'حبس', 'بطلت', 'ما تبعث', 'لا', 'الغاء', 'إلغاء', 'نحي', 'انولي'
               ];
 
-              // Only trigger hardcoded confirm/cancel if the message is short (likely a direct command)
               const wordCount = messageText.trim().split(/\s+/).length;
               const isConfirmation = order && wordCount <= 5 && confirmKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
               const isCancellation = order && wordCount <= 5 && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
 
               if (isConfirmation) {
-                // 1. UPDATE DB ORDER STATUS TO 'confirmee' AND SET archived: true AUTOMATICALLY!
                 await updateOrderStatusAndArchive(order.id, 'confirmee');
                 const orderNumStr = await getSequentialOrderNum(order);
-
-                // 2. SHORT & DIRECT THANK YOU & DB CONFIRMATION REPLY TO CUSTOMER
-                const confirmMsg = `شكراً لك سيد ${order.clientName || 'الزبون'}! ❤️ تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح في السيستم وجاري تجهيزها للشحن! 🚚✨`;
+                const confirmMsg = `*متجر Pyjama DZ*\n\nتم تأكيد الطلبية رقم #${orderNumStr} بنجاح في السيستم سيد ${order.clientName || 'الزبون'} وجاري تجهيزها للشحن. شكراً لك.`;
                 await sendWhatsAppMessage(fromPhone, confirmMsg);
                 continue;
               } else if (isCancellation) {
-                // 1. UPDATE DB ORDER STATUS TO 'annulee' AND SET archived: true AUTOMATICALLY!
                 await updateOrderStatusAndArchive(order.id, 'annulee');
                 const orderNumStr = await getSequentialOrderNum(order);
-
-                // 2. SHORT & DIRECT CANCELLATION CONFIRMATION REPLY TO CUSTOMER
-                const cancelMsg = `تم إلغاء الطلبية رقم #${orderNumStr} بنجاح في السيستم بناءً على رغبتك سيد ${order.clientName || 'الزبون'}. نأمل أن نخدمك في المرات القادمة! ✨`;
+                const cancelMsg = `*متجر Pyjama DZ*\n\nتم إلغاء الطلبية رقم #${orderNumStr} بنجاح في السيستم بناءً على رغبتك سيد ${order.clientName || 'الزبون'}. نأمل خدمتك في المناسبات القادمة.`;
                 await sendWhatsAppMessage(fromPhone, cancelMsg);
                 continue;
               }
 
-              // B. PHONE NUMBER INTERCEPTOR (Numero / num / هاتف / نميرو / رقم المحل)
+              // PHONE NUMBER INTERCEPTOR
               const isPhoneQuery = ["numero", "nomer", "num", "هاتف", "رقم المحل", "نميرو", "نومرو"].some(p => normText.includes(p) || messageText.toLowerCase().includes(p));
               if (isPhoneQuery) {
-                const phoneReply = `🌸 *متجر Pyjama DZ* 🌸\n\n📞 *أرقام التواصل والواتساب الرسمية:*\n━━━━━━━━━━━━━━━\n${formattedPhonesBullets}\n━━━━━━━━━━━━━━━\n✨ نحن في خدمتك دائماً!`;
+                const phoneReply = `*متجر Pyjama DZ*\n\nأرقام التواصل والواتساب الرسمية للمتجر:\n${formattedPhonesBullets}\n\nنحن في خدمتك دائماً.`;
                 await sendWhatsAppMessage(fromPhone, phoneReply);
                 continue;
               }
 
-              // G. STRICT SUPABASE SETTINGS & DATABASE STRICTNESS RULE
+              // STRICT AI SALES INSTRUCTIONS (ZERO EMOJIS)
               const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-              
-              let salesModeRules = "";
-              if (isWholesale) {
-                salesModeRules = `الزبون يسأل عن بالجملة (Gros). أجب حصراً عن أسعار وشروط الجملة والسيريات من النظام.`;
-              } else {
-                salesModeRules = `الزبون زبون عادي بالقطعة. أجب عن سؤاله حصراً وحقيقياً من بيانات الـ Settings والـ Database فقط.`;
-              }
+              let salesModeRules = isWholesale ? "الزبون يسأل عن بالجملة (Gros). أجب عن أسعار وشروط الجملة والسيريات من النظام فقط." : "الزبون زبون عادي بالقطعة. أجب عن سؤاله من بيانات النظام فقط.";
 
               let prompt = `رسالة الزبون: "${messageText}"`;
-              let orderNumStr = "58";
               if (order) {
-                orderNumStr = await getSequentialOrderNum(order);
+                const orderNumStr = await getSequentialOrderNum(order);
                 prompt += `\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
               }
 
-              const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
+              const catalogSummary = products.map(p => `- ${p.title}: ${p.price} دج`).join('\n');
               const settingsSummary = Object.entries(storeSettings).map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
 
-              const systemInstruction = `أنت مساعد مبيعات ذكي لمتجر (${storeName}).
-قوانينك الصارمة:
-1. ابدأ دائماً بـ: "🌸 *متجر Pyjama DZ* 🌸" في أول سطر.
-2. أجب باختصار وبشكل مباشر على سؤال الزبون من بيانات المتجر فقط (الأسعار، الصور، الرابط، العنوان).
-3. إذا طلب الزبون رابط الموقع (link, lien, موقع, سيت)، أعطه الرابط مباشرة: https://pyjama-dz.vercel.app ولا تضف كلاماً فارغاً.
-4. إذا سأل عن مقر المتجر (وين جايين)، أعطه العنوان ورابط الخرائط مباشرة.
-5. لا تكتب ردوداً طويلة جداً أو روبوتية. تصرف كإنسان لبق ومحترف.
-6. ممنوع منعاً باتاً أن تطلب من الزبون "كتابة" طلبه أو سؤاله.
-7. إذا كانت رسالة الزبون قصيرة أو مجرد تحية (مثل "أوكي"، "سلام"، "شكرا")، رحب به واسأله كيف يمكنك مساعدته اليوم في طلب البيجامات، ولا تكتفِ بطباعة العنوان فقط!
+              const systemInstruction = `أنت مساعد مبيعات محترف لمتجر (${storeName}).
+قوانين صارمة وحتمية:
+1. ابدأ دائماً بـ: "*متجر Pyjama DZ*" في أول سطر.
+2. ممنوع منعاً باتاً استخدام الإيموجي أو الرموز التعبيرية (Emoji) كلياً. اجعل الرد محترفاً، نظيفاً ومرتباً.
+3. أجب باختصار وبشكل مباشر على سؤال الزبون من بيانات المتجر فقط (الأسعار، رابط الموقع، أرقام الهاتف، العنوان).
+4. إذا طلب الزبون رابط الموقع (link, موقع, سيت)، أعطه الرابط مباشرة: https://pyjama-dz.vercel.app
+5. إذا سأل عن المقر (وين جايين)، أعطه العنوان ورابط الخرائط مباشرة: https://maps.app.goo.gl/algeria-pyjama-dz
+6. تصرف كإنسان محترف ولبق بدون ردود طويلة وروبوتية.
 
-بيانات المتجر من الإعدادات (Settings):
-- أرقام الهاتف: ${formattedPhonesBullets}
-- العنوان / المقر: ${storeAddressDisplay}
+بيانات المتجر:
+- أرقام الهاتف الرسمية: ${formattedPhonesBullets}
+- المقر: ${storeAddressDisplay}
 - رابط خرائط جوجل: ${storeMapsUrl}
-- رابط انستغرام: ${storeInstaUrl}
+- رابط الموقع الرسمي: https://pyjama-dz.vercel.app
 ${settingsSummary}
 
-قائمة المنتجات (Products):
+قائمة المنتجات:
 ${catalogSummary}
-
-موقع المتجر الإلكتروني: https://pyjama-dz.vercel.app
 ${salesModeRules}`;
 
               const aiReply = await generateGeminiAI(prompt, systemInstruction);
               if (aiReply) {
                 await sendWhatsAppMessage(fromPhone, aiReply);
+              }
+
+              // Check if any product is low on stock and alert managers
+              if (products.length > 0) {
+                for (const p of products.slice(0, 3)) {
+                  await checkAndAlertLowStock(p, storeSettings);
+                }
               }
             }
           } catch (innerErr) {
@@ -604,7 +626,6 @@ ${salesModeRules}`;
 }
 
 export default async function handler(req, res) {
-  // 1. Webhook Verification (Meta Verification Challenge)
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -617,7 +638,6 @@ export default async function handler(req, res) {
     return res.status(403).send('Forbidden');
   }
 
-  // 2. Incoming Messages
   if (req.method === 'POST') {
     let body = req.body;
     if (typeof body === 'string') {
