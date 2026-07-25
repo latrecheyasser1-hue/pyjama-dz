@@ -24,6 +24,23 @@ function normalizeText(text) {
     .replace(/7/g, "h");
 }
 
+async function getAllProducts() {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/products?select=*`;
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error('Error fetching products from Supabase:', err);
+    return [];
+  }
+}
+
 async function generateGeminiAI(prompt, systemInstruction = "") {
   for (const selectedKey of GEMINI_KEYS) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
@@ -37,7 +54,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-          generationConfig: { temperature: 0.7, maxOutputTokens: 250 }
+          generationConfig: { temperature: 0.7, maxOutputTokens: 350 }
         })
       });
 
@@ -88,6 +105,34 @@ async function sendWhatsAppMessage(toPhone, textBody) {
     console.log('WhatsApp send result:', data);
   } catch (err) {
     console.error('Send WhatsApp error:', err);
+  }
+}
+
+async function sendWhatsAppImage(toPhone, imageUrl, captionText = "") {
+  if (!META_ACCESS_TOKEN || !imageUrl) return;
+  const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: toPhone,
+        type: 'image',
+        image: {
+          link: imageUrl,
+          caption: captionText
+        }
+      })
+    });
+    const data = await res.json();
+    console.log('WhatsApp send image result:', data);
+  } catch (err) {
+    console.error('Send WhatsApp Image error:', err);
   }
 }
 
@@ -170,41 +215,62 @@ async function processIncomingPayload(body) {
 
             const cleanPhone = fromPhone.replace(/^\+?213/, '0');
             const order = await getLatestOrderForPhone(cleanPhone);
+            const products = await getAllProducts();
 
             let prompt = `رسالة الزبون: "${messageText}"`;
             if (order) {
               prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.nom}\n- رقم الطلب: ${order.id}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
-              
-              const normText = normalizeText(messageText);
-
-              const confirmKeywords = [
-                'takid', 'taekid', 'taked', 'ta3kid', 'taakid', 'confirm', 'confirmi',
-                'ok', 'oui', 'daccord', 'daweq', 'sah', 'yep', 'yeah',
-                'تاكيد', 'تأكيد', 'نعم', 'اوكي', 'اكدي', 'اكيد', 'موافق', 'ابعث', 'شحن', 'ارسل', 'ابعثها', 'جدية'
-              ];
-
-              const cancelKeywords = [
-                'annul', 'cancel', 'non', 'حبس', 'بطلت', 'بطلت', 'ما تبعث', 'لا', 'الغاء', 'إلغاء', 'نحي', 'انولي'
-              ];
-
-              const isConfirmation = confirmKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-              const isCancellation = cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-
-              if (isConfirmation) {
-                await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
-                await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.nom}! ❤️ تم تأكيد طلبيتك رقم #${order.id} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً إلى ولاية ${order.wilaya}.`);
-                continue;
-              } else if (isCancellation) {
-                await updateOrderStatus(order.id, 'Annulé', 'canceled');
-                await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${order.id} بناءً على رغبتك سيد ${order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
-                continue;
-              }
             }
 
-            // C. AI SALES & RECLAMATION ASSISTANT (Gemini Powered with Fallback)
-            const systemInstruction = `أنت مساعد ذكي ومبيعات لمتجر بيجامات نسائية فاخرة جزائري (Pyjama DZ).
+            const normText = normalizeText(messageText);
+
+            const confirmKeywords = [
+              'takid', 'taekid', 'taked', 'ta3kid', 'taakid', 'confirm', 'confirmi',
+              'ok', 'oui', 'daccord', 'daweq', 'sah', 'yep', 'yeah',
+              'تاكيد', 'تأكيد', 'نعم', 'اوكي', 'اكدي', 'اكيد', 'موافق', 'ابعث', 'شحن', 'ارسل', 'ابعثها', 'جدية'
+            ];
+
+            const cancelKeywords = [
+              'annul', 'cancel', 'non', 'حبس', 'بطلت', 'بطلت', 'ما تبعث', 'لا', 'الغاء', 'إلغاء', 'نحي', 'انولي'
+            ];
+
+            const isConfirmation = order && confirmKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+            const isCancellation = order && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+
+            if (isConfirmation) {
+              await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
+              await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.nom}! ❤️ تم تأكيد طلبيتك رقم #${order.id} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً إلى ولاية ${order.wilaya}.`);
+              continue;
+            } else if (isCancellation) {
+              await updateOrderStatus(order.id, 'Annulé', 'canceled');
+              await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${order.id} بناءً على رغبتك سيد ${order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
+              continue;
+            }
+
+            // B. CHECK IF USER ASKS FOR PRODUCT IMAGES
+            const wantsImages = ["photo", "chof", "modele", "موديل", "تصاور", "صور", "شوف", "صورة", "موديلات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+            
+            if (wantsImages && products.length > 0) {
+              // Send top 2 product images directly into WhatsApp chat
+              for (const p of products.slice(0, 2)) {
+                const firstVar = p.colorVariants?.[0];
+                const imgUrl = firstVar?.images?.[0] || p.image;
+                if (imgUrl) {
+                  await sendWhatsAppImage(fromPhone, imgUrl, `✨ ${p.title}\n💰 السعر: ${p.price} دج\n🎨 الألوان المتوفرة: ${p.colorVariants?.map(v => v.name).join(', ') || 'متعددة'}`);
+                }
+              }
+              await sendWhatsAppMessage(fromPhone, `تفضل صور أفضل المنتجات والموديلات الأكثر طلباً عندنا! 🌸 لتصفح المزيد والطلب المباشر زيارة متجرنا: https://pyjama-dz.vercel.app ✨`);
+              continue;
+            }
+
+            // C. AI SALES & RECLAMATION ASSISTANT (Gemini Powered with Full Catalog Context)
+            const catalogSummary = products.map(p => `- منتج: ${p.title} | السعر: ${p.price} دج | الوصف: ${p.description || 'بيجامة فاخرة'}`).join('\n');
+            const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر بيجامات نسائية فاخرة جزائري (Pyjama DZ).
 تتحدث بالدارجة الجزائرية المحترمة والودية جداً.
-الهدف: مساعدة الزبائن وإقناعهم بلباقة، والرد على استفسارات الأسعار والألوان والشكاوى والمجاملات.`;
+المعلومات المباشرة لمنتجات المتجر الحالية:\n${catalogSummary}\n
+رابط المتجر الإلكتروني للطلب المباشر: https://pyjama-dz.vercel.app
+الهدف: إجابة كل أسئلة الزبون بدقة (الأسعار، الألوان، التوصيل 58 ولاية، المقاسات، والطلب) ومساعدته على الاختيار بلباقة.`;
+
             const aiReply = await generateGeminiAI(prompt, systemInstruction);
             if (aiReply) {
               await sendWhatsAppMessage(fromPhone, aiReply);
