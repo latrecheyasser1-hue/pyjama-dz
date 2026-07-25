@@ -414,12 +414,22 @@ async function processIncomingPayload(body) {
               if (isOrderQuery) {
                 if (order) {
                   const orderNum = await getSequentialOrderNum(order);
-                  const statusName = (order.status === 'confirmee' || order.status === 'Confirmé') ? 'مؤكدة وفي مرحلة الشحن 🚚' : ((order.status === 'annulee' || order.status === 'Annulé') ? 'ملغاة ❌' : 'جديدة قيد التجهيز ⏳');
+                  const isConf = (order.status === 'confirmee' || order.status === 'Confirmé');
+                  const isCanc = (order.status === 'annulee' || order.status === 'Annulé');
+                  const statusName = isConf ? 'مؤكدة وفي مرحلة الشحن 🚚' : (isCanc ? 'ملغاة ❌' : 'جديدة قيد التجهيز ⏳');
                   const prodText = cleanProductText(order.product);
-                  const orderReply = `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً بك سيد ${order.clientName || 'الزبون'}! ❤️\n\n📋 *تفاصيل الطلبية:*\n━━━━━━━━━━━━━━━\n📦 *رقم الطلب:* #${orderNum}\n🛍️ *المنتجات:* ${prodText}\n🚚 *الولاية:* ${order.wilaya || ''}\n📌 *الحالة:* ${statusName}\n━━━━━━━━━━━━━━━\n\n✨ يرجى الرد بـ كلمة (*تأكيد*) أو (*إلغاء*) لتجهيز شحنتك فوراً!`;
+
+                  let orderReply = `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً بك سيد ${order.clientName || 'الزبون'}! ❤️\n\n📋 *تفاصيل الطلبية:*\n━━━━━━━━━━━━━━━\n📦 *رقم الطلب:* #${orderNum}\n🛍️ *المنتجات:* ${prodText}\n🚚 *الولاية:* ${order.wilaya || ''}\n📌 *الحالة:* ${statusName}\n━━━━━━━━━━━━━━━`;
+                  
+                  if (!isConf && !isCanc) {
+                    orderReply += `\n\n✨ يرجى الرد بـ كلمة (*تأكيد*) أو (*إلغاء*) لتجهيز شحنتك فوراً!`;
+                  } else if (isConf) {
+                    orderReply += `\n\n✅ طلبك مؤكد 100% وفي مرحلة الشحن والتوصيل! شكراً لثقتك بنا.`;
+                  }
+                  
                   await sendWhatsAppMessage(fromPhone, orderReply);
                 } else {
-                  await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\nلم نجد طلبية جديدة مسجلة برقم هاتفك الحالي. يمكنك الطلب المباشر وسنكون في خدمتك عبر موقعنا:\n🌐 https://pyjama-dz.vercel.app ✨`);
+                  await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\nلم نجد طلبية مسجلة برقم هاتفك الحالي. يمكنك الطلب المباشر وسنكون في خدمتك عبر موقعنا:\n🌐 https://pyjama-dz.vercel.app ✨`);
                 }
                 continue;
               }
