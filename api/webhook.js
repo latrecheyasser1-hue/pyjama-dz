@@ -392,6 +392,10 @@ async function sendWhatsAppMessage(toPhone, textBody) {
       })
     });
     const data = await res.json();
+    if (data.error) {
+      console.error('WhatsApp API send error:', data.error);
+      return null;
+    }
     console.log('WhatsApp send result:', data);
     return data;
   } catch (err) {
@@ -423,6 +427,10 @@ async function sendWhatsAppImage(toPhone, imageUrl, caption = "") {
       })
     });
     const data = await res.json();
+    if (data.error) {
+      console.error('WhatsApp API image error:', data.error);
+      return null;
+    }
     console.log('WhatsApp send image result:', data);
     return data;
   } catch (err) {
