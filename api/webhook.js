@@ -155,7 +155,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.2, maxOutputTokens: 120 }
+            generationConfig: { temperature: 0.2, maxOutputTokens: 250 }
           })
         });
 
@@ -364,6 +364,36 @@ async function processIncomingPayload(body) {
 
               const normText = normalizeText(messageText);
 
+              // EXPANDED CONFIRMATION & CANCELLATION KEYWORDS
+              const confirmKeywords = [
+                'takid', 'taekid', 'taked', 'ta3kid', 'taakid', 'confirm', 'confirmi', 'confirmer',
+                'aked', 'akedha', 'akedli', 'akedhali', 'akedii', 'akidli', 'akedna',
+                'ok', 'oui', 'daccord', 'daweq', 'sah', 'yep', 'yeah',
+                'تاكيد', 'تأكيد', 'نعم', 'اوكي', 'اكدي', 'اكيد', 'موافق', 'ابعث', 'شحن', 'ارسل', 'ابعثها', 'جدية',
+                'اكذها', 'أكدها', 'أكدلي', 'ثبتها', 'ثبتلي'
+              ];
+
+              const cancelKeywords = [
+                'annul', 'cancel', 'non', 'حبس', 'بطلت', 'ما تبعث', 'لا', 'الغاء', 'إلغاء', 'نحي', 'انولي'
+              ];
+
+              const isConfirmation = order && confirmKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+              const isCancellation = order && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+
+              if (isConfirmation) {
+                await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
+                const orderNumStr = await getSequentialOrderNum(order);
+                const confirmMsg = `🌸 *متجر Pyjama DZ* 🌸\n\nشكراً لك سيد ${order.clientName || 'الزبون'}! ❤️\n\n✅ *تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح!*\n━━━━━━━━━━━━━━━\n📦 *رقم الطلب:* #${orderNumStr}\n🛍️ *المنتجات:* ${cleanProductText(order.product)}\n🚚 *الولاية:* ${order.wilaya || ''}\n📌 *الحالة:* مؤكدة وفي مرحلة الشحن (Confirmé)\n━━━━━━━━━━━━━━━\n\n✨ شكراً لك! جاري تجهيز الشحنة وإرسالها فوراً.`;
+                await sendWhatsAppMessage(fromPhone, confirmMsg);
+                continue;
+              } else if (isCancellation) {
+                await updateOrderStatus(order.id, 'Annulé', 'canceled');
+                const orderNumStr = await getSequentialOrderNum(order);
+                const cancelMsg = `🌸 *متجر Pyjama DZ* 🌸\n\nتم إلغاء الطلبية رقم #${orderNumStr} بناءً على رغبتك سيد ${order.clientName || 'الزبون'}.\nنأمل أن نخدمك في المرات القادمة! ✨`;
+                await sendWhatsAppMessage(fromPhone, cancelMsg);
+                continue;
+              }
+
               // B. PHONE NUMBER INTERCEPTOR (Numero / num / هاتف / نميرو / رقم المحل)
               const isPhoneQuery = ["numero", "nomer", "num", "هاتف", "رقم المحل", "نميرو", "نومرو"].some(p => normText.includes(p) || messageText.toLowerCase().includes(p));
               if (isPhoneQuery) {
@@ -410,29 +440,6 @@ async function processIncomingPayload(body) {
                 prompt += `\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
               }
 
-              const confirmKeywords = [
-                'takid', 'taekid', 'taked', 'ta3kid', 'taakid', 'confirm', 'confirmi',
-                'ok', 'oui', 'daccord', 'daweq', 'sah', 'yep', 'yeah',
-                'تاكيد', 'تأكيد', 'نعم', 'اوكي', 'اكدي', 'اكيد', 'موافق', 'ابعث', 'شحن', 'ارسل', 'ابعثها', 'جدية'
-              ];
-
-              const cancelKeywords = [
-                'annul', 'cancel', 'non', 'حبس', 'بطلت', 'بطلت', 'ما تبعث', 'لا', 'الغاء', 'إلغاء', 'نحي', 'انولي'
-              ];
-
-              const isConfirmation = order && confirmKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-              const isCancellation = order && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-
-              if (isConfirmation) {
-                await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
-                await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\nشكراً لك سيد ${order.clientName || order.nom}! ❤️\n\n✅ *تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح!*\n🚚 جاري التجهيز والشحن المباشر إلى ولاية ${order.wilaya || ''}. ✨`);
-                continue;
-              } else if (isCancellation) {
-                await updateOrderStatus(order.id, 'Annulé', 'canceled');
-                await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\nتم إلغاء الطلبية رقم #${orderNumStr} بناءً على رغبتك سيد ${order.clientName || order.nom}.\nنأمل أن نخدمك في المرات القادمة! ✨`);
-                continue;
-              }
-
               // F. CHECK IF USER ASKS FOR PRODUCT IMAGES
               const wantsImages = ["photo", "chof", "modele", "موديل", "تصاور", "صور", "شوف", "صورة", "موديلات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
               
@@ -470,7 +477,7 @@ async function processIncomingPayload(body) {
 قوانين التنسيق والشكل الحتمية:
 1. ابدأ دائماً الرد بـ: "🌸 *متجر Pyjama DZ* 🌸".
 2. اكتب الرد دائماً بشكل أنيق ومستف ومدرج بنقاط واضحة (bullet points •) ورموز تعبيرية راقية.
-3. تجنب الكتل النصية الطويلة، واجعل الرسالة مرتبة ومنسقة 100%.
+3. تجنب الكتل النصية الطويلة، واجعل الرسالة مرتبة ومنسقة 100%. لا تضع نقاط غريبة قبل الإيموجي أو رموز زائفة في آخر الرسالة!
 4. أصل الإجابة مباشرة وحصراً من بيانات الـ Settings والـ Database أدناه.
 
 بيانات المتجر من الإعدادات (Settings):
