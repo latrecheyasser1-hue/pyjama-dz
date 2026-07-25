@@ -21,7 +21,8 @@ function normalizeText(text) {
     .replace(/ة/g, "ه")
     .replace(/ى/g, "ي")
     .replace(/3/g, "e")
-    .replace(/7/g, "h");
+    .replace(/7/g, "h")
+    .trim();
 }
 
 async function getAllProducts() {
@@ -56,14 +57,14 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.5, maxOutputTokens: 150 }
+            generationConfig: { temperature: 0.3, maxOutputTokens: 60 }
           })
         });
 
         if (res.status === 200) {
           const data = await res.json();
           const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) return text;
+          if (text) return text.trim();
         }
       } catch (err) {
         console.error('Gemini error:', err);
@@ -71,19 +72,19 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
     }
   }
 
-  // Dynamic short fallbacks
+  // Ultra-short fallbacks
   const pLower = prompt.toLowerCase();
-  if (pLower.includes('slm') || pLower.includes('سلام') || pLower.includes('مرحبا')) {
-    return `وعليكم السلام ورحمة الله وبركاته! 🌸 أهلاً وسهلاً بك في متجر Pyjama DZ. كيف يمكننا مساعدتك اليوم؟ ✨`;
+  if (pLower.includes('slm') || pLower.includes('سلام')) {
+    return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك؟ ✨`;
   }
-  if (pLower.includes('win') || pLower.includes('plassa') || pLower.includes('مكان') || pLower.includes('مقر')) {
-    return `أهلاً وسهلاً بك! 🌸 نحن متجر إلكتروني مع خدمة التوصيل لجميع الولايات (58 ولاية) حتى باب المنزل. ✨`;
+  if (pLower.includes('win') || pLower.includes('plassa') || pLower.includes('مكان')) {
+    return `أهلاً بك! 🌸 نحن متجر إلكتروني والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك. ✨`;
   }
-  if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة') || pLower.includes('بكم')) {
-    return `أهلاً بك! الأسعار متوفرة لجميع الموديلات بالتفصيل على موقعنا الرسمي: https://pyjama-dz.vercel.app ✨`;
+  if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة')) {
+    return `أهلاً بك! يمكنك الاطلاع على أسعار الموديلات بالتفصيل عبر موقعنا: https://pyjama-dz.vercel.app ✨`;
   }
 
-  return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، كيف يمكننا مساعدتك اليوم؟ ✨`;
+  return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك؟ ✨`;
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
@@ -220,12 +221,19 @@ async function processIncomingPayload(body) {
             const order = await getLatestOrderForPhone(cleanPhone);
             const products = await getAllProducts();
 
+            const normText = normalizeText(messageText);
+
+            // B. INSTANT 1-LINE GREETINGS INTERCEPTOR
+            const isGreeting = ["slm", "سلام", "مرحبا", "سلام عليكم", "مرحبتين", "bonjour", "salut", "سلام عليك"].some(g => normText === g || messageText.toLowerCase().trim() === g);
+            if (isGreeting) {
+              await sendWhatsAppMessage(fromPhone, `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك اليوم؟ ✨`);
+              continue;
+            }
+
             let prompt = `رسالة الزبون: "${messageText}"`;
             if (order) {
               prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.nom}\n- رقم الطلب: ${order.id}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
             }
-
-            const normText = normalizeText(messageText);
 
             const confirmKeywords = [
               'takid', 'taekid', 'taked', 'ta3kid', 'taakid', 'confirm', 'confirmi',
@@ -250,11 +258,10 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // B. CHECK IF USER ASKS FOR PRODUCT IMAGES
+            // C. CHECK IF USER ASKS FOR PRODUCT IMAGES
             const wantsImages = ["photo", "chof", "modele", "موديل", "تصاور", "صور", "شوف", "صورة", "موديلات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             if (wantsImages && products.length > 0) {
-              // Send top 2 product images directly into WhatsApp chat
               for (const p of products.slice(0, 2)) {
                 const firstVar = p.colorVariants?.[0];
                 const imgUrl = firstVar?.images?.[0] || p.image;
@@ -262,23 +269,15 @@ async function processIncomingPayload(body) {
                   await sendWhatsAppImage(fromPhone, imgUrl, `✨ ${p.title}\n🎨 الألوان: ${p.colorVariants?.map(v => v.name).join(', ') || 'متعددة'}`);
                 }
               }
-              await sendWhatsAppMessage(fromPhone, `تفضل صور أفضل الموديلات عندنا! 🌸 تصفح باقي الكاتالوج والأسعار عبر موقعنا: https://pyjama-dz.vercel.app ✨`);
+              await sendWhatsAppMessage(fromPhone, `تفضل صور أفضل الموديلات! 🌸 تصفح الباقي عبر موقعنا: https://pyjama-dz.vercel.app ✨`);
               continue;
             }
 
-            // C. AI SALES & RECLAMATION ASSISTANT (Concise, Strict, Natural Algerian Darija)
-            const catalogSummary = products.map(p => `- منتج: ${p.title} | السعر: ${p.price} دج | الوصف: ${p.description || 'بيجامة فاخرة'}`).join('\n');
-            const systemInstruction = `أنت بائع ومساعد مبيعات محترف ومختصر لمتجر بيجامات نسائية فاخرة جزائري (Pyjama DZ).
-تتحدث بالدارجة الجزائرية الودية والبسيطة على قد رسالة الزبون بالضبط بدون كلام زايد.
-شروط صارمة:
-1. عند السلام والتحية (مثل سلام، Slm، مرحبا): ارحب بالزبون فقط بشكل مختصر واسأله كيف تد مساعدته، وممنوع إطلاقاً ذكر الأسعار في البداية!
-2. ممنوع نهائياً ذكر عبارات (جملة) أو (بالقطعة) أو (دياي/تفصيل).
-3. اذكر السعر فقط إذا سألك الزبون صراحة عن السعر.
-4. إجابتك تكون قصيرة ومباشرة ومفيدة كبائع بشري جزائري شاطر.
-
-منتجات المتجر الحالية:
-${catalogSummary}
-رابط المتجر: https://pyjama-dz.vercel.app`;
+            // D. AI SALES & RECLAMATION ASSISTANT (Strict Single Line / Short Answers Only)
+            const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
+            const systemInstruction = `أنت بائع ومساعد مبيعات لمتجر بيجامات نسائية (Pyjama DZ).
+قانون حتمي صارم: يجب أن تكون إجابتك في سطر واحد قصير جداً ومباشر فقط (أقل من 15 كلمة)! ممنوع الفقرات أو الترحيب الطويل إطلاقاً.
+المنتجات: ${catalogSummary}`;
 
             const aiReply = await generateGeminiAI(prompt, systemInstruction);
             if (aiReply) {
