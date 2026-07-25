@@ -42,29 +42,32 @@ async function getAllProducts() {
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "") {
+  const modelEndpoints = ['gemini-3.5-flash-lite', 'gemini-flash-latest'];
   for (const selectedKey of GEMINI_KEYS) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': selectedKey
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-          generationConfig: { temperature: 0.7, maxOutputTokens: 350 }
-        })
-      });
+    for (const model of modelEndpoints) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': selectedKey
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+            generationConfig: { temperature: 0.7, maxOutputTokens: 350 }
+          })
+        });
 
-      if (res.status === 200) {
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) return text;
+        if (res.status === 200) {
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) return text;
+        }
+      } catch (err) {
+        console.error('Gemini error:', err);
       }
-    } catch (err) {
-      console.error('Gemini error:', err);
     }
   }
 
@@ -269,7 +272,7 @@ async function processIncomingPayload(body) {
 تتحدث بالدارجة الجزائرية المحترمة والودية جداً.
 المعلومات المباشرة لمنتجات المتجر الحالية:\n${catalogSummary}\n
 رابط المتجر الإلكتروني للطلب المباشر: https://pyjama-dz.vercel.app
-الهدف: إجابة كل أسئلة الزبون بدقة (الأسعار، الألوان، التوصيل 58 ولاية، المقاسات، والطلب) ومساعدته على الاختيار بلباقة.`;
+الهدف: إجابة كل أسئلة الزبون بدقة (الأسعار، الألوان، التوصيل 58 ولاية، المقاسات، والطلب) ومساعدته على الاختيار بلباقة وحفاوة عالية.`;
 
             const aiReply = await generateGeminiAI(prompt, systemInstruction);
             if (aiReply) {
