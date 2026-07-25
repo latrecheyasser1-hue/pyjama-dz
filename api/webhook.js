@@ -24,12 +24,28 @@ async function getMetaAccessToken() {
   return DEFAULT_TOKEN;
 }
 
-const GEMINI_KEYS = [
-  Buffer.from('QVEuQWI4Uk42THJfRndDWGdzWnpvNUI3X0ZHTXV2OTJ3V2I2MFpOd3hSaUlSallMdmpB', 'base64').toString('utf8'),
-  Buffer.from('QVEuQWI4Uk42SWpweDNfcmhWYTBGZDZ4R181aUJ3M3Z4aVZDamR5OURYelBQVDBaZFJn', 'base64').toString('utf8'),
-  Buffer.from('QVEuQWI4Uk42SnFZODAtdWVvaTJfVG9RQVAwamNmblZLdnZjZFp2VmR5X24wbU9seTd3', 'base64').toString('utf8'),
-  Buffer.from('QVEuQWI4Uk42SnJiWXFJaDJEa3lyRU5MVXJNVkRVZ2xSSjlqZWZ6WXk4aEFyYnNNMGxaZXc=', 'base64').toString('utf8')
-];
+function getGeminiKeys() {
+  const keys = [];
+  for (let i = 1; i <= 20; i++) {
+    const k = process.env[`GEMINI_API_KEY_${i}`];
+    if (k && k.trim()) keys.push(k.trim());
+  }
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) {
+    if (!keys.includes(process.env.GEMINI_API_KEY.trim())) {
+      keys.push(process.env.GEMINI_API_KEY.trim());
+    }
+  }
+  const hardcoded = [
+    Buffer.from('QVEuQWI4Uk42THJfRndDWGdzWnpvNUI3X0ZHTXV2OTJ3V2I2MFpOd3hSaUlSallMdmpB', 'base64').toString('utf8'),
+    Buffer.from('QVEuQWI4Uk42SWpweDNfcmhWYTBGZDZ4R181aUJ3M3Z4aVZDamR5OURYelBQVDBaZFJn', 'base64').toString('utf8'),
+    Buffer.from('QVEuQWI4Uk42SnFZODAtdWVvaTJfVG9RQVAwamNmblZLdnZjZFp2VmR5X24wbU9seTd3', 'base64').toString('utf8'),
+    Buffer.from('QVEuQWI4Uk42SnJiWXFJaDJEa3lyRU5MVXJNVkRVZ2xSSjlqZWZ6WXk4aEFyYnNNMGxaZXc=', 'base64').toString('utf8')
+  ];
+  hardcoded.forEach(k => {
+    if (!keys.includes(k)) keys.push(k);
+  });
+  return keys;
+}
 
 function normalizeText(text) {
   if (!text) return "";
@@ -165,7 +181,8 @@ async function downloadMetaMedia(mediaId) {
 
 async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInstruction = "") {
   const modelEndpoints = ['gemini-2.0-flash', 'gemini-flash-latest'];
-  for (const selectedKey of GEMINI_KEYS) {
+  const keys = getGeminiKeys();
+  for (const selectedKey of keys) {
     for (const model of modelEndpoints) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       try {
@@ -211,7 +228,8 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
 
 async function generateGeminiAI(prompt, systemInstruction = "") {
   const modelEndpoints = ['gemini-2.0-flash', 'gemini-flash-latest'];
-  for (const selectedKey of GEMINI_KEYS) {
+  const keys = getGeminiKeys();
+  for (const selectedKey of keys) {
     for (const model of modelEndpoints) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       try {
