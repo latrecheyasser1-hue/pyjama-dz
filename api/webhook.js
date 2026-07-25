@@ -280,7 +280,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
   return null;
 }
 
-function getSmartFallbackResponse(userMessage, storeSettings = {}) {
+function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []) {
   const norm = normalizeText(userMessage);
   const pLower = (userMessage || "").toLowerCase();
   const mapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "https://maps.app.goo.gl/algeria-pyjama-dz";
@@ -302,13 +302,28 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}) {
     return `المقر والعنوان: ${address}.\nرابط خرائط جوجل (Google Maps):\n${mapsUrl}\n\nالتوصيل متوفر لجميع 58 ولاية حتى باب المنزل. كيف يمكننا مساعدتك اليوم؟`;
   }
 
-  // 3. PRODUCT ITEM / COLOR / STOCK / AVAILABILITY QUERY
+  // 3. REAL-TIME PRODUCT ITEM / COLOR / STOCK CHECKER
   if (['ensemble', 'noir', 'rouge', 'rose', 'blanc', 'bleu', 'بيجامة', 'انسامبل', 'انصامبل', 'سطوك', 'كاين', 'kaayn', 'kayn', 'dispo', 'disponibilite', 'couleur', 'taille', 'مقاس', 'لون'].some(k => norm.includes(k) || pLower.includes(k))) {
-    let matchText = "";
-    if (pLower.includes('noir') || norm.includes('اكحل') || norm.includes('اسود')) matchText = " باللون الأسود (Noir)";
-    else if (pLower.includes('ensemble') || norm.includes('انسامبل') || norm.includes('انصامبل')) matchText = " (Ensemble)";
+    const availableColors = [];
+    (products || []).forEach(p => {
+      if (Array.isArray(p.colorVariants)) {
+        p.colorVariants.forEach(cv => {
+          if (cv.name) availableColors.push(normalizeText(cv.name));
+        });
+      }
+    });
 
-    return `أهلاً بك. نعم متوفر المنتجات والـ Ensemble${matchText} عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nتفضل بدخول الموقع لمشاهدة كافة الصور والمقاسات والأسعار وتأكيد الطلب.`;
+    const hasColorMatch = availableColors.some(c => c && c.length > 1 && (norm.includes(c) || pLower.includes(c)));
+    const hasTitleMatch = (products || []).some(p => {
+      const t = normalizeText(p.title);
+      return norm.split(/\s+/).some(w => w.length > 2 && t.includes(w));
+    });
+
+    if (hasColorMatch || hasTitleMatch) {
+      return `إيه كاين متوفر في السطوك. تفضل بتصفح الصور والمقاسات وتأكيد طلبك عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+    } else {
+      return `ماكاش متوفر حالياً هاد الموديل أو اللون. تفضل بتصفح جميع الموديلات والألوان المتوفرة حالياً عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+    }
   }
 
   // 4. PRICES / CATALOG
@@ -329,7 +344,7 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}) {
   return `أهلاً وسهلاً بك. تفضل بالاستفسار عن أي موديل أو مقاس أو سعر، نحن في خدمتك.\nرابط الموقع الرسمي: https://pyjama-dz.vercel.app`;
 }
 
-async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}, userMessage = "") {
+async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}, userMessage = "", products = []) {
   const modelEndpoints = ['gemini-flash-latest', 'gemini-2.0-flash'];
   const keys = await getGeminiKeys();
   for (const selectedKey of keys) {
@@ -364,7 +379,7 @@ async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = 
     }
   }
 
-  return getSmartFallbackResponse(userMessage || prompt, storeSettings);
+  return getSmartFallbackResponse(userMessage || prompt, storeSettings, products);
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
@@ -648,7 +663,16 @@ async function processIncomingPayload(body) {
                 prompt += `\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
               }
 
-              const catalogSummary = products.map(p => `- ${p.title}: ${p.price} دج`).join('\n');
+              const catalogSummary = products.map(p => {
+                let colorsStr = "متوفر";
+                if (Array.isArray(p.colorVariants) && p.colorVariants.length > 0) {
+                  colorsStr = p.colorVariants.map(cv => {
+                    const stockSum = typeof cv.stock === 'object' ? Object.values(cv.stock).reduce((a, b) => a + Number(b), 0) : Number(cv.stock || 0);
+                    return `${cv.name} (المخزون المتوفر: ${stockSum} حبة)`;
+                  }).join(', ');
+                }
+                return `- ${p.title}: السعر ${p.price} دج | الألوان والسطوك: ${colorsStr}`;
+              }).join('\n');
               const settingsSummary = Object.entries(storeSettings).map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
 
               const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر (${storeName}).
@@ -660,6 +684,10 @@ async function processIncomingPayload(body) {
 4. إذا طلب الزبون رابط الموقع (link, موقع, سيت)، أعطه الرابط مباشرة: https://pyjama-dz.vercel.app
 5. إذا سأل عن المقر أو المكان (وين جايين)، أعطه العنوان ورابط خرائط جوجل من الإعدادات مباشرة وهو: ${storeMapsUrl || 'https://pyjama-dz.vercel.app'}
 6. إذا سأل عن أرقام الهاتف، أعطه الأرقام الرسمية التالية فقط: ${formattedPhonesBullets}
+7. عندما يسأل الزبون إن كان هناك منتج أو لون أو مقاس معين متوفر (مثلاً: كاين فـ الأبيض / blanc / noir / ensemble / مقاس M):
+   - افحص قائمة المنتجات والألوان والمخزون في بيانات النظام أعلاه:
+   - إذا كان المنتج أو اللون موجوداً ومتوفراً في المخزون (المخزون > 0): أجب صراحة بـ "إيه كاين متوفر في السطوك"، ثم أعطه رابط الموقع الرسمي: https://pyjama-dz.vercel.app
+   - إذا كان المنتج أو اللون غير موجود كلياً في السيستم أو نافداً من المخزون (مثل اسم وهمي أو لون غير موجود): أجب صراحة بـ "ماكاش متوفر حالياً هاد الموديل أو اللون"، ثم قل له تفضل شوف الموديلات والألوان المتوفرة حالياً في الموقع وأعطه رابط الموقع الرسمي: https://pyjama-dz.vercel.app
 
 بيانات المتجر من الإعدادات:
 - العنوان والمقر: ${storeAddressDisplay}
@@ -667,11 +695,11 @@ async function processIncomingPayload(body) {
 - رابط الموقع الرسمي: https://pyjama-dz.vercel.app
 ${settingsSummary}
 
-قائمة المنتجات والأسعار الحالية:
+قائمة المنتجات والأسعار والسطوك الحالية من الداتابيز:
 ${catalogSummary}
 ${salesModeRules}`;
 
-              const aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText);
+              const aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
               if (aiReply) {
                 await sendWhatsAppMessage(fromPhone, aiReply);
               }
