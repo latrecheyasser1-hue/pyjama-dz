@@ -164,7 +164,7 @@ async function downloadMetaMedia(mediaId) {
 }
 
 async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInstruction = "") {
-  const modelEndpoints = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+  const modelEndpoints = ['gemini-flash-latest'];
   for (const selectedKey of GEMINI_KEYS) {
     for (const model of modelEndpoints) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -210,7 +210,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "") {
-  const modelEndpoints = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+  const modelEndpoints = ['gemini-flash-latest'];
   for (const selectedKey of GEMINI_KEYS) {
     for (const model of modelEndpoints) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
