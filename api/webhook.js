@@ -403,12 +403,38 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   }
 }
 
+async function uploadMediaToMeta(token, imageUrl) {
+  try {
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) return null;
+    const imgBlob = await imgRes.blob();
+    const formData = new FormData();
+    formData.append("file", imgBlob, "product.jpg");
+    formData.append("type", imgBlob.type || "image/jpeg");
+    formData.append("messaging_product", "whatsapp");
+
+    const uploadRes = await fetch(`https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/media`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}` },
+      body: formData
+    });
+    const data = await uploadRes.json();
+    return data?.id || null;
+  } catch (err) {
+    console.error('Error uploading media to Meta:', err);
+    return null;
+  }
+}
+
 async function sendWhatsAppImage(toPhone, imageUrl, caption = "") {
   const token = await getMetaAccessToken();
-  if (!token || !toPhone || !imageUrl) return;
+  if (!token || !toPhone || !imageUrl) return null;
   const cleanCaption = removeEmojis(caption);
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   try {
+    const mediaId = await uploadMediaToMeta(token, imageUrl);
+    const imagePayload = mediaId ? { id: mediaId, caption: cleanCaption } : { link: imageUrl, caption: cleanCaption };
+
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -420,10 +446,7 @@ async function sendWhatsAppImage(toPhone, imageUrl, caption = "") {
         recipient_type: 'individual',
         to: toPhone,
         type: 'image',
-        image: {
-          link: imageUrl,
-          caption: cleanCaption
-        }
+        image: imagePayload
       })
     });
     const data = await res.json();
@@ -435,6 +458,7 @@ async function sendWhatsAppImage(toPhone, imageUrl, caption = "") {
     return data;
   } catch (err) {
     console.error('Send WhatsApp image error:', err);
+    return null;
   }
 }
 
