@@ -56,7 +56,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.7, maxOutputTokens: 350 }
+            generationConfig: { temperature: 0.5, maxOutputTokens: 150 }
           })
         });
 
@@ -71,19 +71,19 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
     }
   }
 
-  // Dynamic fallbacks
+  // Dynamic short fallbacks
   const pLower = prompt.toLowerCase();
+  if (pLower.includes('slm') || pLower.includes('سلام') || pLower.includes('مرحبا')) {
+    return `وعليكم السلام ورحمة الله وبركاته! 🌸 أهلاً وسهلاً بك في متجر Pyjama DZ. كيف يمكننا مساعدتك اليوم؟ ✨`;
+  }
   if (pLower.includes('win') || pLower.includes('plassa') || pLower.includes('مكان') || pLower.includes('مقر')) {
-    return `أهلاً وسهلاً بك! 🌸 نحن متجر إلكتروني بالكامل مع خدمة التوصيل لجميع الولايات (58 ولاية) حتى باب المنزل. كيف يمكننا خدمتك اليوم؟ ✨`;
+    return `أهلاً وسهلاً بك! 🌸 نحن متجر إلكتروني مع خدمة التوصيل لجميع الولايات (58 ولاية) حتى باب المنزل. ✨`;
   }
   if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة') || pLower.includes('بكم')) {
-    return `أهلاً بك! أسعار البيجامات تتراوح من 2,500 دج إلى 4,500 دج حسب الموديل، التوصيل متوفر لجميع الولايات. ✨`;
-  }
-  if (pLower.includes('modele') || pLower.includes('موديل') || pLower.includes('انواع') || pLower.includes('الوان')) {
-    return `أهلاً بك! يمكنك تصفح كامل الكاتالوج والموديلات المتوفرة عبر موقعنا الرسمي: https://pyjama-dz.vercel.app ✨`;
+    return `أهلاً بك! الأسعار متوفرة لجميع الموديلات بالتفصيل على موقعنا الرسمي: https://pyjama-dz.vercel.app ✨`;
   }
 
-  return `أهلاً وسهلاً بك في متجر Pyjama DZ! 🌸 أسعار البيجامات تبدأ من 2,500 دج، والتوصيل متوفر لجميع الولايات (بما فيها الشلف) حتى باب المنزل. كيف يمكننا خدمتك في طلبيتك اليوم؟ ✨`;
+  return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، كيف يمكننا مساعدتك اليوم؟ ✨`;
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
@@ -259,20 +259,26 @@ async function processIncomingPayload(body) {
                 const firstVar = p.colorVariants?.[0];
                 const imgUrl = firstVar?.images?.[0] || p.image;
                 if (imgUrl) {
-                  await sendWhatsAppImage(fromPhone, imgUrl, `✨ ${p.title}\n💰 السعر: ${p.price} دج\n🎨 الألوان المتوفرة: ${p.colorVariants?.map(v => v.name).join(', ') || 'متعددة'}`);
+                  await sendWhatsAppImage(fromPhone, imgUrl, `✨ ${p.title}\n🎨 الألوان: ${p.colorVariants?.map(v => v.name).join(', ') || 'متعددة'}`);
                 }
               }
-              await sendWhatsAppMessage(fromPhone, `تفضل صور أفضل المنتجات والموديلات الأكثر طلباً عندنا! 🌸 لتصفح المزيد والطلب المباشر زيارة متجرنا: https://pyjama-dz.vercel.app ✨`);
+              await sendWhatsAppMessage(fromPhone, `تفضل صور أفضل الموديلات عندنا! 🌸 تصفح باقي الكاتالوج والأسعار عبر موقعنا: https://pyjama-dz.vercel.app ✨`);
               continue;
             }
 
-            // C. AI SALES & RECLAMATION ASSISTANT (Gemini Powered with Full Catalog Context)
+            // C. AI SALES & RECLAMATION ASSISTANT (Concise, Strict, Natural Algerian Darija)
             const catalogSummary = products.map(p => `- منتج: ${p.title} | السعر: ${p.price} دج | الوصف: ${p.description || 'بيجامة فاخرة'}`).join('\n');
-            const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر بيجامات نسائية فاخرة جزائري (Pyjama DZ).
-تتحدث بالدارجة الجزائرية المحترمة والودية جداً.
-المعلومات المباشرة لمنتجات المتجر الحالية:\n${catalogSummary}\n
-رابط المتجر الإلكتروني للطلب المباشر: https://pyjama-dz.vercel.app
-الهدف: إجابة كل أسئلة الزبون بدقة (الأسعار، الألوان، التوصيل 58 ولاية، المقاسات، والطلب) ومساعدته على الاختيار بلباقة وحفاوة عالية.`;
+            const systemInstruction = `أنت بائع ومساعد مبيعات محترف ومختصر لمتجر بيجامات نسائية فاخرة جزائري (Pyjama DZ).
+تتحدث بالدارجة الجزائرية الودية والبسيطة على قد رسالة الزبون بالضبط بدون كلام زايد.
+شروط صارمة:
+1. عند السلام والتحية (مثل سلام، Slm، مرحبا): ارحب بالزبون فقط بشكل مختصر واسأله كيف تد مساعدته، وممنوع إطلاقاً ذكر الأسعار في البداية!
+2. ممنوع نهائياً ذكر عبارات (جملة) أو (بالقطعة) أو (دياي/تفصيل).
+3. اذكر السعر فقط إذا سألك الزبون صراحة عن السعر.
+4. إجابتك تكون قصيرة ومباشرة ومفيدة كبائع بشري جزائري شاطر.
+
+منتجات المتجر الحالية:
+${catalogSummary}
+رابط المتجر: https://pyjama-dz.vercel.app`;
 
             const aiReply = await generateGeminiAI(prompt, systemInstruction);
             if (aiReply) {
