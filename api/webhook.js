@@ -410,6 +410,112 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   }
 }
 
+async function sendWhatsAppImage(toPhone, imageUrl, caption = "") {
+  const token = await getMetaAccessToken();
+  if (!token || !toPhone || !imageUrl) return;
+  const cleanCaption = removeEmojis(caption);
+  const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: toPhone,
+        type: 'image',
+        image: {
+          link: imageUrl,
+          caption: cleanCaption
+        }
+      })
+    });
+    const data = await res.json();
+    console.log('WhatsApp send image result:', data);
+    return data;
+  } catch (err) {
+    console.error('Send WhatsApp image error:', err);
+  }
+}
+
+async function createChatOrderInSupabase(orderData) {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/orders`;
+    const payload = {
+      clientName: orderData.clientName || 'زبون المحادثة',
+      nom: orderData.clientName || 'زبون المحادثة',
+      phone: orderData.phone,
+      wilaya: orderData.wilaya || 'الشلف',
+      commune: orderData.commune || 'المركز',
+      address: `${orderData.wilaya || ''} ${orderData.commune || ''}`.trim(),
+      product: orderData.product || 'بيجامات فاخرة',
+      color: orderData.color || '',
+      size: orderData.size || '',
+      quantity: Number(orderData.quantity || 1),
+      totalPrice: Number(orderData.totalPrice || 0),
+      deliveryCompany: orderData.deliveryCompany || 'Livraison Domicile',
+      status: 'confirmee',
+      created_at: new Date().toISOString()
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    return Array.isArray(data) && data.length > 0 ? data[0] : null;
+  } catch (err) {
+    console.error('Error creating chat order in Supabase:', err);
+    return null;
+  }
+}
+
+async function checkAndSendProductPhotos(toPhone, messageText, products) {
+  const norm = normalizeText(messageText);
+  const pLower = (messageText || '').toLowerCase();
+  const photoKeywords = ['صورة', 'صور', 'تصويرة', 'تصاوير', 'photo', 'photos', 'image', 'images', 'شوف', 'نشوف', 'وريني', 'بعثلي', 'ابعثلي'];
+  
+  if (!photoKeywords.some(k => norm.includes(k) || pLower.includes(k))) return false;
+
+  const matchedImages = [];
+  (products || []).forEach(p => {
+    if (p.images && Array.isArray(p.images) && p.images.length > 0) {
+      p.images.forEach(img => {
+        if (img && typeof img === 'string' && img.startsWith('http')) {
+          matchedImages.push({ url: img, caption: `${p.title} - السعر: ${p.price} دج` });
+        }
+      });
+    } else if (p.image && typeof p.image === 'string' && p.image.startsWith('http')) {
+      matchedImages.push({ url: p.image, caption: `${p.title} - السعر: ${p.price} دج` });
+    }
+
+    if (Array.isArray(p.colorVariants)) {
+      p.colorVariants.forEach(cv => {
+        if (cv.image && typeof cv.image === 'string' && cv.image.startsWith('http')) {
+          matchedImages.push({ url: cv.image, caption: `${p.title} - اللون: ${cv.name}` });
+        }
+      });
+    }
+  });
+
+  if (matchedImages.length > 0) {
+    for (const item of matchedImages.slice(0, 2)) {
+      await sendWhatsAppImage(toPhone, item.url, item.caption);
+    }
+    return true;
+  }
+  return false;
+}
+
 async function getLatestOrderForPhone(cleanPhone) {
   try {
     const raw9 = cleanPhone.replace(/\D/g, '').slice(-9);
@@ -688,6 +794,15 @@ async function processIncomingPayload(body) {
    - افحص قائمة المنتجات والألوان والمخزون في بيانات النظام أعلاه:
    - إذا كان المنتج أو اللون موجوداً ومتوفراً في المخزون (المخزون > 0): أجب صراحة بـ "إيه كاين متوفر في السطوك"، ثم أعطه رابط الموقع الرسمي: https://pyjama-dz.vercel.app
    - إذا كان المنتج أو اللون غير موجود كلياً في السيستم أو نافداً من المخزون (مثل اسم وهمي أو لون غير موجود): أجب صراحة بـ "ماكاش متوفر حالياً هاد الموديل أو اللون"، ثم قل له تفضل شوف الموديلات والألوان المتوفرة حالياً في الموقع وأعطه رابط الموقع الرسمي: https://pyjama-dz.vercel.app
+8. إذا طلب الزبون مشاهدة الصور أو التصاوير (صور, تصاوير, photo, شوف, وريني): قل له تفضل تم إرسال الصور مباشرة في المحادثة.
+9. للزبائن الذين لا يعرفون طريقة الطلب من الموقع ويريدون تسجيل طلبيتهم مباشرة عبر المحادثة (الواتساب / الماسنجر / إنستغرام):
+   - ترحب بهم وتطلب منهم تزويدك بالبيانات التنسيقية التالية بالترتيب:
+     أ) الاسم واللقب الكامل
+     ب) رقم الهاتف
+     ج) الولاية والبلدية
+     د) اسم الموديل واللون والمقاس المطلوب
+     هـ) خيار شركة التوصيل (توصيل للمنزل أم للمكتب)
+   - بمجرد تقديمهم لهذه البيانات كاملة، يُسجل الطلب فوراً وتُحفظ البيانات في السيستم بحالة مؤكدة (confirmee)، وتخبرهم أنه تم تسجيل وتأكيد الطلبية بنجاح مع رقم الطلب.
 
 بيانات المتجر من الإعدادات:
 - العنوان والمقر: ${storeAddressDisplay}
@@ -698,6 +813,40 @@ ${settingsSummary}
 قائمة المنتجات والأسعار والسطوك الحالية من الداتابيز:
 ${catalogSummary}
 ${salesModeRules}`;
+
+              // Send photos if requested
+              await checkAndSendProductPhotos(fromPhone, messageText, products);
+
+              // Check if customer provided direct order details in chat
+              const isDirectOrderIntent = ["طلب", "كوموند", "commande", "نطلب", "ودي ندي", "ندير طلب", "سجللي طلب"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+              if (isDirectOrderIntent) {
+                const nameMatch = messageText.match(/(?:اسمي|اسم|الاسم|nom|client)\s*[:=]?\s*([أ-يa-zA-Z\s]{3,25})/i);
+                const wilayas = ["ادرار", "الشلف", "الأغواط", "أم البواقي", "باتنة", "بجاية", "بسكرة", "بشار", "بليدة", "بويرة", "تمنراست", "تبسة", "تلمسان", "تيارت", "تيزي وزو", "الجزائر", "الجلفة", "جيجل", "سطيف", "سعيدة", "سكيكدة", "سيدي بلعباس", "عنابة", "قالمة", "قسنطينة", "مدية", "مستغانم", "مسيلة", "معسكر", "ورقلة", "وهران", "بيض", "إليزي", "برج بوعريريج", "بومرداس", "الطارف", "تندوف", "تيسمسيلت", "الوادي", "خنشلة", "سوق أهراس", "تيبازة", "ميلة", "عين الدفلى", "نعامة", "عين تموشنت", "غرداية", "غليزان", "المغير", "المنيعة", "أولاد جلال", "برج باجي مختار", "بني عباس", "تيميمون", "تقرت", "جانت", "إن صالح", "إن قزام", "alger", "oran", "blida", "chlef", "setif", "constantine"];
+                const wilayaMatch = wilayas.find(w => normText.includes(w.toLowerCase()));
+
+                if (nameMatch && wilayaMatch) {
+                  const clientName = nameMatch[1].trim();
+                  const wilaya = wilayaMatch;
+                  const phoneMatch = messageText.match(/(0[567]\d{8})/);
+                  const orderPhone = phoneMatch ? phoneMatch[1] : fromPhone;
+
+                  const newOrder = await createChatOrderInSupabase({
+                    clientName,
+                    phone: orderPhone,
+                    wilaya,
+                    commune: 'المركز',
+                    product: cleanProductText(messageText),
+                    deliveryCompany: 'Livraison Domicile'
+                  });
+
+                  if (newOrder) {
+                    const orderNumStr = await getSequentialOrderNum(newOrder);
+                    const createdConfirmMsg = `تم تسجيل وتأكيد طلبيتك رقم #${orderNumStr} بنجاح في السيستم!\n- الاسم: ${clientName}\n- الهاتف: ${orderPhone}\n- الولاية: ${wilaya}\n- المنتج: ${cleanProductText(newOrder.product)}\n\nجاري تجهيز الطلبية وشحنها إليك في أقرب وقت. شكراً لثقتك بنا.`;
+                    await sendWhatsAppMessage(fromPhone, createdConfirmMsg);
+                    continue;
+                  }
+                }
+              }
 
               const aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
               if (aiReply) {
