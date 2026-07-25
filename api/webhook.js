@@ -381,8 +381,20 @@ async function processIncomingPayload(body) {
               const isCancellation = order && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
 
               if (isConfirmation) {
+                // 1. UPDATE DB ORDER STATUS TO 'Confirmé' & 'confirmed'
                 await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
                 const orderNumStr = await getSequentialOrderNum(order);
+
+                // 2. NOTIFY STORE MANAGERS VIA WHATSAPP (IF CONFIGURED)
+                if (storeSettings.whatsappBoutiqueManager) {
+                  const mgrPhone = String(storeSettings.whatsappBoutiqueManager).replace(/\D/g, '');
+                  if (mgrPhone) {
+                    const formattedMgr = mgrPhone.startsWith('0') ? '213' + mgrPhone.substring(1) : mgrPhone;
+                    await sendWhatsAppMessage(formattedMgr, `🌸 *متجر Pyjama DZ* 🌸\n\n🚨 *تأكيد طلبية جديدة من الزبون!*\n━━━━━━━━━━━━━━━\n📦 *رقم الطلب:* #${orderNumStr}\n👤 *الزبون:* ${order.clientName || order.nom}\n📞 *الهاتف:* ${cleanPhone}\n🚚 *الولاية:* ${order.wilaya || ''}\n🛍️ *المنتجات:* ${cleanProductText(order.product)}\n📌 *الحالة:* مؤكدة (Confirmé) ✅\n━━━━━━━━━━━━━━━`);
+                  }
+                }
+
+                // 3. REPLY TO CUSTOMER WITH CLEAN CONFIRMATION TEMPLATE
                 const confirmMsg = `🌸 *متجر Pyjama DZ* 🌸\n\nشكراً لك سيد ${order.clientName || 'الزبون'}! ❤️\n\n✅ *تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح!*\n━━━━━━━━━━━━━━━\n📦 *رقم الطلب:* #${orderNumStr}\n🛍️ *المنتجات:* ${cleanProductText(order.product)}\n🚚 *الولاية:* ${order.wilaya || ''}\n📌 *الحالة:* مؤكدة وفي مرحلة الشحن (Confirmé)\n━━━━━━━━━━━━━━━\n\n✨ شكراً لك! جاري تجهيز الشحنة وإرسالها فوراً.`;
                 await sendWhatsAppMessage(fromPhone, confirmMsg);
                 continue;
