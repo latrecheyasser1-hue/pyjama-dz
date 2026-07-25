@@ -77,7 +77,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
   if (pLower.includes('slm') || pLower.includes('سلام')) {
     return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك؟ ✨`;
   }
-  if (pLower.includes('win') || pLower.includes('plassa') || pLower.includes('مكان')) {
+  if (pLower.includes('win') || pLower.includes('plassa') || pLower.includes('مكان') || pLower.includes('مقر')) {
     return `أهلاً بك! 🌸 نحن متجر إلكتروني والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك. ✨`;
   }
   if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة')) {
@@ -113,7 +113,7 @@ async function sendWhatsAppMessage(toPhone, textBody) {
 }
 
 async function sendWhatsAppImage(toPhone, imageUrl, captionText = "") {
-  if (!META_ACCESS_TOKEN || !imageUrl) return;
+  if (!META_ACCESS_TOKEN || !imageUrl || !imageUrl.startsWith('http')) return;
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   try {
     const res = await fetch(url, {
@@ -261,23 +261,30 @@ async function processIncomingPayload(body) {
             // C. CHECK IF USER ASKS FOR PRODUCT IMAGES
             const wantsImages = ["photo", "chof", "modele", "موديل", "تصاور", "صور", "شوف", "صورة", "موديلات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
-            if (wantsImages && products.length > 0) {
-              for (const p of products.slice(0, 2)) {
-                const firstVar = p.colorVariants?.[0];
-                const imgUrl = firstVar?.images?.[0] || p.image;
-                if (imgUrl) {
-                  await sendWhatsAppImage(fromPhone, imgUrl, `✨ ${p.title}\n🎨 الألوان: ${p.colorVariants?.map(v => v.name).join(', ') || 'متعددة'}`);
+            if (wantsImages) {
+              let sentCount = 0;
+              if (products.length > 0) {
+                for (const p of products) {
+                  const firstVar = p.colorVariants?.[0];
+                  const imgUrl = firstVar?.images?.[0] || p.image;
+                  if (imgUrl && typeof imgUrl === 'string' && imgUrl.startsWith('http')) {
+                    await sendWhatsAppImage(fromPhone, imgUrl, `✨ ${p.title}\n🎨 الألوان: ${p.colorVariants?.map(v => v.name).join(', ') || 'متعددة'}`);
+                    sentCount++;
+                    if (sentCount >= 2) break;
+                  }
                 }
               }
-              await sendWhatsAppMessage(fromPhone, `تفضل صور أفضل الموديلات! 🌸 تصفح الباقي عبر موقعنا: https://pyjama-dz.vercel.app ✨`);
+              await sendWhatsAppMessage(fromPhone, `تفضل صور أفضل الموديلات والتصاور الحقيقية عبر موقعنا: https://pyjama-dz.vercel.app 🌸✨`);
               continue;
             }
 
             // D. AI SALES & RECLAMATION ASSISTANT (Strict Single Line / Short Answers Only)
             const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
             const systemInstruction = `أنت بائع ومساعد مبيعات لمتجر بيجامات نسائية (Pyjama DZ).
+المقر والتوصيل: نحن متجر إلكتروني كامل مع خدمة التوصيل السريع لـ 58 ولاية حتى باب المنزل.
 قانون حتمي صارم: يجب أن تكون إجابتك في سطر واحد قصير جداً ومباشر فقط (أقل من 15 كلمة)! ممنوع الفقرات أو الترحيب الطويل إطلاقاً.
-المنتجات: ${catalogSummary}`;
+المنتجات: ${catalogSummary}
+موقع المتجر الإلكتروني: https://pyjama-dz.vercel.app`;
 
             const aiReply = await generateGeminiAI(prompt, systemInstruction);
             if (aiReply) {
