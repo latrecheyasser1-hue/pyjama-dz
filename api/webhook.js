@@ -3,9 +3,26 @@ const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIs
 
 const DEFAULT_TOKEN = Buffer.from('RUFBZ3VhV0hHbGY4QlNCcVczRVZ5QkZqOUQ5VlV1cHEzM1BrYjc5SURGSGFnaEI3Yk1PQko2U3lhcWt2RGRUQTVFUk5wSEVFUERCYVpDWkNDQ2Vtc1N1TFRzMFpCNjROdWxja281NnZYdGMwVzFlZG1LbUE4OWs2QWtWemVqMGdSeWRPc3NRS0lNV2RRaWF1WGcyaFhxbXplVUY0cExJVjlTb21nSFV6VVRVdDgxU0FOZGxmaWlHRmxxMjFtWkMxazFMVEZqZkFlbVYzUUsyTnNCN2I5bDhVUHRPU2x0bFgwYXlaQUQ2ZlIxYllzZFVNblpCMmlxUUNmSU83M3RuQVJwRDZSU0NaQVNnUjA3Zmg3SjFvRDgyUlI=', 'base64').toString('utf8');
 
-const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || DEFAULT_TOKEN;
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'pyjama_dz_secret_verify_token';
+
+async function getMetaAccessToken() {
+  if (process.env.META_ACCESS_TOKEN && process.env.META_ACCESS_TOKEN.length > 20) {
+    return process.env.META_ACCESS_TOKEN;
+  }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.meta_access_token&select=value`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]?.value) {
+      return data[0].value.trim();
+    }
+  } catch (err) {
+    console.error('Error fetching Meta token from settings:', err);
+  }
+  return DEFAULT_TOKEN;
+}
 
 const GEMINI_KEYS = [
   Buffer.from('QVEuQWI4Uk42THJfRndDWGdzWnpvNUI3X0ZHTXV2OTJ3V2I2MFpOd3hSaUlSallMdmpB', 'base64').toString('utf8'),
@@ -176,13 +193,14 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
-  if (!META_ACCESS_TOKEN || !toPhone) return;
+  const token = await getMetaAccessToken();
+  if (!token || !toPhone) return;
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -202,13 +220,14 @@ async function sendWhatsAppMessage(toPhone, textBody) {
 }
 
 async function sendWhatsAppImage(toPhone, imageUrl, captionText = "") {
-  if (!META_ACCESS_TOKEN || !imageUrl || !imageUrl.startsWith('http')) return;
+  const token = await getMetaAccessToken();
+  if (!token || !imageUrl || !imageUrl.startsWith('http')) return;
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -499,7 +518,6 @@ export default async function handler(req, res) {
     }
 
     if (body) {
-      // Process payload synchronously inside serverless handler
       await processIncomingPayload(body);
     }
 
