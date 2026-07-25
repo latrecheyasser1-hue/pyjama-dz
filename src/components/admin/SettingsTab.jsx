@@ -26,10 +26,6 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   const [address, setAddress] = useState(settings?.address || 'Bab Ezzouar & Hydra, Alger');
   const [googleMapsUrl, setGoogleMapsUrl] = useState(settings?.googleMapsUrl || 'https://maps.google.com/?q=Bab+Ezzouar+Alger');
   const [storeName, setStoreName] = useState((settings?.storeName || 'Pyjama DZ').replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
-  const [geminiApiKeys, setGeminiApiKeys] = useState(() => {
-    if (!settings?.gemini_api_keys) return '';
-    return typeof settings.gemini_api_keys === 'object' ? JSON.stringify(settings.gemini_api_keys, null, 2) : String(settings.gemini_api_keys);
-  });
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   // Cashier PIN state
@@ -46,9 +42,6 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       if (settings.address !== undefined) setAddress(settings.address);
       if (settings.googleMapsUrl !== undefined) setGoogleMapsUrl(settings.googleMapsUrl);
       if (settings.storeName !== undefined) setStoreName(settings.storeName.replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
-      if (settings.gemini_api_keys !== undefined) {
-        setGeminiApiKeys(typeof settings.gemini_api_keys === 'object' ? JSON.stringify(settings.gemini_api_keys, null, 2) : String(settings.gemini_api_keys));
-      }
       if (settings.categories && Array.isArray(settings.categories) && settings.categories.length > 0) {
         // Categories handled in separate tab
       }
@@ -93,8 +86,7 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       whatsappLivraisonManager,
       phoneOrders: finalPhones,
       address,
-      storeName,
-      gemini_api_keys: geminiApiKeys
+      storeName
     });
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
@@ -276,20 +268,6 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
             <div className="form-group">
               <label className="form-label">العنوان والمناطق (Adresse & Localisation)</label>
               <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="form-input" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">🤖 مفاتيح الذكاء الاصطناعي (Gemini API Keys - 10 Keys)</label>
-              <textarea 
-                value={geminiApiKeys} 
-                onChange={(e) => setGeminiApiKeys(e.target.value)} 
-                className="form-input" 
-                rows={3}
-                placeholder="ضع مفاتيح Gemini الـ 10 هنا (مفتاح في كل سطر أو مفصولة بفواصل)"
-                style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
-              />
-              <span style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '4px' }}>
-                ضع الـ 10 مفاتيح هنا (واحدة في كل سطر). سيقرأها البوت فوراً وحياً من الداتابيز ويدور بينها تلقائياً بدون الحاجة لإعادة التحديث!
-              </span>
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', padding: '12px' }}>
