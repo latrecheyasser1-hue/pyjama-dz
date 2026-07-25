@@ -26,19 +26,25 @@ async function getMetaAccessToken() {
 
 async function getGeminiKeys() {
   const keys = [];
-  
-  // 1. Read process.env GEMINI_API_KEY_1..20
-  for (let i = 1; i <= 20; i++) {
-    const k = process.env[`GEMINI_API_KEY_${i}`];
-    if (k && k.trim()) keys.push(k.trim());
-  }
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) {
-    if (!keys.includes(process.env.GEMINI_API_KEY.trim())) {
-      keys.push(process.env.GEMINI_API_KEY.trim());
-    }
-  }
 
-  // 2. Read from Supabase settings table (key: gemini_api_keys or gemini_keys)
+  const addKey = (raw) => {
+    if (!raw || typeof raw !== 'string') return;
+    raw.split(/[\n,;\s"']+/).forEach(part => {
+      const clean = part.trim();
+      if (clean && clean.length > 15 && !keys.includes(clean)) {
+        keys.push(clean);
+      }
+    });
+  };
+
+  // 1. Sweep all process.env variables containing "GEMINI"
+  Object.keys(process.env).forEach(envVar => {
+    if (envVar.toUpperCase().includes('GEMINI')) {
+      addKey(process.env[envVar]);
+    }
+  });
+
+  // 2. Query Supabase settings table for any row containing "gemini" or "key"
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=key,value`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -46,15 +52,12 @@ async function getGeminiKeys() {
     const data = await res.json();
     if (Array.isArray(data)) {
       data.forEach(item => {
-        if (item.key && item.key.toLowerCase().includes('gemini') && item.value) {
-          try {
-            const parsed = typeof item.value === 'string' && (item.value.startsWith('[') || item.value.startsWith('{')) ? JSON.parse(item.value) : item.value;
-            if (Array.isArray(parsed)) {
-              parsed.forEach(pk => { if (pk && typeof pk === 'string' && !keys.includes(pk.trim())) keys.push(pk.trim()); });
-            } else if (typeof parsed === 'string') {
-              parsed.split(/[\n,;]/).forEach(pk => { if (pk && pk.trim() && !keys.includes(pk.trim())) keys.push(pk.trim()); });
-            }
-          } catch(e) {}
+        if (item.key && (item.key.toLowerCase().includes('gemini') || item.key.toLowerCase().includes('key')) && item.value) {
+          if (typeof item.value === 'object') {
+            try { addKey(JSON.stringify(item.value)); } catch(e) {}
+          } else {
+            addKey(String(item.value));
+          }
         }
       });
     }
@@ -69,9 +72,8 @@ async function getGeminiKeys() {
     Buffer.from('QVEuQWI4Uk42SnFZODAtdWVvaTJfVG9RQVAwamNmblZLdnZjZFp2VmR5X24wbU9seTd3', 'base64').toString('utf8'),
     Buffer.from('QVEuQWI4Uk42SnJiWXFJaDJEa3lyRU5MVXJNVkRVZ2xSSjlqZWZ6WXk4aEFyYnNNMGxaZXc=', 'base64').toString('utf8')
   ];
-  hardcoded.forEach(k => {
-    if (!keys.includes(k)) keys.push(k);
-  });
+  hardcoded.forEach(k => addKey(k));
+
   return keys;
 }
 
