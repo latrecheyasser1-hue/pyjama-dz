@@ -415,16 +415,15 @@ async function processIncomingPayload(body) {
               const products = await getAllProducts();
               const storeSettings = await getStoreSettings();
 
-              const phonesArr = extractCleanPhonesList(
-                storeSettings.phoneOrders,
-                storeSettings.phones,
-                storeSettings.whatsapp,
-                "0771335039"
-              );
+              const phoneSources = storeSettings.phoneOrders 
+                ? [storeSettings.phoneOrders, storeSettings.whatsapp]
+                : [storeSettings.phones, storeSettings.whatsapp];
+
+              const phonesArr = extractCleanPhonesList(...phoneSources);
 
               const formattedPhonesBullets = phonesArr.length > 0
                 ? phonesArr.map(p => `- ${p}`).join('\n')
-                : '- 0771335039';
+                : '- 0554128933';
 
               const storeAddressDisplay = storeSettings.address || "ولاية الشلف (Chlef)";
               const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "https://maps.app.goo.gl/algeria-pyjama-dz";
@@ -549,14 +548,6 @@ async function processIncomingPayload(body) {
                 const orderNumStr = await getSequentialOrderNum(order);
                 const cancelMsg = `*متجر Pyjama DZ*\n\nتم إلغاء الطلبية رقم #${orderNumStr} بنجاح في السيستم بناءً على رغبتك سيد ${order.clientName || 'الزبون'}. نأمل خدمتك في المناسبات القادمة.`;
                 await sendWhatsAppMessage(fromPhone, cancelMsg);
-                continue;
-              }
-
-              // PHONE NUMBER INTERCEPTOR
-              const isPhoneQuery = ["numero", "nomer", "num", "هاتف", "رقم المحل", "نميرو", "نومرو"].some(p => normText.includes(p) || messageText.toLowerCase().includes(p));
-              if (isPhoneQuery) {
-                const phoneReply = `*متجر Pyjama DZ*\n\nأرقام التواصل والواتساب الرسمية للمتجر:\n${formattedPhonesBullets}\n\nنحن في خدمتك دائماً.`;
-                await sendWhatsAppMessage(fromPhone, phoneReply);
                 continue;
               }
 
