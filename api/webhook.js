@@ -24,8 +24,10 @@ async function getMetaAccessToken() {
   return DEFAULT_TOKEN;
 }
 
-function getGeminiKeys() {
+async function getGeminiKeys() {
   const keys = [];
+  
+  // 1. Read process.env GEMINI_API_KEY_1..20
   for (let i = 1; i <= 20; i++) {
     const k = process.env[`GEMINI_API_KEY_${i}`];
     if (k && k.trim()) keys.push(k.trim());
@@ -35,6 +37,32 @@ function getGeminiKeys() {
       keys.push(process.env.GEMINI_API_KEY.trim());
     }
   }
+
+  // 2. Read from Supabase settings table (key: gemini_api_keys or gemini_keys)
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=key,value`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      data.forEach(item => {
+        if (item.key && item.key.toLowerCase().includes('gemini') && item.value) {
+          try {
+            const parsed = typeof item.value === 'string' && (item.value.startsWith('[') || item.value.startsWith('{')) ? JSON.parse(item.value) : item.value;
+            if (Array.isArray(parsed)) {
+              parsed.forEach(pk => { if (pk && typeof pk === 'string' && !keys.includes(pk.trim())) keys.push(pk.trim()); });
+            } else if (typeof parsed === 'string') {
+              parsed.split(/[\n,;]/).forEach(pk => { if (pk && pk.trim() && !keys.includes(pk.trim())) keys.push(pk.trim()); });
+            }
+          } catch(e) {}
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Error fetching Gemini keys from Supabase:', err);
+  }
+
+  // 3. Fallback hardcoded keys
   const hardcoded = [
     Buffer.from('QVEuQWI4Uk42THJfRndDWGdzWnpvNUI3X0ZHTXV2OTJ3V2I2MFpOd3hSaUlSallMdmpB', 'base64').toString('utf8'),
     Buffer.from('QVEuQWI4Uk42SWpweDNfcmhWYTBGZDZ4R181aUJ3M3Z4aVZDamR5OURYelBQVDBaZFJn', 'base64').toString('utf8'),
@@ -201,7 +229,7 @@ async function downloadMetaMedia(mediaId) {
 
 async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInstruction = "") {
   const modelEndpoints = ['gemini-2.0-flash', 'gemini-flash-latest'];
-  const keys = getGeminiKeys();
+  const keys = await getGeminiKeys();
   for (const selectedKey of keys) {
     for (const model of modelEndpoints) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -271,7 +299,7 @@ function getSmartFallbackResponse(prompt, storeSettings = {}) {
 
 async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}) {
   const modelEndpoints = ['gemini-flash-latest', 'gemini-2.0-flash'];
-  const keys = getGeminiKeys();
+  const keys = await getGeminiKeys();
   for (const selectedKey of keys) {
     for (const model of modelEndpoints) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
