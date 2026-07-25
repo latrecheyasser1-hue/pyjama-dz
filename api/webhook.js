@@ -25,9 +25,20 @@ function normalizeText(text) {
     .trim();
 }
 
-function formatOrderNum(rawId) {
-  if (!rawId) return "1001";
-  return String(rawId).replace(/-/g, '').slice(-5).toUpperCase();
+function formatOrderNum(order) {
+  if (!order) return "80";
+  if (typeof order === 'object') {
+    if (order.ticketNumber) return String(order.ticketNumber);
+    if (order.ticket_number) return String(order.ticket_number);
+    if (order.id) {
+      const idStr = String(order.id);
+      if (idStr.length <= 8) return idStr;
+      return idStr.substring(0, 8).toUpperCase();
+    }
+  }
+  const str = String(order);
+  if (str.length <= 8) return str;
+  return str.substring(0, 8).toUpperCase();
 }
 
 function cleanProductText(prod) {
@@ -241,7 +252,7 @@ async function processIncomingPayload(body) {
             const isOrderQuery = ["commande", "طلب", "طلبية", "طلبيتي", "كوماند"].some(o => normText.includes(o));
             if (isOrderQuery) {
               if (order) {
-                const orderNum = formatOrderNum(order.id);
+                const orderNum = formatOrderNum(order);
                 const statusName = order.status === 'Confirmé' ? 'مؤكدة وفي مرحلة الشحن 🚚' : (order.status === 'Annulé' ? 'ملغاة ❌' : 'جديدة قيد التجهيز ⏳');
                 const prodText = cleanProductText(order.product);
                 await sendWhatsAppMessage(fromPhone, `أهلاً بك سيد ${order.clientName || 'الزبون'}! ❤️\n\n📦 رقم الطلبية: #${orderNum}\n🛍️ المنتجات: ${prodText}\n🚚 الولاية: ${order.wilaya || ''}\n📌 الحالة: ${statusName}\n\nيرجى الرد بـ كلمة (تأكيد) للتجهيز والشحن فوراً! ✨`);
@@ -267,7 +278,7 @@ async function processIncomingPayload(body) {
 
             let prompt = `رسالة الزبون: "${messageText}"`;
             if (order) {
-              prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: ${formatOrderNum(order.id)}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
+              prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${formatOrderNum(order)}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
             }
 
             const confirmKeywords = [
@@ -285,11 +296,11 @@ async function processIncomingPayload(body) {
 
             if (isConfirmation) {
               await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
-              await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.clientName || order.nom}! ❤️\n\n✅ تم تأكيد طلبيتك رقم #${formatOrderNum(order.id)} بنجاح!\n🚚 جاري التجهيز والشحن المباشر إلى ولاية ${order.wilaya || ''}. ✨`);
+              await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.clientName || order.nom}! ❤️\n\n✅ تم تأكيد طلبيتك رقم #${formatOrderNum(order)} بنجاح!\n🚚 جاري التجهيز والشحن المباشر إلى ولاية ${order.wilaya || ''}. ✨`);
               continue;
             } else if (isCancellation) {
               await updateOrderStatus(order.id, 'Annulé', 'canceled');
-              await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${formatOrderNum(order.id)} بناءً على رغبتك سيد ${order.clientName || order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
+              await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${formatOrderNum(order)} بناءً على رغبتك سيد ${order.clientName || order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
               continue;
             }
 

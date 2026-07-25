@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { phone, nom, id, wilaya, product } = req.body || {};
+    const { phone, nom, id, ticketNumber, ticket_number, wilaya, product } = req.body || {};
     if (!phone) {
       return res.status(400).json({ error: 'Phone number is required' });
     }
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || DEFAULT_TOKEN;
     const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 
-    const orderNum = String(id || '').replace(/-/g, '').slice(-5).toUpperCase();
+    const orderNum = ticketNumber || ticket_number || (id ? (String(id).length <= 8 ? String(id) : String(id).substring(0, 8).toUpperCase()) : '80');
     const cleanProduct = String(product || 'بيجامة').replace(/\(\(/g, '').replace(/\)\)/g, '');
 
     const messageText = `أهلاً بك سيد ${nom || 'الزبون'}! ❤️\n\n📦 رقم الطلبية: #${orderNum}\n🛍️ المنتجات: ${cleanProduct}\n🚚 الولاية: ${wilaya || ''}\n📌 الحالة: جديدة (قيد التجهيز للشحن)\n\nيرجى الرد بـ كلمة (تأكيد) أو (إلغاء) لتجهيز شحنتك فوراً! ✨`;
