@@ -471,7 +471,10 @@ async function createChatOrderInSupabase(orderData) {
 async function checkAndSendProductPhotos(toPhone, messageText, products) {
   const norm = normalizeText(messageText);
   const pLower = (messageText || '').toLowerCase();
-  const photoKeywords = ['صورة', 'صور', 'تصويرة', 'تصاوير', 'photo', 'photos', 'image', 'images', 'شوف', 'نشوف', 'وريني', 'بعثلي', 'ابعثلي'];
+  const photoKeywords = [
+    'صورة', 'صور', 'تصويرة', 'تصاوير', 'photo', 'photos', 'image', 'images', 'شوف', 'نشوف', 'وريني', 'بعثلي', 'ابعثلي',
+    'tsswiira', 'tswira', 'taswira', 'tsoira', 'tsawir', 'tasawir', 'pic', 'pics', 'picture', 'pictures', 'tbeathli', 'tb3athlii', 'beathli', 'tbeath'
+  ];
   
   if (!photoKeywords.some(k => norm.includes(k) || pLower.includes(k))) return false;
 
@@ -503,11 +506,13 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
   });
 
   if (matchedImages.length > 0) {
+    let sentCount = 0;
     for (const item of matchedImages.slice(0, 3)) {
       console.log('Sending product image to WhatsApp:', item.url);
-      await sendWhatsAppImage(toPhone, item.url, item.caption);
+      const res = await sendWhatsAppImage(toPhone, item.url, item.caption);
+      if (res) sentCount++;
     }
-    return true;
+    return sentCount > 0;
   }
   return false;
 }
@@ -790,7 +795,7 @@ async function processIncomingPayload(body) {
    - افحص قائمة المنتجات والألوان والمخزون في بيانات النظام أعلاه:
    - إذا كان المنتج أو اللون موجوداً ومتوفراً في المخزون (المخزون > 0): أجب صراحة بـ "إيه كاين متوفر في السطوك"، ثم أعطه رابط الموقع الرسمي: https://pyjama-dz.vercel.app
    - إذا كان المنتج أو اللون غير موجود كلياً في السيستم أو نافداً من المخزون (مثل اسم وهمي أو لون غير موجود): أجب صراحة بـ "ماكاش متوفر حالياً هاد الموديل أو اللون"، ثم قل له تفضل شوف الموديلات والألوان المتوفرة حالياً في الموقع وأعطه رابط الموقع الرسمي: https://pyjama-dz.vercel.app
-8. إذا طلب الزبون مشاهدة الصور أو التصاوير (صور, تصاوير, photo, شوف, وريني): قل له تفضل تم إرسال الصور مباشرة في المحادثة.
+8. إذا سأل الزبون عن الصور (صور, تصاوير, photo): إذا لم تكن الصور مبعوثة فـ المحادثة، قل له تفضل بتصفح كافة صور الموديلات والألوان عبر رابط موقعنا الرسمي: https://pyjama-dz.vercel.app
 9. للزبائن الذين لا يعرفون طريقة الطلب من الموقع ويريدون تسجيل طلبيتهم مباشرة عبر المحادثة (الواتساب / الماسنجر / إنستغرام):
    - ترحب بهم وتطلب منهم تزويدك بالبيانات التالية بالترتيب:
      أ) الاسم واللقب الكامل
@@ -812,7 +817,11 @@ ${catalogSummary}
 ${salesModeRules}`;
 
               // Send photos if requested
-              await checkAndSendProductPhotos(fromPhone, messageText, products);
+              const sentPhotos = await checkAndSendProductPhotos(fromPhone, messageText, products);
+              if (sentPhotos) {
+                await sendWhatsAppMessage(fromPhone, "تفضل خويا، تم إرسال صور الموديلات المتوفرة أعلاه في المحادثة. يمكنك تصفح باقي المنتجات والألوان عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app");
+                continue;
+              }
 
               // Check if customer provided direct order details in chat
               const isDirectOrderIntent = ["طلب", "كوموند", "commande", "نطلب", "ودي ندي", "ندير طلب", "سجللي طلب"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
