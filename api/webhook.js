@@ -265,10 +265,10 @@ async function getLatestOrderForPhone(cleanPhone) {
   }
 }
 
-async function updateOrderStatus(orderId, newStatus, botStatus) {
+async function updateOrderStatus(orderId, newStatus) {
   try {
     const url = `${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`;
-    await fetch(url, {
+    const res = await fetch(url, {
       method: 'PATCH',
       headers: {
         'apikey': SUPABASE_KEY,
@@ -276,8 +276,9 @@ async function updateOrderStatus(orderId, newStatus, botStatus) {
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
       },
-      body: JSON.stringify({ status: newStatus, bot_status: botStatus })
+      body: JSON.stringify({ status: newStatus })
     });
+    console.log('Updated order status:', orderId, newStatus, res.status);
   } catch (err) {
     console.error('Error updating order status:', err);
   }
@@ -381,8 +382,8 @@ async function processIncomingPayload(body) {
               const isCancellation = order && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
 
               if (isConfirmation) {
-                // 1. UPDATE DB ORDER STATUS TO 'Confirmé' & 'confirmed'
-                await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
+                // 1. UPDATE DB ORDER STATUS TO EXACT VALUE 'confirmee'
+                await updateOrderStatus(order.id, 'confirmee');
                 const orderNumStr = await getSequentialOrderNum(order);
 
                 // 2. SHORT & DIRECT THANK YOU & DB CONFIRMATION REPLY TO CUSTOMER
@@ -390,8 +391,8 @@ async function processIncomingPayload(body) {
                 await sendWhatsAppMessage(fromPhone, confirmMsg);
                 continue;
               } else if (isCancellation) {
-                // 1. UPDATE DB ORDER STATUS TO 'Annulé' & 'canceled'
-                await updateOrderStatus(order.id, 'Annulé', 'canceled');
+                // 1. UPDATE DB ORDER STATUS TO EXACT VALUE 'annulee'
+                await updateOrderStatus(order.id, 'annulee');
                 const orderNumStr = await getSequentialOrderNum(order);
 
                 // 2. SHORT & DIRECT CANCELLATION CONFIRMATION REPLY TO CUSTOMER
@@ -413,7 +414,7 @@ async function processIncomingPayload(body) {
               if (isOrderQuery) {
                 if (order) {
                   const orderNum = await getSequentialOrderNum(order);
-                  const statusName = order.status === 'Confirmé' ? 'مؤكدة وفي مرحلة الشحن 🚚' : (order.status === 'Annulé' ? 'ملغاة ❌' : 'جديدة قيد التجهيز ⏳');
+                  const statusName = (order.status === 'confirmee' || order.status === 'Confirmé') ? 'مؤكدة وفي مرحلة الشحن 🚚' : ((order.status === 'annulee' || order.status === 'Annulé') ? 'ملغاة ❌' : 'جديدة قيد التجهيز ⏳');
                   const prodText = cleanProductText(order.product);
                   const orderReply = `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً بك سيد ${order.clientName || 'الزبون'}! ❤️\n\n📋 *تفاصيل الطلبية:*\n━━━━━━━━━━━━━━━\n📦 *رقم الطلب:* #${orderNum}\n🛍️ *المنتجات:* ${prodText}\n🚚 *الولاية:* ${order.wilaya || ''}\n📌 *الحالة:* ${statusName}\n━━━━━━━━━━━━━━━\n\n✨ يرجى الرد بـ كلمة (*تأكيد*) أو (*إلغاء*) لتجهيز شحنتك فوراً!`;
                   await sendWhatsAppMessage(fromPhone, orderReply);
