@@ -395,30 +395,36 @@ async function processIncomingPayload(body) {
                 if (audioId) {
                   const media = await downloadMetaMedia(audioId);
                   if (media && media.base64) {
-                    let audioPrompt = "استمع لهذا التسجيل الصوتي للزبون الجزائري، وافهم سؤاله أو طلبه بدقة وتحدث معه بأناقة ورقي.";
+                    let audioPrompt = "استمع للـ Vocal الجزائري. هل قام بتأكيد الطلبية (أوك، ابعث، نعم)؟ أم قام بإلغائها (بطلت، لا، مازال)؟ أم مجرد سؤال؟";
                     let orderNumStr = "58";
                     if (order) {
                       orderNumStr = await getSequentialOrderNum(order);
-                      audioPrompt += `\nبيانات طلب الزبون الحالي من السيستم:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
+                      audioPrompt += `\nبيانات طلب الزبون الحالي:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- الحالة الحالية: ${order.status}`;
                     }
 
                     const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
                     const systemInstruction = `أنت مساعد مبيعات لمتجر (${storeName}).
-قوانين التنسيق والشكل الحتمية:
-1. ابدأ دائماً الرد بـ: "🌸 *متجر Pyjama DZ* 🌸".
-2. استمع للـ Vocal الخاص بالزبون بكل دقة وافهم سؤاله أو تأكيده أو استفساره.
-3. اكتب الرد بأسلوب جزائري مهذب ومدرج بنقاط واضحة ورموز تعبيرية راقية.
-4. إذا قام الزبون بتأكيد طلبيته في الصوت، أجب بـ: "شكراً لك سيد ${order?.clientName || 'الزبون'}! ❤️ تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح في السيستم وجاري تجهيزها للشحن! 🚚✨".
+قوانين الاستماع والرد الحتمية:
+1. استمع للـ Vocal الخاص بالزبون الجزائري بكل دقة لتحديد نيته.
+2. هل الزبون يؤكد الطلبية؟ (يقول: ابعث، اوكي، اكد، جيبها، نعم، صح...). 
+إذا نعم، يجب أن يبدأ ردك بالضبط بهاتين الكلمتين: [CONFIRM_ORDER] متبوعة بـ 🌸 *متجر Pyjama DZ* 🌸 ثم رسالة قصيرة: "شكراً لك سيد ${order?.clientName || 'الزبون'}! ❤️ تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح في السيستم وجاري تجهيزها للشحن! 🚚✨".
+3. هل الزبون يلغي الطلبية؟ (يقول: بطلت، الغي، ما تجيبش، لا، حبس...). 
+إذا نعم، يجب أن يبدأ ردك بالضبط بهاتين الكلمتين: [CANCEL_ORDER] متبوعة بـ 🌸 *متجر Pyjama DZ* 🌸 ثم رسالة قصيرة: "تم إلغاء الطلبية رقم #${orderNumStr} بنجاح في السيستم بناءً على رغبتك سيد ${order?.clientName || 'الزبون'}."
+4. إذا كان يسأل سؤالاً عادياً وليس تأكيداً أو إلغاء، ابدأ ردك بـ: "🌸 *متجر Pyjama DZ* 🌸" وأجب بأسلوب جزائري مهذب.
 
 بيانات المتجر:
-- أرقام الهاتف الرسمية:
-${formattedPhonesBullets}
-- العنوان / المقر: ${storeAddressDisplay}
-- رابط خرائط جوجل: ${storeMapsUrl}
+- أرقام الهاتف: ${formattedPhonesBullets.replace(/\n/g, ' ')}
 ${catalogSummary}`;
 
-                    const audioReply = await generateGeminiAudio(media.base64, media.mimeType, audioPrompt, systemInstruction);
+                    let audioReply = await generateGeminiAudio(media.base64, media.mimeType, audioPrompt, systemInstruction);
                     if (audioReply) {
+                      if (audioReply.includes('[CONFIRM_ORDER]')) {
+                        if (order) await updateOrderStatusAndArchive(order.id, 'confirmee');
+                        audioReply = audioReply.replace('\\[CONFIRM_ORDER\\]', '').replace('[CONFIRM_ORDER]', '').trim();
+                      } else if (audioReply.includes('[CANCEL_ORDER]')) {
+                        if (order) await updateOrderStatusAndArchive(order.id, 'annulee');
+                        audioReply = audioReply.replace('\\[CANCEL_ORDER\\]', '').replace('[CANCEL_ORDER]', '').trim();
+                      }
                       await sendWhatsAppMessage(fromPhone, audioReply);
                       continue;
                     }
