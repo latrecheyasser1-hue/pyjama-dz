@@ -1,3 +1,27 @@
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
+
+async function getSequentialOrderNum(orderId) {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/orders?select=id,created_at&order=created_at.asc`;
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    const orders = await res.json();
+    if (Array.isArray(orders)) {
+      const idx = orders.findIndex(o => o.id === orderId);
+      if (idx !== -1) return String(idx + 1);
+      return String(orders.length);
+    }
+  } catch (err) {
+    console.error('Error fetching sequential order number:', err);
+  }
+  return "58";
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,7 +40,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { phone, nom, id, ticketNumber, ticket_number, wilaya, product } = req.body || {};
+    const { phone, nom, id, wilaya, product } = req.body || {};
     if (!phone) {
       return res.status(400).json({ error: 'Phone number is required' });
     }
@@ -29,7 +53,7 @@ export default async function handler(req, res) {
     const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || DEFAULT_TOKEN;
     const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 
-    const orderNum = ticketNumber || ticket_number || (id ? (String(id).length <= 8 ? String(id) : String(id).substring(0, 8).toUpperCase()) : '80');
+    const orderNum = await getSequentialOrderNum(id);
     const cleanProduct = String(product || 'بيجامة').replace(/\(\(/g, '').replace(/\)\)/g, '');
 
     const messageText = `أهلاً بك سيد ${nom || 'الزبون'}! ❤️\n\n📦 رقم الطلبية: #${orderNum}\n🛍️ المنتجات: ${cleanProduct}\n🚚 الولاية: ${wilaya || ''}\n📌 الحالة: جديدة (قيد التجهيز للشحن)\n\nيرجى الرد بـ كلمة (تأكيد) أو (إلغاء) لتجهيز شحنتك فوراً! ✨`;
@@ -57,7 +81,7 @@ export default async function handler(req, res) {
 
     const data = await apiRes.json();
     console.log('Server-to-server Meta WhatsApp order result:', data);
-    return res.status(200).json({ success: true, metaResponse: data });
+    return res.status(200).json({ success: true, metaResponse: data, orderNumber: orderNum });
   } catch (err) {
     console.error('Error sending order WhatsApp:', err);
     return res.status(500).json({ error: err.message });

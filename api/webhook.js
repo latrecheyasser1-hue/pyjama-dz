@@ -1,7 +1,7 @@
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
-const DEFAULT_TOKEN = Buffer.from('RUFBZ3VhV0hHbGY4QlNCcVczRVZ5QkZqOUQ5VlV1cHEzM1BrYjc5SURGSGFnaEI3Yk1PQko2U3lhcWt2RGRUQTVFUk5wSEVFUERCYVpDWkNDQ2Vtc1N1TFRzMFpCNjROdWxja281NnZYdGMwVzFlZG1LbUE4OWs2QWtWemVqMGdSeWRPc3NRS0lNV2RRaWF1WGcyaFhxbXplVUY0cExJVjlTb21nSFV6VVRVdDgxU0FOZGxmaWlHRmxxMjFtWkMxazFMVEZqWkFlbVYzUUsyTnNCN2I5bDhVUHRPU2x0bFgwYXlaQUQ2ZlIxYllzZFVNblpCMmlxUUNmSU83M3RuQVJwRDZSU0NaQVNnUjA3Zmg3SjFvRDgyUlI=', 'base64').toString('utf8');
+const DEFAULT_TOKEN = Buffer.from('RUFBZ3VhV0hHbGY4QlNCcVczRVZ5QkZqOUQ5VlV1cHEzM1BrYjc5SURGSGFnaEI3Yk1PQko2U3lhcWt2RGRUQTVFUk5wSEVFUERCYVpDWkNDQ2Vtc1N1TFRzMFpCNjROdWxja281NnZYdGMwVzFlZG1LbUE4OWs2QWtWemVqMGdSeWRPc3NRS0lNV2RRaWF1WGcyaFhxbXplVUY0cExJVjlTb21nSFV6VVRVdDgxU0FOZGxmaWlHRmxxMjFtWkMxazFMVEZqZkFlbVYzUUsyTnNCN2I5bDhVUHRPU2x0bFgwYXlaQUQ2ZlIxYllzZFVNblpCMmlxUUNmSU83M3RuQVJwRDZSU0NaQVNnUjA3Zmg3SjFvRDgyUlI=', 'base64').toString('utf8');
 
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || DEFAULT_TOKEN;
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
@@ -49,20 +49,27 @@ function extractCleanPhones(...sources) {
   return unique.length > 0 ? unique.join(' - ') : '0771335039';
 }
 
-function formatOrderNum(order) {
-  if (!order) return "80";
-  if (typeof order === 'object') {
-    if (order.ticketNumber) return String(order.ticketNumber);
-    if (order.ticket_number) return String(order.ticket_number);
-    if (order.id) {
-      const idStr = String(order.id);
-      if (idStr.length <= 8) return idStr;
-      return idStr.substring(0, 8).toUpperCase();
+async function getSequentialOrderNum(targetOrder) {
+  if (!targetOrder) return "58";
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/orders?select=id,created_at&order=created_at.asc`;
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    const orders = await res.json();
+    if (Array.isArray(orders)) {
+      const targetId = typeof targetOrder === 'object' ? targetOrder.id : targetOrder;
+      const idx = orders.findIndex(o => o.id === targetId);
+      if (idx !== -1) return String(idx + 1);
+      return String(orders.length);
     }
+  } catch (err) {
+    console.error('Error computing order number:', err);
   }
-  const str = String(order);
-  if (str.length <= 8) return str;
-  return str.substring(0, 8).toUpperCase();
+  return "58";
 }
 
 function cleanProductText(prod) {
@@ -326,7 +333,7 @@ async function processIncomingPayload(body) {
             const isOrderQuery = ["commande", "طلب", "طلبية", "طلبيتي", "كوماند"].some(o => normText.includes(o));
             if (isOrderQuery) {
               if (order) {
-                const orderNum = formatOrderNum(order);
+                const orderNum = await getSequentialOrderNum(order);
                 const statusName = order.status === 'Confirmé' ? 'مؤكدة وفي مرحلة الشحن 🚚' : (order.status === 'Annulé' ? 'ملغاة ❌' : 'جديدة قيد التجهيز ⏳');
                 const prodText = cleanProductText(order.product);
                 await sendWhatsAppMessage(fromPhone, `أهلاً بك سيد ${order.clientName || 'الزبون'}! ❤️\n\n📦 رقم الطلبية: #${orderNum}\n🛍️ المنتجات: ${prodText}\n🚚 الولاية: ${order.wilaya || ''}\n📌 الحالة: ${statusName}\n\nيرجى الرد بـ كلمة (تأكيد) للتجهيز والشحن فوراً! ✨`);
@@ -353,8 +360,10 @@ async function processIncomingPayload(body) {
             }
 
             let prompt = `رسالة الزبون: "${messageText}"`;
+            let orderNumStr = "58";
             if (order) {
-              prompt += `\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${formatOrderNum(order)}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
+              orderNumStr = await getSequentialOrderNum(order);
+              prompt += `\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
             }
 
             const confirmKeywords = [
@@ -372,11 +381,11 @@ async function processIncomingPayload(body) {
 
             if (isConfirmation) {
               await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
-              await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.clientName || order.nom}! ❤️\n\n✅ تم تأكيد طلبيتك رقم #${formatOrderNum(order)} بنجاح!\n🚚 جاري التجهيز والشحن المباشر إلى ولاية ${order.wilaya || ''}. ✨`);
+              await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.clientName || order.nom}! ❤️\n\n✅ تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح!\n🚚 جاري التجهيز والشحن المباشر إلى ولاية ${order.wilaya || ''}. ✨`);
               continue;
             } else if (isCancellation) {
               await updateOrderStatus(order.id, 'Annulé', 'canceled');
-              await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${formatOrderNum(order)} بناءً على رغبتك سيد ${order.clientName || order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
+              await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${orderNumStr} بناءً على رغبتك سيد ${order.clientName || order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
               continue;
             }
 
@@ -415,8 +424,8 @@ async function processIncomingPayload(body) {
 
             const systemInstruction = `أنت مساعد مبيعات لمتجر (${storeName}).
 قانون صارم وحتمي لا تصدر عنه مطلقاً:
-أنت تجيب الزبون حتماً وفقط بناءً على المعلومات والبيانات الحقيقية المسجلة في النظام والـ Settings والـ Database أدناه.
-ممنوع نهائياً خياطة أو افتراض أي معلومات أو أرقام أو تفاصيل غير موجودة في البيانات التالية!
+أنت تجيب الزبون حتماً وفقط بناءً على الرقم التسلسلي للطلبية والمعلومات والبيانات الحقيقية المسجلة في النظام والـ Settings والـ Database أدناه.
+ممنوع نهائياً خياطة أو افتراض أي أرقام UUID مثل D6A3D2C6 أو معلومات غير موجودة في البيانات التالية!
 
 بيانات المتجر من الإعدادات (Settings):
 - أرقام الهاتف الرسمية: ${storePhonesDisplay}
@@ -430,7 +439,7 @@ ${catalogSummary}
 
 موقع المتجر الإلكتروني: https://pyjama-dz.vercel.app
 ${salesModeRules}
-إذا طلب الزبون أي معلومة (أرقام هاتف، انستغرام، موقع، خرائط، أسعار، عنوان، توصيل): أصل الإجابة مباشرة وحصراً من بيانات الـ Settings والـ Database أعلاه بدون أي زيادة أو تلفيق وفي سطر واحد فقط!`;
+إذا طلب الزبون أي معلومة (أرقام هاتف، انستغرام، موقع، خرائط، أسعار، رقم طلبية تسلسلي مثل #58، عنوان، توصيل): أصل الإجابة مباشرة وحصراً من بيانات الـ Settings والـ Database أعلاه بدون أي زيادة أو تلفيق وفي سطر واحد فقط!`;
 
             const aiReply = await generateGeminiAI(prompt, systemInstruction);
             if (aiReply) {
