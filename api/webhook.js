@@ -74,14 +74,14 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
 
   // Ultra-short fallbacks
   const pLower = prompt.toLowerCase();
+  if (pLower.includes('winta') || pLower.includes('وقتاش') || pLower.includes('وقت')) {
+    return `التوصيل سريع جداً ويستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`;
+  }
   if (pLower.includes('slm') || pLower.includes('سلام')) {
     return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك؟ ✨`;
   }
   if (pLower.includes('gros') || pLower.includes('جملة')) {
     return `أهلاً بك! بيع الجملة متوفر بالسيريات والدرايط بأفضل الأسعار. تواصل معنا للكميات! ✨`;
-  }
-  if (pLower.includes('win') || pLower.includes('plassa') || pLower.includes('مكان') || pLower.includes('مقر')) {
-    return `مقرنا الرئيسي في ولاية الشلف، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`;
   }
   if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة')) {
     return `أهلاً بك! يمكنك الاطلاع على أسعار الموديلات بالتفصيل عبر موقعنا: https://pyjama-dz.vercel.app ✨`;
@@ -226,14 +226,21 @@ async function processIncomingPayload(body) {
 
             const normText = normalizeText(messageText);
 
-            // B. INSTANT 1-LINE GREETINGS & LOCATION INTERCEPTORS
+            // B. DELIVERY DURATION INTERCEPTOR (Winta / وقتاش / وقت التوصيل)
+            const isTimeQuery = ["winta", "wakt", "وقتاش", "متى", "وقت", "شحال وقت", "شحال وتقاش", "مدة"].some(t => normText.includes(t));
+            if (isTimeQuery) {
+              await sendWhatsAppMessage(fromPhone, `التوصيل سريع جداً ويستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`);
+              continue;
+            }
+
+            // C. INSTANT 1-LINE GREETINGS & LOCATION INTERCEPTORS
             const isGreeting = ["slm", "سلام", "مرحبا", "سلام عليكم", "مرحبتين", "bonjour", "salut", "سلام عليك"].some(g => normText === g || messageText.toLowerCase().trim() === g);
             if (isGreeting) {
               await sendWhatsAppMessage(fromPhone, `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك اليوم؟ ✨`);
               continue;
             }
 
-            const isLocationQuery = ["win", "plassa", "مكان", "مقر", "بلاصة", "ولاية", "اين", "وين جايين"].some(l => normText.includes(l));
+            const isLocationQuery = ["plassa", "مكان", "مقر", "بلاصة", "اين", "وين جايين", "وين المقر"].some(l => normText.includes(l)) || (normText.split(/\s+/).includes("win") || normText.split(/\s+/).includes("وين"));
             if (isLocationQuery) {
               await sendWhatsAppMessage(fromPhone, `مقرنا الرئيسي في ولاية الشلف، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`);
               continue;
@@ -267,7 +274,7 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // C. CHECK IF USER ASKS FOR PRODUCT IMAGES
+            // D. CHECK IF USER ASKS FOR PRODUCT IMAGES
             const wantsImages = ["photo", "chof", "modele", "موديل", "تصاور", "صور", "شوف", "صورة", "موديلات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             if (wantsImages) {
@@ -287,7 +294,7 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // D. STRICT SEPARATION OF RETAIL vs WHOLESALE (GROS) MODE
+            // E. RETAIL vs WHOLESALE (GROS) SEPARATION
             const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             let salesModeRules = "";
@@ -299,7 +306,8 @@ async function processIncomingPayload(body) {
 
             const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
             const systemInstruction = `أنت بائع ومساعد مبيعات لمتجر بيجامات نسائية (Pyjama DZ).
-المقر الرسمي: ولاية الشلف. والتوصيل لـ 58 ولاية لغاية باب المنزل.
+مدة التوصيل: من 24 إلى 48 ساعة فقط لجميع 58 ولاية.
+المقر الرسمي: ولاية الشلف.
 ${salesModeRules}
 قانون حتمي صارم: أجب في سطر واحد قصير جداً ومباشر فقط (أقل من 15 كلمة)!
 المنتجات: ${catalogSummary}
