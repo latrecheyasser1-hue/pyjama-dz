@@ -6,6 +6,7 @@ const DEFAULT_TOKEN = Buffer.from('RUFBZ3VhV0hHbGY4QlNCcVczRVZ5QkZqOUQ5VlV1cHEzM
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || DEFAULT_TOKEN;
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'pyjama_dz_secret_verify_token';
+const STORE_PHONE_NUMBER = '0771335039';
 
 const GEMINI_KEYS = [
   Buffer.from('QVEuQWI4Uk42THJfRndDWGdzWnpvNUI3X0ZHTXV2OTJ3V2I2MFpOd3hSaUlSallMdmpB', 'base64').toString('utf8'),
@@ -78,7 +79,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.5, maxOutputTokens: 200 }
+            generationConfig: { temperature: 0.2, maxOutputTokens: 50 }
           })
         });
 
@@ -95,20 +96,23 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
 
   // Dynamic natural fallbacks
   const pLower = prompt.toLowerCase();
+  if (pLower.includes('numero') || pLower.includes('num') || pLower.includes('هاتف') || pLower.includes('نميرو')) {
+    return `رقم هاتف المحل الرسمي للتواصل والواتساب: ${STORE_PHONE_NUMBER} 📞✨`;
+  }
   if (pLower.includes('quality') || pLower.includes('جودة') || pLower.includes('نوعية')) {
-    return `الجودة ممتازة 100% وقماش رفيع ومريح جداً كما في الصور بالضبط! ✨ كيف يمكنني مساعدتك اليوم؟`;
+    return `الجودة ممتازة 100% وقماش رفيع ومريح جداً كما في الصور بالضبط! ✨`;
   }
   if (pLower.includes('winta') || pLower.includes('وقتاش') || pLower.includes('وقت')) {
     return `التوصيل يستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`;
   }
   if (pLower.includes('slm') || pLower.includes('سلام')) {
-    return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك اليوم؟ ✨`;
+    return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك؟ ✨`;
   }
   if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة')) {
-    return `أهلاً بك! أسعارنا ممتازة ويمكنك الاطلاع على كافة التفاصيل والموديلات عبر موقعنا: https://pyjama-dz.vercel.app ✨`;
+    return `أهلاً بك! يمكنك الاطلاع على أسعار كافة الموديلات بالتفصيل عبر موقعنا: https://pyjama-dz.vercel.app ✨`;
   }
 
-  return `أهلاً وسهلاً بك في متجر Pyjama DZ! 🌸 تفضل كيف يمكننا مساعدتك في اختيار الموديل والمقاس المناسب؟ ✨`;
+  return `أهلاً وسهلاً بك في متجر Pyjama DZ! 🌸 تفضل كيف يمكننا مساعدتك اليوم؟ ✨`;
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
@@ -248,7 +252,14 @@ async function processIncomingPayload(body) {
 
             const normText = normalizeText(messageText);
 
-            // B. ORDER LOOKUP INTERCEPTOR (Commande / طلبية / طلبيتي / شوف طلبيتي)
+            // B. PHONE NUMBER INTERCEPTOR (Numero / num / هاتف / نميرو / رقم المحل)
+            const isPhoneQuery = ["numero", "nomer", "num", "هاتف", "رقم المحل", "نميرو", "نومرو"].some(p => normText.includes(p) || messageText.toLowerCase().includes(p));
+            if (isPhoneQuery) {
+              await sendWhatsAppMessage(fromPhone, `رقم هاتف المحل الرسمي للتواصل والواتساب: ${STORE_PHONE_NUMBER} 📞✨`);
+              continue;
+            }
+
+            // C. ORDER LOOKUP INTERCEPTOR (Commande / طلبية / طلبيتي / شوف طلبيتي)
             const isOrderQuery = ["commande", "طلب", "طلبية", "طلبيتي", "كوماند"].some(o => normText.includes(o));
             if (isOrderQuery) {
               if (order) {
@@ -262,14 +273,14 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // C. DELIVERY DURATION INTERCEPTOR
+            // D. DELIVERY DURATION INTERCEPTOR
             const isTimeQuery = ["winta", "wakt", "وقتاش", "متى", "وقت", "شحال وقت", "شحال وتقاش", "مدة"].some(t => normText.includes(t));
             if (isTimeQuery) {
               await sendWhatsAppMessage(fromPhone, `التوصيل يستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`);
               continue;
             }
 
-            // D. LOCATION INTERCEPTOR
+            // E. LOCATION INTERCEPTOR
             const isLocationQuery = ["plassa", "مكان", "مقر", "بلاصة", "اين", "وين جايين", "وين المقر"].some(l => normText.includes(l)) || (normText.split(/\s+/).includes("win") || normText.split(/\s+/).includes("وين"));
             if (isLocationQuery) {
               await sendWhatsAppMessage(fromPhone, `مقرنا الرئيسي في ولاية الشلف، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`);
@@ -304,7 +315,7 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // E. CHECK IF USER ASKS FOR PRODUCT IMAGES
+            // F. CHECK IF USER ASKS FOR PRODUCT IMAGES
             const wantsImages = ["photo", "chof", "modele", "موديل", "تصاور", "صور", "شوف", "صورة", "موديلات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             if (wantsImages) {
@@ -324,22 +335,25 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // F. NATURAL CONVERSATIONAL AI SALES ASSISTANT
+            // G. CONCISE DIRECT AI RESPONSE
             const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             let salesModeRules = "";
             if (isWholesale) {
               salesModeRules = `الزبون يسأل عن بالجملة (Gros). أجب حصراً عن أسعار وشروط الجملة والسيريات.`;
             } else {
-              salesModeRules = `الزبون زبون عادي بالقطعة. تحدث معه ببلاغة كبائع شاطر، وأجبه عن سؤاله وافتح معه حواراً جميلاً لمساعدته في الاختيار. لا تذكر أسعار الجملة.`;
+              salesModeRules = `الزبون زبون عادي بالقطعة. أجب عن سؤاله فقط في سطر واحد بدون ذكر أسعار الجملة أو تفاصيل طلبية سابقة إلا إذا سألك عنها!`;
             }
 
             const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
             const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر بيجامات نسائية فاخرة (Pyjama DZ).
-تتحدث بالدارجة الجزائرية المحترمة والودية كبائع بشري حقيقي.
+رقم هاتف المحل الرسمي: 0771335039.
+المقر: ولاية الشلف.
 ${salesModeRules}
-- أجب بسلاسة وجمال وتجاوب كامل مع كلام الزبون.
-- اجعل الإجابة متكاملة تفتح حوار مبيعات ناجح.
+قوانين حتمية:
+1. أجب فقط وحصراً عن السؤال المطروح في رسالة الزبون في سطر واحد قصير جداً ومباشر (أقل من 10 كلمات)!
+2. ممنوع نهائياً كتابة نصوص طويلة أو إقحام ملخص الطلبية أو كتابة أرقام وهمية مثل 0550000000 أو خانات فارغة!
+3. إذا سألك عن رقم الهاتف أجب: "رقم هاتف المحل الرسمي للتواصل والواتساب: 0771335039 📞✨".
 المنتجات: ${catalogSummary}
 موقع المتجر: https://pyjama-dz.vercel.app`;
 
