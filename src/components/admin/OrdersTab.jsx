@@ -38,11 +38,8 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
 
   const handleConfirmAction = (order) => {
     if (order.status === 'confirmee') {
-      // Confirm and Print
       onUpdateStatus(order.id, 'confirmee', true);
-      setPrintingOrder(order);
     } else if (order.status === 'annulee') {
-      // Confirm Cancellation
       onUpdateStatus(order.id, 'annulee', true);
     }
   };
@@ -339,8 +336,8 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                               boxShadow: '0 2px 6px rgba(31,138,85,0.25)'
                             }}
                           >
-                            <Printer size={16} />
-                            <span>تأكيد وطباعة</span>
+                            <CheckCircle2 size={16} />
+                            <span>تأكيد النهائي</span>
                           </button>
                         )}
 
