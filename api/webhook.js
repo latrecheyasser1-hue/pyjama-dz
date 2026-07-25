@@ -42,7 +42,7 @@ function normalizeText(text) {
     .trim();
 }
 
-function extractCleanPhones(...sources) {
+function extractCleanPhonesList(...sources) {
   const rawList = [];
   sources.forEach(src => {
     if (!src) return;
@@ -62,8 +62,7 @@ function extractCleanPhones(...sources) {
     });
   });
 
-  const unique = [...new Set(rawList)];
-  return unique.length > 0 ? unique.join(' - ') : '0771335039';
+  return [...new Set(rawList)];
 }
 
 async function getSequentialOrderNum(targetOrder) {
@@ -156,7 +155,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.2, maxOutputTokens: 100 }
+            generationConfig: { temperature: 0.2, maxOutputTokens: 120 }
           })
         });
 
@@ -174,22 +173,22 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
   // Dynamic natural fallbacks
   const pLower = prompt.toLowerCase();
   if (pLower.includes('kayn ghir') || pLower.includes('غير هذا') || pLower.includes('اخرين')) {
-    return `عندنا عدة أرقام وموديلات متنوعة في السيستم! تفضل بزيارة موقعنا لرؤية كافة الموديلات: https://pyjama-dz.vercel.app ✨`;
+    return `🌸 *متجر Pyjama DZ* 🌸\n\n✨ عندنا عدة أرقام وموديلات متنوعة في السيستم!\n🛍️ تفضل بزيارة موقعنا لرؤية كافة الموديلات: https://pyjama-dz.vercel.app ✨`;
   }
   if (pLower.includes('quality') || pLower.includes('جودة') || pLower.includes('نوعية')) {
-    return `الجودة ممتازة 100% وقماش رفيع ومريح جداً كما في الصور بالضبط! ✨`;
+    return `🌸 *متجر Pyjama DZ* 🌸\n\n✨ الجودة ممتازة 100% وقماش رفيع ومريح جداً كما في الصور بالضبط! ✨`;
   }
   if (pLower.includes('winta') || pLower.includes('وقتاش') || pLower.includes('وقت')) {
-    return `التوصيل يستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`;
+    return `🌸 *متجر Pyjama DZ* 🌸\n\n🚚 *مدة التوصيل:* من 24 إلى 48 ساعة فقط لجميع الولايات 58! ✨`;
   }
   if (pLower.includes('slm') || pLower.includes('سلام') || pLower.includes('alo') || pLower.includes('الوو')) {
-    return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك؟ ✨`;
+    return `🌸 *متجر Pyjama DZ* 🌸\n\nوعليكم السلام ورحمة الله! ❤️ أهلاً بك، تفضل كيف يمكننا مساعدتك اليوم؟ ✨`;
   }
   if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة')) {
-    return `أهلاً بك! يمكنك الاطلاع على أسعار كافة الموديلات بالتفصيل عبر موقعنا: https://pyjama-dz.vercel.app ✨`;
+    return `🌸 *متجر Pyjama DZ* 🌸\n\n🛍️ أسعارنا ممتازة ويمكنك الاطلاع على تفاصيل كافة الموديلات عبر موقعنا:\n🌐 https://pyjama-dz.vercel.app ✨`;
   }
 
-  return `أهلاً وسهلاً بك في متجر Pyjama DZ! 🌸 تفضل كيف يمكننا مساعدتك اليوم؟ ✨`;
+  return `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً وسهلاً بك! ❤️ تفضل كيف يمكننا مساعدتك في الاختيار اليوم؟ ✨`;
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
@@ -335,7 +334,7 @@ async function processIncomingPayload(body) {
                       },
                       body: JSON.stringify({ colorVariants: updatedVariants })
                     });
-                    await sendWhatsAppMessage(fromPhone, `✅ تم تحديث السطوك بنجاح! تم إضافة +${addedQty} حبة للمنتج "${product.title}" (${updatedVariants[colorIdx].name} - ${size}). السطوك الحالي الآن: ${newQty} حبة.`);
+                    await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\n✅ *تم تحديث السطوك بنجاح!*\n• المنتج: ${product.title}\n• اللون/المقاس: ${updatedVariants[colorIdx].name} (${size})\n• الكمية المضافة: +${addedQty}\n• السطوك الحالي: ${newQty} حبة ✨`);
                     continue;
                   }
                 }
@@ -346,15 +345,19 @@ async function processIncomingPayload(body) {
               const products = await getAllProducts();
               const storeSettings = await getStoreSettings();
 
-              // Extract SPOTLESS clean phone numbers list from settings
-              const storePhonesDisplay = extractCleanPhones(
+              // Extract SPOTLESS clean phone numbers array
+              const phonesArr = extractCleanPhonesList(
                 storeSettings.phoneOrders,
                 storeSettings.phones,
                 storeSettings.whatsapp,
                 "0771335039"
               );
 
-              const storeAddressDisplay = storeSettings.address || "chlef-chlef";
+              const formattedPhonesBullets = phonesArr.length > 0
+                ? phonesArr.map(p => `• ${p}`).join('\n')
+                : '• 0771335039';
+
+              const storeAddressDisplay = storeSettings.address || "ولاية الشلف - Chlef";
               const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "";
               const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "";
               const storeName = storeSettings.storeName || "Pyjama DZ";
@@ -364,7 +367,8 @@ async function processIncomingPayload(body) {
               // B. PHONE NUMBER INTERCEPTOR (Numero / num / هاتف / نميرو / رقم المحل)
               const isPhoneQuery = ["numero", "nomer", "num", "هاتف", "رقم المحل", "نميرو", "نومرو"].some(p => normText.includes(p) || messageText.toLowerCase().includes(p));
               if (isPhoneQuery) {
-                await sendWhatsAppMessage(fromPhone, `أهلاً بك! أرقام هاتف المحل الرسمية المسجلة في الإعدادات:\n📞 ${storePhonesDisplay} ✨`);
+                const phoneReply = `🌸 *متجر Pyjama DZ* 🌸\n\n📞 *أرقام التواصل والواتساب الرسمية:*\n━━━━━━━━━━━━━━━\n${formattedPhonesBullets}\n━━━━━━━━━━━━━━━\n✨ نحن في خدمتك دائماً!`;
+                await sendWhatsAppMessage(fromPhone, phoneReply);
                 continue;
               }
 
@@ -375,9 +379,10 @@ async function processIncomingPayload(body) {
                   const orderNum = await getSequentialOrderNum(order);
                   const statusName = order.status === 'Confirmé' ? 'مؤكدة وفي مرحلة الشحن 🚚' : (order.status === 'Annulé' ? 'ملغاة ❌' : 'جديدة قيد التجهيز ⏳');
                   const prodText = cleanProductText(order.product);
-                  await sendWhatsAppMessage(fromPhone, `أهلاً بك سيد ${order.clientName || 'الزبون'}! ❤️\n\n📦 رقم الطلبية: #${orderNum}\n🛍️ المنتجات: ${prodText}\n🚚 الولاية: ${order.wilaya || ''}\n📌 الحالة: ${statusName}\n\nيرجى الرد بـ كلمة (تأكيد) للتجهيز والشحن فوراً! ✨`);
+                  const orderReply = `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً بك سيد ${order.clientName || 'الزبون'}! ❤️\n\n📋 *تفاصيل الطلبية:*\n━━━━━━━━━━━━━━━\n📦 *رقم الطلب:* #${orderNum}\n🛍️ *المنتجات:* ${prodText}\n🚚 *الولاية:* ${order.wilaya || ''}\n📌 *الحالة:* ${statusName}\n━━━━━━━━━━━━━━━\n\n✨ يرجى الرد بـ كلمة (*تأكيد*) أو (*إلغاء*) لتجهيز شحنتك فوراً!`;
+                  await sendWhatsAppMessage(fromPhone, orderReply);
                 } else {
-                  await sendWhatsAppMessage(fromPhone, `لم نجد طلبية جديدة مسجلة برقم هاتفك الحالي في الداتابيز. يمكنك الطلب المباشر عبر موقعنا: https://pyjama-dz.vercel.app ✨`);
+                  await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\nلم نجد طلبية جديدة مسجلة برقم هاتفك الحالي. يمكنك الطلب المباشر وسنكون في خدمتك عبر موقعنا:\n🌐 https://pyjama-dz.vercel.app ✨`);
                 }
                 continue;
               }
@@ -385,15 +390,15 @@ async function processIncomingPayload(body) {
               // D. DELIVERY DURATION INTERCEPTOR
               const isTimeQuery = ["winta", "wakt", "وقتاش", "متى", "وقت", "شحال وقت", "شحال وتقاش", "مدة"].some(t => normText.includes(t));
               if (isTimeQuery) {
-                await sendWhatsAppMessage(fromPhone, `التوصيل يستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`);
+                await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\n⏱️ *مدة التوصيل:*\nمن 24 إلى 48 ساعة فقط لجميع الولايات 58! 🚚✨`);
                 continue;
               }
 
               // E. LOCATION INTERCEPTOR
               const isLocationQuery = ["plassa", "مكان", "مقر", "بلاصة", "اين", "وين جايين", "وين المقر", "موقع"].some(l => normText.includes(l)) || (normText.split(/\s+/).includes("win") || normText.split(/\s+/).includes("وين"));
               if (isLocationQuery) {
-                let locMsg = `مقرنا الرئيسي في ${storeAddressDisplay}، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`;
-                if (storeMapsUrl) locMsg += `\n📍 رابط الخريطة: ${storeMapsUrl}`;
+                let locMsg = `🌸 *متجر Pyjama DZ* 🌸\n\n📍 *مقرنا الرئيسي:*\n${storeAddressDisplay}\n\n🚚 *التوصيل متوفر لجميع 58 ولاية لغاية باب دارك!* ✨`;
+                if (storeMapsUrl) locMsg += `\n📍 *رابط الخريطة:* ${storeMapsUrl}`;
                 await sendWhatsAppMessage(fromPhone, locMsg);
                 continue;
               }
@@ -420,11 +425,11 @@ async function processIncomingPayload(body) {
 
               if (isConfirmation) {
                 await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
-                await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.clientName || order.nom}! ❤️\n\n✅ تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح!\n🚚 جاري التجهيز والشحن المباشر إلى ولاية ${order.wilaya || ''}. ✨`);
+                await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\nشكراً لك سيد ${order.clientName || order.nom}! ❤️\n\n✅ *تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح!*\n🚚 جاري التجهيز والشحن المباشر إلى ولاية ${order.wilaya || ''}. ✨`);
                 continue;
               } else if (isCancellation) {
                 await updateOrderStatus(order.id, 'Annulé', 'canceled');
-                await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${orderNumStr} بناءً على رغبتك سيد ${order.clientName || order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
+                await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\nتم إلغاء الطلبية رقم #${orderNumStr} بناءً على رغبتك سيد ${order.clientName || order.nom}.\nنأمل أن نخدمك في المرات القادمة! ✨`);
                 continue;
               }
 
@@ -444,7 +449,7 @@ async function processIncomingPayload(body) {
                     }
                   }
                 }
-                await sendWhatsAppMessage(fromPhone, `تفضل صور أفضل الموديلات والتصاور الحقيقية عبر موقعنا: https://pyjama-dz.vercel.app 🌸✨`);
+                await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\n\n✨ تفضل صور أفضل الموديلات والتصاور الحقيقية عبر موقعنا:\n🌐 https://pyjama-dz.vercel.app 🛍️`);
                 continue;
               }
 
@@ -462,12 +467,15 @@ async function processIncomingPayload(body) {
               const settingsSummary = Object.entries(storeSettings).map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
 
               const systemInstruction = `أنت مساعد مبيعات لمتجر (${storeName}).
-قانون صارم وحتمي لا تصدر عنه مطلقاً:
-أنت تجيب الزبون حتماً وفقط بناءً على الرقم التسلسلي للطلبية والمعلومات والبيانات الحقيقية المسجلة في النظام والـ Settings والـ Database أدناه.
-ممنوع نهائياً خياطة أو افتراض أي أرقام UUID مثل D6A3D2C6 أو معلومات غير موجودة في البيانات التالية!
+قوانين التنسيق والشكل الحتمية:
+1. ابدأ دائماً الرد بـ: "🌸 *متجر Pyjama DZ* 🌸".
+2. اكتب الرد دائماً بشكل أنيق ومستف ومدرج بنقاط واضحة (bullet points •) ورموز تعبيرية راقية.
+3. تجنب الكتل النصية الطويلة، واجعل الرسالة مرتبة ومنسقة 100%.
+4. أصل الإجابة مباشرة وحصراً من بيانات الـ Settings والـ Database أدناه.
 
 بيانات المتجر من الإعدادات (Settings):
-- أرقام الهاتف الرسمية: ${storePhonesDisplay}
+- أرقام الهاتف الرسمية:
+${formattedPhonesBullets}
 - العنوان / المقر: ${storeAddressDisplay}
 - رابط خرائط جوجل: ${storeMapsUrl}
 - رابط انستغرام: ${storeInstaUrl}
@@ -477,8 +485,7 @@ ${settingsSummary}
 ${catalogSummary}
 
 موقع المتجر الإلكتروني: https://pyjama-dz.vercel.app
-${salesModeRules}
-إذا طلب الزبون أي معلومة (أرقام هاتف، انستغرام، موقع، خرائط، أسعار، رقم طلبية تسلسلي مثل #58، عنوان، توصيل): أصل الإجابة مباشرة وحصراً من بيانات الـ Settings والـ Database أعلاه بدون أي زيادة أو تلفيق وفي سطر واحد فقط!`;
+${salesModeRules}`;
 
               const aiReply = await generateGeminiAI(prompt, systemInstruction);
               if (aiReply) {

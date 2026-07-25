@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     const orderNum = await getSequentialOrderNum(id);
     const cleanProduct = String(product || 'بيجامة').replace(/\(\(/g, '').replace(/\)\)/g, '');
 
-    const messageText = `أهلاً بك سيد ${nom || 'الزبون'}! ❤️\n\n📦 رقم الطلبية: #${orderNum}\n🛍️ المنتجات: ${cleanProduct}\n🚚 الولاية: ${wilaya || ''}\n📌 الحالة: جديدة (قيد التجهيز للشحن)\n\nيرجى الرد بـ كلمة (تأكيد) أو (إلغاء) لتجهيز شحنتك فوراً! ✨`;
+    const messageText = `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً بك سيد ${nom || 'الزبون'}! ❤️\n\n📋 *تفاصيل الطلبية:*\n━━━━━━━━━━━━━━━\n📦 *رقم الطلب:* #${orderNum}\n🛍️ *المنتجات:* ${cleanProduct}\n🚚 *الولاية:* ${wilaya || ''}\n📌 *الحالة:* جديدة (قيد التجهيز للشحن)\n━━━━━━━━━━━━━━━\n\n✨ يرجى الرد بـ كلمة (*تأكيد*) أو (*إلغاء*) لتجهيز شحنتك فوراً!`;
 
     const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
     const messageBody = {
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
       body: JSON.stringify(messageBody)
     });
 
-    const data = await res.json();
+    const data = await apiRes.json();
     console.log('Server-to-server Meta WhatsApp order result:', data);
     return res.status(200).json({ success: true, metaResponse: data, orderNumber: orderNum });
   } catch (err) {
