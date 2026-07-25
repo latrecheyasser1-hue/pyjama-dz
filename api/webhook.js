@@ -164,7 +164,7 @@ async function downloadMetaMedia(mediaId) {
 }
 
 async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInstruction = "") {
-  const modelEndpoints = ['gemini-flash-latest'];
+  const modelEndpoints = ['gemini-2.0-flash', 'gemini-flash-latest'];
   for (const selectedKey of GEMINI_KEYS) {
     for (const model of modelEndpoints) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -199,7 +199,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
           const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) return text.trim();
         } else {
-            console.error(`Gemini Audio error for ${model}: ${res.status} - await res.text()`);
+            console.error(`Gemini Audio error for ${model}: ${res.status}`);
         }
       } catch (err) {
         console.error('Gemini Audio error:', err);
@@ -210,7 +210,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "") {
-  const modelEndpoints = ['gemini-flash-latest'];
+  const modelEndpoints = ['gemini-2.0-flash', 'gemini-flash-latest'];
   for (const selectedKey of GEMINI_KEYS) {
     for (const model of modelEndpoints) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
