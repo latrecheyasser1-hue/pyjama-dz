@@ -165,7 +165,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
   if (pLower.includes('winta') || pLower.includes('وقتاش') || pLower.includes('وقت')) {
     return `التوصيل يستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`;
   }
-  if (pLower.includes('slm') || pLower.includes('سلام')) {
+  if (pLower.includes('slm') || pLower.includes('سلام') || pLower.includes('alo') || pLower.includes('الوو')) {
     return `وعليكم السلام ورحمة الله! 🌸 أهلاً بك في متجر Pyjama DZ، تفضل كيف يمكننا مساعدتك؟ ✨`;
   }
   if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة')) {
@@ -274,160 +274,175 @@ async function processIncomingPayload(body) {
         const value = change?.value || change;
         const messages = value?.messages || [];
         for (const message of messages) {
-          const fromPhone = message.from;
-          const messageText = message.text?.body;
+          try {
+            const fromPhone = message.from;
+            const messageText = message.text?.body;
 
-          if (messageText && fromPhone) {
-            console.log(`Received message from ${fromPhone}: ${messageText}`);
+            if (messageText && fromPhone) {
+              console.log(`Received message from ${fromPhone}: ${messageText}`);
 
-            // A. WORKER STOCK RESTOCK via REPLY
-            const refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
-            if (refMatch) {
-              const productId = refMatch[1];
-              const colorIdx = parseInt(refMatch[2]);
-              const size = refMatch[3];
-              const addedQty = parseInt(messageText.replace(/\D/g, ''));
+              // A. WORKER STOCK RESTOCK via REPLY
+              const refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
+              if (refMatch) {
+                const productId = refMatch[1];
+                const colorIdx = parseInt(refMatch[2]);
+                const size = refMatch[3];
+                const addedQty = parseInt(messageText.replace(/\D/g, ''));
 
-              if (!isNaN(addedQty) && addedQty > 0) {
-                const { data: product } = await supabase.from('products').select('*').eq('id', productId).single();
-                if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
-                  const updatedVariants = [...product.colorVariants];
-                  const currentQty = updatedVariants[colorIdx].stock?.[size] || 0;
-                  const newQty = currentQty + addedQty;
+                if (!isNaN(addedQty) && addedQty > 0) {
+                  const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                  });
+                  const prods = await prodRes.json();
+                  const product = Array.isArray(prods) ? prods[0] : null;
 
-                  updatedVariants[colorIdx] = {
-                    ...updatedVariants[colorIdx],
-                    stock: { ...(updatedVariants[colorIdx].stock || {}), [size]: newQty }
-                  };
+                  if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
+                    const updatedVariants = [...product.colorVariants];
+                    const currentQty = updatedVariants[colorIdx].stock?.[size] || 0;
+                    const newQty = currentQty + addedQty;
 
-                  await supabase.from('products').update({ colorVariants: updatedVariants }).eq('id', productId);
-                  await sendWhatsAppMessage(fromPhone, `✅ تم تحديث السطوك بنجاح! تم إضافة +${addedQty} حبة للمنتج "${product.title}" (${updatedVariants[colorIdx].name} - ${size}). السطوك الحالي الآن: ${newQty} حبة.`);
-                  continue;
-                }
-              }
-            }
+                    updatedVariants[colorIdx] = {
+                      ...updatedVariants[colorIdx],
+                      stock: { ...(updatedVariants[colorIdx].stock || {}), [size]: newQty }
+                    };
 
-            const cleanPhone = fromPhone.replace(/^\+?213/, '0');
-            const order = await getLatestOrderForPhone(cleanPhone);
-            const products = await getAllProducts();
-            const storeSettings = await getStoreSettings();
-
-            // Extract SPOTLESS clean phone numbers list from settings
-            const storePhonesDisplay = extractCleanPhones(
-              storeSettings.phoneOrders,
-              storeSettings.phones,
-              storeSettings.whatsapp,
-              "0771335039"
-            );
-
-            const storeAddressDisplay = storeSettings.address || "chlef-chlef";
-            const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "";
-            const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "";
-            const storeName = storeSettings.storeName || "Pyjama DZ";
-
-            const normText = normalizeText(messageText);
-
-            // B. PHONE NUMBER INTERCEPTOR (Numero / num / هاتف / نميرو / رقم المحل)
-            const isPhoneQuery = ["numero", "nomer", "num", "هاتف", "رقم المحل", "نميرو", "نومرو"].some(p => normText.includes(p) || messageText.toLowerCase().includes(p));
-            if (isPhoneQuery) {
-              await sendWhatsAppMessage(fromPhone, `أهلاً بك! أرقام هاتف المحل الرسمية المسجلة في الإعدادات:\n📞 ${storePhonesDisplay} ✨`);
-              continue;
-            }
-
-            // C. ORDER LOOKUP INTERCEPTOR (Commande / طلبية / طلبيتي / شوف طلبيتي)
-            const isOrderQuery = ["commande", "طلب", "طلبية", "طلبيتي", "كوماند"].some(o => normText.includes(o));
-            if (isOrderQuery) {
-              if (order) {
-                const orderNum = await getSequentialOrderNum(order);
-                const statusName = order.status === 'Confirmé' ? 'مؤكدة وفي مرحلة الشحن 🚚' : (order.status === 'Annulé' ? 'ملغاة ❌' : 'جديدة قيد التجهيز ⏳');
-                const prodText = cleanProductText(order.product);
-                await sendWhatsAppMessage(fromPhone, `أهلاً بك سيد ${order.clientName || 'الزبون'}! ❤️\n\n📦 رقم الطلبية: #${orderNum}\n🛍️ المنتجات: ${prodText}\n🚚 الولاية: ${order.wilaya || ''}\n📌 الحالة: ${statusName}\n\nيرجى الرد بـ كلمة (تأكيد) للتجهيز والشحن فوراً! ✨`);
-              } else {
-                await sendWhatsAppMessage(fromPhone, `لم نجد طلبية جديدة مسجلة برقم هاتفك الحالي في الداتابيز. يمكنك الطلب المباشر عبر موقعنا: https://pyjama-dz.vercel.app ✨`);
-              }
-              continue;
-            }
-
-            // D. DELIVERY DURATION INTERCEPTOR
-            const isTimeQuery = ["winta", "wakt", "وقتاش", "متى", "وقت", "شحال وقت", "شحال وتقاش", "مدة"].some(t => normText.includes(t));
-            if (isTimeQuery) {
-              await sendWhatsAppMessage(fromPhone, `التوصيل يستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`);
-              continue;
-            }
-
-            // E. LOCATION INTERCEPTOR
-            const isLocationQuery = ["plassa", "مكان", "مقر", "بلاصة", "اين", "وين جايين", "وين المقر", "موقع"].some(l => normText.includes(l)) || (normText.split(/\s+/).includes("win") || normText.split(/\s+/).includes("وين"));
-            if (isLocationQuery) {
-              let locMsg = `مقرنا الرئيسي في ${storeAddressDisplay}، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`;
-              if (storeMapsUrl) locMsg += `\n📍 رابط الخريطة: ${storeMapsUrl}`;
-              await sendWhatsAppMessage(fromPhone, locMsg);
-              continue;
-            }
-
-            let prompt = `رسالة الزبون: "${messageText}"`;
-            let orderNumStr = "58";
-            if (order) {
-              orderNumStr = await getSequentialOrderNum(order);
-              prompt += `\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
-            }
-
-            const confirmKeywords = [
-              'takid', 'taekid', 'taked', 'ta3kid', 'taakid', 'confirm', 'confirmi',
-              'ok', 'oui', 'daccord', 'daweq', 'sah', 'yep', 'yeah',
-              'تاكيد', 'تأكيد', 'نعم', 'اوكي', 'اكدي', 'اكيد', 'موافق', 'ابعث', 'شحن', 'ارسل', 'ابعثها', 'جدية'
-            ];
-
-            const cancelKeywords = [
-              'annul', 'cancel', 'non', 'حبس', 'بطلت', 'بطلت', 'ما تبعث', 'لا', 'الغاء', 'إلغاء', 'نحي', 'انولي'
-            ];
-
-            const isConfirmation = order && confirmKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-            const isCancellation = order && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-
-            if (isConfirmation) {
-              await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
-              await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.clientName || order.nom}! ❤️\n\n✅ تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح!\n🚚 جاري التجهيز والشحن المباشر إلى ولاية ${order.wilaya || ''}. ✨`);
-              continue;
-            } else if (isCancellation) {
-              await updateOrderStatus(order.id, 'Annulé', 'canceled');
-              await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${orderNumStr} بناءً على رغبتك سيد ${order.clientName || order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
-              continue;
-            }
-
-            // F. CHECK IF USER ASKS FOR PRODUCT IMAGES
-            const wantsImages = ["photo", "chof", "modele", "موديل", "تصاور", "صور", "شوف", "صورة", "موديلات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-            
-            if (wantsImages) {
-              let sentCount = 0;
-              if (products.length > 0) {
-                for (const p of products) {
-                  const firstVar = p.colorVariants?.[0];
-                  const imgUrl = firstVar?.images?.[0] || p.image;
-                  if (imgUrl && typeof imgUrl === 'string' && imgUrl.startsWith('http')) {
-                    await sendWhatsAppImage(fromPhone, imgUrl, `✨ ${p.title}\n🎨 الألوان: ${p.colorVariants?.map(v => v.name).join(', ') || 'متعددة'}`);
-                    sentCount++;
-                    if (sentCount >= 2) break;
+                    await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
+                      method: 'PATCH',
+                      headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                      },
+                      body: JSON.stringify({ colorVariants: updatedVariants })
+                    });
+                    await sendWhatsAppMessage(fromPhone, `✅ تم تحديث السطوك بنجاح! تم إضافة +${addedQty} حبة للمنتج "${product.title}" (${updatedVariants[colorIdx].name} - ${size}). السطوك الحالي الآن: ${newQty} حبة.`);
+                    continue;
                   }
                 }
               }
-              await sendWhatsAppMessage(fromPhone, `تفضل صور أفضل الموديلات والتصاور الحقيقية عبر موقعنا: https://pyjama-dz.vercel.app 🌸✨`);
-              continue;
-            }
 
-            // G. STRICT SUPABASE SETTINGS & DATABASE STRICTNESS RULE
-            const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-            
-            let salesModeRules = "";
-            if (isWholesale) {
-              salesModeRules = `الزبون يسأل عن بالجملة (Gros). أجب حصراً عن أسعار وشروط الجملة والسيريات من النظام.`;
-            } else {
-              salesModeRules = `الزبون زبون عادي بالقطعة. أجب عن سؤاله حصراً وحقيقياً من بيانات الـ Settings والـ Database فقط.`;
-            }
+              const cleanPhone = fromPhone.replace(/^\+?213/, '0');
+              const order = await getLatestOrderForPhone(cleanPhone);
+              const products = await getAllProducts();
+              const storeSettings = await getStoreSettings();
 
-            const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
-            const settingsSummary = Object.entries(storeSettings).map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
+              // Extract SPOTLESS clean phone numbers list from settings
+              const storePhonesDisplay = extractCleanPhones(
+                storeSettings.phoneOrders,
+                storeSettings.phones,
+                storeSettings.whatsapp,
+                "0771335039"
+              );
 
-            const systemInstruction = `أنت مساعد مبيعات لمتجر (${storeName}).
+              const storeAddressDisplay = storeSettings.address || "chlef-chlef";
+              const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "";
+              const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "";
+              const storeName = storeSettings.storeName || "Pyjama DZ";
+
+              const normText = normalizeText(messageText);
+
+              // B. PHONE NUMBER INTERCEPTOR (Numero / num / هاتف / نميرو / رقم المحل)
+              const isPhoneQuery = ["numero", "nomer", "num", "هاتف", "رقم المحل", "نميرو", "نومرو"].some(p => normText.includes(p) || messageText.toLowerCase().includes(p));
+              if (isPhoneQuery) {
+                await sendWhatsAppMessage(fromPhone, `أهلاً بك! أرقام هاتف المحل الرسمية المسجلة في الإعدادات:\n📞 ${storePhonesDisplay} ✨`);
+                continue;
+              }
+
+              // C. ORDER LOOKUP INTERCEPTOR (Commande / طلبية / طلبيتي / شوف طلبيتي)
+              const isOrderQuery = ["commande", "طلب", "طلبية", "طلبيتي", "كوماند"].some(o => normText.includes(o));
+              if (isOrderQuery) {
+                if (order) {
+                  const orderNum = await getSequentialOrderNum(order);
+                  const statusName = order.status === 'Confirmé' ? 'مؤكدة وفي مرحلة الشحن 🚚' : (order.status === 'Annulé' ? 'ملغاة ❌' : 'جديدة قيد التجهيز ⏳');
+                  const prodText = cleanProductText(order.product);
+                  await sendWhatsAppMessage(fromPhone, `أهلاً بك سيد ${order.clientName || 'الزبون'}! ❤️\n\n📦 رقم الطلبية: #${orderNum}\n🛍️ المنتجات: ${prodText}\n🚚 الولاية: ${order.wilaya || ''}\n📌 الحالة: ${statusName}\n\nيرجى الرد بـ كلمة (تأكيد) للتجهيز والشحن فوراً! ✨`);
+                } else {
+                  await sendWhatsAppMessage(fromPhone, `لم نجد طلبية جديدة مسجلة برقم هاتفك الحالي في الداتابيز. يمكنك الطلب المباشر عبر موقعنا: https://pyjama-dz.vercel.app ✨`);
+                }
+                continue;
+              }
+
+              // D. DELIVERY DURATION INTERCEPTOR
+              const isTimeQuery = ["winta", "wakt", "وقتاش", "متى", "وقت", "شحال وقت", "شحال وتقاش", "مدة"].some(t => normText.includes(t));
+              if (isTimeQuery) {
+                await sendWhatsAppMessage(fromPhone, `التوصيل يستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`);
+                continue;
+              }
+
+              // E. LOCATION INTERCEPTOR
+              const isLocationQuery = ["plassa", "مكان", "مقر", "بلاصة", "اين", "وين جايين", "وين المقر", "موقع"].some(l => normText.includes(l)) || (normText.split(/\s+/).includes("win") || normText.split(/\s+/).includes("وين"));
+              if (isLocationQuery) {
+                let locMsg = `مقرنا الرئيسي في ${storeAddressDisplay}، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`;
+                if (storeMapsUrl) locMsg += `\n📍 رابط الخريطة: ${storeMapsUrl}`;
+                await sendWhatsAppMessage(fromPhone, locMsg);
+                continue;
+              }
+
+              let prompt = `رسالة الزبون: "${messageText}"`;
+              let orderNumStr = "58";
+              if (order) {
+                orderNumStr = await getSequentialOrderNum(order);
+                prompt += `\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
+              }
+
+              const confirmKeywords = [
+                'takid', 'taekid', 'taked', 'ta3kid', 'taakid', 'confirm', 'confirmi',
+                'ok', 'oui', 'daccord', 'daweq', 'sah', 'yep', 'yeah',
+                'تاكيد', 'تأكيد', 'نعم', 'اوكي', 'اكدي', 'اكيد', 'موافق', 'ابعث', 'شحن', 'ارسل', 'ابعثها', 'جدية'
+              ];
+
+              const cancelKeywords = [
+                'annul', 'cancel', 'non', 'حبس', 'بطلت', 'بطلت', 'ما تبعث', 'لا', 'الغاء', 'إلغاء', 'نحي', 'انولي'
+              ];
+
+              const isConfirmation = order && confirmKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+              const isCancellation = order && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+
+              if (isConfirmation) {
+                await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
+                await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.clientName || order.nom}! ❤️\n\n✅ تم تأكيد طلبيتك رقم #${orderNumStr} بنجاح!\n🚚 جاري التجهيز والشحن المباشر إلى ولاية ${order.wilaya || ''}. ✨`);
+                continue;
+              } else if (isCancellation) {
+                await updateOrderStatus(order.id, 'Annulé', 'canceled');
+                await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${orderNumStr} بناءً على رغبتك سيد ${order.clientName || order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
+                continue;
+              }
+
+              // F. CHECK IF USER ASKS FOR PRODUCT IMAGES
+              const wantsImages = ["photo", "chof", "modele", "موديل", "تصاور", "صور", "شوف", "صورة", "موديلات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+              
+              if (wantsImages) {
+                let sentCount = 0;
+                if (products.length > 0) {
+                  for (const p of products) {
+                    const firstVar = p.colorVariants?.[0];
+                    const imgUrl = firstVar?.images?.[0] || p.image;
+                    if (imgUrl && typeof imgUrl === 'string' && imgUrl.startsWith('http')) {
+                      await sendWhatsAppImage(fromPhone, imgUrl, `✨ ${p.title}\n🎨 الألوان: ${p.colorVariants?.map(v => v.name).join(', ') || 'متعددة'}`);
+                      sentCount++;
+                      if (sentCount >= 2) break;
+                    }
+                  }
+                }
+                await sendWhatsAppMessage(fromPhone, `تفضل صور أفضل الموديلات والتصاور الحقيقية عبر موقعنا: https://pyjama-dz.vercel.app 🌸✨`);
+                continue;
+              }
+
+              // G. STRICT SUPABASE SETTINGS & DATABASE STRICTNESS RULE
+              const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+              
+              let salesModeRules = "";
+              if (isWholesale) {
+                salesModeRules = `الزبون يسأل عن بالجملة (Gros). أجب حصراً عن أسعار وشروط الجملة والسيريات من النظام.`;
+              } else {
+                salesModeRules = `الزبون زبون عادي بالقطعة. أجب عن سؤاله حصراً وحقيقياً من بيانات الـ Settings والـ Database فقط.`;
+              }
+
+              const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
+              const settingsSummary = Object.entries(storeSettings).map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
+
+              const systemInstruction = `أنت مساعد مبيعات لمتجر (${storeName}).
 قانون صارم وحتمي لا تصدر عنه مطلقاً:
 أنت تجيب الزبون حتماً وفقط بناءً على الرقم التسلسلي للطلبية والمعلومات والبيانات الحقيقية المسجلة في النظام والـ Settings والـ Database أدناه.
 ممنوع نهائياً خياطة أو افتراض أي أرقام UUID مثل D6A3D2C6 أو معلومات غير موجودة في البيانات التالية!
@@ -446,10 +461,13 @@ ${catalogSummary}
 ${salesModeRules}
 إذا طلب الزبون أي معلومة (أرقام هاتف، انستغرام، موقع، خرائط، أسعار، رقم طلبية تسلسلي مثل #58، عنوان، توصيل): أصل الإجابة مباشرة وحصراً من بيانات الـ Settings والـ Database أعلاه بدون أي زيادة أو تلفيق وفي سطر واحد فقط!`;
 
-            const aiReply = await generateGeminiAI(prompt, systemInstruction);
-            if (aiReply) {
-              await sendWhatsAppMessage(fromPhone, aiReply);
+              const aiReply = await generateGeminiAI(prompt, systemInstruction);
+              if (aiReply) {
+                await sendWhatsAppMessage(fromPhone, aiReply);
+              }
             }
+          } catch (innerErr) {
+            console.error('Error processing single message:', innerErr);
           }
         }
       }
