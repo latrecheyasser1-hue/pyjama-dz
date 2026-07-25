@@ -25,6 +25,30 @@ function normalizeText(text) {
     .trim();
 }
 
+function extractCleanPhones(...sources) {
+  const rawList = [];
+  sources.forEach(src => {
+    if (!src) return;
+    let str = typeof src === 'object' ? JSON.stringify(src) : String(src);
+    str = str.replace(/[\[\]"'\\]/g, ' ');
+    const parts = str.split(/[,;\/\n-]/);
+    parts.forEach(p => {
+      const clean = p.replace(/\D/g, '');
+      if (clean.length >= 9) {
+        let phone = clean;
+        if (phone.startsWith('213')) phone = '0' + phone.substring(3);
+        if (phone.length === 9) phone = '0' + phone;
+        if (phone.length === 10) {
+          rawList.push(phone);
+        }
+      }
+    });
+  });
+
+  const unique = [...new Set(rawList)];
+  return unique.length > 0 ? unique.join(' - ') : '0771335039';
+}
+
 function formatOrderNum(order) {
   if (!order) return "80";
   if (typeof order === 'object') {
@@ -276,15 +300,14 @@ async function processIncomingPayload(body) {
             const products = await getAllProducts();
             const storeSettings = await getStoreSettings();
 
-            // Extract ALL store phone numbers into a comprehensive list
-            const allPhones = [
-              storeSettings.phones,
+            // Extract SPOTLESS clean phone numbers list
+            const storePhonesDisplay = extractCleanPhones(
               storeSettings.phoneOrders,
+              storeSettings.phones,
               storeSettings.whatsapp,
               "0771335039"
-            ].filter(Boolean).flatMap(p => String(p).split(/[-,/]/)).map(s => s.trim()).filter((v, i, a) => v && a.indexOf(v) === i);
+            );
 
-            const storePhonesDisplay = allPhones.join(' - ');
             const storeAddressDisplay = storeSettings.address || "ولاية الشلف";
             const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "";
             const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "";
