@@ -57,7 +57,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.6, maxOutputTokens: 200 }
+            generationConfig: { temperature: 0.5, maxOutputTokens: 200 }
           })
         });
 
@@ -145,7 +145,8 @@ async function sendWhatsAppImage(toPhone, imageUrl, captionText = "") {
 
 async function getLatestOrderForPhone(cleanPhone) {
   try {
-    const url = `${SUPABASE_URL}/rest/v1/orders?whatsapp=ilike.*${cleanPhone}*&order=created_at.desc&limit=1`;
+    const raw9 = cleanPhone.replace(/\D/g, '').slice(-9);
+    const url = `${SUPABASE_URL}/rest/v1/orders?phone=ilike.*${raw9}*&order=created_at.desc&limit=1`;
     const res = await fetch(url, {
       headers: {
         'apikey': SUPABASE_KEY,
@@ -226,14 +227,27 @@ async function processIncomingPayload(body) {
 
             const normText = normalizeText(messageText);
 
-            // B. DELIVERY DURATION INTERCEPTOR (Winta / وقتاش / وقت التوصيل)
+            // B. ORDER LOOKUP INTERCEPTOR (Commande / طلبية / طلبيتي / شوف طلبيتي)
+            const isOrderQuery = ["commande", "طلب", "طلبية", "طلبيتي", "كوماند"].some(o => normText.includes(o));
+            if (isOrderQuery) {
+              if (order) {
+                const shortId = (order.id || '').substring(0, 8);
+                const statusName = order.status === 'Confirmé' ? 'مؤكدة وفي مرحلة الشحن' : (order.status === 'Annulé' ? 'ملغاة' : 'جديدة قيد التجهيز');
+                await sendWhatsAppMessage(fromPhone, `أهلاً بك سيد ${order.clientName || ''}! ❤️ طلبيتك رقم #${shortId} للمنتج (${order.product || 'بيجامة'}) مسجلة وحالتها الحالية: ${statusName} إلى ولاية ${order.wilaya || ''}. ✨`);
+              } else {
+                await sendWhatsAppMessage(fromPhone, `لم نجد طلبية جديدة مسجلة برقم هاتفك الحالي. يمكنك الطلب المباشر وسنكون في خدمتك عبر متجرنا: https://pyjama-dz.vercel.app ✨`);
+              }
+              continue;
+            }
+
+            // C. DELIVERY DURATION INTERCEPTOR
             const isTimeQuery = ["winta", "wakt", "وقتاش", "متى", "وقت", "شحال وقت", "شحال وتقاش", "مدة"].some(t => normText.includes(t));
             if (isTimeQuery) {
               await sendWhatsAppMessage(fromPhone, `التوصيل يستغرق من 24 إلى 48 ساعة فقط لجميع الولايات! 🚚✨`);
               continue;
             }
 
-            // C. LOCATION INTERCEPTOR
+            // D. LOCATION INTERCEPTOR
             const isLocationQuery = ["plassa", "مكان", "مقر", "بلاصة", "اين", "وين جايين", "وين المقر"].some(l => normText.includes(l)) || (normText.split(/\s+/).includes("win") || normText.split(/\s+/).includes("وين"));
             if (isLocationQuery) {
               await sendWhatsAppMessage(fromPhone, `مقرنا الرئيسي في ولاية الشلف، والتوصيل متوفر لجميع 58 ولاية لغاية باب دارك! ✨`);
@@ -242,7 +256,7 @@ async function processIncomingPayload(body) {
 
             let prompt = `رسالة الزبون: "${messageText}"`;
             if (order) {
-              prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.nom}\n- رقم الطلب: ${order.id}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
+              prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: ${order.id}\n- المنتج: ${order.product}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
             }
 
             const confirmKeywords = [
@@ -260,15 +274,15 @@ async function processIncomingPayload(body) {
 
             if (isConfirmation) {
               await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
-              await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.nom}! ❤️ تم تأكيد طلبيتك رقم #${order.id} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً إلى ولاية ${order.wilaya}.`);
+              await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.clientName || order.nom}! ❤️ تم تأكيد طلبيتك رقم #${(order.id||'').substring(0,8)} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً إلى ولاية ${order.wilaya}.`);
               continue;
             } else if (isCancellation) {
               await updateOrderStatus(order.id, 'Annulé', 'canceled');
-              await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${order.id} بناءً على رغبتك سيد ${order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
+              await sendWhatsAppMessage(fromPhone, `تم إلغاء الطلبية رقم #${(order.id||'').substring(0,8)} بناءً على رغبتك سيد ${order.clientName || order.nom}. نأمل أن نخدمك في المرات القادمة! ✨`);
               continue;
             }
 
-            // D. CHECK IF USER ASKS FOR PRODUCT IMAGES
+            // E. CHECK IF USER ASKS FOR PRODUCT IMAGES
             const wantsImages = ["photo", "chof", "modele", "موديل", "تصاور", "صور", "شوف", "صورة", "موديلات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             if (wantsImages) {
@@ -288,7 +302,7 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // E. NATURAL CONVERSATIONAL AI SALES ASSISTANT
+            // F. NATURAL CONVERSATIONAL AI SALES ASSISTANT
             const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             let salesModeRules = "";
@@ -302,8 +316,8 @@ async function processIncomingPayload(body) {
             const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر بيجامات نسائية فاخرة (Pyjama DZ).
 تتحدث بالدارجة الجزائرية المحترمة والودية كبائع بشري حقيقي.
 ${salesModeRules}
-- أجب بسلاسة وجمال وتجاوب كامل مع كلام الزبون (مثل قول، احكي، واصل، كيف الجودة).
-- اجعل الإجابة متكاملة (سطرين إلى 3 أسطر) تفتح حوار مبيعات ناجح.
+- أجب بسلاسة وجمال وتجاوب كامل مع كلام الزبون.
+- اجعل الإجابة متكاملة تفتح حوار مبيعات ناجح.
 المنتجات: ${catalogSummary}
 موقع المتجر: https://pyjama-dz.vercel.app`;
 
