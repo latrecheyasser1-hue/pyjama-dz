@@ -161,17 +161,37 @@ async function downloadMetaMedia(mediaId) {
   if (!token || !mediaId) return null;
   try {
     const metaRes = await fetch(`https://graph.facebook.com/v25.0/${mediaId}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'User-Agent': 'curl/7.68.0'
+      }
     });
     const metaData = await metaRes.json();
     if (metaData && metaData.url) {
-      const audioRes = await fetch(metaData.url, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      let audioRes = await fetch(metaData.url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'User-Agent': 'curl/7.68.0'
+        }
       });
-      const arrayBuf = await audioRes.arrayBuffer();
-      const base64 = Buffer.from(arrayBuf).toString('base64');
-      const mimeType = metaData.mime_type ? metaData.mime_type.split(';')[0].trim() : 'audio/ogg';
-      return { base64, mimeType };
+      
+      // If CDN rejects bearer token on redirect, try without Authorization header
+      if (!audioRes.ok) {
+        audioRes = await fetch(metaData.url, {
+          headers: { 'User-Agent': 'curl/7.68.0' }
+        });
+      }
+
+      if (audioRes.ok) {
+        const arrayBuf = await audioRes.arrayBuffer();
+        const base64 = Buffer.from(arrayBuf).toString('base64');
+        const mimeType = metaData.mime_type ? metaData.mime_type.split(';')[0].trim() : 'audio/ogg';
+        return { base64, mimeType };
+      } else {
+        console.error(`Audio download failed status: ${audioRes.status}`);
+      }
+    } else {
+      console.error('Meta media metadata failed:', metaData);
     }
   } catch (err) {
     console.error('Error downloading Meta media:', err);
@@ -410,13 +430,16 @@ async function processIncomingPayload(body) {
                     let transcript = await generateGeminiAudio(media.base64, media.mimeType, audioPrompt, systemInstruction);
                     if (transcript) {
                       console.log(`Vocal Transcription for ${fromPhone}: ${transcript}`);
-                      if (transcript.includes("غير_مفهوم") || transcript.includes("غير مفهوم")) {
-                        await sendWhatsAppMessage(fromPhone, `🌸 *متجر Pyjama DZ* 🌸\nأهلاً بك! عذراً، لم أتمكن من سماع الصوت بوضوح 😔.\nكيف يمكنني مساعدتك في الاختيار اليوم؟ ✨`);
-                        continue; // Skip further processing
+                      if (!transcript.includes("غير_مفهوم") && !transcript.includes("غير مفهوم")) {
+                        messageText = transcript; // Feed the transcript into the standard text pipeline!
                       }
-                      messageText = transcript; // Feed the transcript into the standard text pipeline!
                     }
                   }
+                }
+
+                // If audio transcription or download couldn't extract text, provide a helpful prompt so it's NEVER ignored!
+                if (!messageText) {
+                  messageText = "مرحباً، أرسلت رسالة صوتية وأريد الاستفسار عن منتجات المتجر وشروط الطلب والأسعار.";
                 }
               }
 
