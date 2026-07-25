@@ -176,7 +176,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
-  if (!META_ACCESS_TOKEN) return;
+  if (!META_ACCESS_TOKEN || !toPhone) return;
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   try {
     const res = await fetch(url, {
@@ -195,6 +195,7 @@ async function sendWhatsAppMessage(toPhone, textBody) {
     });
     const data = await res.json();
     console.log('WhatsApp send result:', data);
+    return data;
   } catch (err) {
     console.error('Send WhatsApp error:', err);
   }
@@ -276,7 +277,7 @@ async function processIncomingPayload(body) {
           const fromPhone = message.from;
           const messageText = message.text?.body;
 
-          if (messageText) {
+          if (messageText && fromPhone) {
             console.log(`Received message from ${fromPhone}: ${messageText}`);
 
             // A. WORKER STOCK RESTOCK via REPLY
@@ -480,7 +481,7 @@ export default async function handler(req, res) {
     }
 
     if (body) {
-      // Process payload
+      // Process payload synchronously inside serverless handler
       await processIncomingPayload(body);
     }
 
