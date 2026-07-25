@@ -615,13 +615,11 @@ export default async function handler(req, res) {
       try { body = JSON.parse(body); } catch(e) {}
     }
 
-    // Send 200 OK to Meta immediately so it never times out (Meta requires response within 3s)
-    res.status(200).send('EVENT_RECEIVED');
-
     if (body) {
-      processIncomingPayload(body).catch(err => console.error('Background payload processing error:', err));
+      await processIncomingPayload(body);
     }
-    return;
+
+    return res.status(200).send('EVENT_RECEIVED');
   }
 
   return res.status(405).send('Method Not Allowed');
