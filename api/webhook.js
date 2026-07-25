@@ -14,6 +14,16 @@ const GEMINI_KEYS = [
   Buffer.from('QVEuQWI4Uk42SnJiWXFJaDJEa3lyRU5MVXJNVkRVZ2xSSjlqZWZ6WXk4aEFyYnNNMGxaZXc=', 'base64').toString('utf8')
 ];
 
+function normalizeText(text) {
+  if (!text) return "";
+  return text.toLowerCase()
+    .replace(/[أإآاًٌٍَُِّْ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/3/g, "e")
+    .replace(/7/g, "h");
+}
+
 async function generateGeminiAI(prompt, systemInstruction = "") {
   for (const selectedKey of GEMINI_KEYS) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
@@ -41,12 +51,12 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
     }
   }
 
-  // Dynamic intelligent fallbacks for standard customer queries
+  // Dynamic fallbacks
   const pLower = prompt.toLowerCase();
   if (pLower.includes('win') || pLower.includes('plassa') || pLower.includes('مكان') || pLower.includes('مقر')) {
     return `أهلاً وسهلاً بك! 🌸 نحن متجر إلكتروني بالكامل مع خدمة التوصيل لجميع الولايات (58 ولاية) حتى باب المنزل. كيف يمكننا خدمتك اليوم؟ ✨`;
   }
-  if (pLower.includes('prix') || pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة') || pLower.includes('بكم')) {
+  if (pLower.includes('prix') || pLower.includes('سعر') || pLower.includes('سومة') || pLower.includes('بكم')) {
     return `أهلاً بك! أسعار البيجامات تتراوح من 2,500 دج إلى 4,500 دج حسب الموديل، التوصيل متوفر لجميع الولايات. ✨`;
   }
   if (pLower.includes('modele') || pLower.includes('موديل') || pLower.includes('انواع') || pLower.includes('الوان')) {
@@ -165,13 +175,24 @@ async function processIncomingPayload(body) {
             if (order) {
               prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.nom}\n- رقم الطلب: ${order.id}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
               
-              const textLower = messageText.toLowerCase();
-              const isConfirmation = ["ok", "oui", "daweq", "sah", "confirm", "نعم", "اوكي", "أكدي", "تأكيد", "تاكيد", "تاكيدد", "تأكيدد", "موافق"].some(w => textLower.includes(w));
-              const isCancellation = ["annuler", "الغاء", "إلغاء", "حبس", "لا أريد", "non", "بطّلت"].some(w => textLower.includes(w));
+              const normText = normalizeText(messageText);
+
+              const confirmKeywords = [
+                'takid', 'taekid', 'taked', 'ta3kid', 'taakid', 'confirm', 'confirmi',
+                'ok', 'oui', 'daccord', 'daweq', 'sah', 'yep', 'yeah',
+                'تاكيد', 'تأكيد', 'نعم', 'اوكي', 'اكدي', 'اكيد', 'موافق', 'ابعث', 'شحن', 'ارسل', 'ابعثها', 'جدية'
+              ];
+
+              const cancelKeywords = [
+                'annul', 'cancel', 'non', 'حبس', 'بطلت', 'بطلت', 'ما تبعث', 'لا', 'الغاء', 'إلغاء', 'نحي', 'انولي'
+              ];
+
+              const isConfirmation = confirmKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+              const isCancellation = cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
 
               if (isConfirmation) {
                 await updateOrderStatus(order.id, 'Confirmé', 'confirmed');
-                await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.nom}! ❤️ تم تأكيد طلبيتك رقم #${order.id} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً.`);
+                await sendWhatsAppMessage(fromPhone, `شكراً لك سيد ${order.nom}! ❤️ تم تأكيد طلبيتك رقم #${order.id} بنجاح، وسنقوم بتجهيزها وشحنها لك فوراً إلى ولاية ${order.wilaya}.`);
                 continue;
               } else if (isCancellation) {
                 await updateOrderStatus(order.id, 'Annulé', 'canceled');
