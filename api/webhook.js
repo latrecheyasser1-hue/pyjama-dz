@@ -245,18 +245,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "") {
-  const pLower = prompt.toLowerCase();
-  
-  // Instant direct answers without emojis:
-  if (pLower.includes('win jayiin') || pLower.includes('وين جايين') || pLower.includes('المقر') || pLower.includes('العنوان') || pLower.includes('موقعكم')) {
-    return `*متجر Pyjama DZ*\n\nالمقر والعنوان: الشلف (Chlef - الشلف).\nرابط خرائط جوجل (Google Maps): https://maps.app.goo.gl/algeria-pyjama-dz\n\nالتوصيل متوفر لجميع 58 ولاية حتى باب المنزل. كيف يمكننا مساعدتك في طلبك اليوم؟`;
-  }
-  
-  if (pLower.includes('link') || pLower.includes('الرابط') || pLower.includes('الموقع') || pLower.includes('موقعك')) {
-    return `*متجر Pyjama DZ*\n\nرابط الموقع الإلكتروني الرسمي: https://pyjama-dz.vercel.app\n\nتفضل بتصفح كافة المنتجات والأسعار والتفاصيل المتوفرة عبر الموقع.`;
-  }
-
-  const modelEndpoints = ['gemini-2.0-flash', 'gemini-flash-latest'];
+  const modelEndpoints = ['gemini-flash-latest', 'gemini-2.0-flash'];
   const keys = getGeminiKeys();
   for (const selectedKey of keys) {
     for (const model of modelEndpoints) {
@@ -271,7 +260,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.2, maxOutputTokens: 250 }
+            generationConfig: { temperature: 0.3, maxOutputTokens: 300 }
           })
         });
 
@@ -279,6 +268,8 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           const data = await res.json();
           const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) return removeEmojis(text.trim());
+        } else {
+          console.error(`Gemini AI status for ${model}: ${res.status}`);
         }
       } catch (err) {
         console.error('Gemini error:', err);
@@ -286,7 +277,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
     }
   }
 
-  return `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك. نحن متجر Pyjama DZ في الشلف، والتوصيل متوفر لجميع الولايات.\nرابط الموقع الرسمي: https://pyjama-dz.vercel.app`;
+  return `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك. نحن متجر Pyjama DZ في الشلف، والتوصيل متوفر لجميع 58 ولاية.\nرابط الموقع الرسمي: https://pyjama-dz.vercel.app`;
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
@@ -582,23 +573,23 @@ async function processIncomingPayload(body) {
               const catalogSummary = products.map(p => `- ${p.title}: ${p.price} دج`).join('\n');
               const settingsSummary = Object.entries(storeSettings).map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
 
-              const systemInstruction = `أنت مساعد مبيعات محترف لمتجر (${storeName}).
+              const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر (${storeName}).
+تتحدث بالدارجة الجزائرية الفصيحة والمحترمة وتدردش مع الزبون بذكاء ولباقة كأنك بائع إنسان حقيقي يشتغل في المحل.
 قوانين صارمة وحتمية:
 1. ابدأ دائماً بـ: "*متجر Pyjama DZ*" في أول سطر.
-2. ممنوع منعاً باتاً استخدام الإيموجي أو الرموز التعبيرية (Emoji) كلياً. اجعل الرد محترفاً، نظيفاً ومرتباً.
-3. أجب باختصار وبشكل مباشر على سؤال الزبون من بيانات المتجر فقط (الأسعار، رابط الموقع، أرقام الهاتف، العنوان).
+2. ممنوع منعاً باتاً استخدام الإيموجي أو الرموز التعبيرية (Emoji) كلياً.
+3. افهم سؤال الزبون ودردش معه بأسلوب بشري طبيعي ولبق، دون نصوص جامدة أو مكررة.
 4. إذا طلب الزبون رابط الموقع (link, موقع, سيت)، أعطه الرابط مباشرة: https://pyjama-dz.vercel.app
-5. إذا سأل عن المقر (وين جايين)، أعطه العنوان ورابط الخرائط مباشرة: https://maps.app.goo.gl/algeria-pyjama-dz
-6. تصرف كإنسان محترف ولبق بدون ردود طويلة وروبوتية.
+5. إذا سأل عن المقر أو المكان (وين جايين)، أعطه العنوان ورابط خرائط جوجل من الإعدادات مباشرة وهو: ${storeMapsUrl || 'https://pyjama-dz.vercel.app'}
+6. إذا سأل عن أرقام الهاتف، أعطه الأرقام الرسمية التالية فقط: ${formattedPhonesBullets}
 
-بيانات المتجر:
-- أرقام الهاتف الرسمية: ${formattedPhonesBullets}
-- المقر: ${storeAddressDisplay}
-- رابط خرائط جوجل: ${storeMapsUrl}
+بيانات المتجر من الإعدادات:
+- العنوان والمقر: ${storeAddressDisplay}
+- رابط خرائط جوجل الرسمي (Google Maps): ${storeMapsUrl}
 - رابط الموقع الرسمي: https://pyjama-dz.vercel.app
 ${settingsSummary}
 
-قائمة المنتجات:
+قائمة المنتجات والأسعار الحالية:
 ${catalogSummary}
 ${salesModeRules}`;
 
