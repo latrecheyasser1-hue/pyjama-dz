@@ -279,22 +279,22 @@ function getSmartFallbackResponse(prompt, storeSettings = {}) {
   const address = storeSettings.address || "الشلف (Chlef)";
 
   if (['win jayiin', 'win jayin', 'مقر', 'عنوان', 'موقع', 'بلاصة', 'لوكيشن', 'اللوكيشن', 'chlef', 'الشلف'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `*متجر Pyjama DZ*\n\nالمقر والعنوان: ${address}.\nرابط خرائط جوجل (Google Maps):\n${mapsUrl}\n\nالتوصيل متوفر لجميع 58 ولاية حتى باب المنزل. كيف يمكننا مساعدتك اليوم؟`;
+    return `المقر والعنوان: ${address}.\nرابط خرائط جوجل (Google Maps):\n${mapsUrl}\n\nالتوصيل متوفر لجميع 58 ولاية حتى باب المنزل. كيف يمكننا مساعدتك اليوم؟`;
   }
 
   if (['prix', 'سعر', 'اسعار', 'سومة', 'شحال', 'بكم', 'منتجات', 'موديلات', 'بيجامة', 'بيجامات', 'سلعة'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `*متجر Pyjama DZ*\n\nتفضل بتصفح كافة الصور، المقاسات، الألوان والأسعار المتوفرة حالياً عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nأسعارنا مناسبة جداً والتوصيل متوفر لجميع الولايات.`;
+    return `تفضل بتصفح كافة الصور، المقاسات، الألوان والأسعار المتوفرة حالياً عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nأسعارنا مناسبة جداً والتوصيل متوفر لجميع الولايات.`;
   }
 
   if (['livraison', 'توصيل', 'شحن', 'نوصلو', 'ولاية', 'ديكسبريس', 'يالادين'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `*متجر Pyjama DZ*\n\nالتوصيل متوفر لجميع 58 ولاية حتى باب المنزل أو المكتب.\nالدفع يكون عند الاستلام بعد معاينة طلبك.`;
+    return `التوصيل متوفر لجميع 58 ولاية حتى باب المنزل أو المكتب.\nالدفع يكون عند الاستلام بعد معاينة طلبك.`;
   }
 
   if (['gros', 'جملة', 'بالجملة', 'سيري', 'تجارة'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `*متجر Pyjama DZ*\n\nالبيع بالجملة متوفر بالسيريات والكميات لصحاب المحلات والتجارة.\nيمكنك تصفح الموقع أو التواصل معنا عبر الهاتف للمزيد من التفاصيل: https://pyjama-dz.vercel.app`;
+    return `البيع بالجملة متوفر بالسيريات والكميات لصحاب المحلات والتجارة.\nيمكنك تصفح الموقع أو التواصل معنا عبر الهاتف للمزيد من التفاصيل: https://pyjama-dz.vercel.app`;
   }
 
-  return `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك. تفضل بالاستفسار عن أي موديل أو مقاس أو سعر، نحن في خدمتك.\nرابط الموقع الرسمي: https://pyjama-dz.vercel.app`;
+  return `أهلاً وسهلاً بك. تفضل بالاستفسار عن أي موديل أو مقاس أو سعر، نحن في خدمتك.\nرابط الموقع الرسمي: https://pyjama-dz.vercel.app`;
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}) {
@@ -565,11 +565,11 @@ async function processIncomingPayload(body) {
 
               if (isPraise && !order) {
                 const clientName = order?.clientName || 'الزبون الكريم';
-                await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك سيد ${clientName}.\nشكراً جزيلاً لك على كلامك الطيب وثقتك بمتجرنا. نسعد دائماً بخدمتك ولن نتردد في تقديم الأفضل دائماً.`);
+                await sendWhatsAppMessage(fromPhone, `أهلاً وسهلاً بك سيد ${clientName}.\nشكراً جزيلاً لك على كلامك الطيب وثقتك بمتجرنا. نسعد دائماً بخدمتك ولن نتردد في تقديم الأفضل دائماً.`);
                 continue;
               } else if (isComplaint) {
                 const clientName = order?.clientName || 'الزبون الكريم';
-                await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nأهلاً بك سيد ${clientName}.\nنعتذر منك شديد الاعتذار عن هذا المشكل. يرجى تزويدنا بكافة التفاصيل وسيتم التواصل معك ومعالجة الأمر في أقرب وقت ممكن.`);
+                await sendWhatsAppMessage(fromPhone, `أهلاً بك سيد ${clientName}.\nنعتذر منك شديد الاعتذار عن هذا المشكل. يرجى تزويدنا بكافة التفاصيل وسيتم التواصل معك ومعالجة الأمر في أقرب وقت ممكن.`);
                 continue;
               }
 
@@ -593,13 +593,13 @@ async function processIncomingPayload(body) {
               if (isConfirmation) {
                 await updateOrderStatusAndArchive(order.id, 'confirmee');
                 const orderNumStr = await getSequentialOrderNum(order);
-                const confirmMsg = `*متجر Pyjama DZ*\n\nتم تأكيد الطلبية رقم #${orderNumStr} بنجاح في السيستم سيد ${order.clientName || 'الزبون'} وجاري تجهيزها للشحن. شكراً لك.`;
+                const confirmMsg = `تم تأكيد الطلبية رقم #${orderNumStr} بنجاح في السيستم سيد ${order.clientName || 'الزبون'} وجاري تجهيزها للشحن. شكراً لك.`;
                 await sendWhatsAppMessage(fromPhone, confirmMsg);
                 continue;
               } else if (isCancellation) {
                 await updateOrderStatusAndArchive(order.id, 'annulee');
                 const orderNumStr = await getSequentialOrderNum(order);
-                const cancelMsg = `*متجر Pyjama DZ*\n\nتم إلغاء الطلبية رقم #${orderNumStr} بنجاح في السيستم بناءً على رغبتك سيد ${order.clientName || 'الزبون'}. نأمل خدمتك في المناسبات القادمة.`;
+                const cancelMsg = `تم إلغاء الطلبية رقم #${orderNumStr} بنجاح في السيستم بناءً على رغبتك سيد ${order.clientName || 'الزبون'}. نأمل خدمتك في المناسبات القادمة.`;
                 await sendWhatsAppMessage(fromPhone, cancelMsg);
                 continue;
               }
@@ -620,7 +620,7 @@ async function processIncomingPayload(body) {
               const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر (${storeName}).
 تتحدث بالدارجة الجزائرية الفصيحة والمحترمة وتدردش مع الزبون بذكاء ولباقة كأنك بائع إنسان حقيقي يشتغل في المحل.
 قوانين صارمة وحتمية:
-1. ابدأ دائماً بـ: "*متجر Pyjama DZ*" في أول سطر.
+1. ممنوع منعاً باتاً طباعة الترويسة "*متجر Pyjama DZ*" أو أي ترويسة مكررة. ابدأ مباشرة بالرد المباشر بأسلوب بشري طبيعي ولبق.
 2. ممنوع منعاً باتاً استخدام الإيموجي أو الرموز التعبيرية (Emoji) كلياً.
 3. افهم سؤال الزبون ودردش معه بأسلوب بشري طبيعي ولبق، دون نصوص جامدة أو مكررة.
 4. إذا طلب الزبون رابط الموقع (link, موقع, سيت)، أعطه الرابط مباشرة: https://pyjama-dz.vercel.app
