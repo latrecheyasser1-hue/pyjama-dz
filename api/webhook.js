@@ -796,13 +796,14 @@ async function processIncomingPayload(body) {
    - إذا كان المنتج أو اللون غير موجود كلياً في السيستم أو نافداً من المخزون (مثل اسم وهمي أو لون غير موجود): أجب صراحة بـ "ماكاش متوفر حالياً هاد الموديل أو اللون"، ثم قل له تفضل شوف الموديلات والألوان المتوفرة حالياً في الموقع وأعطه رابط الموقع الرسمي: https://pyjama-dz.vercel.app
 8. إذا طلب الزبون مشاهدة الصور أو التصاوير (صور, تصاوير, photo, شوف, وريني): قل له تفضل تم إرسال الصور مباشرة في المحادثة.
 9. للزبائن الذين لا يعرفون طريقة الطلب من الموقع ويريدون تسجيل طلبيتهم مباشرة عبر المحادثة (الواتساب / الماسنجر / إنستغرام):
-   - ترحب بهم وتطلب منهم تزويدك بالبيانات التنسيقية التالية بالترتيب:
+   - ترحب بهم وتطلب منهم تزويدك بالبيانات التالية بالترتيب:
      أ) الاسم واللقب الكامل
      ب) رقم الهاتف
      ج) الولاية والبلدية
      د) اسم الموديل واللون والمقاس المطلوب
-     هـ) خيار شركة التوصيل (توصيل للمنزل أم للمكتب)
-   - بمجرد تقديمهم لهذه البيانات كاملة، يُسجل الطلب فوراً وتُحفظ البيانات في السيستم بحالة مؤكدة (confirmee)، وتخبرهم أنه تم تسجيل وتأكيد الطلبية بنجاح مع رقم الطلب.
+     هـ) تحديد شركة أو طريقة التوصيل المطلوبة (إجباري وحتمي! اطلب منه تحديد الشركة صراحة: مثل يالادين Yalidine Express / زد آر ZR Express / توصيل للمنزل Domicile / توصيل للمكتب Bureau).
+   - إذا لم يحدد الزبون شركة أو طريقة التوصيل، اسأله صراحة: "وشمن شركة أو طريقة توصيل حاب نوصلولك بيها؟ (توصيل للمنزل / استلام من المكتب / يالادين / زد آر)" ولا تؤكد الطلبية حتى يختار طريقة/شركة التوصيل صراحة!
+   - بمجرد تقديمهم لجميع هذه البيانات كاملة بما فيها شركة التوصيل المحددة، يُسجل الطلب فوراً وتُحفظ البيانات في السيستم بحالة مؤكدة (confirmee)، وتخبرهم أنه تم تسجيل وتأكيد الطلبية بنجاح مع رقم الطلب وتأكيد اسم شركة التوصيل المحددة.
 
 بيانات المتجر من الإعدادات:
 - العنوان والمقر: ${storeAddressDisplay}
@@ -830,18 +831,30 @@ ${salesModeRules}`;
                   const phoneMatch = messageText.match(/(0[567]\d{8})/);
                   const orderPhone = phoneMatch ? phoneMatch[1] : fromPhone;
 
+                  const pLower = messageText.toLowerCase();
+                  let deliveryCompany = 'Livraison Domicile';
+                  if (pLower.includes('yalidine') || normText.includes('يالادين')) {
+                    deliveryCompany = 'Yalidine Express';
+                  } else if (pLower.includes('zrexpress') || pLower.includes('zr') || normText.includes('زد ار') || normText.includes('زد آر')) {
+                    deliveryCompany = 'ZR Express';
+                  } else if (pLower.includes('bureau') || pLower.includes('stop desk') || normText.includes('مكتب') || normText.includes('دستك')) {
+                    deliveryCompany = 'Livraison Bureau';
+                  } else if (pLower.includes('domicile') || normText.includes('منزل') || normText.includes('دار')) {
+                    deliveryCompany = 'Livraison Domicile';
+                  }
+
                   const newOrder = await createChatOrderInSupabase({
                     clientName,
                     phone: orderPhone,
                     wilaya,
                     commune: 'المركز',
                     product: cleanProductText(messageText),
-                    deliveryCompany: 'Livraison Domicile'
+                    deliveryCompany
                   });
 
                   if (newOrder) {
                     const orderNumStr = await getSequentialOrderNum(newOrder);
-                    const createdConfirmMsg = `تم تسجيل وتأكيد طلبيتك رقم #${orderNumStr} بنجاح في السيستم!\n- الاسم: ${clientName}\n- الهاتف: ${orderPhone}\n- الولاية: ${wilaya}\n- المنتج: ${cleanProductText(newOrder.product)}\n\nجاري تجهيز الطلبية وشحنها إليك في أقرب وقت. شكراً لثقتك بنا.`;
+                    const createdConfirmMsg = `تم تسجيل وتأكيد طلبيتك رقم #${orderNumStr} بنجاح في السيستم!\n- الاسم: ${clientName}\n- الهاتف: ${orderPhone}\n- الولاية: ${wilaya}\n- المنتج: ${cleanProductText(newOrder.product)}\n- شركة التوصيل: ${deliveryCompany}\n\nجاري تجهيز الطلبية وشحنها إليك في أقرب وقت. شكراً لثقتك بنا.`;
                     await sendWhatsAppMessage(fromPhone, createdConfirmMsg);
                     continue;
                   }
