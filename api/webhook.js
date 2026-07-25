@@ -52,19 +52,23 @@ function extractCleanPhones(...sources) {
 async function getSequentialOrderNum(targetOrder) {
   if (!targetOrder) return "58";
   try {
-    const url = `${SUPABASE_URL}/rest/v1/orders?select=id,created_at&order=created_at.asc`;
-    const res = await fetch(url, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`
+    const createdAt = typeof targetOrder === 'object' ? targetOrder.created_at : null;
+    if (createdAt) {
+      const url = `${SUPABASE_URL}/rest/v1/orders?select=id&created_at=lte.${encodeURIComponent(createdAt)}`;
+      const res = await fetch(url, {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Prefer': 'count=exact'
+        }
+      });
+      const contentRange = res.headers.get('content-range');
+      if (contentRange && contentRange.includes('/')) {
+        const total = contentRange.split('/')[1];
+        if (total && total !== '*') return total;
       }
-    });
-    const orders = await res.json();
-    if (Array.isArray(orders)) {
-      const targetId = typeof targetOrder === 'object' ? targetOrder.id : targetOrder;
-      const idx = orders.findIndex(o => o.id === targetId);
-      if (idx !== -1) return String(idx + 1);
-      return String(orders.length);
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return String(data.length);
     }
   } catch (err) {
     console.error('Error computing order number:', err);
@@ -476,6 +480,7 @@ export default async function handler(req, res) {
     }
 
     if (body) {
+      // Process payload
       await processIncomingPayload(body);
     }
 
