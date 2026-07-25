@@ -1,7 +1,7 @@
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
-const DEFAULT_TOKEN = Buffer.from('RUFBZ3VhV0hHbGY4QlNCcVczRVZ5QkZqOUQ5VlV1cHEzM1BrYjc5SURGSGFnaEI3Yk1PQko2U3lhcWt2RGRUQTVFUk5wSEVFUERCYVpDWkNDQ2Vtc1N1TFRzMFpCNjROdWxja281NnZYdGMwVzFlZG1LbUE4OWs2QWtWemVqMGdSeWRPc3NRS0lNV2RRaWF1WGcyaFhxbXplVUY0cExJVjlTb21nSFV6VVRVdDgxU0FOZGxmaWlHRmxxMjFtWkMxazFMVEZqWkFlbVYzUUsyTnNCN2I5bDhVUHRPU2x0bFgwYXlaQUQ2ZlIxYllzZFVNblpCMmlxUUNmSU83M3RuQVJwRDZSU0NaQVNnUjA3Zmg3SjFvRDgyUlI=', 'base64').toString('utf8');
+const DEFAULT_TOKEN = Buffer.from('RUFBZ3VhV0hHbGY4QlNCcVczRVZ5QkZqOUQ5VlV1cHEzM1BrYjc5SURGSGFnaEI3Yk1PQko2U3lhcWt2RGRUQTVFUk5wSEVFUERCYVpDWkNDQ2Vtc1N1TFRzMFpCNjROdWxja281NnZYdGMwWzFlZG1LbUE4OWs2QWtWemVqMGdSeWRPc3NRS0lNV2RRaWF1WGcyaFhxbXplVUY0cExJVjlTb21nSFV6VVRVdDgxU0FOZGxmaWlHRmxxMjFtWkMxazFMVEZqZkFlbVYzUUsyTnNCN2I5bDhVUHRPU2x0bFgwYXlaQUQ2ZlIxYllzZFVNblpCMmlxUUNmSU83M3RuQVJwRDZSU0NaQVNnUjA3Zmg3SjFvRDgyUlI=', 'base64').toString('utf8');
 
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || DEFAULT_TOKEN;
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
@@ -128,7 +128,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.3, maxOutputTokens: 120 }
+            generationConfig: { temperature: 0.2, maxOutputTokens: 100 }
           })
         });
 
@@ -146,7 +146,7 @@ async function generateGeminiAI(prompt, systemInstruction = "") {
   // Dynamic natural fallbacks
   const pLower = prompt.toLowerCase();
   if (pLower.includes('kayn ghir') || pLower.includes('غير هذا') || pLower.includes('اخرين')) {
-    return `عندنا عدة أرقام وموديلات متنوعة! تفضل بزيارة موقعنا لرؤية كل الموديلات والألوان: https://pyjama-dz.vercel.app ✨`;
+    return `عندنا عدة أرقام وموديلات متنوعة في السيستم! تفضل بزيارة موقعنا لرؤية كافة الموديلات: https://pyjama-dz.vercel.app ✨`;
   }
   if (pLower.includes('quality') || pLower.includes('جودة') || pLower.includes('نوعية')) {
     return `الجودة ممتازة 100% وقماش رفيع ومريح جداً كما في الصور بالضبط! ✨`;
@@ -300,7 +300,7 @@ async function processIncomingPayload(body) {
             const products = await getAllProducts();
             const storeSettings = await getStoreSettings();
 
-            // Extract SPOTLESS clean phone numbers list
+            // Extract SPOTLESS clean phone numbers list from settings
             const storePhonesDisplay = extractCleanPhones(
               storeSettings.phoneOrders,
               storeSettings.phones,
@@ -308,7 +308,7 @@ async function processIncomingPayload(body) {
               "0771335039"
             );
 
-            const storeAddressDisplay = storeSettings.address || "ولاية الشلف";
+            const storeAddressDisplay = storeSettings.address || "chlef-chlef";
             const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "";
             const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "";
             const storeName = storeSettings.storeName || "Pyjama DZ";
@@ -318,7 +318,7 @@ async function processIncomingPayload(body) {
             // B. PHONE NUMBER INTERCEPTOR (Numero / num / هاتف / نميرو / رقم المحل)
             const isPhoneQuery = ["numero", "nomer", "num", "هاتف", "رقم المحل", "نميرو", "نومرو"].some(p => normText.includes(p) || messageText.toLowerCase().includes(p));
             if (isPhoneQuery) {
-              await sendWhatsAppMessage(fromPhone, `أهلاً بك! أرقام هاتف المحل الرسمية للتواصل والواتساب:\n📞 ${storePhonesDisplay} ✨`);
+              await sendWhatsAppMessage(fromPhone, `أهلاً بك! أرقام هاتف المحل الرسمية المسجلة في الإعدادات:\n📞 ${storePhonesDisplay} ✨`);
               continue;
             }
 
@@ -331,7 +331,7 @@ async function processIncomingPayload(body) {
                 const prodText = cleanProductText(order.product);
                 await sendWhatsAppMessage(fromPhone, `أهلاً بك سيد ${order.clientName || 'الزبون'}! ❤️\n\n📦 رقم الطلبية: #${orderNum}\n🛍️ المنتجات: ${prodText}\n🚚 الولاية: ${order.wilaya || ''}\n📌 الحالة: ${statusName}\n\nيرجى الرد بـ كلمة (تأكيد) للتجهيز والشحن فوراً! ✨`);
               } else {
-                await sendWhatsAppMessage(fromPhone, `لم نجد طلبية جديدة مسجلة برقم هاتفك الحالي. يمكنك الطلب المباشر وسنكون في خدمتك عبر موقعنا: https://pyjama-dz.vercel.app ✨`);
+                await sendWhatsAppMessage(fromPhone, `لم نجد طلبية جديدة مسجلة برقم هاتفك الحالي في الداتابيز. يمكنك الطلب المباشر عبر موقعنا: https://pyjama-dz.vercel.app ✨`);
               }
               continue;
             }
@@ -354,7 +354,7 @@ async function processIncomingPayload(body) {
 
             let prompt = `رسالة الزبون: "${messageText}"`;
             if (order) {
-              prompt += `\nمعلومات طلب الزبون الحالي:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${formatOrderNum(order)}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
+              prompt += `\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${formatOrderNum(order)}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
             }
 
             const confirmKeywords = [
@@ -400,28 +400,37 @@ async function processIncomingPayload(body) {
               continue;
             }
 
-            // G. INTELLIGENT ALGERIAN DARIJA AI ASSISTANT (UNDERSTANDS FULL MEANING & FOLLOW-UPS)
+            // G. STRICT SUPABASE SETTINGS & DATABASE STRICTNESS RULE
             const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
             
             let salesModeRules = "";
             if (isWholesale) {
-              salesModeRules = `الزبون يسأل عن بالجملة (Gros). أجب حصراً عن أسعار وشروط الجملة والسيريات.`;
+              salesModeRules = `الزبون يسأل عن بالجملة (Gros). أجب حصراً عن أسعار وشروط الجملة والسيريات من النظام.`;
             } else {
-              salesModeRules = `الزبون زبون عادي بالقطعة. أجب بفهم عميق لمعنى الرسالة وسياق الكلام بالدارجة الجزائرية.`;
+              salesModeRules = `الزبون زبون عادي بالقطعة. أجب عن سؤاله حصراً وحقيقياً من بيانات الـ Settings والـ Database فقط.`;
             }
 
             const catalogSummary = products.map(p => `- ${p.title}: ${p.price}دج`).join('\n');
-            const systemInstruction = `أنت بائع ومساعد مبيعات ذكي جداً لمتجر (${storeName}).
-تفهم الدارجة الجزائرية 100% وتفهم المقصد الحقيقي من أي سؤال (مثل "كاين غير هذا؟" تعني هل يوجد أرقام أخرى أو موديلات أخرى).
-جميع أرقام هاتف المحل الرسمية: ${storePhonesDisplay}
-العنوان الرسمي: ${storeAddressDisplay}
-رابط الموقع: https://pyjama-dz.vercel.app
+            const settingsSummary = Object.entries(storeSettings).map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
 
+            const systemInstruction = `أنت مساعد مبيعات لمتجر (${storeName}).
+قانون صارم وحتمي لا تصدر عنه مطلقاً:
+أنت تجيب الزبون حتماً وفقط بناءً على المعلومات والبيانات الحقيقية المسجلة في النظام والـ Settings والـ Database أدناه.
+ممنوع نهائياً خياطة أو افتراض أي معلومات أو أرقام أو تفاصيل غير موجودة في البيانات التالية!
+
+بيانات المتجر من الإعدادات (Settings):
+- أرقام الهاتف الرسمية: ${storePhonesDisplay}
+- العنوان / المقر: ${storeAddressDisplay}
+- رابط خرائط جوجل: ${storeMapsUrl}
+- رابط انستغرام: ${storeInstaUrl}
+${settingsSummary}
+
+قائمة المنتجات الحالية من قاعدة البيانات (Products):
+${catalogSummary}
+
+موقع المتجر الإلكتروني: https://pyjama-dz.vercel.app
 ${salesModeRules}
-قواعد الرد الذكي:
-1. إذا كان سؤال الزبون عن توفر أشياء أخرى ("Kayn ghir hada ?", "كاين غير هذا؟", "وش كاين اخر؟"): أجب بدقة أن لدينا أرقام هاتف وموديلات وتشكيلة متنوعة واسعة في الموقع.
-2. أجب بإجابة ودية وبسيطة ومباشرة بالدارجة الجزائرية المحترمة في سطر واحد أو سطرين بدون إطالة أو تعقيد.
-المنتجات المتاحة: ${catalogSummary}`;
+إذا طلب الزبون أي معلومة (أرقام هاتف، انستغرام، موقع، خرائط، أسعار، عنوان، توصيل): أصل الإجابة مباشرة وحصراً من بيانات الـ Settings والـ Database أعلاه بدون أي زيادة أو تلفيق وفي سطر واحد فقط!`;
 
             const aiReply = await generateGeminiAI(prompt, systemInstruction);
             if (aiReply) {
