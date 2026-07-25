@@ -1,7 +1,7 @@
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
-const DEFAULT_TOKEN = Buffer.from('RUFBZ3VhV0hHbGY4QlNCcVczRVZ5QkZqOUQ5VlV1cHEzM1BrYjc5SURGSGFnaEI3Yk1PQko2U3lhcWt2RGRUQTVFUk5wSEVFUERCYVpDWkNDQ2Vtc1N1TFRzMFpCNjROdWxja281NnZYdGMwVzFlZG1LbUE4OWs2QWtWemVqMGdSeWRPc3NRS0lNV2RRaWF1WGcyaFhxbXplVUY0cExJVjlTb21nSFV6VVRVdDgxU0FOZGxmaWlHRmxxMjFtWkMxazFMVEZqZkFlbVYzUUsyTnNCN2I5bDhVUHRPU2x0bFgwYXlaQUQ2ZlIxYllzZFVNblpCMmlxUUNmSU83M3RuQVJwRDZSU0NaQVNnUjA3Zmg3SjFvRDgyUlI=', 'base64').toString('utf8');
+const DEFAULT_TOKEN = 'EAAguaWHGlf8BSM37Yt8dJzrCdGGDpEsLIFeRsNVJBTttPpLOcVY7oZA1oSrCJRjt2ucX2SdKFzzxzX79Ta80VnMHGhYIUntskK1PayfM62XCBeZBa1ZB6qAIITdXtZAabRSY4aVllwVZBQvSZA26AjjxwnnRNaZAZARMSSDh2nHkAv4wbpBv01SD6jILRZCCWTN1YZBISZANkmAQo5XaoGI3rEKFySvFazi2kTHHW1ZCORfZA8s0LXDr98jNyHUMNzAs9nMM64ZAIrAaLbrPnbXXDDh4MB';
 
 async function getMetaAccessToken() {
   if (process.env.META_ACCESS_TOKEN && process.env.META_ACCESS_TOKEN.length > 20) {
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
       body: JSON.stringify(messageBody)
     });
 
-    const data = await apiRes.json();
+    const data = await res.json();
     console.log('Server-to-server Meta WhatsApp order result:', data);
     return res.status(200).json({ success: true, metaResponse: data, orderNumber: orderNum });
   } catch (err) {
