@@ -1166,8 +1166,8 @@ async function updateOrderStatusAndArchive(orderId, newStatus) {
 async function checkAndAlertLowStock(product, storeSettings) {
   if (!product || !Array.isArray(product.colorVariants)) return;
   
-  const boutiquePhone = storeSettings.whatsappBoutiqueManager || "0554128933";
-  const livraisonPhone = storeSettings.whatsappLivraisonManager || storeSettings.whatsapp || "0554128933";
+  const boutiquePhone = storeSettings.whatsappBoutiqueManager || storeSettings.phoneBoutique || "0554128933";
+  const livraisonPhone = storeSettings.whatsappLivraisonManager || storeSettings.whatsapp || storeSettings.phoneOrders || "0554128933";
 
   for (let cIdx = 0; cIdx < product.colorVariants.length; cIdx++) {
     const variant = product.colorVariants[cIdx];
@@ -1177,10 +1177,13 @@ async function checkAndAlertLowStock(product, storeSettings) {
       const numQty = parseInt(qty);
       if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
         // Destination manager: if variant is marked as boutique vs delivery
-        const isBoutiqueStock = String(variant.name || '').toLowerCase().includes('حانيت') || String(variant.name || '').toLowerCase().includes('boutique');
+        const isBoutiqueStock = String(variant.name || variant.color || '').toLowerCase().includes('حانيت') || 
+                                String(variant.name || variant.color || '').toLowerCase().includes('boutique') ||
+                                String(variant.name || variant.color || '').toLowerCase().includes('محل');
         const targetPhone = isBoutiqueStock ? boutiquePhone : livraisonPhone;
+        const locationLabel = isBoutiqueStock ? "سطوك المحل (Boutique)" : "سطوك التوصيل (Livraison)";
 
-        const alertMsg = `*تنبيه مخزون منخفض (سطوك 5 حبات أو أقل)*\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} قطع فقط.\n\nللإضافة في المخزون، قم بالرد على هذه الرسالة برقم الكمية المضافة فقط (مثال: 15).\n[REF:${product.id}:${cIdx}:${size}]`;
+        const alertMsg = `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.\n\n🔄 للإضافة في المخزون، قم بالرد المباشر (Répondre) على هذه الرسالة برقم الكمية المضافة فقط (مثال: 15).\n[REF:${product.id}:${cIdx}:${size}]`;
         
         const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
         if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
