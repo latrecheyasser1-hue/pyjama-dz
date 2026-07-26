@@ -239,25 +239,6 @@ export default async function handler(req, res) {
       const waPhone = formatWhatsAppPhone(entryPhone);
       if (!waPhone || notifiedPhones.has(waPhone)) continue;
 
-      const rawDigits = String(entryPhone).replace(/\D/g, '');
-      const shortPhone = rawDigits.length > 9 ? rawDigits.slice(-9) : rawDigits;
-
-      // 10-Minute Cooldown check via database: If customer was notified in last 10 minutes, skip!
-      try {
-        const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.*${shortPhone}*&status=eq.notified&order=updated_at.desc&limit=1`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        const recentNotified = await checkRes.json();
-        if (Array.isArray(recentNotified) && recentNotified.length > 0) {
-          const lastTime = new Date(recentNotified[0].updated_at || recentNotified[0].created_at).getTime();
-          if (Date.now() - lastTime < 10 * 60 * 1000) {
-            console.log(`Phone ${waPhone} was already notified within 10 minutes. Skipping duplicate.`);
-            notifiedPhones.add(waPhone);
-            continue;
-          }
-        }
-      } catch (e) {}
-
       const entrySize = entry.size || '';
       const entryProdId = entry.product_id || entry.productId;
       const entryProdText = entry.product_title || entry.product || '';
@@ -269,17 +250,20 @@ export default async function handler(req, res) {
       if (sizeMatches && prodMatches && colorMatches) {
         notifiedPhones.add(waPhone);
 
-        // Update ALL pending waitlist rows for this customer's phone number to 'notified'
+        // Update ALL waitlist rows for this customer's phone number to 'notified'
         try {
-          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.*${shortPhone}*&status=in.(pending,en_attente,out_of_stock)`, {
-            method: 'PATCH',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ status: 'notified', updated_at: new Date().toISOString() })
-          });
+          const numStr = entry.whatsapp_number || entry.phone || '';
+          if (numStr) {
+            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=eq.${encodeURIComponent(numStr)}`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ status: 'notified' })
+            });
+          }
         } catch (e) {}
 
         const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
