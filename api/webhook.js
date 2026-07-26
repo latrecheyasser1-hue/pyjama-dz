@@ -1551,38 +1551,35 @@ async function processIncomingPayload(body) {
                 ? ` ${rawContactName.trim()}`
                 : '';
 
-              if (isPraise) {
-                const praiseMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك الجزيل من القلب على كلماتك الطيبة وتقييمك الراقـي. يسعدنا جداً رضائك ونفخر بخدمتك دائماً! ✨❤️`;
-                await sendWhatsAppMessage(fromPhone, praiseMsg);
-                continue;
-              } else if (isComplaint) {
-                const complaintMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${greetingName}.\nنعتذر منك بصدق عن أي إزعاج أو خلل، ونهتم جداً بملحوظتك! 🙏\nتأكد أننا سنعمل على إصلاح المشكلة ومعالجة شكواك في أقرب وقت ممكن بإذن الله.`;
-                await sendWhatsAppMessage(fromPhone, complaintMsg);
+              if (isPraise || isComplaint) {
+                const unifiedMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك جزيلاً على تواصلك معنا وعلى مشاركتنا ملاحظاتك وتقييمك القيّم. 🙏\nتأكد أن رأيك ورضاك هما أولويتنا دائماً، وسنعمل باستمرار على تقديم الأفضل والأحسن لخدمتك على أكمل وجه بإذن الله. ✨❤️`;
+                await sendWhatsAppMessage(fromPhone, unifiedMsg);
 
-                // Save complaint to Supabase settings table (reclamations array)
-                try {
-                  const existingRecl = Array.isArray(storeSettings.reclamations) ? storeSettings.reclamations : [];
-                  const newRecl = {
-                    id: 'REC-WA-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-                    clientName: rawContactName || 'زبون الواتساب',
-                    whatsappNumber: fromPhone,
-                    message: messageText.trim(),
-                    status: 'nouvelle',
-                    createdAt: new Date().toISOString()
-                  };
-                  await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations`, {
-                    method: 'PATCH',
-                    headers: {
-                      'apikey': SUPABASE_KEY,
-                      'Authorization': `Bearer ${SUPABASE_KEY}`,
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ value: JSON.stringify([newRecl, ...existingRecl]) })
-                  });
-                } catch (e) {
-                  console.error("Error saving WhatsApp reclamation to Supabase:", e);
+                if (isComplaint) {
+                  // Save complaint to Supabase settings table (reclamations array)
+                  try {
+                    const existingRecl = Array.isArray(storeSettings.reclamations) ? storeSettings.reclamations : [];
+                    const newRecl = {
+                      id: 'REC-WA-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                      clientName: rawContactName || 'زبون الواتساب',
+                      whatsappNumber: fromPhone,
+                      message: messageText.trim(),
+                      status: 'nouvelle',
+                      createdAt: new Date().toISOString()
+                    };
+                    await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations`, {
+                      method: 'PATCH',
+                      headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ value: JSON.stringify([newRecl, ...existingRecl]) })
+                    });
+                  } catch (e) {
+                    console.error("Error saving WhatsApp reclamation to Supabase:", e);
+                  }
                 }
-
                 continue;
               }
 

@@ -102,12 +102,7 @@ export default async function handler(req, res) {
       ? ` ${clientName.trim()}`
       : '';
 
-    let replyMsg = '';
-    if (type === 'praise') {
-      replyMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك الجزيل من القلب على كلماتك الطيبة وتقييمك الراقـي. يسعدنا جداً رضائك ونفخر بخدمتك دائماً! ✨❤️`;
-    } else {
-      replyMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${greetingName}.\nنعتذر منك بصدق عن أي إزعاج أو خلل، ونهتم جداً بملحوظتك! 🙏\nتأكد أننا سنعمل على إصلاح المشكلة ومعالجة شكواك في أقرب وقت ممكن بإذن الله.`;
-    }
+    const replyMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك جزيلاً على تواصلك معنا وعلى مشاركتنا ملاحظاتك وتقييمك القيّم. 🙏\nتأكد أن رأيك ورضاك هما أولويتنا دائماً، وسنعمل باستمرار على تقديم الأفضل والأحسن لخدمتك على أكمل وجه بإذن الله. ✨❤️`;
 
     const metaRes = await fetch(`https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`, {
       method: 'POST',
