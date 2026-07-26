@@ -1,5 +1,5 @@
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://lcszntaxwndxskhplgii.supabase.co';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxjc3pudGF4d25keHNraHBsZ2lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyOTQyNjMsImV4cCI6MjA2NDg3MDI2M30.7M9H--x6iW1mIn6aV4N4e-Z4T13Q5Z36Y--Z4T13Q5Z';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1013778531818296';
 
 async function getMetaAccessToken() {
