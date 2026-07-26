@@ -597,7 +597,7 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
 
     // ❌ OUT OF STOCK CASE (Stock is 0)
     if (requestedSize && currentStock === 0) {
-      const outMsg = `أهلاً بك أخي ${clientName}.\nنعتذر منك شديد الاعتذار، المقاس ${requestedSize} في موديل (${matchedProduct?.title || 'الموديل'} - لون ${matchedVariant?.name || ''}) نافد حالياً من المخزون الخاص بالتوصيل (المتبقي: 0 حبة).\n\nلقد تم حفظ طلبك ورقم هاتفك في السيستم، وسنقوم بإرسال رسالة إليك فوراً عبر الواتساب بمجرد ورود السلعة الجديدة وتوفر المقاس المطلوب في السطوك لتأكيد شحنها إليك. شكراً لتفهمك.`;
+      const outMsg = `أهلاً بك ${clientName}.\nنعتذر منك، المقاس ${requestedSize} غير متوفر حالياً في موديل ${matchedProduct?.title || ''} (${matchedVariant?.name || ''}).\nتم حفظ رقمك وسنراسلكم فور توفره مجدداً. شكراً لك.`;
       await sendWhatsAppMessage(fromPhone, outMsg);
       return true;
     }
@@ -639,7 +639,7 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
       }
 
       const orderNumStr = await getSequentialOrderNum(newOrder);
-      const confirmMsg = `تم تسجيل وتأكيد طلبيتك رقم #${orderNumStr} بنجاح في السيستم!\n- الاسم: ${clientName}\n- الهاتف: ${orderPhone}\n- الولاية: ${wilaya}\n- المنتج: ${newOrder.product}\n- شركة التوصيل: ${deliveryCompany}\n\nجاري تجهيز الطلبية وشحنها إليك في أقرب وقت. شكراً لثقتك بنا.`;
+      const confirmMsg = `أهلاً بك ${clientName}.\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح:\n- المنتج: ${newOrder.product}\n- الولاية: ${wilaya}\n- التوصيل: ${deliveryCompany}\n\nجاري تجهيزها للشحن. شكراً لثقتك بنا.`;
       await sendWhatsAppMessage(fromPhone, confirmMsg);
       return true;
     }
@@ -965,13 +965,13 @@ async function processIncomingPayload(body) {
               if (isConfirmation) {
                 await updateOrderStatusAndArchive(order.id, 'confirmee');
                 const orderNumStr = await getSequentialOrderNum(order);
-                const confirmMsg = `تم تأكيد الطلبية رقم #${orderNumStr} بنجاح في السيستم سيد ${order.clientName || 'الزبون'} وجاري تجهيزها للشحن. شكراً لك.`;
+                const confirmMsg = `أهلاً بك ${order.clientName || ''}.\nتم تأكيد طلبيتك رقم #${orderNumStr} وجاري تجهيزها للشحن. شكراً لك.`;
                 await sendWhatsAppMessage(fromPhone, confirmMsg);
                 continue;
               } else if (isCancellation) {
                 await updateOrderStatusAndArchive(order.id, 'annulee');
                 const orderNumStr = await getSequentialOrderNum(order);
-                const cancelMsg = `تم إلغاء الطلبية رقم #${orderNumStr} بنجاح في السيستم بناءً على رغبتك سيد ${order.clientName || 'الزبون'}. نأمل خدمتك في المناسبات القادمة.`;
+                const cancelMsg = `أهلاً بك ${order.clientName || ''}.\nتم إلغاء الطلبية رقم #${orderNumStr} بناءً على رغبتك. نأمل خدمتك قريباً.`;
                 await sendWhatsAppMessage(fromPhone, cancelMsg);
                 continue;
               }
