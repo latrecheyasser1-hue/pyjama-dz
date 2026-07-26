@@ -842,14 +842,27 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
     const normText = normalizeText(messageText);
     const pLower = (messageText || '').toLowerCase();
 
+    // Inquiry / Question check: If message asks a question or includes inquiry keywords, it is NOT an order placement
+    const isQuestion = messageText.includes('?') || messageText.includes('؟') ||
+      ['وينتا', 'وقتاش', 'متى', 'كيفاه', 'كيفاش', 'شحال', 'qualité', 'كاليتي', 'نوعية', 'وصلت', 'تصلني', 'وين راهي', 'مكان', 'وصلتني'].some(k => normText.includes(k) || pLower.includes(k));
+
+    if (isQuestion) return false;
+
     const phoneMatch = messageText.match(/(0[567]\d{8})/);
     const wilayas = ["ادرار", "الشلف", "الأغواط", "أم البواقي", "باتنة", "بجاية", "بسكرة", "بشار", "بليدة", "بويرة", "تمنراست", "تبسة", "تلمسان", "تيارت", "تيزي وزو", "الجزائر", "الجلفة", "جيجل", "سطيف", "سعيدة", "سكيكدة", "سيدي بلعباس", "عنابة", "قالمة", "قسنطينة", "مدية", "مستغانم", "مسيلة", "معسكر", "ورقلة", "وهران", "بيض", "إليزي", "برج بوعريريج", "بومرداس", "الطارف", "تندوف", "تيسمسيلت", "الوادي", "خنشلة", "سوق أهراس", "تيبازة", "ميلة", "عين الدفلى", "نعامة", "عين تموشنت", "غرداية", "غليزان", "المغير", "المنيعة", "أولاد جلال", "برج باجي مختار", "بني عباس", "تيميمون", "تقرت", "جانت", "إن صالح", "إن قزام", "alger", "oran", "blida", "chlef", "setif", "constantine"];
     const wilayaMatch = wilayas.find(w => normText.includes(w.toLowerCase()) || pLower.includes(w.toLowerCase()));
 
-    const isOrderIntent = ["طلب", "كوموند", "commande", "نطلب", "ودي ندي", "ندير طلب", "سجللي طلب"].some(k => normText.includes(k) || pLower.includes(k));
-    const hasMultipleOrderLines = messageText.includes('\n') && (phoneMatch || wilayaMatch || pLower.includes('pointure') || pLower.includes('yalidine') || pLower.includes('zr'));
+    // Explicit order intent keywords (MUST express intention to place/register an order)
+    const explicitOrderKeywords = [
+      'حاب ندير كوموند', 'حاب نطلب', 'سجللي كوموند', 'سجل طلبية', 'ندير كوموند', 'نطلب بيجامة',
+      'ارسللي', 'ابعثلي كوموند', 'passer commande', 'commander', 'نطلبها'
+    ];
 
-    if (!isOrderIntent && !hasMultipleOrderLines && !phoneMatch) return false;
+    const hasExplicitOrderIntent = explicitOrderKeywords.some(k => normText.includes(k) || pLower.includes(k));
+    const sizeMatchForCheck = messageText.match(/(?:pointure|مقاس|حجم|قياس|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL)/i) || messageText.match(/\b(3[5-9]|4[0-8]|S|M|L|XL|2XL|3XL|4XL)\b/i);
+    const hasFullDetails = phoneMatch && wilayaMatch && sizeMatchForCheck;
+
+    if (!hasExplicitOrderIntent && !hasFullDetails) return false;
 
     // Extract lines and name
     const lines = messageText.split('\n').map(l => l.trim()).filter(Boolean);
