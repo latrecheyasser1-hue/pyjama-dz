@@ -1189,7 +1189,7 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
     const localPhone = fromPhone.replace(/^\+?213/, '0');
     const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
 
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(attente_confirmation_restock,en_attente_stock,attente_confirmation,pending_stock)&order=created_at.desc&limit=1`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(nouvelle,nouvel,new,pending,en_attente_confirmation,attente_confirmation,attente_confirmation_restock,en_attente_stock,pending_stock)&order=created_at.desc&limit=1`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const pendingOrders = await res.json();
