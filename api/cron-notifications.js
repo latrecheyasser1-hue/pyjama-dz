@@ -144,7 +144,7 @@ export default async function handler(req, res) {
         } catch(e) {}
       }
 
-      // 2. Fetch products
+      // 2. Fetch products and deduplicate
       let products = [];
       if (hotSaleIds.length > 0) {
         const idFilter = hotSaleIds.map(id => `"${id}"`).join(',');
@@ -155,17 +155,26 @@ export default async function handler(req, res) {
       }
 
       if (!Array.isArray(products) || products.length === 0) {
-        const fallbackRes = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*&limit=4`, {
+        const fallbackRes = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*&limit=2`, {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
         products = await fallbackRes.json();
       }
 
-      // Prepare product images and captions
+      // Prepare product images and captions with STRICT DEDUPLICATION
       const productMediaList = [];
+      const seenProdIds = new Set();
+      const seenImgUrls = new Set();
+
       if (Array.isArray(products)) {
         products.forEach(p => {
+          if (!p || !p.id || seenProdIds.has(p.id)) return;
           const imgUrl = getProductImageUrl(p);
+          if (!imgUrl || seenImgUrls.has(imgUrl)) return;
+
+          seenProdIds.add(p.id);
+          seenImgUrls.add(imgUrl);
+
           productMediaList.push({
             id: p.id,
             title: p.title || 'منتج مميز',
