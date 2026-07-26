@@ -343,29 +343,6 @@ export default function App() {
     } else if (data && data.length > 0) {
       const finalProduct = { ...updatedProd, ...data[0] };
       setProducts(prev => prev.map(p => p.id === id ? finalProduct : p));
-
-      // 🔔 Auto-trigger restock notifications for waiting customers
-      const updatedVariants = finalProduct.colorVariants || [];
-      if (Array.isArray(updatedVariants)) {
-        updatedVariants.forEach(cv => {
-          if (cv && cv.stock && typeof cv.stock === 'object') {
-            Object.entries(cv.stock).forEach(([sz, qty]) => {
-              if (Number(qty) > 0) {
-                fetch('/api/notify-restock', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    productId: id,
-                    productTitle: finalProduct.title || '',
-                    size: sz,
-                    newQty: Number(qty)
-                  })
-                }).catch(e => console.error('Restock notification trigger error:', e));
-              }
-            });
-          }
-        });
-      }
     } else {
       alert("Erreur: La modification a été bloquée (vérifiez que RLS est bien désactivé).");
     }

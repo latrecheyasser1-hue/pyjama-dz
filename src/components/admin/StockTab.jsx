@@ -476,48 +476,33 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     }));
   };
 
-  const triggerNotifyRestock = async (productId, productTitle, size, newQty) => {
-    if (!size || Number(newQty) <= 0) return;
-    const payload = { productId, productTitle, size, newQty: Number(newQty) };
+  const restockDebounceRef = useRef({});
 
-    let notified = false;
-    try {
-      const res = await fetch('/api/notify-restock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
-        const data = await res.json();
-        console.log('Restock notify result (relative):', data);
-        if (data.notifiedCount > 0) {
-          showToast(`🔔 تم إرسال إشعار التوفر لـ ${data.notifiedCount} زبون عبر الواتساب`, 'success');
-        }
-        notified = true;
-      }
-    } catch (err) {
-      console.warn('Relative restock fetch failed:', err);
+  const triggerNotifyRestock = (productId, productTitle, size, newQty) => {
+    if (!size || Number(newQty) <= 0) return;
+    const key = `${productId || productTitle}_${size}`;
+    if (restockDebounceRef.current[key]) {
+      clearTimeout(restockDebounceRef.current[key]);
     }
 
-    if (!notified) {
+    restockDebounceRef.current[key] = setTimeout(async () => {
+      const payload = { productId, productTitle, size, newQty: Number(newQty) };
       try {
-        const prodRes = await fetch('https://pyjama-dz.vercel.app/api/notify-restock', {
+        const res = await fetch('/api/notify-restock', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (prodRes.ok) {
-          const data = await prodRes.json();
-          console.log('Restock notify result (production fallback):', data);
+        if (res.ok) {
+          const data = await res.json();
           if (data.notifiedCount > 0) {
             showToast(`🔔 تم إرسال إشعار التوفر لـ ${data.notifiedCount} زبون عبر الواتساب`, 'success');
           }
         }
       } catch (err) {
-        console.error('Production restock notify error:', err);
+        console.warn('Restock notify fetch failed:', err);
       }
-    }
+    }, 1200);
   };
 
   const handleSubmit = (e) => {

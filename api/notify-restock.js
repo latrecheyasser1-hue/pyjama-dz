@@ -253,6 +253,9 @@ export default async function handler(req, res) {
       const prodMatches = isProductMatch(productId, productTitle, entryProdId, entryProdText);
 
       if (sizeMatches && prodMatches) {
+        notifiedPhones.add(waPhone);
+        markNotifiedRecently(waPhone);
+
         await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
           method: 'PATCH',
           headers: {
@@ -269,9 +272,7 @@ export default async function handler(req, res) {
 
         const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر المقاس المطلوب (${targetSize}) مجدداً${prodDesc}! 🔥\nهل ما زلت ترغب فـ تأكيد وتجهيز الطلبية لشحنها لك الآن؟\n\n👉 أجب بـ *نعم* أو *إيه* أو *تأكيد* لتأكيد الطلب فوراً.`;
 
-        markNotifiedRecently(waPhone);
         await sendWhatsAppMessage(waPhone, restockMsg);
-        notifiedPhones.add(waPhone);
         notifiedCount++;
       }
     }
