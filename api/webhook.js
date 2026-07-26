@@ -476,6 +476,14 @@ async function sendWhatsAppImage(toPhone, imageUrl, caption = "") {
 async function createChatOrderInSupabase(orderData) {
   try {
     const url = `${SUPABASE_URL}/rest/v1/orders`;
+    const itemObj = {
+      product: orderData.product || 'بيجامات فاخرة',
+      color: orderData.color || '',
+      size: orderData.size || '',
+      qty: Number(orderData.quantity || 1),
+      price: Number(orderData.price || orderData.totalPrice || 0)
+    };
+
     const payload = {
       clientName: orderData.clientName || 'زبون المحادثة',
       nom: orderData.clientName || 'زبون المحادثة',
@@ -484,13 +492,12 @@ async function createChatOrderInSupabase(orderData) {
       commune: orderData.commune || 'المركز',
       address: `${orderData.wilaya || ''} ${orderData.commune || ''}`.trim(),
       product: orderData.product || 'بيجامات فاخرة',
-      color: orderData.color || '',
-      size: orderData.size || '',
+      price: Number(orderData.price || orderData.totalPrice || 0),
       quantity: Number(orderData.quantity || 1),
-      totalPrice: Number(orderData.totalPrice || 0),
       deliveryCompany: orderData.deliveryCompany || 'Livraison Domicile',
       status: orderData.status || 'confirmee',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      items: orderData.items || [itemObj]
     };
 
     const res = await fetch(url, {
@@ -522,10 +529,12 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
     if (!Array.isArray(orders) || orders.length === 0) return;
 
     for (const order of orders) {
-      const orderSize = (order.size || '').toUpperCase();
-      const targetSize = size.toUpperCase();
+      const item = Array.isArray(order.items) && order.items[0] ? order.items[0] : {};
+      const orderSize = (item.size || order.size || '').toUpperCase();
+      const targetSize = String(size).toUpperCase();
+      const prodText = (order.product || '').toUpperCase();
 
-      if (orderSize === targetSize && order.phone) {
+      if ((orderSize === targetSize || !orderSize || prodText.includes(targetSize)) && order.phone) {
         await updateOrderStatusAndArchive(order.id, 'confirmee');
         
         const orderNumStr = await getSequentialOrderNum(order);

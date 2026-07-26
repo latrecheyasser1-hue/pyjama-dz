@@ -57,10 +57,12 @@ export default async function handler(req, res) {
     let availableQty = Number(newQty);
 
     for (const order of orders) {
-      const orderSize = (order.size || '').toUpperCase();
+      const item = Array.isArray(order.items) && order.items[0] ? order.items[0] : {};
+      const orderSize = (item.size || order.size || '').toUpperCase();
       const targetSize = String(size).toUpperCase();
+      const prodText = (order.product || '').toUpperCase();
 
-      if (orderSize === targetSize && order.phone) {
+      if ((orderSize === targetSize || !orderSize || prodText.includes(targetSize)) && order.phone) {
         await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
           method: 'PATCH',
           headers: {
