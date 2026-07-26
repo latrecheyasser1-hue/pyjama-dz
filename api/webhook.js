@@ -1156,6 +1156,7 @@ async function checkAndAlertLowStock(product, storeSettings) {
         }
       }
     }
+  }
 }
 
 async function processRestockConfirmationIntent(fromPhone, messageText, products) {
