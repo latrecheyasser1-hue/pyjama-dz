@@ -1515,29 +1515,43 @@ async function processIncomingPayload(body) {
               const normText = normalizeText(messageText);
 
               // RECLAMATION & FEEDBACK HANDLER (Praise vs Complaint)
+              const rawLowerText = String(messageText).toLowerCase();
               const praiseKeywords = [
                 'شكرا', 'شكرااا', 'شكرا لكم', 'مشكور', 'بارك الله', 'يعطيكم الصحة', 'يعطيك الصحة',
-                'ماشاء الله', 'مشاء الله', 'روعة', 'ما شاء الله', 'top', 'merci', 'bravo', 'bien',
-                'ممتازة', 'ممتاز', 'هايل', 'هايلة', 'شكر', 'تسلم', 'تسلموا', 'ربي يحفظكم', 'ربي يوفقكم',
-                'عجبني', 'عجبوني', 'شباب بزاف', 'ما شاء الله عليكم', 'يعطيك الصحه', 'الله يحفظك',
-                'خدمة روعة', 'سلعة روعة', 'وصلتني روعة', 'بيجامة روعة', 'يعطيكم الصحه'
+                'ماشاء الله', 'مشاء الله', 'روعة', 'ما شاء الله', 'شكر', 'تسلم', 'تسلموا', 'ربي يحفظكم', 'ربي يوفقكم',
+                'عجبني', 'عجبوني', 'عجبتني', 'شباب بزاف', 'ما شاء الله عليكم', 'يعطيك الصحه', 'الله يحفظك',
+                'خدمة روعة', 'سلعة روعة', 'وصلتني روعة', 'بيجامة روعة', 'يعطيكم الصحه', 'هايل', 'هايلة', 'ممتاز', 'ممتازة',
+                'machallah', 'machaallah', 'machalah', 'macha allah', 'macheallah',
+                '3jbetni', '3jbetnii', '3jbatni', 'ajbatni', 'ejbetni', 'ejbetnii',
+                'rbii yahfedkom', 'rbi yahfedkom', 'rbi yahfdkom', 'rbi yahfadkom', 'god bless',
+                'nchaallah', 'nchallah', 'inshallah', 'inchallah',
+                'qualite', 'qualité', 'bzeef', 'bzeeef', 'bzaf', 'bzaaf',
+                'top', 'merci', 'bravo', 'bien', 'tres bien', 'très bien', 'magnifique',
+                'sublime', 'super', 'parfait', 'fort', 'foor', 'tahya', 'chbab', 'chbaba',
+                'hayla', 'hayel', 'zinek', 'ya3tikom', 'ya3tik'
               ];
               const complaintKeywords = [
                 'مشكل', 'مشكلة', 'شكوى', 'عتاب', 'ناقص', 'مكسور', 'ماشي شباب', 'عيب', 'غلطة', 'رادي',
                 'ما وصلنيش', 'خاسر', 'تأخرت', 'تأخير', 'مغشوش', 'صغيرة بزاف', 'كبيرة بزاف', 'مقطوع',
                 'فسد', 'ما عجبنيش', 'ما عجبنيش الحجم', 'تأخر', 'وصلت ناقصة', 'وصلت خاسرة', 'سلعة خاسرة',
-                'خدمة سيئة', 'توصيل بطيء', 'reclamation', 'réclamation', 'سوء', 'مغشوشة'
+                'خدمة سيئة', 'توصيل بطيء', 'reclamation', 'réclamation', 'سوء', 'مغشوشة', 'زبل',
+                'problem', 'probleme', 'problème', 'pas bien', 'mauvais', 'cassé', 'casse',
+                'retard', 'retarde', 'degueulasse', 'nul', 'nulle', 'zbel', 'khaser', 'khasra',
+                'mouskile', 'mouchkel', 'mouchkil'
               ];
 
-              const isPraise = praiseKeywords.some(k => normText.includes(k));
-              const isComplaint = complaintKeywords.some(k => normText.includes(k));
+              const hasPraise = praiseKeywords.some(k => normText.includes(k) || rawLowerText.includes(k));
+              const hasComplaint = complaintKeywords.some(k => normText.includes(k) || rawLowerText.includes(k));
+
+              const isPraise = hasPraise && !hasComplaint;
+              const isComplaint = hasComplaint;
 
               const rawContactName = order?.clientName || value?.contacts?.[0]?.profile?.name || '';
               const greetingName = (rawContactName && rawContactName.trim() !== '' && rawContactName !== 'زبون المحادثة' && rawContactName !== 'زبون الواتساب')
                 ? ` ${rawContactName.trim()}`
                 : '';
 
-              if (isPraise && !isComplaint) {
+              if (isPraise) {
                 const praiseMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك الجزيل من القلب على كلماتك الطيبة وتقييمك الراقـي. يسعدنا جداً رضائك ونفخر بخدمتك دائماً! ✨❤️`;
                 await sendWhatsAppMessage(fromPhone, praiseMsg);
                 continue;

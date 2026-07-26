@@ -42,21 +42,41 @@ function normalizeText(text) {
 
 function classifyReclamationText(text) {
   if (!text) return 'complaint';
+  const rawLower = String(text).toLowerCase();
   const norm = normalizeText(text);
 
   const praiseKeywords = [
     'شكرا', 'شكرااا', 'شكرا لكم', 'مشكور', 'بارك الله', 'يعطيكم الصحة', 'يعطيك الصحة',
-    'ماشاء الله', 'مشاء الله', 'روعة', 'ما شاء الله', 'top', 'merci', 'bravo', 'bien',
-    'ممتازة', 'ممتاز', 'هايل', 'هايلة', 'شكر', 'تسلم', 'تسلموا', 'ربي يحفظكم', 'ربي يوفقكم',
-    'عجبني', 'عجبوني', 'شباب بزاف', 'ما شاء الله عليكم', 'يعطيك الصحه', 'الله يحفظك',
-    'خدمة روعة', 'سلعة روعة', 'وصلتني روعة', 'بيجامة روعة', 'يعطيكم الصحه'
+    'ماشاء الله', 'مشاء الله', 'روعة', 'ما شاء الله', 'شكر', 'تسلم', 'تسلموا', 'ربي يحفظكم', 'ربي يوفقكم',
+    'عجبني', 'عجبوني', 'عجبتني', 'شباب بزاف', 'ما شاء الله عليكم', 'يعطيك الصحه', 'الله يحفظك',
+    'خدمة روعة', 'سلعة روعة', 'وصلتني روعة', 'بيجامة روعة', 'يعطيكم الصحه', 'هايل', 'هايلة', 'ممتاز', 'ممتازة',
+    'machallah', 'machaallah', 'machalah', 'macha allah', 'macheallah',
+    '3jbetni', '3jbetnii', '3jbatni', 'ajbatni', 'ejbetni', 'ejbetnii',
+    'rbii yahfedkom', 'rbi yahfedkom', 'rbi yahfdkom', 'rbi yahfadkom', 'god bless',
+    'nchaallah', 'nchallah', 'inshallah', 'inchallah',
+    'qualite', 'qualité', 'bzeef', 'bzeeef', 'bzaf', 'bzaaf',
+    'top', 'merci', 'bravo', 'bien', 'tres bien', 'très bien', 'magnifique',
+    'sublime', 'super', 'parfait', 'fort', 'foor', 'tahya', 'chbab', 'chbaba',
+    'hayla', 'hayel', 'zinek', 'ya3tikom', 'ya3tik'
   ];
 
-  for (const kw of praiseKeywords) {
-    if (norm.includes(kw)) {
-      return 'praise';
-    }
-  }
+  const complaintKeywords = [
+    'مشكل', 'مشكلة', 'شكوى', 'عتاب', 'ناقص', 'مكسور', 'ماشي شباب', 'عيب', 'غلطة', 'رادي',
+    'ما وصلنيش', 'خاسر', 'تأخرت', 'تأخير', 'مغشوش', 'صغيرة بزاف', 'كبيرة بزاف', 'مقطوع',
+    'فسد', 'ما عجبنيش', 'ما عجبنيش الحجم', 'تأخر', 'وصلت ناقصة', 'وصلت خاسرة', 'سلعة خاسرة',
+    'خدمة سيئة', 'توصيل بطيء', 'reclamation', 'réclamation', 'سوء', 'مغشوشة', 'زبل',
+    'problem', 'probleme', 'problème', 'pas bien', 'mauvais', 'cassé', 'casse',
+    'retard', 'retarde', 'degueulasse', 'nul', 'nulle', 'zbel', 'khaser', 'khasra',
+    'mouskile', 'mouchkel', 'mouchkil'
+  ];
+
+  const hasPraise = praiseKeywords.some(k => norm.includes(k) || rawLower.includes(k));
+  const hasComplaint = complaintKeywords.some(k => norm.includes(k) || rawLower.includes(k));
+
+  if (hasPraise && !hasComplaint) return 'praise';
+  if (hasComplaint) return 'complaint';
+  if (hasPraise) return 'praise';
+
   return 'complaint';
 }
 
