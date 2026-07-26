@@ -229,13 +229,56 @@ export default async function handler(req, res) {
       hotSaleResult = { status: 'success', sentCount, totalClients: uniqueClients.size, mediaCount: productMediaList.length };
     }
 
+    let followupResult = null;
+
+    // 2. 14-DAY POST-ORDER FOLLOW-UP CAMPAIGN
+    if (action === 'followup_14_days' || action === 'all') {
+      const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+      const sixteenDaysAgo = new Date(Date.now() - 16 * 24 * 60 * 60 * 1000).toISOString();
+
+      const orderRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?created_at=gte.${sixteenDaysAgo}&created_at=lte.${fourteenDaysAgo}&status=in.(confirmee,expediee,livree)&select=*`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const oldOrders = await orderRes.json();
+
+      let followUpCount = 0;
+      if (Array.isArray(oldOrders)) {
+        const uniqueFollowupClients = new Map();
+
+        oldOrders.forEach(o => {
+          if (!o.phone || o.phone === '-' || o.phone.length < 6) return;
+          const cleanP = String(o.phone).replace(/\D/g, '');
+          if (!cleanP || cleanP.length < 8) return;
+          const key = cleanP.startsWith('213') ? cleanP : (cleanP.startsWith('0') ? '213' + cleanP.substring(1) : '213' + cleanP);
+
+          if (!uniqueFollowupClients.has(key)) {
+            uniqueFollowupClients.set(key, { name: o.clientName || '', orderId: o.id, product: o.product });
+          }
+        });
+
+        for (const [phone, info] of uniqueFollowupClients.entries()) {
+          const firstName = cleanClientName(info.name);
+          const greeting = firstName ? `أهلاً وسهلاً بك ${firstName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
+
+          const msg = `*متجر Pyjama DZ*\n\n${greeting}! 🌸\nمرت أسبوعان على طلبيتك من متجرنا. ✨\nيهمنا جداً معرفة رأيك وانطباعك عن جودة السلعة وخدمتنا، ورضاك هما أولويتنا دائماً. 🙏\n\nإذا كان لديك أي ملاحظة أو تقييم، يسعدنا تواصلك معنا دائماً ونتمنى أن تكون السلعة قد نالت إعجابك الكامل! ❤️\nhttps://pyjama-dz.vercel.app`;
+
+          await sendWhatsAppMessage(phone, msg);
+          followUpCount++;
+          await new Promise(r => setTimeout(r, 200));
+        }
+      }
+
+      followupResult = { status: 'success', sentCount: followUpCount };
+    }
+
     return res.status(200).json({
       success: true,
       timestamp: new Date().toISOString(),
-      hotSaleResult
+      hotSaleResult,
+      followupResult
     });
   } catch (err) {
-    console.error('Error running weekly hot sale cron:', err);
+    console.error('Error running cron notifications:', err);
     return res.status(500).json({ error: err.message });
   }
 }

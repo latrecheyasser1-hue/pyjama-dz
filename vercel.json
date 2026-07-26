@@ -3,6 +3,10 @@
     {
       "path": "/api/cron-notifications?action=weekly_hot_sale",
       "schedule": "0 10 * * 1"
+    },
+    {
+      "path": "/api/cron-notifications?action=followup_14_days",
+      "schedule": "0 11 * * *"
     }
   ],
   "rewrites": [

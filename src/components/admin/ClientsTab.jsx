@@ -94,6 +94,7 @@ export default function ClientsTab({ orders = [], products = [] }) {
   const normalCount = useMemo(() => clientsList.filter(c => c.reputation === 'normal').length, [clientsList]);
 
   const [isSendingHotSale, setIsSendingHotSale] = useState(false);
+  const [isSendingFollowup, setIsSendingFollowup] = useState(false);
 
   const handleSendWeeklyHotSale = async () => {
     if (!window.confirm('هل أنت متأكد من إرسال عرض Hot Sale الأسبوعي المخصص باسم كل زبون عبر الواتساب الآن؟')) return;
@@ -114,34 +115,75 @@ export default function ClientsTab({ orders = [], products = [] }) {
     }
   };
 
+  const handleSend14DayFollowup = async () => {
+    if (!window.confirm('هل أنت متأكد من إرسال رسائل متابعة الرأي والتقييم للزبائن الذين مر أسبوعان على طلباتهم عبر الواتساب الآن؟')) return;
+    setIsSendingFollowup(true);
+    try {
+      const res = await fetch('/api/cron-notifications?action=followup_14_days');
+      const data = await res.json();
+      if (data.success) {
+        alert(`تم إرسال رسائل متابعة الرأي بنجاح لـ ${data.followupResult?.sentCount || 0} زبون عبر الواتساب! 🌸💌`);
+      } else {
+        alert('حدث خطأ أثناء الإرسال. الرجاء المحاولة مرة أخرى.');
+      }
+    } catch (err) {
+      console.error('Error sending followup campaign:', err);
+      alert('حدث خطأ تقني أثناء الإرسال.');
+    } finally {
+      setIsSendingFollowup(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', direction: 'rtl', fontFamily: 'var(--font-primary)' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--burgundy-dark)', margin: 0 }}>👥 إدارة الزبائن وعروض التسويق (CRM)</h1>
-          <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '4px 0 0' }}>متابعة وتقييم الزبائن وإرسال عروض Hot Sale الأسبوعية المخصصة عبر الواتساب</p>
+          <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '4px 0 0' }}>متابعة الزبائن، كشف سمعة الطلبيات، وإرسال الحملات ومتابعة أسبوعين عبر الواتساب</p>
         </div>
-        <button
-          onClick={handleSendWeeklyHotSale}
-          disabled={isSendingHotSale}
-          style={{
-            background: 'linear-gradient(135deg, #EC4899, #8B5CF6)',
-            color: 'white',
-            border: 'none',
-            padding: '12px 20px',
-            borderRadius: '12px',
-            fontWeight: 800,
-            cursor: isSendingHotSale ? 'wait' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: '0 4px 14px rgba(236,72,153,0.35)',
-            opacity: isSendingHotSale ? 0.7 : 1
-          }}
-        >
-          {isSendingHotSale ? '⏳ جاري إرسال العروض للجميع...' : '🚀 إرسال عروض Hot Sale الأسبوعية للجميع الآن'}
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={handleSendWeeklyHotSale}
+            disabled={isSendingHotSale || isSendingFollowup}
+            style={{
+              background: 'linear-gradient(135deg, #EC4899, #8B5CF6)',
+              color: 'white',
+              border: 'none',
+              padding: '12px 18px',
+              borderRadius: '12px',
+              fontWeight: 800,
+              cursor: isSendingHotSale ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 14px rgba(236,72,153,0.35)',
+              opacity: isSendingHotSale ? 0.7 : 1
+            }}
+          >
+            {isSendingHotSale ? '⏳ جاري الإرسال...' : '🚀 عروض Hot Sale'}
+          </button>
+          <button
+            onClick={handleSend14DayFollowup}
+            disabled={isSendingHotSale || isSendingFollowup}
+            style={{
+              background: 'linear-gradient(135deg, #10B981, #059669)',
+              color: 'white',
+              border: 'none',
+              padding: '12px 18px',
+              borderRadius: '12px',
+              fontWeight: 800,
+              cursor: isSendingFollowup ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
+              opacity: isSendingFollowup ? 0.7 : 1
+            }}
+          >
+            {isSendingFollowup ? '⏳ جاري الإرسال...' : '💌 متابعة أسبوعين (14 يوماً)'}
+          </button>
+        </div>
       </div>
 
       {/* Metrics Cards */}
