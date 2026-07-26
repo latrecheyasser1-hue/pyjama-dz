@@ -476,6 +476,50 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     }));
   };
 
+  const triggerNotifyRestock = async (productId, productTitle, size, newQty) => {
+    if (!size || Number(newQty) <= 0) return;
+    const payload = { productId, productTitle, size, newQty: Number(newQty) };
+
+    let notified = false;
+    try {
+      const res = await fetch('/api/notify-restock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json();
+        console.log('Restock notify result (relative):', data);
+        if (data.notifiedCount > 0) {
+          showToast(`🔔 تم إرسال إشعار التوفر لـ ${data.notifiedCount} زبون عبر الواتساب`, 'success');
+        }
+        notified = true;
+      }
+    } catch (err) {
+      console.warn('Relative restock fetch failed:', err);
+    }
+
+    if (!notified) {
+      try {
+        const prodRes = await fetch('https://pyjama-dz.vercel.app/api/notify-restock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (prodRes.ok) {
+          const data = await prodRes.json();
+          console.log('Restock notify result (production fallback):', data);
+          if (data.notifiedCount > 0) {
+            showToast(`🔔 تم إرسال إشعار التوفر لـ ${data.notifiedCount} زبون عبر الواتساب`, 'success');
+          }
+        }
+      } catch (err) {
+        console.error('Production restock notify error:', err);
+      }
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title) {
@@ -555,17 +599,12 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
     if (editingId) {
       onUpdateProduct(productData);
-      // Trigger restock check for edited variants
       if (Array.isArray(productData.colorVariants)) {
         productData.colorVariants.forEach(cv => {
           if (cv.stock) {
             Object.entries(cv.stock).forEach(([sz, qty]) => {
               if (Number(qty) > 0) {
-                fetch('/api/notify-restock', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ productId: editingId, size: sz, newQty: Number(qty) })
-                }).catch(err => console.error('Form edit restock notify error:', err));
+                triggerNotifyRestock(editingId, productData.title, sz, Number(qty));
               }
             });
           }
@@ -574,9 +613,19 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     } else {
       onAddProduct(productData);
 
-      // If added in Livraison mode, auto-clone it to Boutique and Gros
+      if (Array.isArray(productData.colorVariants)) {
+        productData.colorVariants.forEach(cv => {
+          if (cv.stock) {
+            Object.entries(cv.stock).forEach(([sz, qty]) => {
+              if (Number(qty) > 0) {
+                triggerNotifyRestock(productData.id, productData.title, sz, Number(qty));
+              }
+            });
+          }
+        });
+      }
+
       if (stockMode === 'livraison') {
-        // 1. Boutique Clone
         const boutiqueProduct = {
           ...productData,
           category: `boutique__${baseCat}`,
@@ -586,7 +635,6 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
         };
         onAddProduct(boutiqueProduct);
 
-        // 2. Gros Clone
         const grosProduct = {
           ...productData,
           category: `gros__${baseCat}`,
@@ -606,10 +654,12 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
   // Quick stock quantity adjuster
   const handleQuickQtyAdjust = (product, colorIdx, size, delta) => {
+    const targetCv = product.colorVariants?.[colorIdx];
+    const currentQty = Number(targetCv?.stock?.[size] || 0);
+    const nextQty = Math.max(0, currentQty + delta);
+
     const updatedVariants = product.colorVariants.map((cv, i) => {
       if (i !== colorIdx) return cv;
-      const currentQty = cv.stock[size] || 0;
-      const nextQty = Math.max(0, currentQty + delta);
       return {
         ...cv,
         stock: { ...cv.stock, [size]: nextQty }
@@ -621,16 +671,8 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       colorVariants: updatedVariants
     });
 
-    // Notify waiting customers if stock was increased
     if (delta > 0) {
-      const targetCv = product.colorVariants?.[colorIdx];
-      const currentQty = targetCv?.stock?.[size] || 0;
-      const nextQty = currentQty + delta;
-      fetch('/api/notify-restock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: product.id, size, newQty: nextQty })
-      }).catch(err => console.error('Restock notify error:', err));
+      triggerNotifyRestock(product.id, product.title, size, nextQty);
     }
   };
 

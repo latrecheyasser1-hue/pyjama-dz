@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     const orderNum = await getSequentialOrderNum(id);
     const cleanProduct = String(product || 'بيجامة').replace(/\(\(/g, '').replace(/\)\)/g, '');
 
-    const messageText = `🌸 *متجر Pyjama DZ* 🌸\n\nأهلاً بك سيد ${nom || 'الزبون'}! ❤️\n\n📋 *تفاصيل الطلبية:*\n━━━━━━━━━━━━━━━\n📦 *رقم الطلب:* #${orderNum}\n🛍️ *المنتجات:* ${cleanProduct}\n🚚 *الولاية:* ${wilaya || ''}\n📌 *الحالة:* جديدة (قيد التجهيز للشحن)\n━━━━━━━━━━━━━━━\n\n✨ يرجى الرد بـ كلمة (*تأكيد*) أو (*إلغاء*) لتجهيز شحنتك فوراً!`;
+    const messageText = `أهلاً بك سيد ${nom || 'الزبون'}.\n\nتفاصيل الطلبية:\n- رقم الطلب: #${orderNum}\n- المنتجات: ${cleanProduct}\n- الولاية: ${wilaya || ''}\n- الحالة: جديدة (قيد التجهيز للشحن)\n\nيرجى الرد بكلمة (تأكيد) أو (إلغاء) لتأكيد وتجهيز شحنتك.`;
 
     const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
     const messageBody = {
