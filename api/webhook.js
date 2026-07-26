@@ -1515,16 +1515,60 @@ async function processIncomingPayload(body) {
               const normText = normalizeText(messageText);
 
               // RECLAMATION & FEEDBACK HANDLER (Praise vs Complaint)
-              const isPraise = ['شكرا', 'مرسي', 'شكراً', 'يعطيك الصحة', 'ما شاء الله', 'روعة', 'عجبني', 'هايل', 'شباب بزاف', 'merci', 'top', 'الله يحفظك'].some(k => normText.includes(k));
-              const isComplaint = ['مشكل', 'ناقص', 'مكسور', 'ماشي شباب', 'زبل', 'عيب', 'غلطة', 'رادي', 'ما وصلنيش', 'خاسر', 'تأخرت'].some(k => normText.includes(k));
+              const praiseKeywords = [
+                'شكرا', 'شكرااا', 'شكرا لكم', 'مشكور', 'بارك الله', 'يعطيكم الصحة', 'يعطيك الصحة',
+                'ماشاء الله', 'مشاء الله', 'روعة', 'ما شاء الله', 'top', 'merci', 'bravo', 'bien',
+                'ممتازة', 'ممتاز', 'هايل', 'هايلة', 'شكر', 'تسلم', 'تسلموا', 'ربي يحفظكم', 'ربي يوفقكم',
+                'عجبني', 'عجبوني', 'شباب بزاف', 'ما شاء الله عليكم', 'يعطيك الصحه', 'الله يحفظك',
+                'خدمة روعة', 'سلعة روعة', 'وصلتني روعة', 'بيجامة روعة', 'يعطيكم الصحه'
+              ];
+              const complaintKeywords = [
+                'مشكل', 'مشكلة', 'شكوى', 'عتاب', 'ناقص', 'مكسور', 'ماشي شباب', 'عيب', 'غلطة', 'رادي',
+                'ما وصلنيش', 'خاسر', 'تأخرت', 'تأخير', 'مغشوش', 'صغيرة بزاف', 'كبيرة بزاف', 'مقطوع',
+                'فسد', 'ما عجبنيش', 'ما عجبنيش الحجم', 'تأخر', 'وصلت ناقصة', 'وصلت خاسرة', 'سلعة خاسرة',
+                'خدمة سيئة', 'توصيل بطيء', 'reclamation', 'réclamation', 'سوء', 'مغشوشة'
+              ];
 
-              if (isPraise && !order) {
-                const clientName = order?.clientName || 'الزبون الكريم';
-                await sendWhatsAppMessage(fromPhone, `أهلاً وسهلاً بك سيد ${clientName}.\nشكراً جزيلاً لك على كلامك الطيب وثقتك بمتجرنا. نسعد دائماً بخدمتك ولن نتردد في تقديم الأفضل دائماً.`);
+              const isPraise = praiseKeywords.some(k => normText.includes(k));
+              const isComplaint = complaintKeywords.some(k => normText.includes(k));
+
+              const rawContactName = order?.clientName || value?.contacts?.[0]?.profile?.name || '';
+              const greetingName = (rawContactName && rawContactName.trim() !== '' && rawContactName !== 'زبون المحادثة' && rawContactName !== 'زبون الواتساب')
+                ? ` ${rawContactName.trim()}`
+                : '';
+
+              if (isPraise && !isComplaint) {
+                const praiseMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك الجزيل من القلب على كلماتك الطيبة وتقييمك الراقـي. يسعدنا جداً رضائك ونفخر بخدمتك دائماً! ✨❤️`;
+                await sendWhatsAppMessage(fromPhone, praiseMsg);
                 continue;
               } else if (isComplaint) {
-                const clientName = order?.clientName || 'الزبون الكريم';
-                await sendWhatsAppMessage(fromPhone, `أهلاً بك سيد ${clientName}.\nنعتذر منك شديد الاعتذار عن هذا المشكل. يرجى تزويدنا بكافة التفاصيل وسيتم التواصل معك ومعالجة الأمر في أقرب وقت ممكن.`);
+                const complaintMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${greetingName}.\nنعتذر منك بصدق عن أي إزعاج أو خلل، ونهتم جداً بملحوظتك! 🙏\nتأكد أننا سنعمل على إصلاح المشكلة ومعالجة شكواك في أقرب وقت ممكن بإذن الله.`;
+                await sendWhatsAppMessage(fromPhone, complaintMsg);
+
+                // Save complaint to Supabase settings table (reclamations array)
+                try {
+                  const existingRecl = Array.isArray(storeSettings.reclamations) ? storeSettings.reclamations : [];
+                  const newRecl = {
+                    id: 'REC-WA-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                    clientName: rawContactName || 'زبون الواتساب',
+                    whatsappNumber: fromPhone,
+                    message: messageText.trim(),
+                    status: 'nouvelle',
+                    createdAt: new Date().toISOString()
+                  };
+                  await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations`, {
+                    method: 'PATCH',
+                    headers: {
+                      'apikey': SUPABASE_KEY,
+                      'Authorization': `Bearer ${SUPABASE_KEY}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ value: JSON.stringify([newRecl, ...existingRecl]) })
+                  });
+                } catch (e) {
+                  console.error("Error saving WhatsApp reclamation to Supabase:", e);
+                }
+
                 continue;
               }
 

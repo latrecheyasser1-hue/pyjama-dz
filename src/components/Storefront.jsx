@@ -843,13 +843,24 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
       
       const existing = settings && Array.isArray(settings.reclamations) ? settings.reclamations : [];
       await onUpdateSettings({ reclamations: [newRecl, ...existing] });
+
+      // Trigger WhatsApp bot response asynchronously
+      fetch('/api/send-reclamation-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: reclamationName.trim(),
+          whatsappNumber: reclamationWhatsapp.trim(),
+          message: reclamationMessage.trim()
+        })
+      }).catch(e => console.error('Error triggering reclamation WhatsApp notification:', e));
       
       setReclamationName('');
       setReclamationWhatsapp('');
       setReclamationMessage('');
       setIsReclamationOpen(false);
       
-      alert('تم إرسال شكواك بنجاح! سنتواصل معك عبر الواتساب في أقرب وقت.');
+      alert('تم إرسال رسالتك بنجاح! تم إرسال تأكيد عبر الواتساب.');
     } catch (err) {
       console.error('Error submitting reclamation:', err);
       alert('حدث خطأ أثناء إرسال الشكوى. الرجاء المحاولة مرة أخرى.');
