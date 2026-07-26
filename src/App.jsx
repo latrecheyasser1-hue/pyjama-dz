@@ -187,9 +187,11 @@ export default function App() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               phone: customerPhone,
-              nom: insertedOrder.nom,
+              clientName: insertedOrder.clientName || insertedOrder.nom,
+              nom: insertedOrder.clientName || insertedOrder.nom,
               id: insertedOrder.id,
-              wilaya: insertedOrder.wilaya
+              wilaya: insertedOrder.wilaya,
+              product: insertedOrder.product
             })
           }).catch(e => console.error("WhatsApp trigger error:", e));
         }
