@@ -95,6 +95,8 @@ function cleanClientName(rawName) {
 }
 
 function getProductImageUrl(p) {
+  if (!p || !p.id) return null;
+
   let img = null;
   if (p.image && typeof p.image === 'string') img = p.image;
   else if (Array.isArray(p.images) && p.images.length > 0 && typeof p.images[0] === 'string') img = p.images[0];
@@ -108,9 +110,15 @@ function getProductImageUrl(p) {
     }
   }
 
-  if (!img || img.startsWith('data:image')) return null;
+  if (!img) return null;
+
   if (img.startsWith('http://') || img.startsWith('https://')) return img;
-  return `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
+  if (img.startsWith('/')) return `https://pyjama-dz.vercel.app${img}`;
+  if (img.startsWith('data:image')) {
+    return `https://pyjama-dz.vercel.app/api/product-image?id=${p.id}`;
+  }
+
+  return `https://pyjama-dz.vercel.app/api/product-image?id=${p.id}`;
 }
 
 export default async function handler(req, res) {

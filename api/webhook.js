@@ -1073,9 +1073,12 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
 
     const addImg = (img, caption) => {
       if (img && typeof img === 'string' && productImgsCount < 1) {
-        const fullUrl = (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:image')) 
-          ? img 
-          : `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
+        let fullUrl = img;
+        if (img.startsWith('data:image')) {
+          fullUrl = `https://pyjama-dz.vercel.app/api/product-image?id=${p.id}`;
+        } else if (!img.startsWith('http://') && !img.startsWith('https://')) {
+          fullUrl = `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
+        }
         
         const dedupeKey = fullUrl.slice(0, 100);
         if (!seenImageKeys.has(dedupeKey)) {

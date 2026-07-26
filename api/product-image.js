@@ -1,0 +1,72 @@
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
+
+export default async function handler(req, res) {
+  const { id, color, idx } = req.query;
+
+  if (!id) {
+    return res.status(400).send('Missing product id');
+  }
+
+  try {
+    const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${id}&select=*`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const products = await prodRes.json();
+
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(404).send('Product not found');
+    }
+
+    const product = products[0];
+    let imgData = null;
+
+    // Find image in product or colorVariants
+    if (color && Array.isArray(product.colorVariants)) {
+      const match = product.colorVariants.find(cv => cv.color === color || cv.name === color);
+      if (match?.image) imgData = match.image;
+    }
+
+    if (!imgData && idx !== undefined && Array.isArray(product.colorVariants)) {
+      const cvIdx = parseInt(idx, 10);
+      if (product.colorVariants[cvIdx]?.image) imgData = product.colorVariants[cvIdx].image;
+    }
+
+    if (!imgData) {
+      if (product.image && typeof product.image === 'string') imgData = product.image;
+      else if (product.imageUrl && typeof product.imageUrl === 'string') imgData = product.imageUrl;
+      else if (Array.isArray(product.images) && product.images[0]) imgData = product.images[0];
+      else if (Array.isArray(product.colorVariants) && product.colorVariants[0]?.image) {
+        imgData = product.colorVariants[0].image;
+      }
+    }
+
+    if (!imgData) {
+      return res.status(404).send('No image available for product');
+    }
+
+    // If it's already a full HTTP/HTTPS URL, redirect to it
+    if (imgData.startsWith('http://') || imgData.startsWith('https://')) {
+      return res.redirect(302, imgData);
+    }
+
+    // Parse base64 data URI
+    const matches = imgData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      const buf = Buffer.from(imgData, 'base64');
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.send(buf);
+    }
+
+    const contentType = matches[1];
+    const imageBuffer = Buffer.from(matches[2], 'base64');
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.send(imageBuffer);
+  } catch (err) {
+    console.error('Error serving product image:', err);
+    return res.status(500).send('Internal Server Error');
+  }
+}
