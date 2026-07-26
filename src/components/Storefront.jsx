@@ -841,7 +841,11 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
         createdAt: new Date().toISOString()
       };
       
-      const existing = settings && Array.isArray(settings.reclamations) ? settings.reclamations : [];
+      let existing = settings?.reclamations;
+      if (typeof existing === 'string') {
+        try { existing = JSON.parse(existing); } catch(e) { existing = []; }
+      }
+      if (!Array.isArray(existing)) existing = [];
       try {
         await onUpdateSettings({ reclamations: [newRecl, ...existing] });
       } catch (e) {

@@ -7,9 +7,11 @@ export default function ReclamationsTab({ settings, onUpdateSettings }) {
   const [statusFilter, setStatusFilter] = useState('all');
 
   const reclamations = useMemo(() => {
-    return settings?.reclamations && Array.isArray(settings.reclamations) 
-      ? settings.reclamations 
-      : [];
+    let raw = settings?.reclamations;
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch (e) { raw = []; }
+    }
+    return Array.isArray(raw) ? raw : [];
   }, [settings?.reclamations]);
 
   // Compute counts

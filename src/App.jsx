@@ -129,13 +129,11 @@ export default function App() {
       const obj = {};
       data.forEach(item => {
         if (item && item.key) {
-          if (item.key === 'categories') {
+          if (typeof item.value === 'string' && (item.value.trim().startsWith('[') || item.value.trim().startsWith('{'))) {
             try {
-              const parsed = JSON.parse(item.value);
-              obj[item.key] = Array.isArray(parsed) ? parsed : [];
+              obj[item.key] = JSON.parse(item.value);
             } catch (e) {
-              console.error("Error parsing categories", e);
-              obj[item.key] = [];
+              obj[item.key] = item.value;
             }
           } else {
             obj[item.key] = item.value;
