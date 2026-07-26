@@ -579,6 +579,57 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
   }
 }
 
+async function recordOutOfStockInquiry(fromPhone, messageText, products) {
+  try {
+    const sizeMatch = messageText.match(/(?:pointure|مقاس|حجم|قياس|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL)/i) 
+      || messageText.match(/\b(3[5-9]|4[0-8]|S|M|L|XL|2XL|3XL|4XL)\b/i);
+    const requestedSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
+    if (!requestedSize || !Array.isArray(products) || products.length === 0) return;
+
+    const pLower = messageText.toLowerCase();
+    const normText = normalizeText(messageText);
+
+    let matchedProduct = products.find(p => {
+      const titleRaw = (p.title || '').toLowerCase();
+      const titleNorm = normalizeText(p.title || '').toLowerCase();
+      return pLower.includes(titleRaw) || normText.includes(titleNorm);
+    }) || products[0];
+
+    let currentStock = -1;
+    let matchedColor = '';
+
+    if (matchedProduct) {
+      const variants = matchedProduct.colorVariants || matchedProduct.colorvariants || [];
+      for (const v of variants) {
+        if (v.stock && v.stock[requestedSize] !== undefined) {
+          currentStock = Number(v.stock[requestedSize] || 0);
+          matchedColor = v.name || '';
+          break;
+        }
+      }
+    }
+
+    if (currentStock === 0) {
+      const cleanPhone = fromPhone.replace(/^\+?213/, '0');
+      await createChatOrderInSupabase({
+        clientName: 'زبون الواتساب',
+        phone: cleanPhone,
+        wilaya: 'الشلف',
+        commune: 'المركز',
+        product: `${matchedProduct?.title || 'بيجامات فاخرة'} (${requestedSize})`,
+        color: matchedColor,
+        size: requestedSize,
+        price: Number(matchedProduct?.price || 0),
+        deliveryCompany: 'Livraison Domicile',
+        status: 'en_attente_stock'
+      });
+      console.log(`Auto-recorded out of stock inquiry: Phone=${cleanPhone}, Size=${requestedSize}, Product=${matchedProduct?.title}`);
+    }
+  } catch (err) {
+    console.error('Error recording out of stock inquiry:', err);
+  }
+}
+
 async function processDirectOrderFromMessage(fromPhone, messageText, products) {
   try {
     const normText = normalizeText(messageText);
@@ -1098,6 +1149,9 @@ ${salesModeRules}`;
               // Process direct order intent and delivery stock check
               const handledOrder = await processDirectOrderFromMessage(fromPhone, messageText, products);
               if (handledOrder) continue;
+
+              // Auto-record inquiry if item/size requested is out of stock
+              await recordOutOfStockInquiry(fromPhone, messageText, products);
 
               const aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
               if (aiReply) {
