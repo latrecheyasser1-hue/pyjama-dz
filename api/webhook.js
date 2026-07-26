@@ -459,6 +459,11 @@ async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = 
 async function sendWhatsAppMessage(toPhone, textBody) {
   const token = await getMetaAccessToken();
   if (!token || !toPhone) return;
+
+  const rawDigits = String(toPhone).replace(/\D/g, '');
+  if (!rawDigits) return;
+  const formattedPhone = rawDigits.startsWith('213') ? rawDigits : rawDigits.replace(/^0/, '213');
+
   const cleanBody = removeEmojis(textBody);
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   try {
@@ -471,7 +476,7 @@ async function sendWhatsAppMessage(toPhone, textBody) {
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to: toPhone,
+        to: formattedPhone,
         type: 'text',
         text: { preview_url: false, body: cleanBody }
       })
@@ -1100,12 +1105,13 @@ async function processIncomingPayload(body) {
                   storeSettings.whatsappLivraisonManager,
                   storeSettings.whatsapp,
                   storeSettings.phoneOrders,
+                  storeSettings.phones,
                   "0554128933",
                   "0771335039"
-                ].filter(Boolean).map(p => p.replace(/\D/g, '').slice(-9));
+                ].filter(Boolean).map(p => String(p).replace(/\D/g, '').slice(-9));
 
-                const isManager = managerPhones.some(mp => mp && senderLast9.endsWith(mp));
-                const pureNumMatch = messageText.match(/(?:^|\+|\s)(\d{1,4})(?:\s|$|حبة|حبات|piece|pcs)?/i);
+                const isManager = managerPhones.length === 0 || managerPhones.some(mp => mp && senderLast9.endsWith(mp));
+                const pureNumMatch = messageText.match(/(?:^|\+|\s|^)(\d{1,4})(?:\s|$|حبة|حبات|piece|pcs)?/i);
 
                 if (isManager && pureNumMatch) {
                   const lastAlert = await getLatestStockAlertForPhone(fromPhone);
@@ -1119,7 +1125,13 @@ async function processIncomingPayload(body) {
                 const productId = refMatch[1];
                 const colorIdx = parseInt(refMatch[2]);
                 const size = refMatch[3];
-                const addedQty = parseInt(messageText.replace(/\D/g, ''));
+                
+                let addedQty = 0;
+                const textWithoutTag = messageText.replace(/\[REF:[^\]]+\]/gi, '');
+                const qtyMatch = textWithoutTag.match(/(\d{1,4})/);
+                if (qtyMatch) {
+                  addedQty = parseInt(qtyMatch[1]);
+                }
 
                 if (!isNaN(addedQty) && addedQty > 0) {
                   const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
