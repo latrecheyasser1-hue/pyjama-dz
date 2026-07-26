@@ -178,6 +178,53 @@ export default async function handler(req, res) {
       orders = [];
     }
 
+    // 2. Fetch persistent notified waitlist IDs from settings table
+    let notifiedWaitlistIds = new Set();
+    let settingsRow = null;
+    try {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_ids&select=*`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const rows = await setRes.json();
+      if (Array.isArray(rows) && rows.length > 0) {
+        settingsRow = rows[0];
+        const parsed = JSON.parse(settingsRow.value || '[]');
+        if (Array.isArray(parsed)) {
+          parsed.forEach(id => notifiedWaitlistIds.add(id));
+        }
+      }
+    } catch (e) {}
+
+    const saveNotifiedWaitlistId = async (id) => {
+      if (!id) return;
+      notifiedWaitlistIds.add(id);
+      const arr = Array.from(notifiedWaitlistIds);
+      try {
+        if (settingsRow) {
+          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_ids`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ value: JSON.stringify(arr) })
+          });
+        } else {
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ key: 'notified_waitlist_ids', value: JSON.stringify(arr) })
+          });
+          settingsRow = { key: 'notified_waitlist_ids' };
+        }
+      } catch (e) {}
+    };
+
     // Query Waitlist entries waiting for stock
     let waitlistEntries = [];
     try {
@@ -241,6 +288,10 @@ export default async function handler(req, res) {
 
     // Process Waitlist Entries (always process waiting customers)
     for (const entry of waitlistEntries) {
+      if (entry.id && notifiedWaitlistIds.has(entry.id)) {
+        continue; // 🛑 ALREADY NOTIFIED IN THE PAST - SKIP FOREVER!
+      }
+
       const entryPhone = entry.whatsapp_number || entry.phone;
       const waPhone = formatWhatsAppPhone(entryPhone);
       if (!waPhone || notifiedPhones.has(waPhone)) continue;
@@ -259,28 +310,7 @@ export default async function handler(req, res) {
       if (sizeMatches && prodMatches && colorMatches) {
         notifiedPhones.add(waPhone);
         global._recentRestockMap.set(waPhone, now);
-
-        // Update ALL waitlist rows for this customer's phone number to 'notified' by Primary Key ID
-        try {
-          const patches = [];
-          waitlistEntries.forEach(e => {
-            const ePhone = formatWhatsAppPhone(e.whatsapp_number || e.phone);
-            if (ePhone === waPhone && e.id) {
-              patches.push(
-                fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${e.id}`, {
-                  method: 'PATCH',
-                  headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': `Bearer ${SUPABASE_KEY}`,
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({ status: 'notified' })
-                })
-              );
-            }
-          });
-          await Promise.all(patches);
-        } catch (e) {}
+        if (entry.id) await saveNotifiedWaitlistId(entry.id);
 
         const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
