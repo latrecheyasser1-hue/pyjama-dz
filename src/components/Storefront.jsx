@@ -617,6 +617,19 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                       setIsWaitlistSubmitting(false);
                       if(!error) {
                         setWaitlistSuccess(true);
+
+                        // 🔔 Send immediate WhatsApp confirmation message to customer
+                        fetch('/api/send-order-whatsapp', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            phone: waitlistWhatsapp,
+                            clientName: waitlistName,
+                            isWaitlist: true,
+                            product: `${product.title} (${activeVariant ? activeVariant.color + ' - ' : ''}${selectedSize})`
+                          })
+                        }).catch(e => console.error('Waitlist WhatsApp send error:', e));
+
                         setWaitlistName('');
                         setWaitlistWhatsapp('');
                       } else {
