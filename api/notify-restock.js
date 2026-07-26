@@ -65,14 +65,40 @@ export default async function handler(req, res) {
 
     let notifiedCount = 0;
     let availableQty = Number(newQty);
+    const targetSize = String(size).trim().toUpperCase();
+
+    let productTitle = '';
+    if (productId) {
+      try {
+        const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const prods = await prodRes.json();
+        if (Array.isArray(prods) && prods[0]) {
+          productTitle = prods[0].title || '';
+        }
+      } catch (e) {}
+    }
 
     for (const order of orders) {
-      const item = Array.isArray(order.items) && order.items[0] ? order.items[0] : {};
-      const orderSize = (item.size || order.size || '').toUpperCase();
-      const targetSize = String(size).toUpperCase();
-      const prodText = (order.product || '').toUpperCase();
+      const items = Array.isArray(order.items) ? order.items : [];
+      const item = items[0] || {};
+      const orderSize = (item.size || order.size || '').trim().toUpperCase();
+      const orderProdId = item.productId || item.product_id || order.productId || order.product_id;
+      const orderProdText = (item.product || item.title || order.product || '').toUpperCase();
 
-      if ((orderSize === targetSize || !orderSize || prodText.includes(targetSize)) && order.phone) {
+      const sizeMatches = orderSize === targetSize || (!orderSize && orderProdText.includes(targetSize));
+
+      let prodMatches = true;
+      if (productId && orderProdId) {
+        prodMatches = String(orderProdId) === String(productId);
+      } else if (productTitle && orderProdText) {
+        const pNorm = (productTitle || '').toLowerCase();
+        const oNorm = (orderProdText || '').toLowerCase();
+        prodMatches = oNorm.includes(pNorm) || pNorm.includes(oNorm);
+      }
+
+      if (sizeMatches && prodMatches && order.phone) {
         await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
           method: 'PATCH',
           headers: {
@@ -80,11 +106,16 @@ export default async function handler(req, res) {
             'Authorization': `Bearer ${SUPABASE_KEY}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ status: 'confirmee' })
+          body: JSON.stringify({ status: 'confirmee', archived: false })
         });
 
         const orderNumStr = order.id ? String(order.id).substring(0, 5).toUpperCase() : '1001';
-        const restockMsg = `أهلاً بك ${order.clientName || ''}.\nبشرى سارة، توفر مقاسك (${size}) مجدداً!\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح وجاري تجهيزها للشحن. شكراً لانتظارك.`;
+        const clientNameStr = (order.clientName && order.clientName !== 'زبون الواتساب' && order.clientName !== 'زبون المحادثة')
+          ? order.clientName : '';
+        const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
+        const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
+
+        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${size}) مجدداً${prodDesc}!\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح وجاري تجهيزها للشحن. شكراً لانتظارك.`;
         
         const cleanPhone = order.phone.replace(/\D/g, '');
         const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');

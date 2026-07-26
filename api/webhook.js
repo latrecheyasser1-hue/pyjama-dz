@@ -616,17 +616,49 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
     const orders = await res.json();
     if (!Array.isArray(orders) || orders.length === 0) return;
 
-    for (const order of orders) {
-      const item = Array.isArray(order.items) && order.items[0] ? order.items[0] : {};
-      const orderSize = (item.size || order.size || '').toUpperCase();
-      const targetSize = String(size).toUpperCase();
-      const prodText = (order.product || '').toUpperCase();
+    const targetSize = String(size).trim().toUpperCase();
 
-      if ((orderSize === targetSize || !orderSize || prodText.includes(targetSize)) && order.phone) {
+    let productTitle = '';
+    if (productId) {
+      try {
+        const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const prods = await prodRes.json();
+        if (Array.isArray(prods) && prods[0]) {
+          productTitle = prods[0].title || '';
+        }
+      } catch (e) {}
+    }
+
+    for (const order of orders) {
+      const items = Array.isArray(order.items) ? order.items : [];
+      const item = items[0] || {};
+      const orderSize = (item.size || order.size || '').trim().toUpperCase();
+      const orderProdId = item.productId || item.product_id || order.productId || order.product_id;
+      const orderProdText = (item.product || item.title || order.product || '').toUpperCase();
+
+      const sizeMatches = orderSize === targetSize || (!orderSize && orderProdText.includes(targetSize));
+
+      let prodMatches = true;
+      if (productId && orderProdId) {
+        prodMatches = String(orderProdId) === String(productId);
+      } else if (productTitle && orderProdText) {
+        const pNorm = normalizeText(productTitle).toLowerCase();
+        const oNorm = normalizeText(orderProdText).toLowerCase();
+        prodMatches = oNorm.includes(pNorm) || pNorm.includes(oNorm);
+      }
+
+      if (sizeMatches && prodMatches && order.phone) {
         await updateOrderStatusAndArchive(order.id, 'confirmee');
         
         const orderNumStr = await getSequentialOrderNum(order);
-        const restockMsg = `أهلاً بك ${order.clientName || ''}.\nبشرى سارة، توفر مقاسك (${size}) مجدداً!\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح وجاري تجهيزها للشحن. شكراً لانتظارك.`;
+        const clientNameStr = (order.clientName && order.clientName !== 'زبون الواتساب' && order.clientName !== 'زبون المحادثة')
+          ? order.clientName : '';
+        const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
+        const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
+
+        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${size}) مجدداً${prodDesc}!\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح وجاري تجهيزها للشحن. شكراً لانتظارك.`;
         
         const cleanPhone = order.phone.replace(/\D/g, '');
         const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
@@ -669,10 +701,10 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
 
 async function recordOutOfStockInquiry(fromPhone, messageText, products) {
   try {
-    const sizeMatch = messageText.match(/(?:pointure|مقاس|حجم|قياس|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL)/i) 
-      || messageText.match(/\b(3[5-9]|4[0-8]|S|M|L|XL|2XL|3XL|4XL)\b/i);
+    const sizeMatch = messageText.match(/(?:pointure|مقاس|حجم|قياس|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL|5XL)/i) 
+      || messageText.match(/\b(3[5-9]|4[0-8]|S|M|L|XL|2XL|3XL|4XL|5XL)\b/i);
     const requestedSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
-    if (!requestedSize || !Array.isArray(products) || products.length === 0) return;
+    if (!Array.isArray(products) || products.length === 0) return;
 
     const pLower = messageText.toLowerCase();
     const normText = normalizeText(messageText);
@@ -689,7 +721,7 @@ async function recordOutOfStockInquiry(fromPhone, messageText, products) {
     if (matchedProduct) {
       const variants = matchedProduct.colorVariants || matchedProduct.colorvariants || [];
       for (const v of variants) {
-        if (v.stock && v.stock[requestedSize] !== undefined) {
+        if (requestedSize && v.stock && v.stock[requestedSize] !== undefined) {
           currentStock = Number(v.stock[requestedSize] || 0);
           matchedColor = v.name || '';
           break;
@@ -697,21 +729,33 @@ async function recordOutOfStockInquiry(fromPhone, messageText, products) {
       }
     }
 
-    if (currentStock === 0) {
+    if (currentStock === 0 || (requestedSize && currentStock <= 0)) {
       const cleanPhone = fromPhone.replace(/^\+?213/, '0');
+      const sizeStr = requestedSize || '';
+      const prodTitle = matchedProduct?.title || 'بيجامات فاخرة';
+
       await createChatOrderInSupabase({
         clientName: 'زبون الواتساب',
         phone: cleanPhone,
         wilaya: 'الشلف',
         commune: 'المركز',
-        product: `${matchedProduct?.title || 'بيجامات فاخرة'} (${requestedSize})`,
+        product: `${prodTitle}${matchedColor ? ' - ' + matchedColor : ''}${sizeStr ? ' (' + sizeStr + ')' : ''}`,
         color: matchedColor,
-        size: requestedSize,
+        size: sizeStr,
+        productId: matchedProduct?.id,
+        items: [{
+          productId: matchedProduct?.id,
+          product: prodTitle,
+          color: matchedColor,
+          size: sizeStr,
+          qty: 1,
+          price: Number(matchedProduct?.price || 0)
+        }],
         price: Number(matchedProduct?.price || 0),
         deliveryCompany: 'Livraison Domicile',
         status: 'en_attente_stock'
       });
-      console.log(`Auto-recorded out of stock inquiry: Phone=${cleanPhone}, Size=${requestedSize}, Product=${matchedProduct?.title}`);
+      console.log(`Auto-recorded out of stock inquiry: Phone=${cleanPhone}, Size=${sizeStr}, Product=${prodTitle}`);
     }
   } catch (err) {
     console.error('Error recording out of stock inquiry:', err);
