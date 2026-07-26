@@ -49,6 +49,38 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   }
 }
 
+async function sendWhatsAppImage(toPhone, imageUrl, captionText) {
+  const token = await getMetaAccessToken();
+  if (!token || !toPhone || !imageUrl) return;
+  const cleanDigits = String(toPhone).replace(/\D/g, '');
+  if (cleanDigits.length < 8) return;
+  const waPhone = cleanDigits.startsWith('213') ? cleanDigits : (cleanDigits.startsWith('0') ? '213' + cleanDigits.substring(1) : '213' + cleanDigits);
+
+  const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: waPhone,
+        type: 'image',
+        image: {
+          link: imageUrl,
+          caption: captionText || ''
+        }
+      })
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Send WhatsApp Image error:', err);
+  }
+}
+
 function cleanClientName(rawName) {
   if (!rawName) return '';
   let clean = String(rawName)
@@ -60,6 +92,25 @@ function cleanClientName(rawName) {
     .trim();
   if (!clean || clean.length < 2) return '';
   return clean.split(' ')[0];
+}
+
+function getProductImageUrl(p) {
+  let img = null;
+  if (p.image && typeof p.image === 'string') img = p.image;
+  else if (Array.isArray(p.images) && p.images.length > 0 && typeof p.images[0] === 'string') img = p.images[0];
+  else if (p.imageUrl && typeof p.imageUrl === 'string') img = p.imageUrl;
+  else if (Array.isArray(p.colorVariants) && p.colorVariants.length > 0) {
+    for (const cv of p.colorVariants) {
+      if (cv.image && typeof cv.image === 'string') {
+        img = cv.image;
+        break;
+      }
+    }
+  }
+
+  if (!img || img.startsWith('data:image')) return null;
+  if (img.startsWith('http://') || img.startsWith('https://')) return img;
+  return `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
 }
 
 export default async function handler(req, res) {
@@ -105,9 +156,19 @@ export default async function handler(req, res) {
         products = await fallbackRes.json();
       }
 
-      const productBullets = (Array.isArray(products) ? products : []).map(p => {
-        return `• *${p.title}* - بسعر ${p.price} دج`;
-      }).join('\n');
+      // Prepare product images and captions
+      const productMediaList = [];
+      if (Array.isArray(products)) {
+        products.forEach(p => {
+          const imgUrl = getProductImageUrl(p);
+          productMediaList.push({
+            id: p.id,
+            title: p.title || 'منتج مميز',
+            price: p.price || 0,
+            imageUrl: imgUrl
+          });
+        });
+      }
 
       // 3. Fetch all unique clients from orders table
       const orderRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=phone,clientName&order=created_at.desc&limit=500`, {
@@ -134,14 +195,24 @@ export default async function handler(req, res) {
         const firstName = cleanClientName(rawName);
         const greeting = firstName ? `أهلاً وسهلاً بك ${firstName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
 
-        const msg = `*متجر Pyjama DZ*\n\n${greeting}! 🌸\nإليك التخفيضات والمنتجات الأكثر مبيعاً (Hot Sale) لهذا الأسبوع في متجرنا: 🔥✨\n\n${productBullets}\n\nتفضل بتصفح كافة الصور والمنتجات والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+        // Send individual product photos first
+        for (const item of productMediaList) {
+          if (item.imageUrl) {
+            const caption = `✨ *${item.title}*\nالسعر: ${item.price} دج`;
+            await sendWhatsAppImage(phone, item.imageUrl, caption);
+            await new Promise(r => setTimeout(r, 150));
+          }
+        }
 
-        await sendWhatsAppMessage(phone, msg);
+        // Send short text message at the end explaining these are the week's trending items
+        const textMsg = `*متجر Pyjama DZ*\n\n${greeting}! 🌸\nهذو هما الموديلات والسلعة لي راهم توندونس (Tendance / Hot Sale) هاد الأسبوع في متجرنا! 🔥✨\n\nتفضل بتصفح كافة الصور والمنتجات والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+
+        await sendWhatsAppMessage(phone, textMsg);
         sentCount++;
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 200));
       }
 
-      hotSaleResult = { status: 'success', sentCount, totalClients: uniqueClients.size };
+      hotSaleResult = { status: 'success', sentCount, totalClients: uniqueClients.size, mediaCount: productMediaList.length };
     }
 
     return res.status(200).json({
