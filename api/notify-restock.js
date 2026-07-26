@@ -75,25 +75,31 @@ async function sendWhatsAppMessage(toPhone, text) {
   }
 }
 
+function cleanTitle(t) {
+  if (!t) return "";
+  return normalizeText(t)
+    .replace(/\(.*\)/g, '')
+    .replace(/boutique/gi, '')
+    .replace(/livraison/gi, '')
+    .replace(/gros/gi, '')
+    .replace(/بيجامات فاخرة/gi, 'بيجامة')
+    .trim();
+}
+
 function isProductMatch(targetProductId, targetProductTitle, orderProdId, orderProdText) {
   if (targetProductId && orderProdId && String(targetProductId) === String(orderProdId)) {
     return true;
   }
-  const normTargetTitle = normalizeText(targetProductTitle);
-  const normOrderText = normalizeText(orderProdText);
+  const cleanTarget = cleanTitle(targetProductTitle);
+  const cleanOrder = cleanTitle(orderProdText);
 
-  if (normTargetTitle && normOrderText) {
-    if (normOrderText.includes(normTargetTitle) || normTargetTitle.includes(normOrderText)) {
-      return true;
-    }
-    const targetWords = normTargetTitle.split(/\s+/).filter(w => w.length >= 3);
-    const orderWords = normOrderText.split(/\s+/).filter(w => w.length >= 3);
-    const sharedWords = targetWords.filter(w => orderWords.includes(w));
-    if (sharedWords.length >= 1) return true;
-  }
+  if (!cleanTarget || !cleanOrder) return true;
+  if (cleanTarget.includes(cleanOrder) || cleanOrder.includes(cleanTarget)) return true;
 
-  if (!targetProductId && !targetProductTitle) return true;
-  if (!orderProdId && !orderProdText) return true;
+  const targetWords = cleanTarget.split(/\s+/).filter(w => w.length >= 2);
+  const orderWords = cleanOrder.split(/\s+/).filter(w => w.length >= 2);
+  const sharedWords = targetWords.filter(w => orderWords.includes(w));
+  if (sharedWords.length >= 1) return true;
 
   return false;
 }
@@ -111,6 +117,10 @@ function isSizeMatch(targetSize, orderSize, orderProdText) {
 
   if (normOrderSize === normTargetSize) return true;
   if (normOrderSize === 'STANDARD' || normTargetSize === 'STANDARD') return true;
+
+  const sizeMap = { 'S': ['36'], 'M': ['37', '38'], 'L': ['39', '40'], 'XL': ['41', '42'], '2XL': ['43', '44'] };
+  if (sizeMap[normOrderSize] && sizeMap[normOrderSize].includes(normTargetSize)) return true;
+  if (sizeMap[normTargetSize] && sizeMap[normTargetSize].includes(normOrderSize)) return true;
 
   return false;
 }
