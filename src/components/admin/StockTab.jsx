@@ -652,6 +652,28 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     }
   };
 
+  // Direct stock quantity setter (number input box)
+  const handleDirectStockChange = (product, colorIdx, size, newQtyVal) => {
+    const nextQty = Math.max(0, Number(newQtyVal) || 0);
+
+    const updatedVariants = product.colorVariants.map((cv, i) => {
+      if (i !== colorIdx) return cv;
+      return {
+        ...cv,
+        stock: { ...cv.stock, [size]: nextQty }
+      };
+    });
+
+    onUpdateProduct({
+      ...product,
+      colorVariants: updatedVariants
+    });
+
+    if (nextQty > 0) {
+      triggerNotifyRestock(product.id, product.title, size, nextQty);
+    }
+  };
+
   // Selected supplier phone
   const selectedSupplierObj = suppliers.find(s => s.name === supplierName);
 
@@ -1539,12 +1561,26 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                             if (!isNaN(numB)) return 1;
                             return ALL_SIZES.indexOf(a[0]) - ALL_SIZES.indexOf(b[0]);
                           }).map(([sz, qty]) => (
-                            <div key={sz} style={{ display: 'flex', alignItems: 'center', background: 'white', border: '1px solid #E0E0E0', padding: '2px 8px', borderRadius: 6, fontSize: '0.75rem', fontWeight: 700 }}>
-                              <span>{sz}: <strong style={{ color: qty > 0 ? '#2E7D32' : '#D32F2F' }}>{qty}</strong> قطعة</span>
-                              <div style={{ display: 'flex', marginLeft: 6, gap: 2 }}>
-                                <button onClick={() => handleQuickQtyAdjust(p, cIdx, sz, 1)} style={{ border: 'none', background: '#E8F5E9', color: '#2E7D32', cursor: 'pointer', borderRadius: 2, padding: '0 4px', fontWeight: 900 }}>+</button>
-                                <button onClick={() => handleQuickQtyAdjust(p, cIdx, sz, -1)} style={{ border: 'none', background: '#FFEBEE', color: '#C62828', cursor: 'pointer', borderRadius: 2, padding: '0 4px', fontWeight: 900 }}>-</button>
-                              </div>
+                            <div key={sz} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'white', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700 }}>
+                              <span style={{ color: 'var(--burgundy-dark)', fontWeight: 800 }}>{sz} :</span>
+                              <input
+                                type="number"
+                                min="0"
+                                value={qty}
+                                onChange={(e) => handleDirectStockChange(p, cIdx, sz, e.target.value)}
+                                style={{
+                                  width: '54px',
+                                  padding: '2px 4px',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 900,
+                                  textAlign: 'center',
+                                  borderRadius: '6px',
+                                  border: '1.5px solid #94A3B8',
+                                  background: '#F8FAFC',
+                                  color: qty > 0 ? '#15803D' : '#DC2626'
+                                }}
+                              />
+                              <span style={{ fontSize: '0.72rem', color: '#64748B' }}>قطعة</span>
                             </div>
                           ))}
                         </div>
