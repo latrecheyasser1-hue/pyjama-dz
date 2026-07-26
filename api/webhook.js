@@ -509,6 +509,142 @@ async function createChatOrderInSupabase(orderData) {
     console.error('Error creating chat order in Supabase:', err);
     return null;
   }
+async function processDirectOrderFromMessage(fromPhone, messageText, products) {
+  try {
+    const normText = normalizeText(messageText);
+    const pLower = (messageText || '').toLowerCase();
+
+    const phoneMatch = messageText.match(/(0[567]\d{8})/);
+    const wilayas = ["ادرار", "الشلف", "الأغواط", "أم البواقي", "باتنة", "بجاية", "بسكرة", "بشار", "بليدة", "بويرة", "تمنراست", "تبسة", "تلمسان", "تيارت", "تيزي وزو", "الجزائر", "الجلفة", "جيجل", "سطيف", "سعيدة", "سكيكدة", "سيدي بلعباس", "عنابة", "قالمة", "قسنطينة", "مدية", "مستغانم", "مسيلة", "معسكر", "ورقلة", "وهران", "بيض", "إليزي", "برج بوعريريج", "بومرداس", "الطارف", "تندوف", "تيسمسيلت", "الوادي", "خنشلة", "سوق أهراس", "تيبازة", "ميلة", "عين الدفلى", "نعامة", "عين تموشنت", "غرداية", "غليزان", "المغير", "المنيعة", "أولاد جلال", "برج باجي مختار", "بني عباس", "تيميمون", "تقرت", "جانت", "إن صالح", "إن قزام", "alger", "oran", "blida", "chlef", "setif", "constantine"];
+    const wilayaMatch = wilayas.find(w => normText.includes(w.toLowerCase()) || pLower.includes(w.toLowerCase()));
+
+    const isOrderIntent = ["طلب", "كوموند", "commande", "نطلب", "ودي ندي", "ندير طلب", "سجللي طلب"].some(k => normText.includes(k) || pLower.includes(k));
+    const hasMultipleOrderLines = messageText.includes('\n') && (phoneMatch || wilayaMatch || pLower.includes('pointure') || pLower.includes('yalidine') || pLower.includes('zr'));
+
+    if (!isOrderIntent && !hasMultipleOrderLines && !phoneMatch) return false;
+
+    // Extract lines and name
+    const lines = messageText.split('\n').map(l => l.trim()).filter(Boolean);
+    let clientName = 'الزبون الكريم';
+    const nameRegex = /(?:اسمي|اسم|الاسم|nom|client)\s*[:=]?\s*([أ-يa-zA-Z\s]{3,25})/i;
+    const matchN = messageText.match(nameRegex);
+    if (matchN) {
+      clientName = matchN[1].trim();
+    } else if (lines.length > 0 && lines[0].length >= 3 && !lines[0].match(/\d/) && !wilayas.some(w => lines[0].toLowerCase().includes(w))) {
+      clientName = lines[0];
+    }
+
+    const orderPhone = phoneMatch ? phoneMatch[1] : fromPhone.replace(/^\+?213/, '0');
+    const wilaya = wilayaMatch ? wilayaMatch : 'الشلف';
+
+    let deliveryCompany = 'Livraison Domicile';
+    if (pLower.includes('yalidine') || normText.includes('يالادين')) {
+      deliveryCompany = 'Yalidine Express';
+    } else if (pLower.includes('zrexpress') || pLower.includes('zr') || normText.includes('زد ار') || normText.includes('زد آر')) {
+      deliveryCompany = 'ZR Express';
+    } else if (pLower.includes('bureau') || pLower.includes('stop desk') || normText.includes('مكتب') || normText.includes('دستك')) {
+      deliveryCompany = 'Livraison Bureau';
+    } else if (pLower.includes('domicile') || normText.includes('منزل') || normText.includes('دار')) {
+      deliveryCompany = 'Livraison Domicile';
+    }
+
+    // Size / Pointure extraction
+    const sizeMatch = messageText.match(/(?:pointure|مقاس|حجم|قياس|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL)/i) || messageText.match(/\b(3[5-9]|4[0-8]|S|M|L|XL|2XL|3XL|4XL)\b/i);
+    const requestedSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
+
+    // Product and Color matching
+    let matchedProduct = null;
+    let matchedVariant = null;
+    let variantIndex = -1;
+
+    if (Array.isArray(products) && products.length > 0) {
+      matchedProduct = products.find(p => {
+        const titleRaw = (p.title || '').toLowerCase();
+        const titleNorm = normalizeText(p.title || '').toLowerCase();
+        return pLower.includes(titleRaw) || normText.includes(titleNorm);
+      }) || products[0];
+
+      if (matchedProduct) {
+        const variants = matchedProduct.colorVariants || matchedProduct.colorvariants || [];
+        variants.forEach((v, idx) => {
+          const vName = (v.name || v.color || '').toLowerCase();
+          const vNorm = normalizeText(vName);
+          if (pLower.includes(vName) || normText.includes(vNorm) || (vName.startsWith('noir') && pLower.includes('noir'))) {
+            matchedVariant = v;
+            variantIndex = idx;
+          }
+        });
+        if (!matchedVariant && variants.length > 0) {
+          matchedVariant = variants[0];
+          variantIndex = 0;
+        }
+      }
+    }
+
+    // Stock check for delivery
+    let currentStock = -1;
+    if (requestedSize) {
+      if (matchedVariant && matchedVariant.stock && matchedVariant.stock[requestedSize] !== undefined) {
+        currentStock = Number(matchedVariant.stock[requestedSize] || 0);
+      } else if (matchedProduct && matchedProduct.stock && matchedProduct.stock[requestedSize] !== undefined) {
+        currentStock = Number(matchedProduct.stock[requestedSize] || 0);
+      }
+    }
+
+    console.log(`Direct Order Check: Client="${clientName}", Phone="${orderPhone}", Wilaya="${wilaya}", Product="${matchedProduct?.title}", Color="${matchedVariant?.name}", Size="${requestedSize}", Stock=${currentStock}`);
+
+    // ❌ OUT OF STOCK CASE (Stock is 0)
+    if (requestedSize && currentStock === 0) {
+      const outMsg = `أهلاً بك أخي ${clientName}.\nنعتذر منك شديد الاعتذار، المقاس ${requestedSize} في موديل (${matchedProduct?.title || 'الموديل'} - لون ${matchedVariant?.name || ''}) نافد حالياً من المخزون الخاص بالتوصيل (المتبقي: 0 حبة).\n\nلقد تم حفظ طلبك ورقم هاتفك في السيستم، وسنقوم بإرسال رسالة إليك فوراً عبر الواتساب بمجرد ورود السلعة الجديدة وتوفر المقاس المطلوب في السطوك لتأكيد شحنها إليك. شكراً لتفهمك.`;
+      await sendWhatsAppMessage(fromPhone, outMsg);
+      return true;
+    }
+
+    // ✅ AVAILABLE IN STOCK (> 0 or no size specified) -> Save Order & Update Stock
+    const newOrder = await createChatOrderInSupabase({
+      clientName,
+      phone: orderPhone,
+      wilaya,
+      commune: 'المركز',
+      product: `${matchedProduct?.title || 'بيجامات فاخرة'} (${matchedVariant?.name || ''} - ${requestedSize || ''})`.trim(),
+      color: matchedVariant?.name || '',
+      size: requestedSize || '',
+      totalPrice: Number(matchedProduct?.price || 0),
+      deliveryCompany
+    });
+
+    if (newOrder) {
+      // Deduct delivery stock in Supabase
+      if (matchedProduct && variantIndex >= 0 && requestedSize && currentStock > 0) {
+        const updatedVariants = [...(matchedProduct.colorVariants || matchedProduct.colorvariants)];
+        const oldVal = Number(updatedVariants[variantIndex].stock?.[requestedSize] || 1);
+        const newVal = Math.max(0, oldVal - 1);
+        updatedVariants[variantIndex] = {
+          ...updatedVariants[variantIndex],
+          stock: { ...(updatedVariants[variantIndex].stock || {}), [requestedSize]: newVal }
+        };
+
+        await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${matchedProduct.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({ colorVariants: updatedVariants })
+        });
+      }
+
+      const orderNumStr = await getSequentialOrderNum(newOrder);
+      const confirmMsg = `تم تسجيل وتأكيد طلبيتك رقم #${orderNumStr} بنجاح في السيستم!\n- الاسم: ${clientName}\n- الهاتف: ${orderPhone}\n- الولاية: ${wilaya}\n- المنتج: ${newOrder.product}\n- شركة التوصيل: ${deliveryCompany}\n\nجاري تجهيز الطلبية وشحنها إليك في أقرب وقت. شكراً لثقتك بنا.`;
+      await sendWhatsAppMessage(fromPhone, confirmMsg);
+      return true;
+    }
+  } catch (err) {
+    console.error('Error processing direct order from message:', err);
+  }
+  return false;
 }
 
 async function checkAndSendProductPhotos(toPhone, messageText, products) {
@@ -901,48 +1037,9 @@ ${salesModeRules}`;
                 continue;
               }
 
-              // Check if customer provided direct order details in chat
-              const isDirectOrderIntent = ["طلب", "كوموند", "commande", "نطلب", "ودي ندي", "ندير طلب", "سجللي طلب"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-              if (isDirectOrderIntent) {
-                const nameMatch = messageText.match(/(?:اسمي|اسم|الاسم|nom|client)\s*[:=]?\s*([أ-يa-zA-Z\s]{3,25})/i);
-                const wilayas = ["ادرار", "الشلف", "الأغواط", "أم البواقي", "باتنة", "بجاية", "بسكرة", "بشار", "بليدة", "بويرة", "تمنراست", "تبسة", "تلمسان", "تيارت", "تيزي وزو", "الجزائر", "الجلفة", "جيجل", "سطيف", "سعيدة", "سكيكدة", "سيدي بلعباس", "عنابة", "قالمة", "قسنطينة", "مدية", "مستغانم", "مسيلة", "معسكر", "ورقلة", "وهران", "بيض", "إليزي", "برج بوعريريج", "بومرداس", "الطارف", "تندوف", "تيسمسيلت", "الوادي", "خنشلة", "سوق أهراس", "تيبازة", "ميلة", "عين الدفلى", "نعامة", "عين تموشنت", "غرداية", "غليزان", "المغير", "المنيعة", "أولاد جلال", "برج باجي مختار", "بني عباس", "تيميمون", "تقرت", "جانت", "إن صالح", "إن قزام", "alger", "oran", "blida", "chlef", "setif", "constantine"];
-                const wilayaMatch = wilayas.find(w => normText.includes(w.toLowerCase()));
-
-                if (nameMatch && wilayaMatch) {
-                  const clientName = nameMatch[1].trim();
-                  const wilaya = wilayaMatch;
-                  const phoneMatch = messageText.match(/(0[567]\d{8})/);
-                  const orderPhone = phoneMatch ? phoneMatch[1] : fromPhone;
-
-                  const pLower = messageText.toLowerCase();
-                  let deliveryCompany = 'Livraison Domicile';
-                  if (pLower.includes('yalidine') || normText.includes('يالادين')) {
-                    deliveryCompany = 'Yalidine Express';
-                  } else if (pLower.includes('zrexpress') || pLower.includes('zr') || normText.includes('زد ار') || normText.includes('زد آر')) {
-                    deliveryCompany = 'ZR Express';
-                  } else if (pLower.includes('bureau') || pLower.includes('stop desk') || normText.includes('مكتب') || normText.includes('دستك')) {
-                    deliveryCompany = 'Livraison Bureau';
-                  } else if (pLower.includes('domicile') || normText.includes('منزل') || normText.includes('دار')) {
-                    deliveryCompany = 'Livraison Domicile';
-                  }
-
-                  const newOrder = await createChatOrderInSupabase({
-                    clientName,
-                    phone: orderPhone,
-                    wilaya,
-                    commune: 'المركز',
-                    product: cleanProductText(messageText),
-                    deliveryCompany
-                  });
-
-                  if (newOrder) {
-                    const orderNumStr = await getSequentialOrderNum(newOrder);
-                    const createdConfirmMsg = `تم تسجيل وتأكيد طلبيتك رقم #${orderNumStr} بنجاح في السيستم!\n- الاسم: ${clientName}\n- الهاتف: ${orderPhone}\n- الولاية: ${wilaya}\n- المنتج: ${cleanProductText(newOrder.product)}\n- شركة التوصيل: ${deliveryCompany}\n\nجاري تجهيز الطلبية وشحنها إليك في أقرب وقت. شكراً لثقتك بنا.`;
-                    await sendWhatsAppMessage(fromPhone, createdConfirmMsg);
-                    continue;
-                  }
-                }
-              }
+              // Process direct order intent and delivery stock check
+              const handledOrder = await processDirectOrderFromMessage(fromPhone, messageText, products);
+              if (handledOrder) continue;
 
               const aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
               if (aiReply) {
