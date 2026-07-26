@@ -1555,30 +1555,28 @@ async function processIncomingPayload(body) {
                 const unifiedMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك جزيلاً على تواصلك معنا وعلى مشاركتنا ملاحظاتك وتقييمك القيّم. 🙏\nتأكد أن رأيك ورضاك هما أولويتنا دائماً، وسنعمل باستمرار على تقديم الأفضل والأحسن لخدمتك على أكمل وجه بإذن الله. ✨❤️`;
                 await sendWhatsAppMessage(fromPhone, unifiedMsg);
 
-                if (isComplaint) {
-                  // Save complaint to Supabase settings table (reclamations array)
-                  try {
-                    const existingRecl = Array.isArray(storeSettings.reclamations) ? storeSettings.reclamations : [];
-                    const newRecl = {
-                      id: 'REC-WA-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-                      clientName: rawContactName || 'زبون الواتساب',
-                      whatsappNumber: fromPhone,
-                      message: messageText.trim(),
-                      status: 'nouvelle',
-                      createdAt: new Date().toISOString()
-                    };
-                    await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations`, {
-                      method: 'PATCH',
-                      headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`,
-                        'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify({ value: JSON.stringify([newRecl, ...existingRecl]) })
-                    });
-                  } catch (e) {
-                    console.error("Error saving WhatsApp reclamation to Supabase:", e);
-                  }
+                // Save ALL reclamations and feedback to Supabase settings table (reclamations array) with status 'nouvelle' for human review
+                try {
+                  const existingRecl = Array.isArray(storeSettings.reclamations) ? storeSettings.reclamations : [];
+                  const newRecl = {
+                    id: 'REC-WA-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                    clientName: rawContactName || 'زبون الواتساب',
+                    whatsappNumber: fromPhone,
+                    message: messageText.trim(),
+                    status: 'nouvelle',
+                    createdAt: new Date().toISOString()
+                  };
+                  await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations`, {
+                    method: 'PATCH',
+                    headers: {
+                      'apikey': SUPABASE_KEY,
+                      'Authorization': `Bearer ${SUPABASE_KEY}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ value: JSON.stringify([newRecl, ...existingRecl]) })
+                  });
+                } catch (e) {
+                  console.error("Error saving WhatsApp reclamation to Supabase:", e);
                 }
                 continue;
               }
