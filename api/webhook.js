@@ -32,7 +32,8 @@ async function getMetaAccessToken() {
 
 async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
   try {
-    const cleanPhone = (phone || '').replace(/\D/g, '');
+    const rawDigits = (phone || '').replace(/\D/g, '');
+    const cleanPhone = rawDigits.length >= 9 ? rawDigits.slice(-9) : rawDigits;
     const dataVal = JSON.stringify({ productId, colorIdx, size, timestamp: Date.now() });
     
     if (msgId) {
@@ -80,7 +81,8 @@ async function getStockAlertByMsgId(msgId) {
 
 async function getLatestStockAlertForPhone(phone) {
   try {
-    const cleanPhone = (phone || '').replace(/\D/g, '');
+    const rawDigits = (phone || '').replace(/\D/g, '');
+    const cleanPhone = rawDigits.length >= 9 ? rawDigits.slice(-9) : rawDigits;
     const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.last_alert_${cleanPhone}`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
@@ -1092,14 +1094,21 @@ async function processIncomingPayload(body) {
               }
 
               if (!refMatch) {
-                const cleanSender = fromPhone.replace(/\D/g, '');
-                const boutiquePhone = storeSettings.whatsappBoutiqueManager || "0554128933";
-                const livraisonPhone = storeSettings.whatsappLivraisonManager || storeSettings.whatsapp || "0554128933";
-                const isManager = cleanSender.includes(boutiquePhone.replace(/\D/g, '')) || cleanSender.includes(livraisonPhone.replace(/\D/g, '')) || cleanSender.includes('0771335039');
+                const senderLast9 = fromPhone.replace(/\D/g, '').slice(-9);
+                const managerPhones = [
+                  storeSettings.whatsappBoutiqueManager,
+                  storeSettings.whatsappLivraisonManager,
+                  storeSettings.whatsapp,
+                  storeSettings.phoneOrders,
+                  "0554128933",
+                  "0771335039"
+                ].filter(Boolean).map(p => p.replace(/\D/g, '').slice(-9));
 
-                const pureNumMatch = messageText.match(/^(?:\+|\b)?(\d{1,4})\b/);
+                const isManager = managerPhones.some(mp => mp && senderLast9.endsWith(mp));
+                const pureNumMatch = messageText.match(/(?:^|\+|\s)(\d{1,4})(?:\s|$|حبة|حبات|piece|pcs)?/i);
+
                 if (isManager && pureNumMatch) {
-                  const lastAlert = await getLatestStockAlertForPhone(cleanSender);
+                  const lastAlert = await getLatestStockAlertForPhone(fromPhone);
                   if (lastAlert) {
                     refMatch = [null, lastAlert.productId, String(lastAlert.colorIdx), lastAlert.size];
                   }
