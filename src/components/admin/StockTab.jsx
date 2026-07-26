@@ -1828,8 +1828,26 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
                     {Object.entries(cv.stock || {}).map(([sz, qty]) => (
-                      <div key={sz} style={{ display: 'flex', alignItems: 'center', background: 'white', border: '1px solid #E2E8F0', padding: '4px 10px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700 }}>
-                        <span>{sz}: <strong style={{ color: qty > 0 ? '#166534' : '#C2410C' }}>{qty}</strong> قطعة</span>
+                      <div key={sz} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'white', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700 }}>
+                        <span style={{ color: 'var(--burgundy-dark)', fontWeight: 800 }}>{sz} :</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={qty}
+                          onChange={(e) => handleDirectStockChange(quickViewProduct, cIdx, sz, e.target.value)}
+                          style={{
+                            width: '54px',
+                            padding: '2px 4px',
+                            fontSize: '0.85rem',
+                            fontWeight: 900,
+                            textAlign: 'center',
+                            borderRadius: '6px',
+                            border: '1.5px solid #94A3B8',
+                            background: '#F8FAFC',
+                            color: qty > 0 ? '#15803D' : '#DC2626'
+                          }}
+                        />
+                        <span style={{ fontSize: '0.72rem', color: '#64748B' }}>قطعة</span>
                       </div>
                     ))}
                   </div>
