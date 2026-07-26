@@ -6,11 +6,90 @@ const DEFAULT_TOKEN = 'EAAguaWHGlf8BSDZCjgyc359EMoz33CR4lxKknCXVwLcgKNfZCw2yJiP1
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'pyjama_dz_secret_verify_token';
 
+let cachedToken = null;
+let lastTokenFetch = 0;
+
 async function getMetaAccessToken() {
-  if (process.env.META_ACCESS_TOKEN && process.env.META_ACCESS_TOKEN.length > 20) {
-    return process.env.META_ACCESS_TOKEN.trim();
+  const now = Date.now();
+  if (cachedToken && (now - lastTokenFetch < 5 * 60 * 1000)) {
+    return cachedToken;
+  }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.meta_access_token`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const data = await res.json();
+    if (Array.isArray(data) && data[0] && data[0].value && data[0].value.length > 20) {
+      cachedToken = data[0].value.trim();
+      lastTokenFetch = now;
+      return cachedToken;
+    }
+  } catch (err) {
+    console.error('Error fetching token from Supabase:', err);
   }
   return DEFAULT_TOKEN;
+}
+
+async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
+  try {
+    const cleanPhone = (phone || '').replace(/\D/g, '');
+    const dataVal = JSON.stringify({ productId, colorIdx, size, timestamp: Date.now() });
+    
+    if (msgId) {
+      await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({ key: `alert_msg_${msgId}`, value: dataVal })
+      });
+    }
+
+    if (cleanPhone) {
+      await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({ key: `last_alert_${cleanPhone}`, value: dataVal })
+      });
+    }
+  } catch (err) {
+    console.error('Error saving stock alert record:', err);
+  }
+}
+
+async function getStockAlertByMsgId(msgId) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_msg_${msgId}`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows[0]?.value) {
+      return JSON.parse(rows[0].value);
+    }
+  } catch (e) {}
+  return null;
+}
+
+async function getLatestStockAlertForPhone(phone) {
+  try {
+    const cleanPhone = (phone || '').replace(/\D/g, '');
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.last_alert_${cleanPhone}`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows[0]?.value) {
+      return JSON.parse(rows[0].value);
+    }
+  } catch (e) {}
+  return null;
 }
 
 async function getGeminiKeys() {
@@ -929,7 +1008,10 @@ async function checkAndAlertLowStock(product, storeSettings) {
 
         const alertMsg = `*تنبيه مخزون منخفض (سطوك 5 حبات أو أقل)*\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} قطع فقط.\n\nللإضافة في المخزون، قم بالرد على هذه الرسالة برقم الكمية المضافة فقط (مثال: 15).\n[REF:${product.id}:${cIdx}:${size}]`;
         
-        await sendWhatsAppMessage(targetPhone, alertMsg);
+        const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
+        if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
+          await saveStockAlertRecord(alertRes.messages[0].id, targetPhone, product.id, cIdx, size);
+        }
       }
     }
   }
@@ -1000,7 +1082,30 @@ async function processIncomingPayload(body) {
               console.log(`Received message from ${fromPhone}: ${messageText}`);
 
               // A. WORKER STOCK RESTOCK via REPLY
-              const refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
+              let refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
+              
+              if (!refMatch && message.context?.id) {
+                const contextAlert = await getStockAlertByMsgId(message.context.id);
+                if (contextAlert) {
+                  refMatch = [null, contextAlert.productId, String(contextAlert.colorIdx), contextAlert.size];
+                }
+              }
+
+              if (!refMatch) {
+                const cleanSender = fromPhone.replace(/\D/g, '');
+                const boutiquePhone = storeSettings.whatsappBoutiqueManager || "0554128933";
+                const livraisonPhone = storeSettings.whatsappLivraisonManager || storeSettings.whatsapp || "0554128933";
+                const isManager = cleanSender.includes(boutiquePhone.replace(/\D/g, '')) || cleanSender.includes(livraisonPhone.replace(/\D/g, '')) || cleanSender.includes('0771335039');
+
+                const pureNumMatch = messageText.match(/^(?:\+|\b)?(\d{1,4})\b/);
+                if (isManager && pureNumMatch) {
+                  const lastAlert = await getLatestStockAlertForPhone(cleanSender);
+                  if (lastAlert) {
+                    refMatch = [null, lastAlert.productId, String(lastAlert.colorIdx), lastAlert.size];
+                  }
+                }
+              }
+
               if (refMatch) {
                 const productId = refMatch[1];
                 const colorIdx = parseInt(refMatch[2]);
@@ -1035,7 +1140,7 @@ async function processIncomingPayload(body) {
                       body: JSON.stringify({ colorVariants: updatedVariants })
                     });
                     
-                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nتم تحديث المخزون بنجاح.\n• المنتج: ${product.title}\n• اللون/المقاس: ${updatedVariants[colorIdx].name} (${size})\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي: ${newQty} حبة.`);
+                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nتم تحديث المخزون بنجاح.\n• المنتج: ${product.title}\n• اللون/المقاس: ${updatedVariants[colorIdx].name || ''} (${size})\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي: ${newQty} حبة.`);
 
                     // Notify waiting customers about restock
                     await notifyWaitingCustomers(productId, colorIdx, size, newQty);
