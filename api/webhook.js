@@ -509,6 +509,16 @@ async function createChatOrderInSupabase(orderData) {
     console.error('Error creating chat order in Supabase:', err);
     return null;
   }
+}
+
+async function getSequentialOrderNum(order) {
+  if (order && order.id) {
+    const num = order.id.toString().replace(/\D/g, '').slice(-4) || '101';
+    return num.padStart(4, '0');
+  }
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 async function processDirectOrderFromMessage(fromPhone, messageText, products) {
   try {
     const normText = normalizeText(messageText);
