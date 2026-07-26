@@ -599,32 +599,8 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
     if (editingId) {
       onUpdateProduct(productData);
-      if (Array.isArray(productData.colorVariants)) {
-        productData.colorVariants.forEach(cv => {
-          if (cv.stock) {
-            Object.entries(cv.stock).forEach(([sz, qty]) => {
-              if (Number(qty) > 0) {
-                triggerNotifyRestock(editingId, productData.title, sz, Number(qty));
-              }
-            });
-          }
-        });
-      }
     } else {
       onAddProduct(productData);
-
-      if (Array.isArray(productData.colorVariants)) {
-        productData.colorVariants.forEach(cv => {
-          if (cv.stock) {
-            Object.entries(cv.stock).forEach(([sz, qty]) => {
-              if (Number(qty) > 0) {
-                triggerNotifyRestock(productData.id, productData.title, sz, Number(qty));
-              }
-            });
-          }
-        });
-      }
-
       if (stockMode === 'livraison') {
         const boutiqueProduct = {
           ...productData,

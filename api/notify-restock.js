@@ -45,6 +45,21 @@ function formatWhatsAppPhone(phone) {
   return '213' + cleanPhone;
 }
 
+// In-memory phone notification timestamp map to prevent duplicate messages within 5 minutes
+const recentNotifications = global._recentNotifications || new Map();
+global._recentNotifications = recentNotifications;
+
+function hasBeenNotifiedRecently(phone) {
+  const lastTime = recentNotifications.get(phone);
+  if (!lastTime) return false;
+  const elapsedSeconds = (Date.now() - lastTime) / 1000;
+  return elapsedSeconds < 300; // 5 minutes cooldown
+}
+
+function markNotifiedRecently(phone) {
+  recentNotifications.set(phone, Date.now());
+}
+
 async function sendWhatsAppMessage(toPhone, text) {
   const token = await getMetaAccessToken();
   const waPhone = formatWhatsAppPhone(toPhone);
@@ -196,7 +211,7 @@ export default async function handler(req, res) {
 
       if (sizeMatches && prodMatches && order.phone) {
         const waPhone = formatWhatsAppPhone(order.phone);
-        if (!waPhone) continue;
+        if (!waPhone || notifiedPhones.has(waPhone) || hasBeenNotifiedRecently(waPhone)) continue;
 
         await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
           method: 'PATCH',
@@ -215,6 +230,7 @@ export default async function handler(req, res) {
 
         const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}! 🔥\nهل ما زلت ترغب في تأكيد وطلب هذه القطعة قبل نفاذ الكمية مجدداً؟\n\n👉 أجب بـ *نعم* أو *إيه* أو *تأكيد* لتأكيد طلبك فوراً.`;
 
+        markNotifiedRecently(waPhone);
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);
 
@@ -227,7 +243,7 @@ export default async function handler(req, res) {
     for (const entry of waitlistEntries) {
       const entryPhone = entry.whatsapp_number || entry.phone;
       const waPhone = formatWhatsAppPhone(entryPhone);
-      if (!waPhone || notifiedPhones.has(waPhone)) continue;
+      if (!waPhone || notifiedPhones.has(waPhone) || hasBeenNotifiedRecently(waPhone)) continue;
 
       const entrySize = entry.size || '';
       const entryProdId = entry.product_id || entry.productId;
@@ -275,6 +291,7 @@ export default async function handler(req, res) {
 
         const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر المقاس المطلوب (${targetSize}) مجدداً${prodDesc}! 🔥\nهل ما زلت ترغب فـ تأكيد وتجهيز الطلبية لشحنها لك الآن؟\n\n👉 أجب بـ *نعم* أو *إيه* أو *تأكيد* لتأكيد الطلب فوراً.`;
 
+        markNotifiedRecently(waPhone);
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);
         notifiedCount++;
