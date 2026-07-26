@@ -581,6 +581,7 @@ async function createChatOrderInSupabase(orderData) {
       quantity: Number(orderData.quantity || 1),
       deliveryCompany: orderData.deliveryCompany || 'Livraison Domicile',
       status: orderData.status || 'en_attente_confirmation',
+      archived: orderData.archived !== undefined ? orderData.archived : (orderData.status === 'confirmee' || orderData.status === 'annulee'),
       created_at: new Date().toISOString(),
       items: orderData.items || [itemObj]
     };
@@ -1221,7 +1222,7 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ status: 'confirmee', archived: false })
+      body: JSON.stringify({ status: 'confirmee', archived: true })
     });
 
     if (Array.isArray(products) && products.length > 0) {
