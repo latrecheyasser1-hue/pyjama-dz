@@ -1156,7 +1156,95 @@ async function checkAndAlertLowStock(product, storeSettings) {
         }
       }
     }
+}
+
+async function processRestockConfirmationIntent(fromPhone, messageText, products) {
+  try {
+    const normText = normalizeText(messageText).toLowerCase().trim();
+    const pLower = (messageText || '').toLowerCase().trim();
+
+    const isConfirmIntent = [
+      'نعم', 'نعك', 'إيه', 'ايه', 'تأكيد', 'أكد', 'تاكيد', 'حاب نشري', 'نعم حاب',
+      'ديها', 'بعثهالي', 'ابعثهالي', 'yes', 'ok', 'oui', 'مشري', 'حاب نديها', 'نديها'
+    ].some(k => normText === k || pLower === k || normText.includes(k) || pLower.includes(k));
+
+    if (!isConfirmIntent) return false;
+
+    const localPhone = fromPhone.replace(/^\+?213/, '0');
+    const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(attente_confirmation_restock,en_attente_stock,attente_confirmation,pending_stock)&order=created_at.desc&limit=1`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const pendingOrders = await res.json();
+
+    if (!Array.isArray(pendingOrders) || pendingOrders.length === 0) return false;
+
+    const order = pendingOrders[0];
+
+    await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: 'confirmee', archived: false })
+    });
+
+    if (Array.isArray(products) && products.length > 0) {
+      const items = Array.isArray(order.items) ? order.items : [];
+      const item = items[0] || {};
+      const orderProdText = item.product || order.product || '';
+      const orderSize = item.size || order.size || '';
+      const orderColor = item.color || order.color || '';
+
+      const matchedProd = products.find(p => {
+        const titleNorm = normalizeText(p.title || '').toLowerCase();
+        return titleNorm && normalizeText(orderProdText).toLowerCase().includes(titleNorm);
+      });
+
+      if (matchedProd && matchedProd.colorVariants && orderSize) {
+        const updatedVariants = [...matchedProd.colorVariants];
+        const vIdx = updatedVariants.findIndex(v => {
+          const vColor = normalizeText(v.color || v.name || '').toLowerCase();
+          return !orderColor || vColor.includes(normalizeText(orderColor).toLowerCase());
+        });
+
+        const targetIdx = vIdx >= 0 ? vIdx : 0;
+        if (updatedVariants[targetIdx] && updatedVariants[targetIdx].stock?.[orderSize] !== undefined) {
+          const currentQty = Number(updatedVariants[targetIdx].stock[orderSize] || 1);
+          const newQty = Math.max(0, currentQty - 1);
+          updatedVariants[targetIdx] = {
+            ...updatedVariants[targetIdx],
+            stock: { ...updatedVariants[targetIdx].stock, [orderSize]: newQty }
+          };
+
+          await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${matchedProd.id}`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ colorVariants: updatedVariants })
+          });
+        }
+      }
+    }
+
+    const orderNumStr = await getSequentialOrderNum(order);
+    const clientNameStr = (order.clientName && order.clientName !== 'زبون الواتساب') ? order.clientName : '';
+    const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
+
+    const confirmMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح! 📦\n\n- المنتج: ${order.product || 'بيجامات فاخرة'}\n- المكان: ${order.wilaya || 'الجزائر'}\n- التوصيل: ${order.deliveryCompany || 'Livraison Domicile'}\n\nجاري تجهيز طلبك وشحنه في أقرب وقت. شكراً لثقتك بنا!`;
+
+    await sendWhatsAppMessage(fromPhone, confirmMsg);
+    return true;
+  } catch (err) {
+    console.error('Error processing restock confirmation intent:', err);
   }
+  return false;
 }
 
 async function processIncomingPayload(body) {
@@ -1414,6 +1502,10 @@ ${salesModeRules}`;
                 await sendWhatsAppMessage(fromPhone, "تفضل خويا، تم إرسال صور الموديلات المتوفرة أعلاه في المحادثة. يمكنك تصفح باقي المنتجات والألوان عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app");
                 continue;
               }
+
+              // Check for restock confirmation reply from customer
+              const handledRestockConfirm = await processRestockConfirmationIntent(fromPhone, messageText, products);
+              if (handledRestockConfirm) continue;
 
               // Process direct order intent and delivery stock check
               const handledOrder = await processDirectOrderFromMessage(fromPhone, messageText, products);

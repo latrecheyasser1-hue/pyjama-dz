@@ -195,16 +195,15 @@ export default async function handler(req, res) {
             'Authorization': `Bearer ${SUPABASE_KEY}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ status: 'confirmee', archived: false })
+          body: JSON.stringify({ status: 'attente_confirmation_restock', archived: false })
         });
 
-        const orderNumStr = order.id ? String(order.id).substring(0, 5).toUpperCase() : '1001';
         const clientNameStr = (order.clientName && order.clientName !== 'زبون الواتساب' && order.clientName !== 'زبون المحادثة')
           ? order.clientName : '';
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
         const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
 
-        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}!\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح وجاري تجهيزها للشحن. شكراً لانتظارك.`;
+        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}! 🔥\nهل ما زلت ترغب في تأكيد وطلب هذه القطعة قبل نفاذ الكمية مجدداً؟\n\n👉 أجب بـ *نعم* أو *إيه* أو *تأكيد* لتأكيد طلبك فوراً.`;
 
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);
