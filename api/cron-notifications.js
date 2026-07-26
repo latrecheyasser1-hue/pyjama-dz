@@ -114,11 +114,8 @@ function getProductImageUrl(p) {
 
   if (img.startsWith('http://') || img.startsWith('https://')) return img;
   if (img.startsWith('/')) return `https://pyjama-dz.vercel.app${img}`;
-  if (img.startsWith('data:image')) {
-    return `https://pyjama-dz.vercel.app/api/product-image?id=${p.id}`;
-  }
 
-  return `https://pyjama-dz.vercel.app/api/product-image?id=${p.id}`;
+  return `https://pyjama-dz.vercel.app/api/product-image?id=${p.id}&file=product.jpg`;
 }
 
 export default async function handler(req, res) {

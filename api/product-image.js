@@ -2,7 +2,11 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuej
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
 export default async function handler(req, res) {
-  const { id, color, idx } = req.query;
+  let { id, color, idx } = req.query;
+
+  if (id && id.includes('.')) {
+    id = id.split('.')[0];
+  }
 
   if (!id) {
     return res.status(400).send('Missing product id');
@@ -21,7 +25,6 @@ export default async function handler(req, res) {
     const product = products[0];
     let imgData = null;
 
-    // Find image in product or colorVariants
     if (color && Array.isArray(product.colorVariants)) {
       const match = product.colorVariants.find(cv => cv.color === color || cv.name === color);
       if (match?.image) imgData = match.image;
@@ -45,26 +48,31 @@ export default async function handler(req, res) {
       return res.status(404).send('No image available for product');
     }
 
-    // If it's already a full HTTP/HTTPS URL, redirect to it
     if (imgData.startsWith('http://') || imgData.startsWith('https://')) {
       return res.redirect(302, imgData);
     }
 
-    // Parse base64 data URI
+    let contentType = 'image/jpeg';
+    let imageBuffer;
+
     const matches = imgData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      const buf = Buffer.from(imgData, 'base64');
-      res.setHeader('Content-Type', 'image/jpeg');
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-      return res.send(buf);
+    if (matches && matches.length === 3) {
+      contentType = matches[1];
+      imageBuffer = Buffer.from(matches[2], 'base64');
+    } else {
+      imageBuffer = Buffer.from(imgData, 'base64');
     }
 
-    const contentType = matches[1];
-    const imageBuffer = Buffer.from(matches[2], 'base64');
-
     res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', imageBuffer.length);
+    res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    return res.send(imageBuffer);
+
+    if (req.method === 'HEAD') {
+      return res.status(200).end();
+    }
+
+    return res.status(200).send(imageBuffer);
   } catch (err) {
     console.error('Error serving product image:', err);
     return res.status(500).send('Internal Server Error');

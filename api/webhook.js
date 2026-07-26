@@ -1075,7 +1075,7 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
       if (img && typeof img === 'string' && productImgsCount < 1) {
         let fullUrl = img;
         if (img.startsWith('data:image')) {
-          fullUrl = `https://pyjama-dz.vercel.app/api/product-image?id=${p.id}`;
+          fullUrl = `https://pyjama-dz.vercel.app/api/product-image?id=${p.id}&file=product.jpg`;
         } else if (!img.startsWith('http://') && !img.startsWith('https://')) {
           fullUrl = `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
         }
