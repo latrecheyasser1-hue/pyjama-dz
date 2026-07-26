@@ -437,8 +437,8 @@ async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = 
         if (res.status === 200) {
           const data = await res.json();
           const parts = data.candidates?.[0]?.content?.parts || [];
-          const textObj = [...parts].reverse().find(p => p.text && !p.thought);
-          const text = textObj ? textObj.text : (parts[0]?.text || null);
+          const textParts = parts.filter(p => p.text && !p.thought).map(p => p.text).filter(Boolean);
+          const text = textParts.join('');
           if (text) return removeEmojis(text.trim());
         } else {
           console.error(`Gemini AI status for ${model}: ${res.status}`);
