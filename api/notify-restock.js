@@ -1,13 +1,18 @@
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
-const DEFAULT_TOKEN = 'EAAguaWHGlf8BSDZCjgyc359EMoz33CR4lxKknCXVwLcgKNfZCw2yJiP1ZBYxcY5LsbdBhneqsy1GzLABiwLQHjPvfZCSkcsoXCBw16TufkqA3xbonglKFafxusFR26wUeAprzqkdXK8sbqXDv2OjZCPoMBUNeZALMLiHUpQUSiAnpEPXG6ZBOaz6oLmX65UbgFtUK7vwgCEMPUWciZBrvq3hoVzCzfDbiwjmHBFjNR9DumykgtPcJ8iLkTILWpo9nACoDicpZAhKOM7nWzNYPh1vR';
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 
 async function getMetaAccessToken() {
-  if (process.env.META_ACCESS_TOKEN && process.env.META_ACCESS_TOKEN.length > 20) {
-    return process.env.META_ACCESS_TOKEN.trim();
-  }
-  return process.env.WHATSAPP_TOKEN || DEFAULT_TOKEN;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.meta_access_token&select=value`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]?.value) {
+      return data[0].value.trim();
+    }
+  } catch (e) {}
+  return process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || '';
 }
 
 async function sendWhatsAppMessage(toPhone, text) {
@@ -50,7 +55,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, message: 'No size or qty <= 0' });
     }
 
-    const orderRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=eq.en_attente_stock`, {
+    const orderRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=in.(en_attente_stock,pending_stock,rupture_stock,attente_stock,out_of_stock)&order=created_at.asc`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const orders = await orderRes.json();

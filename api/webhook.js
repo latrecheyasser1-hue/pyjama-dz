@@ -603,7 +603,7 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
   try {
     if (!size || newQty <= 0) return;
 
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=eq.en_attente_stock`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=in.(en_attente_stock,pending_stock,rupture_stock,attente_stock,out_of_stock)&order=created_at.asc`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const orders = await res.json();
