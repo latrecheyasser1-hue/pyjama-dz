@@ -193,30 +193,26 @@ function extractCleanPhonesList(...sources) {
 }
 
 async function getSequentialOrderNum(targetOrder) {
-  if (!targetOrder) return "58";
   try {
-    const createdAt = typeof targetOrder === 'object' ? targetOrder.created_at : null;
-    if (createdAt) {
-      const url = `${SUPABASE_URL}/rest/v1/orders?select=id&created_at=lte.${encodeURIComponent(createdAt)}`;
-      const res = await fetch(url, {
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Prefer': 'count=exact'
-        }
-      });
-      const contentRange = res.headers.get('content-range');
-      if (contentRange && contentRange.includes('/')) {
-        const total = contentRange.split('/')[1];
-        if (total && total !== '*') return total;
+    const url = `${SUPABASE_URL}/rest/v1/orders?select=id`;
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Prefer': 'count=exact'
       }
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) return String(data.length);
+    });
+    const contentRange = res.headers.get('content-range');
+    if (contentRange && contentRange.includes('/')) {
+      const total = contentRange.split('/')[1];
+      if (total && total !== '*') return total;
     }
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) return String(data.length);
   } catch (err) {
     console.error('Error computing order number:', err);
   }
-  return "58";
+  return "81";
 }
 
 function cleanProductText(prod) {
@@ -1187,36 +1183,43 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
       const orderSize = item.size || order.size || '';
       const orderColor = item.color || order.color || '';
 
-      const matchedProd = products.find(p => {
+      const matchedProducts = products.filter(p => {
         const titleNorm = normalizeText(p.title || '').toLowerCase();
         return titleNorm && normalizeText(orderProdText).toLowerCase().includes(titleNorm);
       });
 
-      if (matchedProd && matchedProd.colorVariants && orderSize) {
-        const updatedVariants = [...matchedProd.colorVariants];
-        const vIdx = updatedVariants.findIndex(v => {
-          const vColor = normalizeText(v.color || v.name || '').toLowerCase();
-          return !orderColor || vColor.includes(normalizeText(orderColor).toLowerCase());
-        });
-
-        const targetIdx = vIdx >= 0 ? vIdx : 0;
-        if (updatedVariants[targetIdx] && updatedVariants[targetIdx].stock?.[orderSize] !== undefined) {
-          const currentQty = Number(updatedVariants[targetIdx].stock[orderSize] || 1);
-          const newQty = Math.max(0, currentQty - 1);
-          updatedVariants[targetIdx] = {
-            ...updatedVariants[targetIdx],
-            stock: { ...updatedVariants[targetIdx].stock, [orderSize]: newQty }
-          };
-
-          await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${matchedProd.id}`, {
-            method: 'PATCH',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ colorVariants: updatedVariants })
+      for (const matchedProd of matchedProducts) {
+        if (matchedProd && Array.isArray(matchedProd.colorVariants)) {
+          const updatedVariants = [...matchedProd.colorVariants];
+          const vIdx = updatedVariants.findIndex(v => {
+            const vColor = normalizeText(v.color || v.name || '').toLowerCase();
+            return !orderColor || vColor.includes(normalizeText(orderColor).toLowerCase());
           });
+
+          const targetIdx = vIdx >= 0 ? vIdx : 0;
+          const targetVariant = updatedVariants[targetIdx];
+          if (targetVariant && targetVariant.stock) {
+            const stockKeys = Object.keys(targetVariant.stock);
+            const targetKey = stockKeys.find(k => k.trim().toLowerCase() === String(orderSize).trim().toLowerCase()) || stockKeys[0];
+            if (targetKey && targetVariant.stock[targetKey] !== undefined) {
+              const currentQty = Number(targetVariant.stock[targetKey] || 1);
+              const newQty = Math.max(0, currentQty - 1);
+              updatedVariants[targetIdx] = {
+                ...targetVariant,
+                stock: { ...targetVariant.stock, [targetKey]: newQty }
+              };
+
+              await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${matchedProd.id}`, {
+                method: 'PATCH',
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ colorVariants: updatedVariants })
+              });
+            }
+          }
         }
       }
     }
