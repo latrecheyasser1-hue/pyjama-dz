@@ -40,7 +40,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    const { productId, size, newQty } = req.body || req.query || {};
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || req.query || {});
+    const { productId, size, newQty } = body;
     if (!size || Number(newQty) <= 0) {
       return res.status(200).json({ success: true, message: 'No size or qty <= 0' });
     }

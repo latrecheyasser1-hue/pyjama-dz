@@ -486,11 +486,9 @@ async function createChatOrderInSupabase(orderData) {
 
     const payload = {
       clientName: orderData.clientName || 'زبون المحادثة',
-      nom: orderData.clientName || 'زبون المحادثة',
       phone: orderData.phone,
       wilaya: orderData.wilaya || 'الشلف',
       commune: orderData.commune || 'المركز',
-      address: `${orderData.wilaya || ''} ${orderData.commune || ''}`.trim(),
       product: orderData.product || 'بيجامات فاخرة',
       price: Number(orderData.price || orderData.totalPrice || 0),
       quantity: Number(orderData.quantity || 1),
