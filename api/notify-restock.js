@@ -178,7 +178,53 @@ export default async function handler(req, res) {
       orders = [];
     }
 
-    // 2. Query Waitlist entries waiting for stock
+    // 2. Fetch persistent notified list from settings table
+    let persistentNotifiedSet = new Set();
+    let settingsRow = null;
+    try {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.waitlist_notified_numbers&select=*`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const rows = await setRes.json();
+      if (Array.isArray(rows) && rows.length > 0) {
+        settingsRow = rows[0];
+        const parsed = JSON.parse(settingsRow.value || '[]');
+        if (Array.isArray(parsed)) {
+          parsed.forEach(item => persistentNotifiedSet.add(item));
+        }
+      }
+    } catch (e) {}
+
+    const savePersistentNotified = async (key) => {
+      persistentNotifiedSet.add(key);
+      const arr = Array.from(persistentNotifiedSet);
+      try {
+        if (settingsRow) {
+          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.waitlist_notified_numbers`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ value: JSON.stringify(arr) })
+          });
+        } else {
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ key: 'waitlist_notified_numbers', value: JSON.stringify(arr) })
+          });
+          settingsRow = { key: 'waitlist_notified_numbers' };
+        }
+      } catch (e) {}
+    };
+
+    // Query Waitlist entries waiting for stock
     let waitlistEntries = [];
     try {
       const waitlistRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?status=in.(pending,en_attente,out_of_stock)&order=created_at.asc`, {
@@ -206,7 +252,7 @@ export default async function handler(req, res) {
 
       if (sizeMatches && prodMatches && order.phone) {
         const waPhone = formatWhatsAppPhone(order.phone);
-        if (!waPhone || notifiedPhones.has(waPhone)) continue;
+        if (!waPhone || notifiedPhones.has(waPhone) || persistentNotifiedSet.has(waPhone)) continue;
 
         await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
           method: 'PATCH',
@@ -227,6 +273,7 @@ export default async function handler(req, res) {
 
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);
+        await savePersistentNotified(waPhone);
 
         notifiedCount++;
         availableQty = Math.max(0, availableQty - 1);
@@ -239,6 +286,9 @@ export default async function handler(req, res) {
       const waPhone = formatWhatsAppPhone(entryPhone);
       if (!waPhone || notifiedPhones.has(waPhone)) continue;
 
+      const requestKey = `${waPhone}_${targetSize}_${targetColor || ''}`;
+      if (persistentNotifiedSet.has(requestKey) || persistentNotifiedSet.has(waPhone)) continue;
+
       const entrySize = entry.size || '';
       const entryProdId = entry.product_id || entry.productId;
       const entryProdText = entry.product_title || entry.product || '';
@@ -249,6 +299,8 @@ export default async function handler(req, res) {
 
       if (sizeMatches && prodMatches && colorMatches) {
         notifiedPhones.add(waPhone);
+        await savePersistentNotified(requestKey);
+        await savePersistentNotified(waPhone);
 
         // Update ALL waitlist rows for this customer's phone number to 'notified' by Primary Key ID and await completion
         try {
