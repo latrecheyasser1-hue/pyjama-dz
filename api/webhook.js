@@ -677,11 +677,15 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
     let variantIndex = -1;
 
     if (Array.isArray(products) && products.length > 0) {
-      matchedProduct = products.find(p => {
+      // Prefer standard delivery products over gros__ or boutique__ clones
+      const deliveryProducts = products.filter(p => !p.category?.startsWith('gros__') && !p.category?.startsWith('boutique__'));
+      const candidateProducts = deliveryProducts.length > 0 ? deliveryProducts : products;
+
+      matchedProduct = candidateProducts.find(p => {
         const titleRaw = (p.title || '').toLowerCase();
         const titleNorm = normalizeText(p.title || '').toLowerCase();
         return pLower.includes(titleRaw) || normText.includes(titleNorm);
-      }) || products[0];
+      }) || candidateProducts[0];
 
       if (matchedProduct) {
         const variants = matchedProduct.colorVariants || matchedProduct.colorvariants || [];
@@ -700,17 +704,19 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
       }
     }
 
+    const colorLabel = matchedVariant ? (matchedVariant.name || matchedVariant.color || '') : '';
+
     // Stock check for delivery
     let currentStock = -1;
     if (requestedSize) {
       if (matchedVariant && matchedVariant.stock && matchedVariant.stock[requestedSize] !== undefined) {
-        currentStock = Number(matchedVariant.stock[requestedSize] || 0);
+        currentStock = Number(matchedVariant.stock[requestedSize] ?? 0);
       } else if (matchedProduct && matchedProduct.stock && matchedProduct.stock[requestedSize] !== undefined) {
-        currentStock = Number(matchedProduct.stock[requestedSize] || 0);
+        currentStock = Number(matchedProduct.stock[requestedSize] ?? 0);
       }
     }
 
-    console.log(`Direct Order Check: Client="${clientName}", Phone="${orderPhone}", Wilaya="${wilaya}", Product="${matchedProduct?.title}", Color="${matchedVariant?.name}", Size="${requestedSize}", Stock=${currentStock}`);
+    console.log(`Direct Order Check: Client="${clientName}", Phone="${orderPhone}", Wilaya="${wilaya}", Product="${matchedProduct?.title}", Color="${colorLabel}", Size="${requestedSize}", Stock=${currentStock}`);
 
     // ❌ OUT OF STOCK CASE (Stock is 0)
     if (requestedSize && currentStock === 0) {
@@ -719,15 +725,15 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
         phone: orderPhone,
         wilaya,
         commune: 'المركز',
-        product: `${matchedProduct?.title || 'بيجامات فاخرة'} (${matchedVariant?.name || ''} - ${requestedSize || ''})`.trim(),
-        color: matchedVariant?.name || '',
+        product: `${matchedProduct?.title || 'بيجامات فاخرة'} (${colorLabel}${colorLabel ? ' - ' : ''}${requestedSize || ''})`.trim(),
+        color: colorLabel,
         size: requestedSize || '',
         totalPrice: Number(matchedProduct?.price || 0),
         deliveryCompany,
         status: 'en_attente_stock'
       });
 
-      const outMsg = `أهلاً بك ${clientName}.\nنعتذر منك، المقاس ${requestedSize} غير متوفر حالياً في موديل ${matchedProduct?.title || ''} (${matchedVariant?.name || ''}).\nتم حفظ رقمك وسنراسلكم فور توفره مجدداً. شكراً لك.`;
+      const outMsg = `أهلاً بك ${clientName}.\nنعتذر منك، المقاس ${requestedSize} غير متوفر حالياً في موديل ${matchedProduct?.title || ''} (${colorLabel}).\nتم حفظ رقمك وسنراسلكم فور توفره مجدداً. شكراً لك.`;
       await sendWhatsAppMessage(fromPhone, outMsg);
       return true;
     }
@@ -738,8 +744,8 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
       phone: orderPhone,
       wilaya,
       commune: 'المركز',
-      product: `${matchedProduct?.title || 'بيجامات فاخرة'} (${matchedVariant?.name || ''} - ${requestedSize || ''})`.trim(),
-      color: matchedVariant?.name || '',
+      product: `${matchedProduct?.title || 'بيجامات فاخرة'} (${colorLabel}${colorLabel ? ' - ' : ''}${requestedSize || ''})`.trim(),
+      color: colorLabel,
       size: requestedSize || '',
       totalPrice: Number(matchedProduct?.price || 0),
       deliveryCompany
