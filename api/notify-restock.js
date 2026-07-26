@@ -1,9 +1,13 @@
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
-const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1013778531818296';
+const DEFAULT_TOKEN = 'EAAguaWHGlf8BSAq6OP91XUr0bEjQLpOfofPNHOHNUSh7lJX2GVyEUqZBNIHSYqwuA4ATMdm4NQ8nYEvEui3dTYkJo8ewlhmWv4kcfCBdKM2CBEU1bnXYYWoTADXFMQafLaVE98qURkH6hZCjTFUyp0PVP8aXm2VA5LDW3KQg0eRnlO2fKPvmKGzyhnnC042wT2f1KjJHeTWhnWu8UZAEPKlyOdZAte2mXGdWa8WKTIJDcxzZAs9mFi3MLuhq31i6NZAw4mayBxBoOZA3rZB6b58Iuo8ZD';
+const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 
 async function getMetaAccessToken() {
-  return process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || null;
+  if (process.env.META_ACCESS_TOKEN && process.env.META_ACCESS_TOKEN.length > 20) {
+    return process.env.META_ACCESS_TOKEN.trim();
+  }
+  return process.env.WHATSAPP_TOKEN || DEFAULT_TOKEN;
 }
 
 async function sendWhatsAppMessage(toPhone, text) {
