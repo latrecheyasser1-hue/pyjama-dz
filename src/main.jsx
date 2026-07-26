@@ -5,6 +5,15 @@ import App from './App.jsx'
 
 import { HelmetProvider } from 'react-helmet-async'
 
+// 🧹 Auto-clear PWA Service Worker cache to force fresh UI updates
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    for (let registration of registrations) {
+      registration.unregister();
+    }
+  }).catch(() => {});
+}
+
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
