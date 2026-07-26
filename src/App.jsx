@@ -79,10 +79,10 @@ export default function App() {
         fetchSettings();
       }).subscribe();
 
-    // Fallback Polling (Every 5 seconds) to ensure orders and stock arrive instantly 
-    // even if Real-time is not enabled in Supabase dashboard.
+    // Fallback Polling (Every 3 seconds) to ensure orders, stock, and reclamations arrive instantly in real-time
     const pollInterval = setInterval(async () => {
       fetchData('products', setProducts);
+      fetchSettings();
       
       const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
       if (!error && data) {
@@ -93,7 +93,7 @@ export default function App() {
           return data;
         });
       }
-    }, 5000);
+    }, 3000);
 
     return () => {
       supabase.removeChannel(productsSub);
@@ -140,7 +140,14 @@ export default function App() {
           }
         }
       });
-      setSettings(prev => ({ ...prev, ...obj }));
+      setSettings(prev => {
+        const prevRecs = Array.isArray(prev?.reclamations) ? prev.reclamations : [];
+        const newRecs = Array.isArray(obj?.reclamations) ? obj.reclamations : [];
+        if (prevRecs.length > 0 && newRecs.length > prevRecs.length) {
+          try { playNotificationSound(); } catch(e) {}
+        }
+        return { ...prev, ...obj };
+      });
     }
   };
 
