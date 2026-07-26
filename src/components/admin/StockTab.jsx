@@ -555,6 +555,22 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
     if (editingId) {
       onUpdateProduct(productData);
+      // Trigger restock check for edited variants
+      if (Array.isArray(productData.colorVariants)) {
+        productData.colorVariants.forEach(cv => {
+          if (cv.stock) {
+            Object.entries(cv.stock).forEach(([sz, qty]) => {
+              if (Number(qty) > 0) {
+                fetch('/api/notify-restock', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ productId: editingId, size: sz, newQty: Number(qty) })
+                }).catch(err => console.error('Form edit restock notify error:', err));
+              }
+            });
+          }
+        });
+      }
     } else {
       onAddProduct(productData);
 
