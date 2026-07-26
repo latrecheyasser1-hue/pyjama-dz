@@ -1206,25 +1206,104 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
     const localPhone = fromPhone.replace(/^\+?213/, '0');
     const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
 
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(nouvelle,nouvel,new,pending,en_attente_confirmation,attente_confirmation,attente_confirmation_restock,en_attente_stock,pending_stock)&order=created_at.desc&limit=1`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    const pendingOrders = await res.json();
+    // 1. Check waitlist table FIRST for waiting customer
+    let waitlistEntry = null;
+    try {
+      const wRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(notified,pending,en_attente,out_of_stock)&order=created_at.desc&limit=1`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const waitlistEntries = await wRes.json();
+      if (Array.isArray(waitlistEntries) && waitlistEntries.length > 0) {
+        waitlistEntry = waitlistEntries[0];
+      }
+    } catch (e) {}
 
-    if (!Array.isArray(pendingOrders) || pendingOrders.length === 0) return false;
+    let order = null;
 
-    const order = pendingOrders[0];
+    if (waitlistEntry) {
+      // Find matching product in catalog for price & details
+      const entryTitle = waitlistEntry.product_title || waitlistEntry.product || '';
+      const matchedProd = (products || []).find(p => {
+        const titleNorm = normalizeText(p.title || '').toLowerCase();
+        return titleNorm && normalizeText(entryTitle).toLowerCase().includes(titleNorm);
+      }) || products?.[0];
 
-    await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
-      method: 'PATCH',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ status: 'confirmee', archived: true })
-    });
+      const itemPrice = matchedProd?.price ? Number(matchedProd.price) : 3500;
+      const prodNameStr = `${entryTitle || matchedProd?.title || 'بيجامات فاخرة'} (${waitlistEntry.color ? waitlistEntry.color + ' - ' : ''}${waitlistEntry.size || 'M'})`;
 
+      // Create ONE REAL CONFIRMED ORDER in orders table!
+      const createRes = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          clientName: waitlistEntry.client_name || 'زبون الواتساب',
+          phone: localPhone,
+          wilaya: waitlistEntry.wilaya || 'الشلف',
+          commune: waitlistEntry.commune || '',
+          deliveryMode: 'home',
+          deliveryCompany: 'Livraison Domicile',
+          product: prodNameStr,
+          price: itemPrice,
+          quantity: 1,
+          status: 'confirmee',
+          archived: true,
+          created_at: new Date().toISOString(),
+          items: [{
+            productId: matchedProd?.id,
+            product: entryTitle || matchedProd?.title,
+            color: waitlistEntry.color,
+            size: waitlistEntry.size,
+            price: itemPrice,
+            qty: 1
+          }]
+        })
+      });
+
+      const newOrderData = await createRes.json();
+      if (Array.isArray(newOrderData) && newOrderData[0]) {
+        order = newOrderData[0];
+      }
+
+      // Mark waitlist entry as confirmed
+      await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${waitlistEntry.id}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'confirmed' })
+      });
+    }
+
+    if (!order) {
+      // Fallback: Check pending orders
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(nouvelle,nouvel,new,pending,en_attente_confirmation,attente_confirmation,attente_confirmation_restock,en_attente_stock,pending_stock)&order=created_at.desc&limit=1`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const pendingOrders = await res.json();
+      if (Array.isArray(pendingOrders) && pendingOrders[0]) {
+        order = pendingOrders[0];
+        await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'confirmee', archived: true })
+        });
+      }
+    }
+
+    if (!order) return false;
+
+    // Deduct stock in Supabase for matched product
     if (Array.isArray(products) && products.length > 0) {
       const items = Array.isArray(order.items) ? order.items : [];
       const item = items[0] || {};
@@ -1277,7 +1356,7 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
     const clientNameStr = (order.clientName && order.clientName !== 'زبون الواتساب') ? order.clientName : '';
     const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
 
-    const confirmMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح! 📦\n\n- المنتج: ${order.product || 'بيجامات فاخرة'}\n- المكان: ${order.wilaya || 'الجزائر'}\n- التوصيل: ${order.deliveryCompany || 'Livraison Domicile'}\n\nجاري تجهيز طلبك وشحنه في أقرب وقت. شكراً لثقتك بنا!`;
+    const confirmMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح! 📦\n\n- المنتج: ${order.product || 'بيجامات فاخرة'}\n- المبلغ: ${order.price || 3500} د.ج\n- المكان: ${order.wilaya || 'الجزائر'}\n- التوصيل: ${order.deliveryCompany || 'Livraison Domicile'}\n\nجاري تجهيز طلبك وشحنه في أقرب وقت. شكراً لثقتك بنا!`;
 
     await sendWhatsAppMessage(fromPhone, confirmMsg);
     return true;

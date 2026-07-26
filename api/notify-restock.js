@@ -263,28 +263,6 @@ export default async function handler(req, res) {
           body: JSON.stringify({ status: 'notified' })
         });
 
-        // Also create pending order for confirmation tracking
-        await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            clientName: entry.client_name || 'زبون المحادثة',
-            phone: entryPhone,
-            wilaya: entry.wilaya || 'الشلف',
-            product: `${entryProdText || productTitle} (${entrySize})`,
-            price: 0,
-            quantity: 1,
-            deliveryCompany: 'Livraison Domicile',
-            status: 'attente_confirmation_restock',
-            created_at: new Date().toISOString(),
-            items: [{ product: entryProdText || productTitle, size: entrySize, qty: 1 }]
-          })
-        });
-
         const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
         const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
