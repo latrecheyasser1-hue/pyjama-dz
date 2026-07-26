@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     let orderNum = '';
 
     if (isWaitlist) {
-      messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتم تسجيل طلبك فـ قائمة الانتظار بنجاح! 📌\n\n• المنتج والمقاس: ${cleanProduct}\n• الحالة: قيد الانتظار (غير متوفر حالياً)\n\nسنراسلكم ونخبركم عبر الواتساب فور توفر هذه القطعة مجدداً. شكراً لاهتمامك!`;
+      messageText = `أهلاً بك${nameGreeting}.\nعذراً، هذا الموديل أو المقاس (${cleanProduct}) غير متوفر حالياً.\nتم حفظ طلبك وسنخبرك عبر الواتساب فور توفره مجدداً إن شاء الله. شكراً لاهتمامك!`;
     } else {
       orderNum = await getSequentialOrderNum(id);
       messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك عبر الموقع بنجاح:\n\n• رقم الطلب: #${orderNum}\n• المنتجات: ${cleanProduct}\n• الولاية: ${wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* (أو *إلغاء*) لتأكيد طلبك وتجهيز شحنتك.`;

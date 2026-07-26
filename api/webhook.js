@@ -962,7 +962,7 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
         })
       });
 
-      const outMsg = `أهلاً بك ${clientName}.\nنعتذر منك، المقاس ${requestedSize} غير متوفر حالياً في موديل ${matchedProduct?.title || ''} (${colorLabel}).\nتم حفظ رقمك فـ قائمة الانتظار وسنراسلكم فور توفره مجدداً. شكراً لك.`;
+      const outMsg = `أهلاً بك ${clientName}.\nعذراً، المقاس (${requestedSize}) غير متوفر حالياً في موديل ${matchedProduct?.title || ''} (${colorLabel}).\nتم حفظ طلبك وسنخبرك عبر الواتساب فور توفره مجدداً إن شاء الله. شكراً لك.`;
       await sendWhatsAppMessage(fromPhone, outMsg);
       return true;
     }
