@@ -93,14 +93,55 @@ export default function ClientsTab({ orders = [], products = [] }) {
   const badCount = useMemo(() => clientsList.filter(c => c.reputation === 'bad').length, [clientsList]);
   const normalCount = useMemo(() => clientsList.filter(c => c.reputation === 'normal').length, [clientsList]);
 
+  const [isSendingHotSale, setIsSendingHotSale] = useState(false);
+
+  const handleSendWeeklyHotSale = async () => {
+    if (!window.confirm('هل أنت متأكد من إرسال عرض Hot Sale الأسبوعي المخصص باسم كل زبون عبر الواتساب الآن؟')) return;
+    setIsSendingHotSale(true);
+    try {
+      const res = await fetch('/api/cron-notifications?action=weekly_hot_sale');
+      const data = await res.json();
+      if (data.success) {
+        alert(`تم إرسال عروض Hot Sale الأسبوعية بنجاح لـ ${data.hotSaleResult?.sentCount || 0} زبون عبر الواتساب! 🔥✨`);
+      } else {
+        alert('حدث خطأ أثناء إرسال العروض. الرجاء المحاولة مرة أخرى.');
+      }
+    } catch (err) {
+      console.error('Error sending hot sale campaign:', err);
+      alert('حدث خطأ تقني أثناء الإرسال.');
+    } finally {
+      setIsSendingHotSale(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', direction: 'rtl', fontFamily: 'var(--font-primary)' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--burgundy-dark)', margin: 0 }}>👥 إدارة سمعة الزبائن (CRM)</h1>
-          <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '4px 0 0' }}>متابعة وتقييم طلبات زبائن الموقع الإلكتروني لكشف المشبوهين ومكافأة الأوفياء</p>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--burgundy-dark)', margin: 0 }}>👥 إدارة الزبائن وعروض التسويق (CRM)</h1>
+          <p style={{ color: '#64748B', fontSize: '0.9rem', margin: '4px 0 0' }}>متابعة وتقييم الزبائن وإرسال عروض Hot Sale الأسبوعية المخصصة عبر الواتساب</p>
         </div>
+        <button
+          onClick={handleSendWeeklyHotSale}
+          disabled={isSendingHotSale}
+          style={{
+            background: 'linear-gradient(135deg, #EC4899, #8B5CF6)',
+            color: 'white',
+            border: 'none',
+            padding: '12px 20px',
+            borderRadius: '12px',
+            fontWeight: 800,
+            cursor: isSendingHotSale ? 'wait' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 14px rgba(236,72,153,0.35)',
+            opacity: isSendingHotSale ? 0.7 : 1
+          }}
+        >
+          {isSendingHotSale ? '⏳ جاري إرسال العروض للجميع...' : '🚀 إرسال عروض Hot Sale الأسبوعية للجميع الآن'}
+        </button>
       </div>
 
       {/* Metrics Cards */}

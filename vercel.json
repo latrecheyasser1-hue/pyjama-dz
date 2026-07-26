@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/cron-notifications?action=weekly_hot_sale",
+      "schedule": "0 10 * * 1"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
