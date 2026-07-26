@@ -36,6 +36,7 @@ async function getMetaAccessToken() {
   return process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || DEFAULT_TOKEN;
 }
 
+// Helper to format phone numbers to Meta WhatsApp international format (213XXXXXXXXX)
 function formatWhatsAppPhone(phone) {
   if (!phone) return null;
   const cleanPhone = String(phone).replace(/\D/g, '');
@@ -43,21 +44,6 @@ function formatWhatsAppPhone(phone) {
   if (cleanPhone.startsWith('213')) return cleanPhone;
   if (cleanPhone.startsWith('0')) return '213' + cleanPhone.substring(1);
   return '213' + cleanPhone;
-}
-
-// In-memory phone notification timestamp map to prevent duplicate messages within 5 minutes
-const recentNotifications = global._recentNotifications || new Map();
-global._recentNotifications = recentNotifications;
-
-function hasBeenNotifiedRecently(phone) {
-  const lastTime = recentNotifications.get(phone);
-  if (!lastTime) return false;
-  const elapsedSeconds = (Date.now() - lastTime) / 1000;
-  return elapsedSeconds < 5; // 5 seconds brief debounce
-}
-
-function markNotifiedRecently(phone) {
-  recentNotifications.set(phone, Date.now());
 }
 
 async function sendWhatsAppMessage(toPhone, text) {
@@ -220,7 +206,7 @@ export default async function handler(req, res) {
 
       if (sizeMatches && prodMatches && order.phone) {
         const waPhone = formatWhatsAppPhone(order.phone);
-        if (!waPhone || notifiedPhones.has(waPhone) || hasBeenNotifiedRecently(waPhone)) continue;
+        if (!waPhone || notifiedPhones.has(waPhone)) continue;
 
         await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
           method: 'PATCH',
@@ -239,7 +225,6 @@ export default async function handler(req, res) {
 
         const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}! 🔥\nهل ما زلت ترغب في تأكيد وطلب هذه القطعة قبل نفاذ الكمية مجدداً؟\n\n👉 أجب بـ *نعم* أو *إيه* أو *تأكيد* لتأكيد طلبك فوراً.`;
 
-        markNotifiedRecently(waPhone);
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);
 
@@ -252,7 +237,7 @@ export default async function handler(req, res) {
     for (const entry of waitlistEntries) {
       const entryPhone = entry.whatsapp_number || entry.phone;
       const waPhone = formatWhatsAppPhone(entryPhone);
-      if (!waPhone || notifiedPhones.has(waPhone) || hasBeenNotifiedRecently(waPhone)) continue;
+      if (!waPhone || notifiedPhones.has(waPhone)) continue;
 
       const entrySize = entry.size || '';
       const entryProdId = entry.product_id || entry.productId;
