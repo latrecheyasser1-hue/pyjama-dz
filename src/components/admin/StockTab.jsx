@@ -478,15 +478,15 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
   const restockDebounceRef = useRef({});
 
-  const triggerNotifyRestock = (productId, productTitle, size, newQty) => {
+  const triggerNotifyRestock = (productId, productTitle, size, newQty, color) => {
     if (!size || Number(newQty) <= 0) return;
-    const key = `${productId || productTitle}_${size}`;
+    const key = `${productId || productTitle}_${color || ''}_${size}`;
     if (restockDebounceRef.current[key]) {
       clearTimeout(restockDebounceRef.current[key]);
     }
 
     restockDebounceRef.current[key] = setTimeout(async () => {
-      const payload = { productId, productTitle, size, newQty: Number(newQty) };
+      const payload = { productId, productTitle, size, color, newQty: Number(newQty) };
       try {
         const res = await fetch('/api/notify-restock', {
           method: 'POST',
@@ -655,7 +655,8 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     });
 
     if (nextQty > 0) {
-      triggerNotifyRestock(product.id, product.title, size, nextQty);
+      const colorName = product.colorVariants?.[colorIdx]?.color || '';
+      triggerNotifyRestock(product.id, product.title, size, nextQty, colorName);
     }
   };
 

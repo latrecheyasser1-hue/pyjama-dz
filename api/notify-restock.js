@@ -119,6 +119,14 @@ function isProductMatch(targetProductId, targetProductTitle, orderProdId, orderP
   return false;
 }
 
+function isColorMatch(targetColor, orderColor) {
+  if (!targetColor || !orderColor) return true;
+  const normTarget = normalizeText(targetColor);
+  const normOrder = normalizeText(orderColor);
+  if (!normTarget || !normOrder) return true;
+  return normTarget === normOrder || normTarget.includes(normOrder) || normOrder.includes(normTarget);
+}
+
 function isSizeMatch(targetSize, orderSize, orderProdText) {
   if (!targetSize) return true;
   const normTargetSize = String(targetSize).trim().toUpperCase();
@@ -149,7 +157,7 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || req.query || {});
-    const { productId, productTitle: bodyProductTitle, size, newQty } = body;
+    const { productId, productTitle: bodyProductTitle, size, color, colorName, newQty } = body;
     if (!size || Number(newQty) <= 0) {
       return res.status(200).json({ success: true, message: 'No size or qty <= 0' });
     }
@@ -157,6 +165,7 @@ export default async function handler(req, res) {
     let notifiedCount = 0;
     let availableQty = Number(newQty);
     const targetSize = String(size).trim().toUpperCase();
+    const targetColor = String(color || colorName || '').trim();
 
     let productTitle = bodyProductTitle || '';
     if (productId && !productTitle) {
@@ -251,8 +260,9 @@ export default async function handler(req, res) {
 
       const sizeMatches = isSizeMatch(targetSize, entrySize, entryProdText);
       const prodMatches = isProductMatch(productId, productTitle, entryProdId, entryProdText);
+      const colorMatches = isColorMatch(targetColor, entry.color);
 
-      if (sizeMatches && prodMatches) {
+      if (sizeMatches && prodMatches && colorMatches) {
         // Atomic DB claim: Only the request that succeeds in transitioning status from pending to notified gets to send the message
         let patchedEntries = [];
         try {
