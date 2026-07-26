@@ -179,7 +179,11 @@ async function getAllProducts() {
       }
     });
     const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    if (Array.isArray(data)) {
+      // Filter strictly for retail/delivery products (exclude wholesale gros__ and boutique__ clones)
+      return data.filter(p => !p.category?.startsWith('gros__') && !p.category?.startsWith('boutique__'));
+    }
+    return [];
   } catch (err) {
     console.error('Error fetching products from Supabase:', err);
     return [];
