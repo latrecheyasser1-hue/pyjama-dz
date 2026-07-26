@@ -53,7 +53,7 @@ function hasBeenNotifiedRecently(phone) {
   const lastTime = recentNotifications.get(phone);
   if (!lastTime) return false;
   const elapsedSeconds = (Date.now() - lastTime) / 1000;
-  return elapsedSeconds < 300; // 5 minutes cooldown
+  return elapsedSeconds < 5; // 5 seconds brief debounce
 }
 
 function markNotifiedRecently(phone) {
