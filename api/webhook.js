@@ -1400,46 +1400,11 @@ async function processIncomingPayload(body) {
                 continue;
               }
 
-              // CONFIRMATION & CANCELLATION KEYWORDS
-              const confirmKeywords = [
-                'takid', 'taekid', 'taked', 'ta3kid', 'taakid', 'confirm', 'confirmi', 'confirmer',
-                'aked', 'akedha', 'akedli', 'akedhali', 'akedii', 'akidli', 'akedna',
-                'ok', 'oui', 'daccord', 'daweq', 'sah', 'yep', 'yeah',
-                'تاكيد', 'تأكيد', 'نعم', 'اوكي', 'اكدي', 'اكيد', 'موافق', 'ابعث', 'شحن', 'ارسل', 'ابعثها', 'جدية',
-                'اكذها', 'أكدها', 'أكدلي', 'ثبتها', 'ثبتلي'
-              ];
-
-              const cancelKeywords = [
-                'annul', 'cancel', 'non', 'حبس', 'بطلت', 'ما تبعث', 'لا', 'الغاء', 'إلغاء', 'نحي', 'انولي'
-              ];
-
-              const wordCount = messageText.trim().split(/\s+/).length;
-              const isConfirmation = order && wordCount <= 5 && confirmKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-              const isCancellation = order && wordCount <= 5 && cancelKeywords.some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
-
-              if (isConfirmation) {
-                await updateOrderStatusAndArchive(order.id, 'confirmee');
-                const orderNumStr = await getSequentialOrderNum(order);
-                const confirmMsg = `أهلاً بك ${order.clientName || ''}.\nتم تأكيد طلبيتك رقم #${orderNumStr} وجاري تجهيزها للشحن. شكراً لك.`;
-                await sendWhatsAppMessage(fromPhone, confirmMsg);
-                continue;
-              } else if (isCancellation) {
-                await updateOrderStatusAndArchive(order.id, 'annulee');
-                const orderNumStr = await getSequentialOrderNum(order);
-                const cancelMsg = `أهلاً بك ${order.clientName || ''}.\nتم إلغاء الطلبية رقم #${orderNumStr} بناءً على رغبتك. نأمل خدمتك قريباً.`;
-                await sendWhatsAppMessage(fromPhone, cancelMsg);
-                continue;
-              }
-
               // STRICT AI SALES INSTRUCTIONS (ZERO EMOJIS)
               const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
               let salesModeRules = isWholesale ? "الزبون يسأل عن بالجملة (Gros). أجب عن أسعار وشروط الجملة والسيريات من النظام فقط." : "الزبون زبون عادي بالقطعة. أجب عن سؤاله من بيانات النظام فقط.";
 
               let prompt = `رسالة الزبون: "${messageText}"`;
-              if (order) {
-                const orderNumStr = await getSequentialOrderNum(order);
-                prompt += `\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${order.clientName || order.nom}\n- رقم الطلب: #${orderNumStr}\n- المنتج: ${cleanProductText(order.product)}\n- الولاية: ${order.wilaya}\n- الحالة الحالية: ${order.status}`;
-              }
 
               const catalogSummary = products.map(p => {
                 let colorsStr = "متوفر";
@@ -1468,14 +1433,8 @@ async function processIncomingPayload(body) {
    - إذا كان المنتج أو اللون غير موجود كلياً في السيستم أو نافداً من المخزون (مثل اسم وهمي أو لون غير موجود): أجب صراحة بـ "ماكاش متوفر حالياً هاد الموديل أو اللون"، ثم قل له تفضل شوف الموديلات والألوان المتوفرة حالياً في الموقع وأعطه رابط الموقع الرسمي: https://pyjama-dz.vercel.app
 8. إذا سأل الزبون عن الصور (صور, تصاوير, photo): إذا لم تكن الصور مبعوثة فـ المحادثة، قل له تفضل بتصفح كافة صور الموديلات والألوان عبر رابط موقعنا الرسمي: https://pyjama-dz.vercel.app
 9. للزبائن الذين لا يعرفون طريقة الطلب من الموقع ويريدون تسجيل طلبيتهم مباشرة عبر المحادثة (الواتساب / الماسنجر / إنستغرام):
-   - ترحب بهم وتطلب منهم تزويدك بالبيانات التالية بالترتيب:
-     أ) الاسم واللقب الكامل
-     ب) رقم الهاتف
-     ج) الولاية والبلدية
-     د) اسم الموديل واللون والمقاس المطلوب
-     هـ) تحديد شركة أو طريقة التوصيل المطلوبة (إجباري وحتمي! اطلب منه تحديد الشركة صراحة: مثل يالادين Yalidine Express / زد آر ZR Express / توصيل للمنزل Domicile / توصيل للمكتب Bureau).
-   - إذا لم يحدد الزبون شركة أو طريقة التوصيل، اسأله صراحة: "وشمن شركة أو طريقة توصيل حاب نوصلولك بيها؟ (توصيل للمنزل / استلام من المكتب / يالادين / زد آر)" ولا تؤكد الطلبية حتى يختار طريقة/شركة التوصيل صراحة!
-   - بمجرد تقديمهم لجميع هذه البيانات كاملة بما فيها شركة التوصيل المحددة، يُسجل الطلب فوراً وتُحفظ البيانات في السيستم بحالة مؤكدة (confirmee)، وتخبرهم أنه تم تسجيل وتأكيد الطلبية بنجاح مع رقم الطلب وتأكيد اسم شركة التوصيل المحددة.
+   - ترحب بهم وتطلب منهم تزويدك بالبيانات التالية بالترتيب: الاسم واللقب، رقم الهاتف، الولاية والبلدية، اسم الموديل واللون والمقاس، وطريقة/شركة التوصيل.
+   - حذار صارم: لا تقم إطلاقاً باختراع أو كتابة أي رقم طلبية (مثل #80) من عندك! تأكيد الطلبيات وأرقام الطلبيات يتم توليدها حصراً وأوتوماتيكياً بواسطة السيستم.
 
 بيانات المتجر من الإعدادات:
 - العنوان والمقر: ${storeAddressDisplay}
