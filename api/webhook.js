@@ -927,45 +927,43 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
 
     console.log(`Direct Order Check: Client="${clientName}", Phone="${orderPhone}", Wilaya="${wilaya}", Product="${matchedProduct?.title}", Color="${colorLabel}", Size="${requestedSize}", Stock=${currentStock}`);
 
-    // ❌ OUT OF STOCK CASE (Stock is 0)
+    // ❌ OUT OF STOCK CASE (Stock is 0) -> Save to Waitlist ONLY (Do NOT insert into orders table)
     if (requestedSize && currentStock === 0) {
-      await createChatOrderInSupabase({
-        clientName,
-        phone: orderPhone,
-        wilaya,
-        commune: 'المركز',
-        product: `${matchedProduct?.title || 'بيجامات فاخرة'} (${colorLabel}${colorLabel ? ' - ' : ''}${requestedSize || ''})`.trim(),
-        color: colorLabel,
-        size: requestedSize || '',
-        productId: matchedProduct?.id || null,
-        items: [{
-          productId: matchedProduct?.id || null,
-          product: matchedProduct?.title || 'بيجامات فاخرة',
+      await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          client_name: clientName,
+          whatsapp_number: orderPhone,
+          product_id: matchedProduct?.id || null,
+          product_title: matchedProduct?.title || 'بيجامات فاخرة',
           color: colorLabel,
-          size: requestedSize || '',
-          qty: 1,
-          price: Number(matchedProduct?.price || 0)
-        }],
-        totalPrice: Number(matchedProduct?.price || 0),
-        deliveryCompany,
-        status: 'en_attente_stock'
+          size: requestedSize,
+          status: 'pending',
+          created_at: new Date().toISOString()
+        })
       });
 
-      const outMsg = `أهلاً بك ${clientName}.\nنعتذر منك، المقاس ${requestedSize} غير متوفر حالياً في موديل ${matchedProduct?.title || ''} (${colorLabel}).\nتم حفظ رقمك وسنراسلكم فور توفره مجدداً. شكراً لك.`;
+      const outMsg = `أهلاً بك ${clientName}.\nنعتذر منك، المقاس ${requestedSize} غير متوفر حالياً في موديل ${matchedProduct?.title || ''} (${colorLabel}).\nتم حفظ رقمك فـ قائمة الانتظار وسنراسلكم فور توفره مجدداً. شكراً لك.`;
       await sendWhatsAppMessage(fromPhone, outMsg);
       return true;
     }
 
-    // ✅ Save Order as Pending Confirmation (Stock is NOT deducted until client says YES)
+    // ✅ AVAILABLE IN STOCK (> 0) -> Save Order & Deduct Stock Immediately
     const newOrder = await createChatOrderInSupabase({
       clientName,
       phone: orderPhone,
       wilaya,
       commune: 'المركز',
       product: `${matchedProduct?.title || 'بيجامات فاخرة'} (${colorLabel}${colorLabel ? ' - ' : ''}${requestedSize || ''})`.trim(),
-      color: colorLabel,
-      size: requestedSize || '',
-      productId: matchedProduct?.id || null,
+      price: Number(matchedProduct?.price || 0),
+      quantity: 1,
+      deliveryCompany,
+      status: 'confirmee',
       items: [{
         productId: matchedProduct?.id || null,
         product: matchedProduct?.title || 'بيجامات فاخرة',
@@ -973,15 +971,52 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
         size: requestedSize || '',
         qty: 1,
         price: Number(matchedProduct?.price || 0)
-      }],
-      totalPrice: Number(matchedProduct?.price || 0),
-      deliveryCompany,
-      status: 'en_attente_confirmation'
+      }]
     });
 
     if (newOrder) {
-      const pendingMsg = `*متجر Pyjama DZ*\n\nأهلاً بك ${clientName}.\nتلقينا معلومات طلبك لموديل ${matchedProduct?.title || 'بيجامات فاخرة'} (${colorLabel}${colorLabel ? ' - ' : ''}${requestedSize || ''}).\n- الولاية: ${wilaya}\n- التوصيل: ${deliveryCompany}\n- السعر: ${matchedProduct?.price || ''} دج\n\nهل ترغب في تأكيد وتسجيل هذا الطلب لشحنه لك؟\n👉 أجب بـ *نعم* أو *إيه* أو *تأكيد* لتأكيد الطلب الآن.`;
-      await sendWhatsAppMessage(fromPhone, pendingMsg);
+      // Deduct stock for all matching product variants in Supabase
+      const matchedProducts = (products || []).filter(p => {
+        const titleNorm = normalizeText(p.title || '').toLowerCase();
+        const orderTitleNorm = normalizeText(matchedProduct?.title || '').toLowerCase();
+        return titleNorm && orderTitleNorm && titleNorm === orderTitleNorm;
+      });
+
+      const prodsToUpdate = matchedProducts.length > 0 ? matchedProducts : (matchedProduct ? [matchedProduct] : []);
+
+      for (const p of prodsToUpdate) {
+        if (p && Array.isArray(p.colorVariants)) {
+          const updatedVariants = p.colorVariants.map((v, idx) => {
+            if (idx === variantIndex || (!matchedVariant && idx === 0)) {
+              const stockObj = { ...(v.stock || {}) };
+              const stockKeys = Object.keys(stockObj);
+              const targetKey = stockKeys.find(k => k.trim().toLowerCase() === String(requestedSize).trim().toLowerCase()) || stockKeys[0] || requestedSize;
+              if (targetKey && stockObj[targetKey] !== undefined) {
+                const currentQty = Number(stockObj[targetKey] || 1);
+                return {
+                  ...v,
+                  stock: { ...stockObj, [targetKey]: Math.max(0, currentQty - 1) }
+                };
+              }
+            }
+            return v;
+          });
+
+          await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${p.id}`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ colorVariants: updatedVariants })
+          });
+        }
+      }
+
+      const orderNumStr = await getSequentialOrderNum(newOrder);
+      const confirmMsg = `*متجر Pyjama DZ*\n\nأهلاً بك ${clientName}.\nتم تسجيل وتأكيد طلبيتك رقم #${orderNumStr} بنجاح! 📦\n\n- المنتج: ${matchedProduct?.title || 'بيجامات فاخرة'} (${colorLabel}${colorLabel ? ' - ' : ''}${requestedSize || ''})\n- الولاية: ${wilaya}\n- التوصيل: ${deliveryCompany}\n- السعر: ${matchedProduct?.price || ''} دج\n\nجاري تجهيز طلبك وشحنه في أقرب وقت. شكراً لثقتك بنا!`;
+      await sendWhatsAppMessage(fromPhone, confirmMsg);
       return true;
     }
   } catch (err) {
