@@ -521,28 +521,55 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
   
   if (!photoKeywords.some(k => norm.includes(k) || pLower.includes(k))) return false;
 
+  // 1. Filter products if user asked for a specific product title
+  let targetProducts = products || [];
+  if (Array.isArray(products) && products.length > 0) {
+    const specificMatches = products.filter(p => {
+      const titleNorm = normalizeText(p.title || '').toLowerCase();
+      const titleRaw = (p.title || '').toLowerCase();
+      return pLower.includes(titleRaw) || norm.includes(titleNorm);
+    });
+
+    if (specificMatches.length > 0) {
+      targetProducts = specificMatches;
+    }
+  }
+
+  // 2. Collect unique images per target product (1 photo per requested product)
   const matchedImages = [];
-  (products || []).forEach(p => {
+  const seenImageKeys = new Set();
+
+  targetProducts.forEach(p => {
+    let productImgsCount = 0;
     const rawImgs = p.images || p.image;
-    if (Array.isArray(rawImgs)) {
-      rawImgs.forEach(img => {
-        if (img && typeof img === 'string') {
-          const fullUrl = (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:image')) ? img : `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
-          matchedImages.push({ url: fullUrl, caption: `${p.title} - السعر: ${p.price} دج` });
+
+    const addImg = (img, caption) => {
+      if (img && typeof img === 'string' && productImgsCount < 1) {
+        const fullUrl = (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:image')) 
+          ? img 
+          : `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
+        
+        const dedupeKey = fullUrl.slice(0, 100);
+        if (!seenImageKeys.has(dedupeKey)) {
+          seenImageKeys.add(dedupeKey);
+          matchedImages.push({ url: fullUrl, caption });
+          productImgsCount++;
         }
-      });
+      }
+    };
+
+    if (Array.isArray(rawImgs)) {
+      rawImgs.forEach(img => addImg(img, `${p.title} - السعر: ${p.price} دج`));
     } else if (typeof rawImgs === 'string' && rawImgs.trim()) {
-      const fullUrl = (rawImgs.startsWith('http://') || rawImgs.startsWith('https://') || rawImgs.startsWith('data:image')) ? rawImgs : `https://pyjama-dz.vercel.app${rawImgs.startsWith('/') ? '' : '/'}${rawImgs}`;
-      matchedImages.push({ url: fullUrl, caption: `${p.title} - السعر: ${p.price} دج` });
+      addImg(rawImgs, `${p.title} - السعر: ${p.price} دج`);
     }
 
     const variants = p.colorVariants || p.colorvariants;
-    if (Array.isArray(variants)) {
+    if (Array.isArray(variants) && productImgsCount === 0) {
       variants.forEach(cv => {
         const cvImg = cv.image || cv.imageUrl || cv.img;
-        if (cvImg && typeof cvImg === 'string') {
-          const fullUrl = (cvImg.startsWith('http://') || cvImg.startsWith('https://') || cvImg.startsWith('data:image')) ? cvImg : `https://pyjama-dz.vercel.app${cvImg.startsWith('/') ? '' : '/'}${cvImg}`;
-          matchedImages.push({ url: fullUrl, caption: `${p.title} (${cv.name || cv.color || ''}) - السعر: ${p.price} دج` });
+        if (cvImg) {
+          addImg(cvImg, `${p.title} (${cv.name || cv.color || ''}) - السعر: ${p.price} دج`);
         }
       });
     }
