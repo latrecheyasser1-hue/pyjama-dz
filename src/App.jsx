@@ -383,13 +383,17 @@ export default function App() {
     for (const [key, value] of Object.entries(newSettings)) {
       if (value === undefined || value === null) continue;
       const valStr = (key === 'categories' || typeof value === 'object') ? JSON.stringify(value) : (Array.isArray(value) ? value.join(' - ') : String(value));
-      const { data: updated, error: updateError } = await supabase
-        .from('settings')
-        .update({ value: valStr })
-        .eq('key', key)
-        .select();
-      if (!updated || updated.length === 0) {
-        await supabase.from('settings').insert({ key, value: valStr });
+      try {
+        const { data: updated } = await supabase
+          .from('settings')
+          .update({ value: valStr })
+          .eq('key', key)
+          .select();
+        if (!updated || updated.length === 0) {
+          await supabase.from('settings').upsert({ key, value: valStr }, { onConflict: 'key' });
+        }
+      } catch (err) {
+        console.error(`Error updating settings key ${key}:`, err);
       }
     }
     await fetchSettings();

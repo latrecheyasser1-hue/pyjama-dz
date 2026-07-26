@@ -842,7 +842,11 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
       };
       
       const existing = settings && Array.isArray(settings.reclamations) ? settings.reclamations : [];
-      await onUpdateSettings({ reclamations: [newRecl, ...existing] });
+      try {
+        await onUpdateSettings({ reclamations: [newRecl, ...existing] });
+      } catch (e) {
+        console.warn('onUpdateSettings warning:', e);
+      }
 
       // Trigger WhatsApp bot response asynchronously
       fetch('/api/send-reclamation-whatsapp', {
