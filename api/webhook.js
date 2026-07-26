@@ -1194,7 +1194,10 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
 
     const isConfirmIntent = [
       'نعم', 'نعك', 'إيه', 'ايه', 'تأكيد', 'أكد', 'تاكيد', 'حاب نشري', 'نعم حاب',
-      'ديها', 'بعثهالي', 'ابعثهالي', 'yes', 'ok', 'oui', 'مشري', 'حاب نديها', 'نديها'
+      'ديها', 'بعثهالي', 'ابعثهالي', 'yes', 'ok', 'oui', 'مشري', 'حاب نديها', 'نديها',
+      'aked', 'akedli', 'akedha', 'akedhali', 'akidli', 'akid', 'akedna', 'confirmi',
+      'confirm', 'confirmer', 'akedlih', 'اكدلي', 'أكدلي', 'اكدها', 'أكدها', 'ثبتها',
+      'ثبتلي', 'ملا', 'مالا', 'صح', 'اوكي', 'ماذا بيك', 'ابعث'
     ].some(k => normText === k || pLower === k || normText.includes(k) || pLower.includes(k));
 
     if (!isConfirmIntent) return false;
@@ -1450,6 +1453,22 @@ async function processIncomingPayload(body) {
               let salesModeRules = isWholesale ? "الزبون يسأل عن بالجملة (Gros). أجب عن أسعار وشروط الجملة والسيريات من النظام فقط." : "الزبون زبون عادي بالقطعة. أجب عن سؤاله من بيانات النظام فقط.";
 
               let prompt = `رسالة الزبون: "${messageText}"`;
+
+              const localPhone = fromPhone.replace(/^\+?213/, '0');
+              const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
+              try {
+                const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(nouvelle,nouvel,new,pending,en_attente_confirmation,attente_confirmation,attente_confirmation_restock,en_attente_stock,pending_stock)&order=created_at.desc&limit=1`, {
+                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                const existingOrders = await orderCheckRes.json();
+                if (Array.isArray(existingOrders) && existingOrders.length > 0) {
+                  const exOrder = existingOrders[0];
+                  const exOrderNum = await getSequentialOrderNum(exOrder);
+                  prompt += `\n\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${exOrder.clientName || ''}\n- رقم الطلب: #${exOrderNum}\n- المنتج: ${exOrder.product}\n- الولاية: ${exOrder.wilaya}\n- الحالة الحالية: ${exOrder.status}\nإذا طلب الزبون تأكيد هاد الطلبية أو قال (أكدلي/akedli/مالا/ملا)، أجب بأن الطلبية رقم #${exOrderNum} مسجلة ومؤكدة وجاري شحنها، ولا تطلب منه البيانات من جديد إطلاقاً.`;
+                }
+              } catch (e) {
+                console.error("Error fetching order context for AI:", e);
+              }
 
               const catalogSummary = products.map(p => {
                 let colorsStr = "متوفر";
