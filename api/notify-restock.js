@@ -253,8 +253,12 @@ export default async function handler(req, res) {
         // Update ALL waitlist rows for this customer's phone number to 'notified'
         try {
           const numStr = entry.whatsapp_number || entry.phone || '';
-          if (numStr) {
-            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=eq.${encodeURIComponent(numStr)}`, {
+          const rawDigits = String(numStr).replace(/\D/g, '');
+          const last9 = rawDigits.length >= 9 ? rawDigits.slice(-9) : rawDigits;
+
+          if (last9) {
+            const patchUrl = `${SUPABASE_URL}/rest/v1/waitlist?or=(whatsapp_number.eq.0${last9},whatsapp_number.eq.213${last9},whatsapp_number.eq.%2B213${last9},whatsapp_number.eq.${last9})`;
+            await fetch(patchUrl, {
               method: 'PATCH',
               headers: {
                 'apikey': SUPABASE_KEY,
