@@ -17,20 +17,26 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
   const [returnConfirmationId, setReturnConfirmationId] = useState(null);
 
   // Complaints History Logic
-  const resolvedReclamations = useMemo(() => {
-    const list = settings?.reclamations && Array.isArray(settings.reclamations) ? settings.reclamations : [];
-    return list.filter(r => r.status === 'resolue');
+  const allReclamations = useMemo(() => {
+    let list = settings?.reclamations;
+    if (typeof list === 'string') {
+      try { list = JSON.parse(list); } catch (e) { list = []; }
+    }
+    return Array.isArray(list) ? list : [];
   }, [settings?.reclamations]);
 
   const filteredReclamations = useMemo(() => {
-    if (!search.trim()) return resolvedReclamations;
-    const q = search.toLowerCase().trim();
-    return resolvedReclamations.filter(r => {
-      return (r.clientName && r.clientName.toLowerCase().includes(q)) ||
-             (r.whatsappNumber && r.whatsappNumber.includes(q)) ||
-             (r.message && r.message.toLowerCase().includes(q));
-    });
-  }, [resolvedReclamations, search]);
+    let res = allReclamations;
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      res = res.filter(r => {
+        return (r.clientName && r.clientName.toLowerCase().includes(q)) ||
+               (r.whatsappNumber && r.whatsappNumber.includes(q)) ||
+               (r.message && r.message.toLowerCase().includes(q));
+      });
+    }
+    return res;
+  }, [allReclamations, search]);
 
   const handleDeleteReclamation = async (id) => {
     if (!window.confirm('هل أنت متأكد من حذف هذه الشكوى نهائياً من الأرشيف؟')) return;

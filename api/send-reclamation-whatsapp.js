@@ -120,7 +120,44 @@ export default async function handler(req, res) {
     });
 
     const metaData = await metaRes.json();
-    console.log('Reclamation WhatsApp send result:', metaData);
+    // Save to Supabase settings table (reclamations array) as backend safety backup
+    try {
+      const curSettingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations&select=*`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const rows = await curSettingsRes.json();
+      let existingRecl = [];
+      if (Array.isArray(rows) && rows[0]?.value) {
+        try { existingRecl = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value; } catch(e) {}
+      }
+      if (!Array.isArray(existingRecl)) existingRecl = [];
+
+      const newReclObj = {
+        id: 'REC-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        clientName: clientName || 'زبون الموقع',
+        whatsappNumber: whatsappNumber || waPhone,
+        message: message ? message.trim() : '',
+        status: 'nouvelle',
+        createdAt: new Date().toISOString()
+      };
+
+      const isDuplicate = existingRecl.some(r => r.message === newReclObj.message && r.whatsappNumber === newReclObj.whatsappNumber && (Date.now() - new Date(r.createdAt).getTime()) < 10000);
+      
+      if (!isDuplicate) {
+        const valStr = JSON.stringify([newReclObj, ...existingRecl]);
+        await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ value: valStr })
+        });
+      }
+    } catch (e) {
+      console.error('Error saving reclamation in send-reclamation-whatsapp API:', e);
+    }
 
     return res.status(200).json({ success: true, type, metaData });
   } catch (err) {
