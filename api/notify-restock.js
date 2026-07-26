@@ -223,44 +223,61 @@ export default async function handler(req, res) {
       }
     }
 
-    // Process Waitlist
-    if (availableQty > 0) {
-      for (const entry of waitlistEntries) {
-        if (availableQty <= 0) break;
-        const entryPhone = entry.whatsapp_number || entry.phone;
-        const waPhone = formatWhatsAppPhone(entryPhone);
-        if (!waPhone || notifiedPhones.has(waPhone)) continue;
+    // Process Waitlist Entries (always process waiting customers)
+    for (const entry of waitlistEntries) {
+      const entryPhone = entry.whatsapp_number || entry.phone;
+      const waPhone = formatWhatsAppPhone(entryPhone);
+      if (!waPhone || notifiedPhones.has(waPhone)) continue;
 
-        const entrySize = entry.size || '';
-        const entryProdId = entry.product_id || entry.productId;
-        const entryProdText = entry.product_title || entry.product || '';
+      const entrySize = entry.size || '';
+      const entryProdId = entry.product_id || entry.productId;
+      const entryProdText = entry.product_title || entry.product || '';
 
-        const sizeMatches = isSizeMatch(targetSize, entrySize, entryProdText);
-        const prodMatches = isProductMatch(productId, productTitle, entryProdId, entryProdText);
+      const sizeMatches = isSizeMatch(targetSize, entrySize, entryProdText);
+      const prodMatches = isProductMatch(productId, productTitle, entryProdId, entryProdText);
 
-        if (sizeMatches && prodMatches) {
-          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
-            method: 'PATCH',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ status: 'notified' })
-          });
+      if (sizeMatches && prodMatches) {
+        await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'notified' })
+        });
 
-          const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
-          const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-          const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
+        // Also create pending order for confirmation tracking
+        await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            clientName: entry.client_name || 'زبون المحادثة',
+            phone: entryPhone,
+            wilaya: entry.wilaya || 'الشلف',
+            product: `${entryProdText || productTitle} (${entrySize})`,
+            price: 0,
+            quantity: 1,
+            deliveryCompany: 'Livraison Domicile',
+            status: 'attente_confirmation_restock',
+            created_at: new Date().toISOString(),
+            items: [{ product: entryProdText || productTitle, size: entrySize, qty: 1 }]
+          })
+        });
 
-          const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك عبر موقعنا الرسمي: https://pyjama-dz.vercel.app أو بالرد على هذه الرسالة. شكراً لانتظارك.`;
+        const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
+        const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
+        const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
 
-          await sendWhatsAppMessage(waPhone, restockMsg);
-          notifiedPhones.add(waPhone);
+        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر المقاس المطلوب (${targetSize}) مجدداً${prodDesc}! 🔥\nهل ما زلت ترغب فـ تأكيد وتجهيز الطلبية لشحنها لك الآن؟\n\n👉 أجب بـ *نعم* أو *إيه* أو *تأكيد* لتأكيد الطلب فوراً.`;
 
-          notifiedCount++;
-          availableQty = Math.max(0, availableQty - 1);
-        }
+        await sendWhatsAppMessage(waPhone, restockMsg);
+        notifiedPhones.add(waPhone);
+        notifiedCount++;
       }
     }
 
