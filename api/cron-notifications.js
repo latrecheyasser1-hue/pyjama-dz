@@ -204,8 +204,8 @@ export default async function handler(req, res) {
           }
         }
 
-        // Send short text message at the end explaining these are the week's trending items
-        const textMsg = `*متجر Pyjama DZ*\n\n${greeting}! 🌸\nهذو هما الموديلات والسلعة لي راهم توندونس (Tendance / Hot Sale) هاد الأسبوع في متجرنا! 🔥✨\n\nتفضل بتصفح كافة الصور والمنتجات والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+        // Send short text message at the end explaining these are the most sold products this week
+        const textMsg = `*متجر Pyjama DZ*\n\n${greeting}! 🌸\nهذو هما المنتجات والسلعة الأكثر مبيعاً هاد الأسبوع في متجرنا! 🔥✨\n\nتفضل بتصفح كافة الصور والمنتجات والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
 
         await sendWhatsAppMessage(phone, textMsg);
         sentCount++;
