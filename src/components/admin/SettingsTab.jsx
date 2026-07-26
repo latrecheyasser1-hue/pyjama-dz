@@ -32,8 +32,10 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   const [cashierPinInput, setCashierPinInput] = useState(() => settings?.cashierPin || '123456');
   const [cashierSuccess, setCashierSuccess] = useState(false);
 
+  const [isInitialized, setIsInitialized] = useState(false);
+
   useEffect(() => {
-    if (settings) {
+    if (settings && !isInitialized) {
       if (settings.instagramUrl !== undefined) setInstaUrl(settings.instagramUrl);
       if (settings.whatsapp !== undefined) setWhatsapp(settings.whatsapp);
       if (settings.whatsappBoutiqueManager !== undefined) setWhatsappBoutiqueManager(settings.whatsappBoutiqueManager);
@@ -42,12 +44,10 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       if (settings.address !== undefined) setAddress(settings.address);
       if (settings.googleMapsUrl !== undefined) setGoogleMapsUrl(settings.googleMapsUrl);
       if (settings.storeName !== undefined) setStoreName(settings.storeName.replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
-      if (settings.categories && Array.isArray(settings.categories) && settings.categories.length > 0) {
-        // Categories handled in separate tab
-      }
       if (settings.cashierPin !== undefined) setCashierPinInput(settings.cashierPin);
+      setIsInitialized(true);
     }
-  }, [settings]);
+  }, [settings, isInitialized]);
 
   const handlePinChangeSubmit = (e) => {
     e.preventDefault();
