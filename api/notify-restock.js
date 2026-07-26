@@ -248,29 +248,19 @@ export default async function handler(req, res) {
       const colorMatches = isColorMatch(targetColor, entry.color);
 
       if (sizeMatches && prodMatches && colorMatches) {
-        // Atomic DB claim: Only the request that succeeds in transitioning status from pending to notified gets to send the message
-        let patchedEntries = [];
+        notifiedPhones.add(waPhone);
+
         try {
-          const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}&status=in.(pending,en_attente,out_of_stock)`, {
+          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
             method: 'PATCH',
             headers: {
               'apikey': SUPABASE_KEY,
               'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=representation'
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({ status: 'notified' })
           });
-          patchedEntries = await patchRes.json();
         } catch (e) {}
-
-        if (!Array.isArray(patchedEntries) || patchedEntries.length === 0) {
-          console.log(`Waitlist entry ${entry.id} was already notified/claimed by another request. Skipping duplicate.`);
-          continue;
-        }
-
-        notifiedPhones.add(waPhone);
-        markNotifiedRecently(waPhone);
 
         const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
