@@ -405,12 +405,23 @@ async function sendWhatsAppMessage(toPhone, textBody) {
 
 async function uploadMediaToMeta(token, imageUrl) {
   try {
-    const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) return null;
-    const imgBlob = await imgRes.blob();
+    let blob, mimeType = "image/jpeg";
+    if (typeof imageUrl === 'string' && imageUrl.startsWith("data:image")) {
+      const parts = imageUrl.split(",");
+      mimeType = parts[0].match(/:(.*?);/)?.[1] || "image/jpeg";
+      const base64Data = parts[1];
+      const buffer = Buffer.from(base64Data, "base64");
+      blob = new Blob([buffer], { type: mimeType });
+    } else {
+      const imgRes = await fetch(imageUrl);
+      if (!imgRes.ok) return null;
+      blob = await imgRes.blob();
+      mimeType = blob.type || "image/jpeg";
+    }
+
     const formData = new FormData();
-    formData.append("file", imgBlob, "product.jpg");
-    formData.append("type", imgBlob.type || "image/jpeg");
+    formData.append("file", blob, "product.jpg");
+    formData.append("type", mimeType);
     formData.append("messaging_product", "whatsapp");
 
     const uploadRes = await fetch(`https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/media`, {
@@ -515,13 +526,13 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
     const rawImgs = p.images || p.image;
     if (Array.isArray(rawImgs)) {
       rawImgs.forEach(img => {
-        if (img && typeof img === 'string' && !img.startsWith('data:image')) {
-          const fullUrl = (img.startsWith('http://') || img.startsWith('https://')) ? img : `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
+        if (img && typeof img === 'string') {
+          const fullUrl = (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:image')) ? img : `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
           matchedImages.push({ url: fullUrl, caption: `${p.title} - السعر: ${p.price} دج` });
         }
       });
-    } else if (typeof rawImgs === 'string' && rawImgs.trim() && !rawImgs.startsWith('data:image')) {
-      const fullUrl = (rawImgs.startsWith('http://') || rawImgs.startsWith('https://')) ? rawImgs : `https://pyjama-dz.vercel.app${rawImgs.startsWith('/') ? '' : '/'}${rawImgs}`;
+    } else if (typeof rawImgs === 'string' && rawImgs.trim()) {
+      const fullUrl = (rawImgs.startsWith('http://') || rawImgs.startsWith('https://') || rawImgs.startsWith('data:image')) ? rawImgs : `https://pyjama-dz.vercel.app${rawImgs.startsWith('/') ? '' : '/'}${rawImgs}`;
       matchedImages.push({ url: fullUrl, caption: `${p.title} - السعر: ${p.price} دج` });
     }
 
@@ -529,8 +540,8 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
     if (Array.isArray(variants)) {
       variants.forEach(cv => {
         const cvImg = cv.image || cv.imageUrl || cv.img;
-        if (cvImg && typeof cvImg === 'string' && !cvImg.startsWith('data:image')) {
-          const fullUrl = (cvImg.startsWith('http://') || cvImg.startsWith('https://')) ? cvImg : `https://pyjama-dz.vercel.app${cvImg.startsWith('/') ? '' : '/'}${cvImg}`;
+        if (cvImg && typeof cvImg === 'string') {
+          const fullUrl = (cvImg.startsWith('http://') || cvImg.startsWith('https://') || cvImg.startsWith('data:image')) ? cvImg : `https://pyjama-dz.vercel.app${cvImg.startsWith('/') ? '' : '/'}${cvImg}`;
           matchedImages.push({ url: fullUrl, caption: `${p.title} (${cv.name || cv.color || ''}) - السعر: ${p.price} دج` });
         }
       });
@@ -548,7 +559,7 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
   if (matchedImages.length > 0) {
     let sentCount = 0;
     for (const item of matchedImages.slice(0, 3)) {
-      console.log('Sending product image to WhatsApp:', item.url);
+      console.log('Sending product image to WhatsApp:', item.url.slice(0, 50));
       const res = await sendWhatsAppImage(toPhone, item.url, item.caption);
       if (res) sentCount++;
     }
