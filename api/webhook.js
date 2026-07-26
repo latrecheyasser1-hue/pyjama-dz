@@ -1366,6 +1366,56 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
   return false;
 }
 
+async function processOrderConfirmationIntent(fromPhone, messageText) {
+  try {
+    if (!messageText) return false;
+    const rawLower = String(messageText).toLowerCase().trim();
+    const normText = normalizeText(messageText);
+
+    const confirmKeywords = [
+      'أكد', 'أكدلي', 'تأكيد', 'نؤكد', 'أكدها', 'نعم أكد', 'نعم أكدلي', 'مالا أكدلي', 'ملا أكدلي',
+      'أكد الطلبية', 'تأكيد الطلبية', 'تأكيد الطلب', 'أكدلي الطلبية', 'أكدلي طلبية', 'أكدلي الطلب',
+      'أكدلي خويا', 'أكد خويا', 'نعم أكدها', 'ملا أكدها', 'مالا أكدها', 'أكدها خويا', 'أكد هاد الطلبية',
+      'aked', 'akedli', 'akedlii', 'akedha', 'confirme', 'confirmer', 'confirmation',
+      'oui confirme', 'oui akedli', 'oui aked', 'daccord confirme'
+    ];
+
+    const isConfirmIntent = confirmKeywords.some(kw => normText.includes(kw) || rawLower.includes(kw));
+    if (!isConfirmIntent) return false;
+
+    const rawDigits = fromPhone.replace(/\D/g, '');
+    const localPhone = rawDigits.startsWith('213') ? '0' + rawDigits.slice(3) : rawDigits;
+    const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
+
+    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(nouvelle,nouvel,new,pending,en_attente_confirmation,attente_confirmation,attente_confirmation_restock,en_attente_stock,pending_stock)&order=created_at.desc&limit=1`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+
+    const pendingOrders = await orderCheckRes.json();
+    if (!Array.isArray(pendingOrders) || pendingOrders.length === 0) {
+      return false; // No pending order to confirm
+    }
+
+    const orderToConfirm = pendingOrders[0];
+    await updateOrderStatusAndArchive(orderToConfirm.id, 'confirmee');
+
+    const orderNumStr = await getSequentialOrderNum(orderToConfirm);
+    const rawName = orderToConfirm.clientName || '';
+    const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
+      ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
+      : '';
+    const clientNameStr = cleanName ? ` ${cleanName}` : '';
+
+    const confirmMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل. شكراً لثقتك بمتجرنا! ❤️`;
+
+    await sendWhatsAppMessage(fromPhone, confirmMsg);
+    return true;
+  } catch (err) {
+    console.error('Error processing order confirmation intent:', err);
+  }
+  return false;
+}
+
 async function processIncomingPayload(body) {
   try {
     const entries = body?.entry || (Array.isArray(body) ? body : [body]);
@@ -1649,6 +1699,10 @@ ${salesModeRules}`;
                 await sendWhatsAppMessage(fromPhone, "تفضل خويا، تم إرسال صور الموديلات المتوفرة أعلاه في المحادثة. يمكنك تصفح باقي المنتجات والألوان عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app");
                 continue;
               }
+
+              // Check for order confirmation reply from customer ("أكدلي", "akedli", etc.)
+              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
+              if (handledOrderConfirm) continue;
 
               // Check for restock confirmation reply from customer
               const handledRestockConfirm = await processRestockConfirmationIntent(fromPhone, messageText, products);
