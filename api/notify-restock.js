@@ -250,22 +250,26 @@ export default async function handler(req, res) {
       if (sizeMatches && prodMatches && colorMatches) {
         notifiedPhones.add(waPhone);
 
-        // Update ALL waitlist rows for this customer's phone number to 'notified' by Primary Key ID
+        // Update ALL waitlist rows for this customer's phone number to 'notified' by Primary Key ID and await completion
         try {
+          const patches = [];
           waitlistEntries.forEach(e => {
             const ePhone = formatWhatsAppPhone(e.whatsapp_number || e.phone);
             if (ePhone === waPhone && e.id) {
-              fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${e.id}`, {
-                method: 'PATCH',
-                headers: {
-                  'apikey': SUPABASE_KEY,
-                  'Authorization': `Bearer ${SUPABASE_KEY}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ status: 'notified' })
-              }).catch(() => {});
+              patches.push(
+                fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${e.id}`, {
+                  method: 'PATCH',
+                  headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ status: 'notified' })
+                })
+              );
             }
           });
+          await Promise.all(patches);
         } catch (e) {}
 
         const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
