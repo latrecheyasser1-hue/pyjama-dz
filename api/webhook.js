@@ -489,7 +489,7 @@ async function createChatOrderInSupabase(orderData) {
       quantity: Number(orderData.quantity || 1),
       totalPrice: Number(orderData.totalPrice || 0),
       deliveryCompany: orderData.deliveryCompany || 'Livraison Domicile',
-      status: 'confirmee',
+      status: orderData.status || 'confirmee',
       created_at: new Date().toISOString()
     };
 
@@ -508,6 +508,65 @@ async function createChatOrderInSupabase(orderData) {
   } catch (err) {
     console.error('Error creating chat order in Supabase:', err);
     return null;
+  }
+}
+
+async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
+  try {
+    if (!size || newQty <= 0) return;
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=eq.en_attente_stock`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const orders = await res.json();
+    if (!Array.isArray(orders) || orders.length === 0) return;
+
+    for (const order of orders) {
+      const orderSize = (order.size || '').toUpperCase();
+      const targetSize = size.toUpperCase();
+
+      if (orderSize === targetSize && order.phone) {
+        await updateOrderStatusAndArchive(order.id, 'confirmee');
+        
+        const orderNumStr = await getSequentialOrderNum(order);
+        const restockMsg = `أهلاً بك ${order.clientName || ''}.\nبشرى سارة، توفر مقاسك (${size}) مجدداً!\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح وجاري تجهيزها للشحن. شكراً لانتظارك.`;
+        
+        const cleanPhone = order.phone.replace(/\D/g, '');
+        const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
+        await sendWhatsAppMessage(waPhone, restockMsg);
+
+        newQty = Math.max(0, newQty - 1);
+
+        if (productId && colorIdx >= 0) {
+          const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          const prods = await prodRes.json();
+          const product = Array.isArray(prods) ? prods[0] : null;
+          if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
+            const updatedVariants = [...product.colorVariants];
+            updatedVariants[colorIdx] = {
+              ...updatedVariants[colorIdx],
+              stock: { ...(updatedVariants[colorIdx].stock || {}), [size]: newQty }
+            };
+            await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+              },
+              body: JSON.stringify({ colorVariants: updatedVariants })
+            });
+          }
+        }
+
+        if (newQty <= 0) break;
+      }
+    }
+  } catch (err) {
+    console.error('Error notifying waiting customers:', err);
   }
 }
 
@@ -597,6 +656,19 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
 
     // ❌ OUT OF STOCK CASE (Stock is 0)
     if (requestedSize && currentStock === 0) {
+      await createChatOrderInSupabase({
+        clientName,
+        phone: orderPhone,
+        wilaya,
+        commune: 'المركز',
+        product: `${matchedProduct?.title || 'بيجامات فاخرة'} (${matchedVariant?.name || ''} - ${requestedSize || ''})`.trim(),
+        color: matchedVariant?.name || '',
+        size: requestedSize || '',
+        totalPrice: Number(matchedProduct?.price || 0),
+        deliveryCompany,
+        status: 'en_attente_stock'
+      });
+
       const outMsg = `أهلاً بك ${clientName}.\nنعتذر منك، المقاس ${requestedSize} غير متوفر حالياً في موديل ${matchedProduct?.title || ''} (${matchedVariant?.name || ''}).\nتم حفظ رقمك وسنراسلكم فور توفره مجدداً. شكراً لك.`;
       await sendWhatsAppMessage(fromPhone, outMsg);
       return true;
@@ -792,31 +864,6 @@ async function checkAndAlertLowStock(product, storeSettings) {
         await sendWhatsAppMessage(targetPhone, alertMsg);
       }
     }
-  }
-}
-
-async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
-  try {
-    const url = `${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc&limit=50`;
-    const res = await fetch(url, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    const orders = await res.json();
-    if (!Array.isArray(orders)) return;
-
-    // Find customers who had an order or request for this product
-    const notifiedPhones = new Set();
-    for (const o of orders) {
-      if (o.phone && !notifiedPhones.has(o.phone)) {
-        notifiedPhones.add(o.phone);
-        const clientName = o.clientName || o.nom || 'الزبون الكريم';
-        const msg = `*متجر Pyjama DZ*\n\nمرحباً بك سيد ${clientName}.\nنعلمك أن المنتج الذي أردت طلبه قد توفر مجدداً في السطوك بكميات جديدة.\nيمكنك الطلب الآن مباشرة عبر موقعنا الرسمي: https://pyjama-dz.vercel.app`;
-        await sendWhatsAppMessage(o.phone, msg);
-        break; // Notify first relevant waiting customer
-      }
-    }
-  } catch (err) {
-    console.error('Error notifying waiting customers:', err);
   }
 }
 

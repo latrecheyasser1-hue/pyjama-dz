@@ -604,6 +604,18 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       ...product,
       colorVariants: updatedVariants
     });
+
+    // Notify waiting customers if stock was increased
+    if (delta > 0) {
+      const targetCv = product.colorVariants?.[colorIdx];
+      const currentQty = targetCv?.stock?.[size] || 0;
+      const nextQty = currentQty + delta;
+      fetch('/api/notify-restock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id, size, newQty: nextQty })
+      }).catch(err => console.error('Restock notify error:', err));
+    }
   };
 
   // Selected supplier phone
