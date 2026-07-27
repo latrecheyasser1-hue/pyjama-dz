@@ -138,10 +138,8 @@ export default async function handler(req, res) {
       });
     }
 
-    const validBoutiquePhone = (storeSettings.whatsappBoutiqueManager && !storeSettings.whatsappBoutiqueManager.includes('123456')) ? storeSettings.whatsappBoutiqueManager : null;
-    const validLivraisonPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456')) ? storeSettings.whatsappLivraisonManager : null;
-
-    const fallbackManagerPhones = [validBoutiquePhone, validLivraisonPhone, storeSettings.whatsapp, storeSettings.phoneOrders, "0554128933"].filter(p => p && String(p).trim() !== '' && !String(p).includes('123456'));
+    const boutiqueManagerPhone = (storeSettings.whatsappBoutiqueManager && !storeSettings.whatsappBoutiqueManager.includes('123456')) ? storeSettings.whatsappBoutiqueManager : null;
+    const livraisonManagerPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456')) ? storeSettings.whatsappLivraisonManager : null;
 
     // 2. Fetch target product or all products
     let url = `${SUPABASE_URL}/rest/v1/products?select=*`;
@@ -158,39 +156,40 @@ export default async function handler(req, res) {
       for (const product of products) {
         if (!product || !Array.isArray(product.colorVariants)) continue;
 
+        // Check if product belongs to Boutique stock vs Livraison stock
+        const isBoutiqueProduct = (product.category && String(product.category).startsWith('boutique__')) ||
+                                  (product.badge && String(product.badge).includes('Boutique'));
+
         for (let cIdx = 0; cIdx < product.colorVariants.length; cIdx++) {
           const variant = product.colorVariants[cIdx];
           if (!variant || !variant.stock) continue;
 
-          const isBoutiqueStock = String(variant.name || variant.color || '').toLowerCase().includes('حانيت') || 
-                                  String(variant.name || variant.color || '').toLowerCase().includes('boutique') ||
-                                  String(variant.name || variant.color || '').toLowerCase().includes('محل');
+          const isBoutiqueVariant = isBoutiqueProduct ||
+                                    String(variant.name || variant.color || '').toLowerCase().includes('حانيت') || 
+                                    String(variant.name || variant.color || '').toLowerCase().includes('boutique') ||
+                                    String(variant.name || variant.color || '').toLowerCase().includes('محل');
           
-          let targetPhones = [];
-          if (isBoutiqueStock && validBoutiquePhone) {
-            targetPhones = [validBoutiquePhone];
-          } else if (!isBoutiqueStock && validLivraisonPhone) {
-            targetPhones = [validLivraisonPhone];
-          } else {
-            targetPhones = fallbackManagerPhones.length > 0 ? fallbackManagerPhones : ["0554128933"];
-          }
+          // Strict Manager Routing:
+          // Boutique stock alerts ONLY go to boutiqueManagerPhone.
+          // Livraison stock alerts ONLY go to livraisonManagerPhone.
+          const targetPhone = isBoutiqueVariant ? boutiqueManagerPhone : livraisonManagerPhone;
+          const locationLabel = isBoutiqueVariant ? "سطوك المحل (Boutique)" : "سطوك التوصيل (Livraison)";
 
-          const locationLabel = isBoutiqueStock ? "سطوك المحل (Boutique)" : "سطوك التوصيل (Livraison)";
+          // Skip if no manager phone is registered for this specific stock type
+          if (!targetPhone) continue;
 
           for (const [size, qty] of Object.entries(variant.stock)) {
             const numQty = parseInt(qty);
             if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
               const alertMsg = `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.\n\n🔄 للإضافة في المخزون، قم بالرد المباشر (Répondre) على هذه الرسالة برقم الكمية المضافة فقط (مثال: 15).\n[REF:${product.id}:${cIdx}:${size}]`;
 
-              for (const targetPhone of targetPhones) {
-                // Send template to open Meta's 24-hour window automatically if needed
-                await sendWhatsAppTemplate(targetPhone, 'hello_world', 'en_US');
+              // Send template to open Meta's 24-hour window automatically if needed
+              await sendWhatsAppTemplate(targetPhone, 'hello_world', 'en_US');
 
-                const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
-                if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
-                  await saveStockAlertRecord(alertRes.messages[0].id, targetPhone, product.id, cIdx, size);
-                  alertsSent++;
-                }
+              const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
+              if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
+                await saveStockAlertRecord(alertRes.messages[0].id, targetPhone, product.id, cIdx, size);
+                alertsSent++;
               }
             }
           }
