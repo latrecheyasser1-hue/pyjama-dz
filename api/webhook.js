@@ -1310,15 +1310,8 @@ async function checkAndAlertLowStock(product, storeSettings) {
 
         const isQtyChanged = !lastAlertState || lastAlertState.qty !== numQty;
         const is30MinElapsed = lastAlertState && (now - (lastAlertState.timestamp || 0) >= 30 * 60 * 1000);
-        const isRecentlySentIn2Min = lastAlertState && (now - (lastAlertState.timestamp || 0) < 2 * 60 * 1000);
 
-        // Anti-duplicate rule: Do NOT send if sent less than 2 minutes ago
-        if (isRecentlySentIn2Min) {
-          console.log(`Skipping duplicate alert for ${product.title} ${size} - already sent less than 2 mins ago.`);
-          continue;
-        }
-
-        // Only send if quantity actually changed/dropped OR 30 minutes elapsed
+        // Send alert if quantity changed (e.g. dropped to <= 5) OR 30 minutes elapsed
         if (isQtyChanged || is30MinElapsed) {
           const alertMsg = `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.`;
           
@@ -1691,8 +1684,6 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
 
     const orderToConfirm = pendingOrders[0];
     await updateOrderStatusAndArchive(orderToConfirm.id, 'confirmee');
-    const products = await getAllProducts();
-    await deductStockForOrder(orderToConfirm.product, orderToConfirm.color, orderToConfirm.size, 1, products);
 
     const orderNumStr = await getSequentialOrderNum(orderToConfirm);
     const rawName = orderToConfirm.clientName || '';
