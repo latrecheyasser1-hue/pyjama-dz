@@ -236,9 +236,12 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
       const prodMatches = isProdMatch(productId, productTitle, entryProdId, entryProdText);
 
       if (sizeMatches && colorMatches && prodMatches) {
-        // Mark waitlist entry status as notified in Supabase
+        notifiedPhones.add(waPhone);
+        
+        // Mark ALL pending waitlist entries for this phone as notified in Supabase
         try {
-          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
+          const raw9 = cleanPhone.slice(-9);
+          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.*${raw9}*&status=in.(pending,en_attente)`, {
             method: 'PATCH',
             headers: {
               'apikey': SUPABASE_KEY,
@@ -257,7 +260,6 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
         const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\n🎉 بشرى سارة! توفر مقاسك (${targetSize}) مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
 
         await sendWhatsAppMessage(waPhone, restockMsg);
-        notifiedPhones.add(waPhone);
       }
     }
   } catch (err) {

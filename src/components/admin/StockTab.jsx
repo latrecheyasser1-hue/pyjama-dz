@@ -633,10 +633,6 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     };
 
     onUpdateProduct(updatedProduct);
-
-    if (delta > 0) {
-      triggerNotifyRestock(product.id, product.title, size, nextQty);
-    }
   };
 
   // Direct stock quantity setter (number input box)
@@ -657,11 +653,6 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     };
 
     onUpdateProduct(updatedProduct);
-
-    if (nextQty > 0) {
-      const colorName = product.colorVariants?.[colorIdx]?.color || '';
-      triggerNotifyRestock(product.id, product.title, size, nextQty, colorName);
-    }
   };
 
   // Selected supplier phone
