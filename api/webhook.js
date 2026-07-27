@@ -824,29 +824,7 @@ async function recordOutOfStockInquiry(fromPhone, messageText, products) {
       const sizeStr = requestedSize || '';
       const prodTitle = matchedProduct?.title || 'بيجامات فاخرة';
 
-      await createChatOrderInSupabase({
-        clientName: 'زبون الواتساب',
-        phone: cleanPhone,
-        wilaya: 'الشلف',
-        commune: 'المركز',
-        product: `${prodTitle}${matchedColor ? ' - ' + matchedColor : ''}${sizeStr ? ' (' + sizeStr + ')' : ''}`,
-        color: matchedColor,
-        size: sizeStr,
-        productId: matchedProduct?.id,
-        items: [{
-          productId: matchedProduct?.id,
-          product: prodTitle,
-          color: matchedColor,
-          size: sizeStr,
-          qty: 1,
-          price: Number(matchedProduct?.price || 0)
-        }],
-        price: Number(matchedProduct?.price || 0),
-        deliveryCompany: 'Livraison Domicile',
-        status: 'en_attente_stock'
-      });
-
-      // Also create a waitlist entry with status 'pending'
+      // Insert ONLY into waitlist table with status 'pending' (DO NOT insert into orders table)
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
           method: 'POST',
@@ -868,7 +846,7 @@ async function recordOutOfStockInquiry(fromPhone, messageText, products) {
         });
       } catch (e) {}
 
-      console.log(`Auto-recorded out of stock inquiry: Phone=${cleanPhone}, Size=${sizeStr}, Product=${prodTitle}`);
+      console.log(`Auto-recorded waitlist entry: Phone=${cleanPhone}, Size=${sizeStr}, Product=${prodTitle}`);
     }
   } catch (err) {
     console.error('Error recording out of stock inquiry:', err);
