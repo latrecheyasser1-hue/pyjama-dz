@@ -228,7 +228,7 @@ export default async function handler(req, res) {
     // Query Waitlist entries waiting for stock
     let waitlistEntries = [];
     try {
-      const waitlistRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?status=in.(pending,en_attente,out_of_stock)&order=created_at.asc`, {
+      const waitlistRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?status=in.(pending,en_attente)&order=created_at.asc`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       waitlistEntries = await waitlistRes.json();
