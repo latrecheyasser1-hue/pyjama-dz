@@ -340,41 +340,55 @@ export default function App() {
         }
       } 
       // Deduct stock for Storefront orders
-      else if (newOrder.productId) {
-        const product = products.find(p => p.id === newOrder.productId);
-        if (product && product.stock !== undefined) {
-          const newStock = Math.max(0, product.stock - (newOrder.qty || 1));
-           const safePayload = sanitizeProductForDb({ stock: newStock });
-           if (Object.keys(safePayload).length > 0) {
-             await supabase.from('products').update(safePayload).eq('id', product.id);
-             setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
-           }
+      else if (newOrder.productId || newOrder.product) {
+        const product = products.find(p => p.id === newOrder.productId || p.title === newOrder.product);
+        if (product) {
+          let updatedPayload = {};
+          let updatedProductObj = { ...product };
+
+          if (product.colorVariants && product.colorVariants.length > 0) {
+            const targetColor = newOrder.color || newOrder.colorVariant || '';
+            const targetSize = newOrder.size || '';
+            
+            const updatedVariants = product.colorVariants.map(v => {
+              const vColor = v.name || v.color || '';
+              const isMatchColor = !targetColor || vColor.toLowerCase().trim() === targetColor.toLowerCase().trim();
+              if (isMatchColor && v.stock && v.stock[targetSize] !== undefined) {
+                const currentStock = parseInt(v.stock[targetSize]) || 0;
+                const newQty = Math.max(0, currentStock - (newOrder.qty || 1));
+                return { ...v, stock: { ...v.stock, [targetSize]: newQty } };
+              }
+              return v;
+            });
+
+            updatedPayload.colorVariants = updatedVariants;
+            updatedProductObj.colorVariants = updatedVariants;
+
+            if (product.stock !== undefined) {
+              const newRootStock = Math.max(0, (parseInt(product.stock) || 0) - (newOrder.qty || 1));
+              updatedPayload.stock = newRootStock;
+              updatedProductObj.stock = newRootStock;
+            }
+          } else if (product.stock !== undefined) {
+            const newRootStock = Math.max(0, (parseInt(product.stock) || 0) - (newOrder.qty || 1));
+            updatedPayload.stock = newRootStock;
+            updatedProductObj.stock = newRootStock;
+          }
+
+          const safePayload = sanitizeProductForDb(updatedPayload);
+          if (Object.keys(safePayload).length > 0) {
+            await supabase.from('products').update(safePayload).eq('id', product.id);
+            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
+          }
+
+          // Trigger low stock check & manager alert for storefront order
+          fetch('/api/check-low-stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product: updatedProductObj })
+          }).catch(e => console.error('Low stock check error:', e));
         }
       }
-      // Trigger low stock check & manager alert for placed order items
-      try {
-        if (newOrder.items) {
-          for (const item of newOrder.items) {
-            const product = products.find(p => p.id === item.productId || p.title === item.product);
-            if (product) {
-              fetch('/api/check-low-stock', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ product })
-              }).catch(e => console.error('Low stock check error:', e));
-            }
-          }
-        } else if (newOrder.productId) {
-          const product = products.find(p => p.id === newOrder.productId);
-          if (product) {
-            fetch('/api/check-low-stock', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ product })
-            }).catch(e => console.error('Low stock check error:', e));
-          }
-        }
-      } catch (e) {}
       return insertedOrder;
     }
     return null;
