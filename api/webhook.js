@@ -1390,13 +1390,42 @@ function parseOrderDetails(text) {
 
 async function processRestockConfirmationIntent(fromPhone, messageText, products) {
   try {
+    if (!messageText) return false;
     const normText = normalizeText(messageText).toLowerCase().trim();
     const pLower = (messageText || '').toLowerCase().trim();
+
+    // 1. STRICT GUARD: If message is asking for photos or asking a general question, SKIP confirmation completely!
+    const isPhotoOrQuestion = [
+      'tsswiira', 'tsswira', 'tssawir', 'tsawir', 'photo', 'photos', 'صور', 'تصاوير', 'صورة', 'وريلنا', 'وريني',
+      'شحال', 'بكم', 'prix', 'وقتاش', 'وين', 'عندكم', 'كاين', 'كاينين', 'استفسار', 'سؤال', 'سعر', 'سومة', 'قماش',
+      'نوعية', 'جودة', 'مكان', 'مقر', 'عنوان', 'كيفاش'
+    ].some(k => normText.includes(k) || pLower.includes(k));
+
+    if (isPhotoOrQuestion) {
+      return false;
+    }
 
     const localPhone = fromPhone.replace(/^\+?213/, '0');
     const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
 
-    // 1. Check waitlist table FIRST for waiting customer
+    const isConfirmIntent = [
+      'نعم', 'نعك', 'إيه', 'ايه', 'تأكيد', 'أكد', 'تاكيد', 'حاب نشري', 'نعم حاب', 'حاب ندير كوماند', 'حاب نطلب',
+      'ديها', 'بعثهالي', 'ابعثهالي', 'yes', 'ok', 'oui', 'مشري', 'حاب نديها', 'نديها', 'daccord', 'd\'accord', 'ouais',
+      'aked', 'akedli', 'akedha', 'akedhali', 'akidli', 'akid', 'akedna', 'confirmi', 'wi', 'waye', 'wayh',
+      'confirm', 'confirmer', 'akedlih', 'اكدلي', 'أكدلي', 'اكدها', 'أكدها', 'ثبتها',
+      'ثبتلي', 'ملا', 'مالا', 'صح', 'اوكي', 'ماذا بيك'
+    ].some(k => normText === k || pLower === k || normText.startsWith(k) || normText.includes(k) || pLower.includes(k));
+
+    // Parse any details supplied in current message
+    const parsed = parseOrderDetails(messageText);
+    const hasFullDetailsInMsg = Boolean(parsed.name && (parsed.wilaya || parsed.phone));
+
+    // ONLY proceed if customer typed confirmation intent OR provided full order details in this message!
+    if (!isConfirmIntent && !hasFullDetailsInMsg) {
+      return false;
+    }
+
+    // Check waitlist table FIRST for waiting customer
     let waitlistEntry = null;
     try {
       const wRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(notified,pending,en_attente,out_of_stock)&order=created_at.desc&limit=1`, {
@@ -1408,29 +1437,14 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
       }
     } catch (e) {}
 
-    const isConfirmIntent = [
-      'نعم', 'نعك', 'إيه', 'ايه', 'تأكيد', 'أكد', 'تاكيد', 'حاب نشري', 'نعم حاب', 'حاب ندير كوماند', 'حاب نطلب',
-      'ديها', 'بعثهالي', 'ابعثهالي', 'yes', 'ok', 'oui', 'مشري', 'حاب نديها', 'نديها', 'daccord', 'd\'accord', 'ouais',
-      'aked', 'akedli', 'akedha', 'akedhali', 'akidli', 'akid', 'akedna', 'confirmi', 'wi', 'waye', 'wayh',
-      'confirm', 'confirmer', 'akedlih', 'اكدلي', 'أكدلي', 'اكدها', 'أكدها', 'ثبتها',
-      'ثبتلي', 'ملا', 'مالا', 'صح', 'اوكي', 'ماذا بيك', 'ابعث'
-    ].some(k => normText === k || pLower === k || normText.startsWith(k) || normText.includes(k) || pLower.includes(k));
-
-    // Parse any details supplied in current message
-    const parsed = parseOrderDetails(messageText);
-
-    if (!waitlistEntry && !isConfirmIntent && !parsed.name && !parsed.wilaya) {
-      return false;
-    }
-
     if (waitlistEntry) {
-      const rawName = (parsed.name || waitlistEntry.client_name || '').trim();
-      const hasRealName = rawName && rawName !== 'زبون الواتساب' && rawName !== 'زبون المحادثة';
+      const rawName = (parsed.name || (waitlistEntry.client_name !== 'زبون الواتساب' ? waitlistEntry.client_name : '') || '').trim();
+      const hasRealName = Boolean(rawName);
       const rawWilaya = (parsed.wilaya || waitlistEntry.wilaya || '').trim();
       const hasWilaya = Boolean(rawWilaya);
 
       // If customer has not provided details yet and sent confirmation intent (e.g., "oui"), prompt for details!
-      if ((!hasRealName || !hasWilaya) && isConfirmIntent && !parsed.name && !parsed.wilaya) {
+      if ((!hasRealName || !hasWilaya) && isConfirmIntent && !hasFullDetailsInMsg) {
         const entryTitle = waitlistEntry.product_title || waitlistEntry.product || 'بيجامات فاخرة';
         const entrySize = waitlistEntry.size || '';
         const entryColor = waitlistEntry.color || '';
@@ -1440,7 +1454,7 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
         return true;
       }
 
-      if (hasRealName || parsed.name) {
+      if (hasRealName && (hasWilaya || parsed.wilaya)) {
         const clientNameStr = parsed.name || waitlistEntry.client_name || 'زبون المتجر';
         const clientWilayaStr = parsed.wilaya || waitlistEntry.wilaya || 'الشلف';
         const clientCommuneStr = parsed.commune || waitlistEntry.commune || 'المركز';
