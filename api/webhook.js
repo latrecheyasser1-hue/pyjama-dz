@@ -1,7 +1,7 @@
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
-const DEFAULT_TOKEN = 'EAAguaWHGlf8BSKkL57NpvDpd0ZCyZC3KZCWnajDToyZBPEIwIWFDmJTccFKBaK6TNfSipr3MSepr0nAafGz6PIxIe5AwqrlZBCZBPyhyzX8kKZAao9tafn4R0X6Q39g4k7LV8CcbtQciTrjfOLVCMy3L78mgS8nWP02LZCVRZCNpTg0FpcgKZBKZBCyucMRAkDrvXF1wcquDqewEH7xDWZAfCvSecMdF1JaekIDBX8WH3uzJm96uOUJmVrmGeAU0IryiJabg0qygGIEixQpaWhdWMSELqQZDZD';
+const DEFAULT_TOKEN = 'EAAguaWHGlf8BSAe5J4KrsnMywYpleN1x6hiTyWZBJ8ojEMbnmBmuKVUsuHUEi7VS9ExV9JPPISDMF8Esq3hneEZBPx1qHcExdBWp17qwBh0jSEMPwX4ZALRZBDSV9aNjfcuwS0xqtD96EyTafD9yie2yKbLkLNaBmpbofEjfqMwGY9ZCGp6UO9vBFRUZBOVOOpZA7T6MjEVoVnWH0nS5PsdmgLsH3LoGkNbMzppd9f0PymRgTBeGo6lD8ek4rmJ1hU4lOrdCCFcBn7NhdozWMWZA';
 
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'pyjama_dz_secret_verify_token';
@@ -248,7 +248,7 @@ async function getStoreSettings() {
 
 async function getAllProducts() {
   try {
-    const url = `${SUPABASE_URL}/rest/v1/products?select=*`;
+    const url = `${SUPABASE_URL}/rest/v1/products?select=*&order=created_at.desc`;
     const res = await fetch(url, {
       headers: {
         'apikey': SUPABASE_KEY,
