@@ -1850,47 +1850,26 @@ async function processIncomingPayload(body) {
 
               const normText = normalizeText(messageText);
 
-              // RECLAMATION & FEEDBACK HANDLER (Praise vs Complaint)
-              const rawLowerText = String(messageText).toLowerCase();
-              const praiseKeywords = [
-                'شكرا', 'شكرااا', 'شكرا لكم', 'مشكور', 'بارك الله', 'يعطيكم الصحة', 'يعطيك الصحة',
-                'ماشاء الله', 'مشاء الله', 'روعة', 'ما شاء الله', 'تسلم', 'تسلموا', 'ربي يحفظكم', 'ربي يوفقكم',
-                'عجبني', 'عجبوني', 'عجبتني', 'شباب بزاف', 'ما شاء الله عليكم', 'يعطيك الصحه', 'الله يحفظك',
-                'خدمة روعة', 'سلعة روعة', 'وصلتني روعة', 'بيجامة روعة', 'يعطيكم الصحه', 'هايل', 'هايلة', 'ممتاز', 'ممتازة',
-                'machallah', 'machaallah', 'machalah', 'macha allah', 'macheallah',
-                '3jbetni', '3jbetnii', '3jbatni', 'ajbatni', 'ejbetni', 'ejbetnii',
-                'rbii yahfedkom', 'rbi yahfedkom', 'rbi yahfdkom', 'rbi yahfadkom', 'god bless',
-                'qualite', 'qualité', 'bzeef', 'bzeeef', 'bzaf', 'bzaaf',
-                'bravo', 'tres bien', 'très bien', 'magnifique',
-                'sublime', 'super', 'parfait', 'fort', 'foor', 'tahya', 'chbab', 'chbaba',
-                'hayla', 'hayel', 'zinek', 'ya3tikom', 'ya3tik'
-              ];
+              // RECLAMATION HANDLER (Only for explicit complaints/reclamations)
               const complaintKeywords = [
-                'مشكل', 'مشكلة', 'شكوى', 'عتاب', 'ناقص', 'مكسور', 'ماشي شباب', 'عيب', 'غلطة', 'رادي',
-                'ما وصلنيش', 'خاسر', 'تأخرت', 'تأخير', 'مغشوش', 'صغيرة بزاف', 'كبيرة بزاف', 'مقطوع',
-                'فسد', 'ما عجبنيش', 'ما عجبنيش الحجم', 'تأخر', 'وصلت ناقصة', 'وصلت خاسرة', 'سلعة خاسرة',
-                'خدمة سيئة', 'توصيل بطيء', 'reclamation', 'réclamation', 'سوء', 'مغشوشة', 'زبل',
-                'problem', 'probleme', 'problème', 'pas bien', 'mauvais', 'cassé', 'casse',
-                'retard', 'retarde', 'degueulasse', 'nul', 'nulle', 'zbel', 'khaser', 'khasra',
-                'mouskile', 'mouchkel', 'mouchkil'
+                'شكوى', 'عتاب', 'ناقص', 'مكسور', 'رادي', 'ما وصلنيش', 'خاسر', 'تأخرت', 'مغشوش',
+                'مقطوع', 'فسد', 'وصلت ناقصة', 'وصلت خاسرة', 'سلعة خاسرة', 'خدمة سيئة',
+                'reclamation', 'réclamation', 'مغشوشة', 'زبل', 'probleme', 'problème', 'cassé', 'casse',
+                'retard', 'retarde', 'degueulasse', 'nul', 'nulle', 'zbel', 'khaser', 'khasra'
               ];
 
-              const hasPraise = praiseKeywords.some(k => normText.includes(k) || rawLowerText.includes(k));
-              const hasComplaint = complaintKeywords.some(k => normText.includes(k) || rawLowerText.includes(k));
+              const isComplaint = complaintKeywords.some(k => normText.includes(k) || rawLowerText.includes(k));
 
-              const isPraise = hasPraise && !hasComplaint;
-              const isComplaint = hasComplaint;
+              if (isComplaint) {
+                const rawContactName = order?.clientName || value?.contacts?.[0]?.profile?.name || '';
+                const greetingName = (rawContactName && rawContactName.trim() !== '' && rawContactName !== 'زبون المحادثة' && rawContactName !== 'زبون الواتساب')
+                  ? ` ${rawContactName.trim()}`
+                  : '';
 
-              const rawContactName = order?.clientName || value?.contacts?.[0]?.profile?.name || '';
-              const greetingName = (rawContactName && rawContactName.trim() !== '' && rawContactName !== 'زبون المحادثة' && rawContactName !== 'زبون الواتساب')
-                ? ` ${rawContactName.trim()}`
-                : '';
+                const complaintMsg = `أهلاً وسهلاً بك${greetingName}.\nتم تسجيل شكواك وملاحظتك بنجاح لدى فريق خدمة العملاء وسيتم التواصل معك ومتابعة الأمر فوراً. شكراً لصبرك معنا. 🌸`;
+                await sendWhatsAppMessage(fromPhone, complaintMsg);
 
-              if (isPraise || isComplaint) {
-                const unifiedMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك جزيلاً على تواصلك معنا وعلى مشاركتنا ملاحظاتك وتقييمك القيّم. 🙏\nتأكد أن رأيك ورضاك هما أولويتنا دائماً، وسنعمل باستمرار على تقديم الأفضل والأحسن لخدمتك على أكمل وجه بإذن الله. ✨❤️`;
-                await sendWhatsAppMessage(fromPhone, unifiedMsg);
-
-                // Save ALL reclamations and feedback to Supabase settings table (reclamations array) with status 'nouvelle' for human review
+                // Save reclamation to Supabase settings table
                 try {
                   const existingRecl = Array.isArray(storeSettings.reclamations) ? storeSettings.reclamations : [];
                   const newRecl = {
