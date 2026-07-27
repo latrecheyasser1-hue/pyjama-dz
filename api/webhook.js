@@ -449,10 +449,7 @@ async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = 
     }
   }
 
-  if (userMessage && userMessage.length > 3) {
-    return getSmartFallbackResponse(userMessage, storeSettings, products);
-  }
-  return "";
+  return getSmartFallbackResponse(userMessage || prompt, storeSettings, products);
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
@@ -1966,11 +1963,11 @@ ${salesModeRules}`;
               }
 
               // Check for order cancellation reply from customer ("Lala anuler", "annuler", "إلغاء", etc.)
-              const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText, storeSettings, products);
+              const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText);
               if (handledOrderCancel) continue;
 
               // Check for order confirmation reply from customer ("أكدلي", "akedli", etc.)
-              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText, storeSettings, products);
+              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
               if (handledOrderConfirm) continue;
 
               // Check for restock confirmation reply from customer
