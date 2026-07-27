@@ -271,7 +271,7 @@ async function downloadMetaMedia(mediaId) {
   const token = await getMetaAccessToken();
   if (!token || !mediaId) return null;
   try {
-    const metaRes = await fetch(`https://graph.facebook.com/v25.0/${mediaId}`, {
+    const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'User-Agent': 'curl/7.68.0'
@@ -461,7 +461,7 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   const formattedPhone = rawDigits.startsWith('213') ? rawDigits : rawDigits.replace(/^0/, '213');
 
   const cleanBody = removeEmojis(textBody);
-  const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
+  const url = `https://graph.facebook.com/v21.0/${META_PHONE_NUMBER_ID}/messages`;
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -510,7 +510,7 @@ async function uploadMediaToMeta(token, imageUrl) {
     formData.append("type", mimeType);
     formData.append("messaging_product", "whatsapp");
 
-    const uploadRes = await fetch(`https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/media`, {
+    const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${META_PHONE_NUMBER_ID}/media`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${token}` },
       body: formData
@@ -527,7 +527,7 @@ async function sendWhatsAppImage(toPhone, imageUrl, caption = "") {
   const token = await getMetaAccessToken();
   if (!token || !toPhone || !imageUrl) return null;
   const cleanCaption = removeEmojis(caption);
-  const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
+  const url = `https://graph.facebook.com/v21.0/${META_PHONE_NUMBER_ID}/messages`;
   try {
     const mediaId = await uploadMediaToMeta(token, imageUrl);
     const imagePayload = mediaId ? { id: mediaId, caption: cleanCaption } : { link: imageUrl, caption: cleanCaption };
