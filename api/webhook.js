@@ -1454,7 +1454,9 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
         }) || products?.[0];
 
         const itemPrice = matchedProd?.price ? Number(matchedProd.price) : 3500;
-        const prodNameStr = `${entryTitle || matchedProd?.title || 'بيجامات فاخرة'} (${waitlistEntry.color ? waitlistEntry.color + ' - ' : ''}${waitlistEntry.size || 'M'})`;
+        const chosenColor = parsed.color || waitlistEntry.color || matchedProd?.colorVariants?.[0]?.name || matchedProd?.colorVariants?.[0]?.color || '';
+        const colorDisplay = chosenColor ? ` - ${chosenColor}` : '';
+        const prodNameStr = `${entryTitle || matchedProd?.title || 'بيجامات فاخرة'}${colorDisplay} (${waitlistEntry.size || 'M'})`;
 
         // Create ONE REAL CONFIRMED ORDER in orders table!
         const createRes = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
@@ -1946,7 +1948,10 @@ function checkStockInquiry(messageText, products) {
 3. إذا فهمت أن الزبون يطلب صور المنتجات (صور، تصاوير، photo، tsswira): أخرج في أول السطر الكود: [ACTION:SEND_PHOTOS] ثم اكتب الرد.
 4. قانون حتمي وفحص صارم للسطوك: افحص السطوك الحقيقي المكتوب في بيانات النظام للمقاس واللون المطلوبين تحديداً. إذا كان السطوك (0 حبة / غير متوفر) أخبره صراحة أن ذلك المقاس واللون غير متوفر حالياً في السطوك، وأنه تم تسجيل طلبه وسنحيطه علماً فور توفره مجدداً عبر الواتساب، دون ذكر أو سرد المقاسات الأخرى إطلاقاً.
 5. أجب عن كل الاستفسارات الأخرى (الجودة، نوعية القماش، مدة التوصيل، المكان، الأسعار، المقاسات) بأسلوب إنساني طبيعي ولطيف بالدارجة الجزائرية دون إيموجي ودون نصوص جامدة مكررة.
-6. عند رد الزبون برغبته في إتمام الطلب بعد توفر الستوك أو للشراء (مثل: نعم، حاب ندير كوماند، oui، نطلب): أطلب منه فوراً وبوضوح تقديم كامل البيانات المطلوبة حتماً: (1) الاسم واللقب، (2) رقم الهاتف، (3) الولاية والبلدية/العنوان، (4) نوع التوصيل (منزل أم مكتب ياليدين Yalidine). وعندما يقدم الزبون هذه البيانات كاملة، أخرج الكود: [ACTION:CONFIRM_ORDER] في بداية السطر فوراً لتأكيد وإنشاء الطلبية بنجاح.
+6. عند رد الزبون برغبته في إتمام الطلب بعد توفر الستوك أو للشراء (مثل: نعم، حاب ندير كوماند، oui، نطلب):
+   شرط صارم وحتمي: إختيار "اللون" و "المقاس" إجباري ومطلوب حتماً لكل كوماند. يرجى الطلب منه تقديم كامل البيانات:
+   (1) الاسم واللقب، (2) رقم الهاتف، (3) اللون والمقاس المطلوبين تحديداً (اللون إجباري حتماً)، (4) الولاية والبلدية/العنوان، (5) نوع التوصيل (منزل أم مكتب ياليدين Yalidine).
+   وعندما يقدم الزبون هذه البيانات كاملة، أخرج الكود: [ACTION:CONFIRM_ORDER] في بداية السطر فوراً لتأكيد وإنشاء الطلبية بنجاح.
 
 بيانات المتجر:
 - العنوان والمقر: ${storeAddressDisplay}
