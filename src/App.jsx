@@ -349,8 +349,12 @@ export default function App() {
       const finalProduct = { ...updatedProd, ...data[0] };
       setProducts(prev => prev.map(p => p.id === id ? finalProduct : p));
 
-      // Trigger low stock check automatically for updated product
-      fetch(`/api/check-low-stock?productId=${id}`).catch(err => console.error('Low stock check error:', err));
+      // Single source of truth trigger for low stock check
+      fetch('/api/check-low-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: finalProduct })
+      }).catch(err => console.error('Low stock check error:', err));
     } else {
       alert("Erreur: La modification a été bloquée (vérifiez que RLS est bien désactivé).");
     }
