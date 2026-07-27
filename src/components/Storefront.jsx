@@ -317,15 +317,23 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
       return;
     }
     
-    // Check stock zero logic
+    // Check stock zero & max limit logic
     let currentSizeStock = null;
     if (activeVariant?.stock && typeof activeVariant.stock === 'object') {
       currentSizeStock = activeVariant.stock[selectedSize] !== undefined ? Number(activeVariant.stock[selectedSize]) : 0;
+    } else if (product?.stock !== undefined) {
+      currentSizeStock = Number(product.stock);
     }
+
     const isZeroStock = currentSizeStock !== null && currentSizeStock <= 0;
 
     if (isZeroStock) {
       setShowWaitlistForm(true);
+      return;
+    }
+
+    if (currentSizeStock !== null && currentSizeStock > 0 && quantity > currentSizeStock) {
+      showToast(`عذراً، الكمية المتوفرة حالياً في المخزون لهذا المقاس هي ${currentSizeStock} قطعة فقط!`, "error");
       return;
     }
 
@@ -560,28 +568,54 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
           </div>
 
           {/* Quantity Selector */}
-          <div className="mazyoud-pdp-option-section">
-            <div className="option-label">
-              <span>🔢 الكمية (Quantité) :</span>
-            </div>
-            <div className="mazyoud-pdp-qty-selector">
-              <button 
-                type="button" 
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="qty-btn"
-              >
-                <Minus size={16} />
-              </button>
-              <span className="qty-value">{quantity}</span>
-              <button 
-                type="button" 
-                onClick={() => setQuantity(quantity + 1)}
-                className="qty-btn"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
-          </div>
+          {(() => {
+            let maxAvailableStock = 999;
+            if (activeVariant?.stock && typeof activeVariant.stock === 'object' && selectedSize) {
+              const sStock = activeVariant.stock[selectedSize];
+              if (sStock !== undefined && !isNaN(Number(sStock))) {
+                maxAvailableStock = Math.max(0, Number(sStock));
+              }
+            } else if (product?.stock !== undefined && !isNaN(Number(product.stock))) {
+              maxAvailableStock = Math.max(0, Number(product.stock));
+            }
+
+            return (
+              <div className="mazyoud-pdp-option-section">
+                <div className="option-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>🔢 الكمية (Quantité) :</span>
+                  {selectedSize && maxAvailableStock < 999 && (
+                    <span style={{ fontSize: '0.85rem', color: maxAvailableStock > 0 ? '#059669' : '#DC2626', fontWeight: 800 }}>
+                      {maxAvailableStock > 0 ? `المتبقي في المخزون: ${maxAvailableStock} قطعة` : 'نفذت الكمية'}
+                    </span>
+                  )}
+                </div>
+                <div className="mazyoud-pdp-qty-selector">
+                  <button 
+                    type="button" 
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="qty-btn"
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <span className="qty-value">{quantity}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      if (quantity < maxAvailableStock) {
+                        setQuantity(quantity + 1);
+                      } else {
+                        showToast(`عذراً، الكمية المتوفرة في المخزون لهذا المقاس هي ${maxAvailableStock} قطعة فقط!`, "warning");
+                      }
+                    }}
+                    className="qty-btn"
+                    style={{ opacity: quantity >= maxAvailableStock ? 0.4 : 1, cursor: quantity >= maxAvailableStock ? 'not-allowed' : 'pointer' }}
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Waitlist Logic */}
           {(() => {
