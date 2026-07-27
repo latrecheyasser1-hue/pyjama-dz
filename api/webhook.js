@@ -432,7 +432,7 @@ async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
         const res = await fetch(url, {
           method: 'POST',
           headers: {
@@ -1353,12 +1353,12 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
     const pLower = (messageText || '').toLowerCase().trim();
 
     const isConfirmIntent = [
-      'نعم', 'نعك', 'إيه', 'ايه', 'تأكيد', 'أكد', 'تاكيد', 'حاب نشري', 'نعم حاب',
-      'ديها', 'بعثهالي', 'ابعثهالي', 'yes', 'ok', 'oui', 'مشري', 'حاب نديها', 'نديها',
-      'aked', 'akedli', 'akedha', 'akedhali', 'akidli', 'akid', 'akedna', 'confirmi',
+      'نعم', 'نعك', 'إيه', 'ايه', 'تأكيد', 'أكد', 'تاكيد', 'حاب نشري', 'نعم حاب', 'حاب ندير كوماند', 'حاب نطلب',
+      'ديها', 'بعثهالي', 'ابعثهالي', 'yes', 'ok', 'oui', 'مشري', 'حاب نديها', 'نديها', 'daccord', 'd\'accord', 'ouais',
+      'aked', 'akedli', 'akedha', 'akedhali', 'akidli', 'akid', 'akedna', 'confirmi', 'wi', 'waye', 'wayh',
       'confirm', 'confirmer', 'akedlih', 'اكدلي', 'أكدلي', 'اكدها', 'أكدها', 'ثبتها',
       'ثبتلي', 'ملا', 'مالا', 'صح', 'اوكي', 'ماذا بيك', 'ابعث'
-    ].some(k => normText === k || pLower === k || normText.includes(k) || pLower.includes(k));
+    ].some(k => normText === k || pLower === k || normText.startsWith(k) || normText.includes(k) || pLower.includes(k));
 
     if (!isConfirmIntent) return false;
 
@@ -1390,7 +1390,7 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
         const entrySize = waitlistEntry.size || '';
         const entryColor = waitlistEntry.color || '';
 
-        const promptDetailsMsg = `أهلاً وسهلاً بك! 🌸\nلتأكيد وتجهيز طلبية شحن هذه القطعة (${entryTitle} ${entryColor ? entryColor + ' ' : ''}${entrySize ? '(' + entrySize + ')' : ''})، يرجى تزويدنا بالبيانات التالية كود واحدة:\n- الاسم واللقب الكامل\n- رقم الهاتف\n- الولاية والبلدية\n- طريقة التوصيل (للمنزل أو للمكتب)\n\nشكراً لك وسنعمل على تأكيد وشحن الطلبية فور إرسال البيانات! ✨`;
+        const promptDetailsMsg = `أهلاً وسهلاً بك! 🌸\nلتأكيد وتجهيز طلبية شحن هاد الموديل (${entryTitle} ${entryColor ? entryColor + ' ' : ''}${entrySize ? '(' + entrySize + ')' : ''}) فوراً، يرجى تزويدنا بالبيانات التالية بالكامل:\n- الاسم واللقب الكامل\n- رقم الهاتف\n- الولاية والبلدية/العنوان\n- نوع التوصيل (للمنزل أو لمكتب ياليدين Yalidine)\n\nشكراً لك، وسنعمل على تسجيل وشحن الطلبية فور إرسالك هذه المعلومات! ✨`;
         await sendWhatsAppMessage(fromPhone, promptDetailsMsg);
         return true;
       }
@@ -1987,7 +1987,11 @@ ${salesModeRules}`;
                 continue;
               }
 
-              // 1. GENERATE PURE GEMINI AI RESPONSE
+              // 1. Check for restock/order confirmation reply from customer FIRST
+              const handledRestockConfirm = await processRestockConfirmationIntent(fromPhone, messageText, products);
+              if (handledRestockConfirm) continue;
+
+              // 2. GENERATE PURE GEMINI AI RESPONSE
               let aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
 
               if (aiReply) {
