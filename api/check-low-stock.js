@@ -218,20 +218,13 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
     }
 
     for (const entry of waitlistEntries) {
+      if (entry.status !== 'pending' && entry.status !== 'en_attente') continue;
+
       const entryPhone = entry.whatsapp_number || entry.phone;
       const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
       const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
 
       if (!waPhone || notifiedPhones.has(waPhone)) continue;
-
-      // Check settings table to ensure exact single alert per waitlist entry
-      try {
-        const sRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_${entry.id}&select=value`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        const sRows = await sRes.json();
-        if (Array.isArray(sRows) && sRows.length > 0) continue;
-      } catch (e) {}
 
       const entrySize = entry.size || '';
       const entryColor = entry.color || '';
@@ -243,45 +236,25 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
       const prodMatches = isProdMatch(productId, productTitle, entryProdId, entryProdText);
 
       if (sizeMatches && colorMatches && prodMatches) {
-        const phoneKey = `restock_notified_${cleanPhone}_${targetSize}_${productId || ''}`;
+        // Mark waitlist entry status as notified in Supabase
         try {
-          const pRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.${phoneKey}&select=value`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-          });
-          const pRows = await pRes.json();
-          if (Array.isArray(pRows) && pRows.length > 0) continue;
-        } catch (e) {}
-
-        // Mark waitlist entry and phone key in settings table so it is NEVER notified twice
-        try {
-          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-            method: 'POST',
+          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
+            method: 'PATCH',
             headers: {
               'apikey': SUPABASE_KEY,
               'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json',
-              'Prefer': 'resolution=merge-duplicates'
+              'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: 'true' })
-          });
-
-          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-            method: 'POST',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json',
-              'Prefer': 'resolution=merge-duplicates'
-            },
-            body: JSON.stringify({ key: phoneKey, value: 'true' })
+            body: JSON.stringify({ status: 'notified' })
           });
         } catch (e) {}
 
-        const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
+        const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب' && entry.client_name !== 'زبون المحادثة')
+          ? entry.client_name : '';
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-        const prodDesc = productTitle || entryProdText ? `${productTitle || entryProdText}` : 'المنتج';
+        const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
 
-        const restockMsg = `أهلاً بك${nameGreeting}.\n🎉 بشرى سارة! توفر مقاسك (${targetSize}) في موديل ${prodDesc} مجدداً قبل ما يعاود يكمل!\nإذا حاب تدير الطلبية تاعك ضرك، رد على هاد الرسالة بـ (نعم / حاب ندير كوماند) وإذا حاب اطلب مباشرة عبر موقعنا الرسمي: https://pyjama-dz.vercel.app 🌸`;
+        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\n🎉 بشرى سارة! توفر مقاسك (${targetSize}) مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
 
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);
