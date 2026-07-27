@@ -313,24 +313,37 @@ export default function App() {
       // Deduct stock and trigger low stock alerts for Storefront & POS orders
       if (newOrder.items) {
         for (const item of newOrder.items) {
-          const product = products.find(p => p.id === item.productId || p.title === item.product);
+          const product = products.find(p => p.id === item.productId || (p.title && item.product && p.title.toLowerCase().trim() === item.product.toLowerCase().trim()));
           if (product) {
             let updatedPayload = {};
             let updatedProductObj = { ...product };
 
-            if (product.colorVariants && product.colorVariants.length > 0 && item.color) {
+            if (product.colorVariants && product.colorVariants.length > 0) {
                const targetColor = (item.color || '').trim().toLowerCase();
-               const targetSize = item.size;
+               const targetSize = String(item.size || '').trim();
 
-               const updatedVariants = product.colorVariants.map(v => {
+               // Bulletproof variant index locator
+               let targetVariantIdx = product.colorVariants.findIndex(v => {
                  const vColor = (v.name || v.color || '').trim().toLowerCase();
-                 if ((!targetColor || vColor === targetColor) && v.stock && v.stock[targetSize] !== undefined) {
+                 return targetColor && (vColor === targetColor || vColor.includes(targetColor) || targetColor.includes(vColor));
+               });
+
+               if (targetVariantIdx === -1) {
+                 // Fallback to first variant containing targetSize stock key
+                 targetVariantIdx = product.colorVariants.findIndex(v => v.stock && v.stock[targetSize] !== undefined);
+               }
+
+               if (targetVariantIdx === -1) targetVariantIdx = 0;
+
+               const updatedVariants = product.colorVariants.map((v, idx) => {
+                 if (idx === targetVariantIdx && v.stock && v.stock[targetSize] !== undefined) {
                    const currentStock = parseInt(v.stock[targetSize]) || 0;
                    const newQty = Math.max(0, currentStock - (item.qty || 1));
                    return { ...v, stock: { ...v.stock, [targetSize]: newQty } };
                  }
                  return v;
                });
+
                updatedPayload.colorVariants = updatedVariants;
                updatedProductObj.colorVariants = updatedVariants;
 
