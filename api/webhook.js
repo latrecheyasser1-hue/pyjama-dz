@@ -1585,10 +1585,11 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
       'أكد', 'أكدلي', 'تأكيد', 'نؤكد', 'أكدها', 'نعم أكد', 'نعم أكدلي', 'مالا أكدلي', 'ملا أكدلي',
       'أكد الطلبية', 'تأكيد الطلبية', 'تأكيد الطلب', 'أكدلي الطلبية', 'أكدلي طلبية', 'أكدلي الطلب',
       'akedha', 'akedhaa', 'aked', 'akedli', 'akedlii', 'confirme', 'confirmer', 'confirmation',
-      'oui confirme', 'oui akedli', 'oui aked', 'daccord confirme', 'oui akedha'
+      'oui confirme', 'oui akedli', 'oui aked', 'daccord confirme', 'oui akedha',
+      'ih akedha', 'ih aked', 'ih', 'إيه', 'ايه', 'نعم', 'نعام', 'صح', 'اوكي', 'ok', 'yes', 'oui', 'ثبتها', 'ثبتلي'
     ];
 
-    const isConfirm = confirmKeywords.some(kw => normText.includes(kw) || rawLower.includes(kw));
+    const isConfirm = confirmKeywords.some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
 
     if (!isConfirm) return false;
 
@@ -1597,7 +1598,7 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
     const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
     const cleanPhoneNo0 = localPhone.replace(/^0/, '');
 
-    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&order=created_at.desc&limit=1`, {
+    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&status=in.(nouvelle,pending,attente,attente_confirmation,nouveau)&order=created_at.desc&limit=1`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
 
@@ -1973,9 +1974,12 @@ ${salesModeRules}`;
                 continue;
               }
 
-              // 1. Check for restock/order confirmation reply from customer FIRST
-              const handledRestockConfirm = await processRestockConfirmationIntent(fromPhone, messageText, products);
-              if (handledRestockConfirm) continue;
+              // 1. Check for web order confirmation or cancellation reply from customer FIRST
+              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
+              if (handledOrderConfirm) continue;
+
+              const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText);
+              if (handledOrderCancel) continue;
 
               // 2. GENERATE PURE GEMINI AI RESPONSE
               let aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
@@ -2005,12 +2009,6 @@ ${salesModeRules}`;
                 await sendWhatsAppMessage(fromPhone, "تفضل خويا، تم إرسال صور الموديلات المتوفرة أعلاه في المحادثة. يمكنك تصفح باقي المنتجات والألوان عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app");
                 continue;
               }
-
-              const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText);
-              if (handledOrderCancel) continue;
-
-              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
-              if (handledOrderConfirm) continue;
 
               // Process direct order intent and delivery stock check
               const handledOrder = await processDirectOrderFromMessage(fromPhone, messageText, products);
