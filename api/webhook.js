@@ -2083,10 +2083,16 @@ export default async function handler(req, res) {
       await processIncomingPayload(body);
     }
 
-    return res.status(200).send('EVENT_RECEIVED');
+    if (typeof res.status(200).send === 'function') {
+      return res.status(200).send('EVENT_RECEIVED');
+    }
+    return res.status(200).json({ status: 'EVENT_RECEIVED' });
   }
 
-  return res.status(405).send('Method Not Allowed');
+  if (typeof res.status(405).send === 'function') {
+    return res.status(405).send('Method Not Allowed');
+  }
+  return res.status(405).json({ error: 'Method Not Allowed' });
 }
 
 export { processIncomingPayload };
