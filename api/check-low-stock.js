@@ -203,6 +203,13 @@ export default async function handler(req, res) {
               const now = Date.now();
               const isQtyChanged = !lastAlertState || lastAlertState.qty !== numQty;
               const is30MinElapsed = lastAlertState && (now - (lastAlertState.timestamp || 0) >= 30 * 60 * 1000);
+              const isRecentlySentIn2Min = lastAlertState && (now - (lastAlertState.timestamp || 0) < 2 * 60 * 1000);
+
+              // Anti-duplicate lock: Do not send if sent less than 2 minutes ago
+              if (isRecentlySentIn2Min) {
+                console.log(`Skipping duplicate alert for ${product.title} ${size} - already sent less than 2 mins ago.`);
+                continue;
+              }
 
               // Only send if quantity dropped/changed OR 30 minutes elapsed
               if (isQtyChanged || is30MinElapsed) {

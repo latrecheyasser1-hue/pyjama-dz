@@ -1264,11 +1264,54 @@ async function checkAndAlertLowStock(product, storeSettings) {
     for (const [size, qty] of Object.entries(variant.stock)) {
       const numQty = parseInt(qty);
       if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
-        const alertMsg = `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.`;
-        
-        const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
-        if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
-          await saveStockAlertRecord(alertRes.messages[0].id, targetPhone, product.id, cIdx, size);
+        const alertKey = `${product.id}_${cIdx}_${size}`;
+        const now = Date.now();
+
+        // 1. Fetch last alert state
+        let lastAlertState = null;
+        try {
+          const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}&select=value`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          const rows = await stateRes.json();
+          if (Array.isArray(rows) && rows[0]?.value) {
+            lastAlertState = JSON.parse(rows[0].value);
+          }
+        } catch (e) {}
+
+        const isQtyChanged = !lastAlertState || lastAlertState.qty !== numQty;
+        const is30MinElapsed = lastAlertState && (now - (lastAlertState.timestamp || 0) >= 30 * 60 * 1000);
+        const isRecentlySentIn2Min = lastAlertState && (now - (lastAlertState.timestamp || 0) < 2 * 60 * 1000);
+
+        // Anti-duplicate rule: Do NOT send if sent less than 2 minutes ago
+        if (isRecentlySentIn2Min) {
+          console.log(`Skipping duplicate alert for ${product.title} ${size} - already sent less than 2 mins ago.`);
+          continue;
+        }
+
+        // Only send if quantity actually changed/dropped OR 30 minutes elapsed
+        if (isQtyChanged || is30MinElapsed) {
+          const alertMsg = `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.`;
+          
+          const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
+          if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
+            await saveStockAlertRecord(alertRes.messages[0].id, targetPhone, product.id, cIdx, size);
+
+            // Save new alert state in Supabase settings
+            await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({
+                key: `alert_state_${alertKey}`,
+                value: JSON.stringify({ qty: numQty, timestamp: now, isResolved: false })
+              })
+            });
+          }
         }
       }
     }
