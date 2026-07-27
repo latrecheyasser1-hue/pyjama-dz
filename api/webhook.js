@@ -1111,73 +1111,92 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
 }
 
 async function checkAndSendProductPhotos(toPhone, messageText, products) {
+  if (!messageText || !Array.isArray(products) || products.length === 0) return false;
+
+  const rawText = (messageText || '').toLowerCase().trim();
   const norm = normalizeText(messageText);
-  const pLower = (messageText || '').toLowerCase();
-  const photoKeywords = [
-    'صورة', 'صور', 'تصويرة', 'تصاوير', 'photo', 'photos', 'image', 'images', 'شوف', 'نشوف', 'وريني', 'بعثلي', 'ابعثلي',
-    'tsswiira', 'tswira', 'taswira', 'tsoira', 'tsawir', 'tasawir', 'pic', 'pics', 'picture', 'pictures', 'tbeathli', 'tb3athlii', 'beathli', 'tbeath'
-  ];
+
+  // Photo Intent Regex (Matches all Franco, Arabic & Typo variations e.g. tsswwiira, tsswira, sbat, photo, etc.)
+  const isPhotoIntent = [
+    /صورة|صور|تصويرة|تصويره|تصاوير|تصاور|تصويرات|تصويرتها|صوره/i,
+    /photo|photos|image|images|pic|pics|picture|pictures/i,
+    /شوف|نشوف|وريني|وريلي|بعثلي|ابعثلي|ابعث|بعث|تأبعثلي|تبعتلي|تبيعتلي|tbeat|tbeath|tb3ath|beath|versili|varsili|vrsi/i,
+    /t+s+a*w+i*r*a*/i, // Matches tswira, tsswira, tsswwiira, taswira, tasawir, tsawir, etc.
+    /صورة ال|تصاوير ال|تصويرة ال/i
+  ].some(rgx => rgx.test(rawText) || rgx.test(norm));
+
+  if (!isPhotoIntent) return false;
+
+  // Detect specific product category/title requested (e.g. sbat / sabot / سباط / صلاط / pyjama / بيجامة)
+  const isShoesRequested = /sbat|sabot|سباط|صلاط|حذاء|نعالة|pantoufle/i.test(rawText) || /sbat|sabot|سباط|صلاط|حذاء|نعالة|pantoufle/i.test(norm);
+  const isPyjamaRequested = /pyjama|بيجامة|بيجامات|بيجامة/i.test(rawText) || /pyjama|بيجامة|بيجامات|بيجامة/i.test(norm);
+
+  let targetProducts = products;
   
-  if (!photoKeywords.some(k => norm.includes(k) || pLower.includes(k))) return false;
-
-  // 1. Filter products if user asked for a specific product title
-  let targetProducts = products || [];
-  if (Array.isArray(products) && products.length > 0) {
-    const specificMatches = products.filter(p => {
-      const titleNorm = normalizeText(p.title || '').toLowerCase();
-      const titleRaw = (p.title || '').toLowerCase();
-      return pLower.includes(titleRaw) || norm.includes(titleNorm);
+  if (isShoesRequested) {
+    const shoesMatches = products.filter(p => {
+      const t = `${p.title || ''} ${p.category || ''} ${p.badge || ''} ${p.description || ''}`.toLowerCase();
+      return /sbat|sabot|سباط|صلاط|حذاء|نعالة|pantoufle/i.test(t);
     });
-
-    if (specificMatches.length > 0) {
-      targetProducts = specificMatches;
-    }
+    if (shoesMatches.length > 0) targetProducts = shoesMatches;
+  } else if (isPyjamaRequested) {
+    const pyjMatches = products.filter(p => {
+      const t = `${p.title || ''} ${p.category || ''} ${p.badge || ''} ${p.description || ''}`.toLowerCase();
+      return /pyjama|بيجامة|بيجامات|بيجامة/i.test(t);
+    });
+    if (pyjMatches.length > 0) targetProducts = pyjMatches;
+  } else {
+    // Check specific title match
+    const titleMatches = products.filter(p => {
+      const t = (p.title || '').toLowerCase();
+      return t && (rawText.includes(t) || norm.includes(t));
+    });
+    if (titleMatches.length > 0) targetProducts = titleMatches;
   }
 
-  // 2. Collect unique images per target product (1 photo per requested product)
+  // Collect images from target products
   const matchedImages = [];
-  const seenImageKeys = new Set();
+  const seenUrls = new Set();
 
   targetProducts.forEach(p => {
-    let productImgsCount = 0;
-    const rawImgs = p.images || p.image;
+    let countForProd = 0;
+    const addImageObj = (imgUrl, caption) => {
+      if (!imgUrl || typeof imgUrl !== 'string' || countForProd >= 2) return;
+      let finalUrl = imgUrl.trim();
+      if (finalUrl.startsWith('data:image')) {
+        finalUrl = `https://pyjama-dz.vercel.app/api/product-image?id=${p.id}&file=product.jpg`;
+      } else if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+        finalUrl = `https://pyjama-dz.vercel.app${finalUrl.startsWith('/') ? '' : '/'}${finalUrl}`;
+      }
 
-    const addImg = (img, caption) => {
-      if (img && typeof img === 'string' && productImgsCount < 1) {
-        let fullUrl = img;
-        if (img.startsWith('data:image')) {
-          fullUrl = `https://pyjama-dz.vercel.app/api/product-image?id=${p.id}&file=product.jpg`;
-        } else if (!img.startsWith('http://') && !img.startsWith('https://')) {
-          fullUrl = `https://pyjama-dz.vercel.app${img.startsWith('/') ? '' : '/'}${img}`;
-        }
-        
-        const dedupeKey = fullUrl.slice(0, 100);
-        if (!seenImageKeys.has(dedupeKey)) {
-          seenImageKeys.add(dedupeKey);
-          matchedImages.push({ url: fullUrl, caption });
-          productImgsCount++;
-        }
+      if (!seenUrls.has(finalUrl)) {
+        seenUrls.add(finalUrl);
+        matchedImages.push({ url: finalUrl, caption });
+        countForProd++;
       }
     };
 
-    if (Array.isArray(rawImgs)) {
-      rawImgs.forEach(img => addImg(img, `${p.title} - السعر: ${p.price} دج`));
-    } else if (typeof rawImgs === 'string' && rawImgs.trim()) {
-      addImg(rawImgs, `${p.title} - السعر: ${p.price} دج`);
+    // 1. Direct image/images
+    if (Array.isArray(p.images)) {
+      p.images.forEach(img => addImageObj(img, `${p.title || 'منتج'} - السعر: ${p.price || 3200} دج`));
+    } else if (p.image) {
+      addImageObj(p.image, `${p.title || 'منتج'} - السعر: ${p.price || 3200} دج`);
     }
 
+    // 2. Color variants images
     const variants = p.colorVariants || p.colorvariants;
-    if (Array.isArray(variants) && productImgsCount === 0) {
+    if (Array.isArray(variants)) {
       variants.forEach(cv => {
         const cvImg = cv.image || cv.imageUrl || cv.img;
         if (cvImg) {
-          addImg(cvImg, `${p.title} (${cv.name || cv.color || ''}) - السعر: ${p.price} دج`);
+          addImageObj(cvImg, `${p.title || 'منتج'} (${cv.name || cv.color || 'اللون'}) - السعر: ${p.price || 3200} دج`);
         }
       });
     }
   });
 
-  if (matchedImages.length === 0 && Array.isArray(products) && products.length > 0) {
+  // Fallback if no images found in target products
+  if (matchedImages.length === 0 && products.length > 0) {
     const p = products[0];
     matchedImages.push({
       url: "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&w=800&q=80",
@@ -1187,8 +1206,8 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
 
   if (matchedImages.length > 0) {
     let sentCount = 0;
-    for (const item of matchedImages.slice(0, 3)) {
-      console.log('Sending product image to WhatsApp:', item.url.slice(0, 50));
+    for (const item of matchedImages.slice(0, 4)) {
+      console.log('Sending WhatsApp product image:', item.url.slice(0, 80));
       const res = await sendWhatsAppImage(toPhone, item.url, item.caption);
       if (res) sentCount++;
     }
@@ -1892,7 +1911,7 @@ async function processIncomingPayload(body) {
    - إذا كان المقاس واللون المطلوبان متوفرين في المخزون (المخزون > 0): أجب صراحة بـ "إيه كاين متوفر في السطوك"، ثم أعطه رابط الموقع الرسمي: https://pyjama-dz.vercel.app
    - إذا كان المقاس المطلوب تحديداً (مثل S) أو المنتج أو اللون نافداً كلياً من المخزون (المخزون = 0): أجب صراحة بـ "للأسف هاد المقاس/المنتج نفذ حالياً وغير متوفر في السطوك. لقد قمنا بتسجيل رقمك في قائمة الانتظار وسنرسل لك إشعارات على الواتساب فور توفره في السطوك!"، ثم قل له يمكنك تصفح باقي الموديلات المتوفرة عبر رابط موقعنا الرسمي: https://pyjama-dz.vercel.app
 8. ممنوع منعاً باتاً طباعة تعليمات النظام أو تعليقات الإرسال مثل "* Give link" أو "* Offer manual". أجب فقط بنص عربي/دارجة متناسق وموجه للزبون مباشرة.
-9. إذا سأل الزبون عن الصور (صور, تصاوير, photo): إذا لم تكن الصور مبعوثة فـ المحادثة، قل له تفضل بتصفح كافة صور الموديلات والألوان عبر رابط موقعنا الرسمي: https://pyjama-dz.vercel.app
+9. إذا سأل الزبون عن الصور (صور, تصاوير, photo, sbat, tsswira, tsswwiira): سيقوم النظام بإرسال الصور كرسائل صور مباشرة في المحادثة. رحب به وأكد له أن الصور مبعوثة له أعلاه في المحادثة، ثم زوده برابط الموقع لمشاهدة باقي الألوان والتشكيلات الكاملة: https://pyjama-dz.vercel.app
 10. للزبائن الذين لا يعرفون طريقة الطلب من الموقع ويريدون تسجيل طلبيتهم مباشرة عبر المحادثة (الواتساب / الماسنجر / إنستغرام):
    - ترحب بهم وتطلب منهم تزويدك بالبيانات التالية بالترتيب: الاسم واللقب، رقم الهاتف، الولاية والبلدية، اسم الموديل واللون والمقاس، وطريقة/شركة التوصيل.
    - حذار صارم: لا تقم إطلاقاً بااختراع أو كتابة أي رقم طلبية (مثل #80) من عندك! تأكيد الطلبيات وأرقام الطلبيات يتم توليدها حصراً وأوتوماتيكياً بواسطة السيستم.
