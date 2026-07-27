@@ -1530,21 +1530,28 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
   return false;
 }
 
-async function processOrderCancellationIntent(fromPhone, messageText) {
+async function processOrderCancellationIntent(fromPhone, messageText, storeSettings, products) {
   try {
     if (!messageText) return false;
     const rawLower = String(messageText).toLowerCase().trim();
     const normText = normalizeText(messageText);
 
-    const cancelKeywords = [
-      'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'لا تلغي', 'انولي', 'أنولي', 'لا أستطيع', 'لا اريد', 'لا أريد',
-      'إلغاء الطلبية', 'إلغاء الطلب', 'الغاء الطلبية', 'الغاء الطلب', 'ألغيلي', 'الغيلي', 'أنوليلي',
-      'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation',
-      'lala anuler', 'lala anule', 'lala annuler', 'non annuler', 'lala lala anuler', 'lala lala anule'
-    ];
+    // Fast direct check first
+    let isCancel = [
+      'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'انولي', 'أنولي', 'لا اريد', 'لا أريد', 'ما نديهاش', 'ما رانيش حاب',
+      'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation', 'lala anuler'
+    ].some(kw => normText.includes(kw) || rawLower.includes(kw));
 
-    const isCancelIntent = cancelKeywords.some(kw => normText.includes(kw) || rawLower.includes(kw));
-    if (!isCancelIntent) return false;
+    // Smart Gemini AI Intent Evaluation if ambiguous (e.g., "Lala chouiya anuler")
+    if (!isCancel && messageText.length < 50) {
+      const intentPrompt = `رسالة الزبون: "${messageText}". هل الزبون يطلب إلغاء أو عدم تأكيد أو التراجع عن طلبه؟ أجب حصراً بكلمة YES أو NO فقط.`;
+      const aiIntent = await generateGeminiAI(intentPrompt, "أنت محلل نية الزبون. أخرج كلمة YES إذا كان يطلب الإلغاء، أو NO فقط.", storeSettings, messageText, products);
+      if (aiIntent && aiIntent.trim().toUpperCase().includes('YES')) {
+        isCancel = true;
+      }
+    }
+
+    if (!isCancel) return false;
 
     const rawDigits = fromPhone.replace(/\D/g, '');
     const localPhone = rawDigits.startsWith('213') ? '0' + rawDigits.slice(3) : rawDigits;
@@ -1569,7 +1576,7 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
       : '';
     const clientNameStr = cleanName ? ` ${cleanName}` : '';
 
-    const cancelMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${clientNameStr}.\nتم إلغاء طلبيتك رقم #${orderNumStr} بنجاح بناءً على طلبك.\nنتمنى أن نخدمك مجدداً في المرات القادمة! 🌸`;
+    const cancelMsg = `أهلاً وسهلاً بك${clientNameStr}.\nتم إلغاء طلبيتك رقم #${orderNumStr} بنجاح بناءً على طلبك.\nنتمنى أن نخدمك مجدداً في المرات القادمة! 🌸`;
 
     await sendWhatsAppMessage(fromPhone, cancelMsg);
     return true;
@@ -1579,27 +1586,34 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
   return false;
 }
 
-async function processOrderConfirmationIntent(fromPhone, messageText) {
+async function processOrderConfirmationIntent(fromPhone, messageText, storeSettings, products) {
   try {
     if (!messageText) return false;
     const rawLower = String(messageText).toLowerCase().trim();
     const normText = normalizeText(messageText);
 
-    // Skip if customer is asking to cancel or saying no!
-    if (['anuler', 'annuler', 'anule', 'annule', 'الغي', 'ألغي', 'إلغاء', 'الغاء', 'lala'].some(k => rawLower.includes(k) || normText.includes(k))) {
+    // Skip immediately if customer is asking to cancel!
+    if (['anuler', 'annuler', 'anule', 'annule', 'الغي', 'ألغي', 'إلغاء', 'الغاء', 'lala', 'لا اريد', 'لاريد'].some(k => rawLower.includes(k) || normText.includes(k))) {
       return false;
     }
 
-    const confirmKeywords = [
+    let isConfirm = [
       'أكد', 'أكدلي', 'تأكيد', 'نؤكد', 'أكدها', 'نعم أكد', 'نعم أكدلي', 'مالا أكدلي', 'ملا أكدلي',
       'أكد الطلبية', 'تأكيد الطلبية', 'تأكيد الطلب', 'أكدلي الطلبية', 'أكدلي طلبية', 'أكدلي الطلب',
-      'أكدلي خويا', 'أكد خويا', 'نعم أكدها', 'ملا أكدها', 'مالا أكدها', 'أكدها خويا', 'أكد هاد الطلبية',
-      'akedha', 'akedha', 'aked', 'akedli', 'akedlii', 'confirme', 'confirmer', 'confirmation',
+      'akedha', 'aked', 'akedli', 'akedlii', 'confirme', 'confirmer', 'confirmation',
       'oui confirme', 'oui akedli', 'oui aked', 'daccord confirme', 'oui akedha'
-    ];
+    ].some(kw => normText.includes(kw) || rawLower.includes(kw));
 
-    const isConfirmIntent = confirmKeywords.some(kw => normText.includes(kw) || rawLower.includes(kw));
-    if (!isConfirmIntent) return false;
+    // Smart Gemini AI Intent Evaluation for confirmation if direct match didn't catch it
+    if (!isConfirm && messageText.length < 50) {
+      const intentPrompt = `رسالة الزبون: "${messageText}". هل الزبون يطلب تأكيد طلبيته الموافقة عليها وشحنها؟ أجب حصراً بكلمة YES أو NO فقط.`;
+      const aiIntent = await generateGeminiAI(intentPrompt, "أنت محلل نية الزبون. أخرج كلمة YES إذا كان يطلب التأكيد والشحن، أو NO فقط.", storeSettings, messageText, products);
+      if (aiIntent && aiIntent.trim().toUpperCase().includes('YES')) {
+        isConfirm = true;
+      }
+    }
+
+    if (!isConfirm) return false;
 
     const rawDigits = fromPhone.replace(/\D/g, '');
     const localPhone = rawDigits.startsWith('213') ? '0' + rawDigits.slice(3) : rawDigits;
@@ -1624,7 +1638,7 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
       : '';
     const clientNameStr = cleanName ? ` ${cleanName}` : '';
 
-    const confirmMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل. شكراً لثقتك بمتجرنا! ❤️`;
+    const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل. شكراً لثقتك بمتجرنا! ❤️`;
 
     await sendWhatsAppMessage(fromPhone, confirmMsg);
     return true;
@@ -1989,11 +2003,11 @@ ${salesModeRules}`;
               }
 
               // Check for order cancellation reply from customer ("Lala anuler", "annuler", "إلغاء", etc.)
-              const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText);
+              const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText, storeSettings, products);
               if (handledOrderCancel) continue;
 
               // Check for order confirmation reply from customer ("أكدلي", "akedli", etc.)
-              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
+              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText, storeSettings, products);
               if (handledOrderConfirm) continue;
 
               // Check for restock confirmation reply from customer
