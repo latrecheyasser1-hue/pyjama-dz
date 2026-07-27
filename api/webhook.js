@@ -1583,16 +1583,18 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
     const normText = normalizeText(messageText);
 
     // Skip immediately if customer is asking a question or saying no!
-    if (['anuler', 'annuler', 'anule', 'annule', 'الغي', 'ألغي', 'إلغاء', 'الغاء', 'lala', 'لا اريد', 'لاريد', 'chhal', 'شحال', 'كيفاه', 'qualite', 'qualité'].some(k => rawLower.includes(k) || normText.includes(k))) {
+    if (['anuler', 'annuler', 'anule', 'annule', 'الغي', 'ألغي', 'إلغاء', 'الغاء', 'lala', 'لا اريد', 'لاريد'].some(k => rawLower.includes(k) || normText.includes(k))) {
       return false;
     }
 
-    const isConfirm = [
+    const confirmKeywords = [
       'أكد', 'أكدلي', 'تأكيد', 'نؤكد', 'أكدها', 'نعم أكد', 'نعم أكدلي', 'مالا أكدلي', 'ملا أكدلي',
       'أكد الطلبية', 'تأكيد الطلبية', 'تأكيد الطلب', 'أكدلي الطلبية', 'أكدلي طلبية', 'أكدلي الطلب',
-      'akedha', 'aked', 'akedli', 'akedlii', 'confirme', 'confirmer', 'confirmation',
+      'akedha', 'akedhaa', 'aked', 'akedli', 'akedlii', 'confirme', 'confirmer', 'confirmation',
       'oui confirme', 'oui akedli', 'oui aked', 'daccord confirme', 'oui akedha'
-    ].some(kw => normText.includes(kw) || rawLower.includes(kw));
+    ];
+
+    const isConfirm = confirmKeywords.some(kw => normText.includes(kw) || rawLower.includes(kw));
 
     if (!isConfirm) return false;
 
