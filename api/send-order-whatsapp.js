@@ -109,6 +109,12 @@ export default async function handler(req, res) {
 
     const data = await apiRes.json();
     console.log('Server-to-server Meta WhatsApp order result:', data);
+
+    // Server-side low stock check trigger right after order notification
+    try {
+      fetch('https://pyjama-dz.vercel.app/api/check-low-stock', { method: 'POST' }).catch(() => {});
+    } catch (e) {}
+
     return res.status(200).json({ success: true, metaResponse: data, orderNumber: orderNum });
   } catch (err) {
     console.error('Error sending order WhatsApp:', err);
