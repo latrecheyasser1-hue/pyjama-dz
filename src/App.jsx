@@ -351,6 +351,30 @@ export default function App() {
            }
         }
       }
+      // Trigger low stock check & manager alert for placed order items
+      try {
+        if (newOrder.items) {
+          for (const item of newOrder.items) {
+            const product = products.find(p => p.id === item.productId || p.title === item.product);
+            if (product) {
+              fetch('/api/check-low-stock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ product })
+              }).catch(e => console.error('Low stock check error:', e));
+            }
+          }
+        } else if (newOrder.productId) {
+          const product = products.find(p => p.id === newOrder.productId);
+          if (product) {
+            fetch('/api/check-low-stock', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ product })
+            }).catch(e => console.error('Low stock check error:', e));
+          }
+        }
+      } catch (e) {}
       return insertedOrder;
     }
     return null;

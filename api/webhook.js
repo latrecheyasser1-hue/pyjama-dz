@@ -1434,6 +1434,16 @@ async function deductStockForOrder(productTitle, color, size, qty = 1, products 
           body: JSON.stringify({ colorVariants: updatedVariants })
         });
         console.log(`Deducted stock for ${matchedProd.title} (${targetSizeKey}): ${currentQty} -> ${newQty}, Status: ${res.status}`);
+        
+        // Trigger low stock alert to stock manager immediately if qty <= 5
+        try {
+          const updatedProdObj = { ...matchedProd, colorVariants: updatedVariants };
+          const storeSettings = await getStoreSettings();
+          await checkAndAlertLowStock(updatedProdObj, storeSettings);
+        } catch (alertErr) {
+          console.error("Error checking low stock after deduction:", alertErr);
+        }
+
         return true;
       }
     }
