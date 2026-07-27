@@ -339,9 +339,9 @@ export default async function handler(req, res) {
                                       String(variant.name || variant.color || '').toLowerCase().includes('boutique') ||
                                       String(variant.name || variant.color || '').toLowerCase().includes('محل');
             
-            const defaultManagerPhone = livraisonManagerPhone || boutiqueManagerPhone || storeSettings.whatsapp || '0771335039';
-            const targetPhone = isBoutiqueVariant ? (boutiqueManagerPhone || defaultManagerPhone) : (livraisonManagerPhone || defaultManagerPhone);
-            const locationLabel = isBoutiqueVariant ? "سطوك المحل (Boutique)" : "سطوك التوصيل (Livraison)";
+            const livraisonPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456')) ? storeSettings.whatsappLivraisonManager : (storeSettings.whatsapp || '0771335039');
+            const targetPhone = (isBoutiqueVariant && boutiqueManagerPhone) ? boutiqueManagerPhone : livraisonPhone;
+            const locationLabel = (isBoutiqueVariant && boutiqueManagerPhone) ? "سطوك المحل (Boutique)" : "سطوك التوصيل (Livraison)";
 
             if (!targetPhone) continue;
 
