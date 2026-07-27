@@ -1449,11 +1449,13 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
     const normText = normalizeText(messageText).toLowerCase().trim();
     const pLower = (messageText || '').toLowerCase().trim();
 
-    // 1. STRICT GUARD: If message is asking for photos or asking a general question, SKIP confirmation completely!
+    // 1. STRICT GUARD: If message is asking for photos or asking a general question (location, price, availability, address), SKIP confirmation completely!
     const isPhotoOrQuestion = [
       'tsswiira', 'tsswira', 'tssawir', 'tsawir', 'photo', 'photos', 'صور', 'تصاوير', 'صورة', 'وريلنا', 'وريني',
       'شحال', 'بكم', 'prix', 'وقتاش', 'وين', 'عندكم', 'كاين', 'كاينين', 'استفسار', 'سؤال', 'سعر', 'سومة', 'قماش',
-      'نوعية', 'جودة', 'مكان', 'مقر', 'عنوان', 'كيفاش'
+      'نوعية', 'جودة', 'مكان', 'مقر', 'عنوان', 'كيفاش',
+      'win', 'wayn', 'fayen', 'fayn', 'plassa', 'blassa', 'plasa', 'blasa', 'adresse', 'lieu', 'local', 'boutique', 'magasin',
+      'اين', 'أين', 'فين', 'بلاصة', 'محل', 'عنوانكم', 'مقركم', 'مكانكم'
     ].some(k => normText.includes(k) || pLower.includes(k));
 
     if (isPhotoOrQuestion) {
@@ -1463,13 +1465,14 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
     const localPhone = fromPhone.replace(/^\+?213/, '0');
     const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
 
+    // Word boundary check for short words like 'wi' to avoid matching 'win'!
     const isConfirmIntent = [
       'نعم', 'نعك', 'إيه', 'ايه', 'تأكيد', 'أكد', 'تاكيد', 'حاب نشري', 'نعم حاب', 'حاب ندير كوماند', 'حاب نطلب',
       'ديها', 'بعثهالي', 'ابعثهالي', 'yes', 'ok', 'oui', 'مشري', 'حاب نديها', 'نديها', 'daccord', 'd\'accord', 'ouais',
-      'aked', 'akedli', 'akedha', 'akedhali', 'akidli', 'akid', 'akedna', 'confirmi', 'wi', 'waye', 'wayh',
+      'aked', 'akedli', 'akedha', 'akedhali', 'akidli', 'akid', 'akedna', 'confirmi', 'waye', 'wayh',
       'confirm', 'confirmer', 'akedlih', 'اكدلي', 'أكدلي', 'اكدها', 'أكدها', 'ثبتها',
       'ثبتلي', 'ملا', 'مالا', 'صح', 'اوكي', 'ماذا بيك'
-    ].some(k => normText === k || pLower === k || normText.startsWith(k) || normText.includes(k) || pLower.includes(k));
+    ].some(k => normText === k || pLower === k || normText.startsWith(k + ' ') || normText.includes(k) || pLower.includes(k)) || /\bwi\b/i.test(pLower);
 
     // Parse any details supplied in current message
     const parsed = parseOrderDetails(messageText);
@@ -1483,7 +1486,7 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
     // Check waitlist table FIRST for waiting customer
     let waitlistEntry = null;
     try {
-      const wRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(notified,pending,en_attente,out_of_stock)&order=created_at.desc&limit=1`, {
+      const wRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(pending,en_attente,out_of_stock)&order=created_at.desc&limit=1`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       const waitlistEntries = await wRes.json();
@@ -1496,6 +1499,17 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
       const entryTitle = waitlistEntry.product_title || waitlistEntry.product || 'الموديل المطلوب';
       const entrySize = waitlistEntry.size || '';
       const entryColor = waitlistEntry.color || '';
+
+      // Mark waitlist entry as notified_sent so this message is sent ONCE ONLY!
+      await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${waitlistEntry.id}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'notified_sent' })
+      });
 
       const redirectWebsiteMsg = `أهلاً وسهلاً بك! 🌸\nبشرى سارة! توفر هاد الموديل (${entryTitle} ${entryColor ? entryColor + ' ' : ''}${entrySize ? '(' + entrySize + ')' : ''}) مجدداً في الستوك!\n\nلتأكيد واختيار الطلبية فوراً قبل نفاد الكمية، يرجى الدخول والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nتفضل بالدخول واختيار المقاس واللون وسنعمل على شحنها لك فوراً! ✨`;
       await sendWhatsAppMessage(fromPhone, redirectWebsiteMsg);
