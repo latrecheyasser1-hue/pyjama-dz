@@ -1533,7 +1533,26 @@ async function processIncomingPayload(body) {
                 const productId = refMatch[1];
                 const colorIdx = parseInt(refMatch[2]);
                 const size = refMatch[3];
-                
+                const alertKey = `${productId}_${colorIdx}_${size}`;
+
+                // Check if this item's alerts were ALREADY resolved to prevent duplicate restocking
+                let isAlreadyResolved = false;
+                try {
+                  const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}&select=value`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                  });
+                  const rows = await stateRes.json();
+                  if (Array.isArray(rows) && rows[0]?.value) {
+                    const st = JSON.parse(rows[0].value);
+                    if (st.isResolved) isAlreadyResolved = true;
+                  }
+                } catch (e) {}
+
+                if (isAlreadyResolved) {
+                  await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n⚠️ *تنبيه: تم تحديث هذا المخزون سابقاً!*\nلم يتم تكرار الإضافة لتفادي الخطأ.`);
+                  continue;
+                }
+
                 let addedQty = 0;
                 const textWithoutTag = messageText.replace(/\[REF:[^\]]+\]/gi, '');
                 const qtyMatch = textWithoutTag.match(/(\d{1,4})/);
@@ -1558,6 +1577,21 @@ async function processIncomingPayload(body) {
                       stock: { ...(updatedVariants[colorIdx].stock || {}), [size]: newQty }
                     };
 
+                    // Mark alert state as RESOLVED so subsequent replies to old messages are blocked
+                    await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+                      method: 'POST',
+                      headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates'
+                      },
+                      body: JSON.stringify({
+                        key: `alert_state_${alertKey}`,
+                        value: JSON.stringify({ qty: newQty, timestamp: Date.now(), isResolved: true })
+                      })
+                    });
+
                     await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
                       method: 'PATCH',
                       headers: {
@@ -1568,8 +1602,28 @@ async function processIncomingPayload(body) {
                       },
                       body: JSON.stringify({ colorVariants: updatedVariants })
                     });
+
+                    // Attempt to auto-delete previous active alert messages for this item from WhatsApp chat
+                    try {
+                      const activeRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.active_msgs_${alertKey}&select=value`, {
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                      });
+                      const activeRows = await activeRes.json();
+                      if (Array.isArray(activeRows) && activeRows[0]?.value) {
+                        const msgIds = JSON.parse(activeRows[0].value);
+                        if (Array.isArray(msgIds)) {
+                          for (const mId of msgIds) {
+                            await deleteWhatsAppMessage(mId);
+                          }
+                        }
+                      }
+                      await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.active_msgs_${alertKey}`, {
+                        method: 'DELETE',
+                        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                      });
+                    } catch (e) {}
                     
-                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nتم تحديث المخزون بنجاح.\n• المنتج: ${product.title}\n• اللون/المقاس: ${updatedVariants[colorIdx].name || ''} (${size})\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي: ${newQty} حبة.`);
+                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
 
                     // Notify waiting customers about restock
                     await notifyWaitingCustomers(productId, colorIdx, size, newQty);

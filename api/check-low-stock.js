@@ -183,18 +183,85 @@ export default async function handler(req, res) {
           // Skip if no manager phone is registered for this specific stock type
           if (!targetPhone) continue;
 
-            for (const [size, qty] of Object.entries(variant.stock)) {
-              const numQty = parseInt(qty);
-              if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
+          for (const [size, qty] of Object.entries(variant.stock)) {
+            const numQty = parseInt(qty);
+            if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
+              const alertKey = `${product.id}_${cIdx}_${size}`;
+
+              // Check last alert state for this specific product + color + size
+              let lastAlertState = null;
+              try {
+                const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}&select=value`, {
+                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                const rows = await stateRes.json();
+                if (Array.isArray(rows) && rows[0]?.value) {
+                  lastAlertState = JSON.parse(rows[0].value);
+                }
+              } catch (e) {}
+
+              const now = Date.now();
+              const isQtyChanged = !lastAlertState || lastAlertState.qty !== numQty;
+              const is30MinElapsed = lastAlertState && (now - (lastAlertState.timestamp || 0) >= 30 * 60 * 1000);
+
+              // Only send if quantity dropped/changed OR 30 minutes elapsed
+              if (isQtyChanged || is30MinElapsed) {
                 const alertMsg = `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.\n\n🔄 للإضافة في المخزون، قم بالرد المباشر (Répondre) على هذه الرسالة برقم الكمية المضافة فقط (مثال: 15).\n[REF:${product.id}:${cIdx}:${size}]`;
 
                 const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
                 if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
-                  await saveStockAlertRecord(alertRes.messages[0].id, targetPhone, product.id, cIdx, size);
+                  const newMsgId = alertRes.messages[0].id;
+                  await saveStockAlertRecord(newMsgId, targetPhone, product.id, cIdx, size);
+
+                  // Update alert state for this item
+                  await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+                    method: 'POST',
+                    headers: {
+                      'apikey': SUPABASE_KEY,
+                      'Authorization': `Bearer ${SUPABASE_KEY}`,
+                      'Content-Type': 'application/json',
+                      'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify({
+                      key: `alert_state_${alertKey}`,
+                      value: JSON.stringify({ qty: numQty, timestamp: now, isResolved: false })
+                    })
+                  });
+
+                  // Track active message IDs for auto-deletion
+                  let activeMsgs = [];
+                  try {
+                    const activeRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.active_msgs_${alertKey}&select=value`, {
+                      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                    });
+                    const activeRows = await activeRes.json();
+                    if (Array.isArray(activeRows) && activeRows[0]?.value) {
+                      activeMsgs = JSON.parse(activeRows[0].value);
+                    }
+                  } catch (e) {}
+
+                  if (!Array.isArray(activeMsgs)) activeMsgs = [];
+                  activeMsgs.push(newMsgId);
+
+                  await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+                    method: 'POST',
+                    headers: {
+                      'apikey': SUPABASE_KEY,
+                      'Authorization': `Bearer ${SUPABASE_KEY}`,
+                      'Content-Type': 'application/json',
+                      'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify({
+                      key: `active_msgs_${alertKey}`,
+                      value: JSON.stringify(activeMsgs)
+                    })
+                  });
+
                   alertsSent++;
                 }
               }
             }
+          }
         }
       }
     }
