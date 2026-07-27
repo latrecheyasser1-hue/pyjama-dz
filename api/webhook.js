@@ -362,17 +362,27 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
   const phonesArr = extractCleanPhonesList(...phoneSources);
   const formattedPhonesBullets = phonesArr.length > 0 ? phonesArr.map(p => `- ${p}`).join('\n') : '- 0554128933';
 
-  // 1. PHONE NUMBERS QUERY
+  // 1. QUALITY & FABRIC INQUIRY
+  if (['qualite', 'qualité', 'chaba', 'chab', 'chbab', 'جودة', 'نوعية', 'قماش', 'مليحة', 'شبابة', 'شباب', 'مليح'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `جودة السلعة والقماش ممتازة جداً ورفيعة ومريحة في اللبس 100%.\nيمكنك تصفح جميع الموديلات والتفاصيل عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+  }
+
+  // 2. DELIVERY TIMING / SPEED INQUIRY
+  if (['winta', 'twsslni', 'twsslnii', 'وقتاش', 'شحال تقعد', 'شحال ياخد', 'شحال تاخد', 'متى', 'تتوصل', 'توصلني'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `التوصيل عادة يأخذ بين 24 حتى 48 ساعة بالنسبة لولاية الشلف، ومن يومين إلى 4 أيام لباقي الولايات.\nفور ما تخرج الطلبية مع الموزع، راح يتصل بيك في الهاتف باش يوصلهالك.`;
+  }
+
+  // 3. PHONE NUMBERS QUERY
   if (['numero', 'nomer', 'num', 'nomro', 'nomiro', 'هاتف', 'رقم', 'ارقام', 'نميرو', 'نومرو', 'tel', 'phone'].some(k => norm.includes(k) || pLower.includes(k))) {
     return `أرقام التواصل والواتساب الرسمية للمتجر:\n${formattedPhonesBullets}\n\nنحن في خدمتك دائماً.`;
   }
 
-  // 2. LOCATION QUERY
+  // 4. LOCATION QUERY
   if (['win jayiin', 'win jayin', 'مقر', 'عنوان', 'موقع', 'بلاصة', 'لوكيشن', 'اللوكيشن', 'chlef', 'الشلف'].some(k => norm.includes(k) || pLower.includes(k))) {
     return `المقر والعنوان: ${address}.\nرابط خرائط جوجل (Google Maps):\n${mapsUrl}\n\nالتوصيل متوفر لجميع 58 ولاية حتى باب المنزل. كيف يمكننا مساعدتك اليوم؟`;
   }
 
-  // 3. REAL-TIME PRODUCT ITEM / COLOR / STOCK CHECKER
+  // 5. REAL-TIME PRODUCT ITEM / COLOR / STOCK CHECKER
   if (['ensemble', 'noir', 'rouge', 'rose', 'blanc', 'bleu', 'بيجامة', 'انسامبل', 'انصامبل', 'سطوك', 'كاين', 'kaayn', 'kayn', 'dispo', 'disponibilite', 'couleur', 'taille', 'مقاس', 'لون'].some(k => norm.includes(k) || pLower.includes(k))) {
     const availableColors = [];
     (products || []).forEach(p => {
@@ -396,17 +406,17 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
     }
   }
 
-  // 4. PRICES / CATALOG
+  // 6. PRICES / CATALOG
   if (['prix', 'سعر', 'اسعار', 'سومة', 'شحال', 'بكم', 'منتجات', 'موديلات', 'بيجامة', 'بيجامات', 'سلعة'].some(k => norm.includes(k) || pLower.includes(k))) {
     return `تفضل بتصفح كافة الصور، المقاسات، الألوان والأسعار المتوفرة حالياً عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nأسعارنا مناسبة جداً والتوصيل متوفر لجميع الولايات.`;
   }
 
-  // 5. DELIVERY
+  // 7. DELIVERY GENERAL
   if (['livraison', 'توصيل', 'شحن', 'نوصلو', 'ولاية', 'ديكسبريس', 'يالادين'].some(k => norm.includes(k) || pLower.includes(k))) {
     return `التوصيل متوفر لجميع 58 ولاية حتى باب المنزل أو المكتب.\nالدفع يكون عند الاستلام بعد معاينة طلبك.`;
   }
 
-  // 6. WHOLESALE
+  // 8. WHOLESALE
   if (['gros', 'جملة', 'بالجملة', 'سيري', 'تجارة'].some(k => norm.includes(k) || pLower.includes(k))) {
     return `البيع بالجملة متوفر بالسيريات والكميات لصحاب المحلات والتجارة.\nيمكنك تصفح الموقع أو التواصل معنا عبر الهاتف للمزيد من التفاصيل: https://pyjama-dz.vercel.app`;
   }
