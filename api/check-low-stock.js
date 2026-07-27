@@ -141,15 +141,20 @@ export default async function handler(req, res) {
     const boutiqueManagerPhone = (storeSettings.whatsappBoutiqueManager && !storeSettings.whatsappBoutiqueManager.includes('123456')) ? storeSettings.whatsappBoutiqueManager : null;
     const livraisonManagerPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456')) ? storeSettings.whatsappLivraisonManager : null;
 
-    // 2. Fetch target product or all products
-    let url = `${SUPABASE_URL}/rest/v1/products?select=*`;
-    if (productId) {
-      url += `&id=eq.${productId}`;
+    // 2. Fetch target product or use product object passed in request body
+    let products = [];
+    if (req.body && req.body.product) {
+      products = [req.body.product];
+    } else {
+      let url = `${SUPABASE_URL}/rest/v1/products?select=*`;
+      if (productId) {
+        url += `&id=eq.${productId}`;
+      }
+      const prodRes = await fetch(url, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      products = await prodRes.json();
     }
-    const prodRes = await fetch(url, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    const products = await prodRes.json();
 
     let alertsSent = 0;
     if (Array.isArray(products)) {

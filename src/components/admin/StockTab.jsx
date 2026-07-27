@@ -613,8 +613,12 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     setIsFormOpen(false);
   };
 
-  const triggerCheckLowStock = (productId) => {
-    fetch(`/api/check-low-stock?productId=${productId}`).catch(err => console.error('Low stock check error:', err));
+  const triggerCheckLowStock = (updatedProduct) => {
+    fetch('/api/check-low-stock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product: updatedProduct })
+    }).catch(err => console.error('Low stock check error:', err));
   };
 
   // Quick stock quantity adjuster
@@ -631,16 +635,18 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       };
     });
 
-    onUpdateProduct({
+    const updatedProduct = {
       ...product,
       colorVariants: updatedVariants
-    });
+    };
+
+    onUpdateProduct(updatedProduct);
 
     if (delta > 0) {
       triggerNotifyRestock(product.id, product.title, size, nextQty);
     }
     if (nextQty <= 5) {
-      triggerCheckLowStock(product.id);
+      triggerCheckLowStock(updatedProduct);
     }
   };
 
@@ -656,17 +662,19 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       };
     });
 
-    onUpdateProduct({
+    const updatedProduct = {
       ...product,
       colorVariants: updatedVariants
-    });
+    };
+
+    onUpdateProduct(updatedProduct);
 
     if (nextQty > 0) {
       const colorName = product.colorVariants?.[colorIdx]?.color || '';
       triggerNotifyRestock(product.id, product.title, size, nextQty, colorName);
     }
     if (nextQty <= 5) {
-      triggerCheckLowStock(product.id);
+      triggerCheckLowStock(updatedProduct);
     }
   };
 
