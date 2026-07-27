@@ -20,6 +20,37 @@ async function getMetaAccessToken() {
   return DEFAULT_TOKEN;
 }
 
+async function sendWhatsAppTemplate(toPhone, templateName = 'hello_world', languageCode = 'en_US') {
+  const token = await getMetaAccessToken();
+  if (!token || !toPhone) return;
+  const cleanDigits = String(toPhone).replace(/\D/g, '');
+  if (cleanDigits.length < 8) return;
+  const waPhone = cleanDigits.startsWith('213') ? cleanDigits : (cleanDigits.startsWith('0') ? '213' + cleanDigits.substring(1) : '213' + cleanDigits);
+
+  const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: waPhone,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: { code: languageCode }
+        }
+      })
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Send WhatsApp Template error:', err);
+  }
+}
+
 async function sendWhatsAppMessage(toPhone, textBody) {
   const token = await getMetaAccessToken();
   if (!token || !toPhone) return;
@@ -139,6 +170,9 @@ export default async function handler(req, res) {
             const numQty = parseInt(qty);
             if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
               const alertMsg = `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.\n\n🔄 للإضافة في المخزون، قم بالرد المباشر (Répondre) على هذه الرسالة برقم الكمية المضافة فقط (مثال: 15).\n[REF:${product.id}:${cIdx}:${size}]`;
+
+              // Send template to open Meta's 24-hour window automatically if needed
+              await sendWhatsAppTemplate(targetPhone, 'hello_world', 'en_US');
 
               const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
               if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {

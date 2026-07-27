@@ -1185,6 +1185,7 @@ async function checkAndAlertLowStock(product, storeSettings) {
 
         const alertMsg = `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.\n\n🔄 للإضافة في المخزون، قم بالرد المباشر (Répondre) على هذه الرسالة برقم الكمية المضافة فقط (مثال: 15).\n[REF:${product.id}:${cIdx}:${size}]`;
         
+        await sendWhatsAppTemplate(targetPhone, 'hello_world', 'en_US');
         const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
         if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
           await saveStockAlertRecord(alertRes.messages[0].id, targetPhone, product.id, cIdx, size);
