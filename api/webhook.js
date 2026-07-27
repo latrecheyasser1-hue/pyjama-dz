@@ -1347,20 +1347,51 @@ async function checkAndAlertLowStock(product, storeSettings) {
   }
 }
 
+function parseOrderDetails(text) {
+  if (!text) return { name: '', phone: '', wilaya: '', commune: '', deliveryCompany: '', deliveryMode: '' };
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  let name = '';
+  let phone = '';
+  let wilaya = '';
+  let commune = '';
+  let deliveryCompany = 'Livraison Domicile';
+  let deliveryMode = 'home';
+
+  const phoneMatch = text.match(/(0[567]\d{8})/);
+  if (phoneMatch) phone = phoneMatch[1];
+
+  for (const line of lines) {
+    const lNorm = normalizeText(line);
+    const lLower = line.toLowerCase();
+
+    if (['yalidine', 'مكتب', 'maktab', 'stop desk', 'stopdesk', 'agence'].some(k => lLower.includes(k) || lNorm.includes(k))) {
+      deliveryCompany = 'Yalidine Stop Desk';
+      deliveryMode = 'desk';
+    } else if (['domicile', 'منزل', 'دار', 'دارنا', 'home'].some(k => lLower.includes(k) || lNorm.includes(k))) {
+      deliveryCompany = 'Livraison Domicile';
+      deliveryMode = 'home';
+    }
+
+    if (['chlef', 'الشلف', 'alger', 'الجزائر', 'oran', 'وهران', 'blida', 'البليدة', 'setif', 'سطيف', 'annaba', 'عنابة', 'constantine', 'قسنطينة', 'tlemcen', 'تلمسان', 'batna', 'باتنة', 'bjaya', 'bejaia', 'بجاية', 'biskra', 'بسكرة', 'tizi', 'تيزي', 'mostaganem', 'مستغانم', 'tiaret', 'تيارت', 'djelfa', 'الجلفة', 'skikda', 'سكيكدة', 'medea', 'المدية', 'mascara', 'معسكر', 'ouargla', 'ورقلة', 'bba', 'برج', 'boumerdes', 'بومرداس', 'el oued', 'الوادي', 'khenchela', 'خنشلة', 'souk ahras', 'سوق اهراس', 'tipaza', 'تيبازة', 'milla', 'ميلة', 'ain temouchent', 'عين تموشنت', 'ghardaia', 'غرداية', 'relizane', 'غليزان'].some(k => lLower.includes(k) || lNorm.includes(k))) {
+      const parts = line.split(/[-,\/\s]+/);
+      wilaya = parts[0] ? parts[0].trim() : 'الشلف';
+      commune = parts[1] ? parts[1].trim() : (parts[0] || 'المركز');
+    }
+
+    if (!name && /[a-zA-Zأ-ي]/.test(line) && !line.match(/0[567]\d{8}/) && !['yalidine', 'livraison', 'مكتب', 'منزل', 'stop desk', 'llmaktab'].some(k => lLower.includes(k))) {
+      if (!['chlef', 'alger', 'oran', 'blida', 'setif', 'الشلف', 'الجزائر'].some(k => lLower.includes(k))) {
+        name = line.trim();
+      }
+    }
+  }
+
+  return { name, phone, wilaya, commune, deliveryCompany, deliveryMode };
+}
+
 async function processRestockConfirmationIntent(fromPhone, messageText, products) {
   try {
     const normText = normalizeText(messageText).toLowerCase().trim();
     const pLower = (messageText || '').toLowerCase().trim();
-
-    const isConfirmIntent = [
-      'نعم', 'نعك', 'إيه', 'ايه', 'تأكيد', 'أكد', 'تاكيد', 'حاب نشري', 'نعم حاب', 'حاب ندير كوماند', 'حاب نطلب',
-      'ديها', 'بعثهالي', 'ابعثهالي', 'yes', 'ok', 'oui', 'مشري', 'حاب نديها', 'نديها', 'daccord', 'd\'accord', 'ouais',
-      'aked', 'akedli', 'akedha', 'akedhali', 'akidli', 'akid', 'akedna', 'confirmi', 'wi', 'waye', 'wayh',
-      'confirm', 'confirmer', 'akedlih', 'اكدلي', 'أكدلي', 'اكدها', 'أكدها', 'ثبتها',
-      'ثبتلي', 'ملا', 'مالا', 'صح', 'اوكي', 'ماذا بيك', 'ابعث'
-    ].some(k => normText === k || pLower === k || normText.startsWith(k) || normText.includes(k) || pLower.includes(k));
-
-    if (!isConfirmIntent) return false;
 
     const localPhone = fromPhone.replace(/^\+?213/, '0');
     const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
@@ -1377,15 +1408,29 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
       }
     } catch (e) {}
 
-    let order = null;
+    const isConfirmIntent = [
+      'نعم', 'نعك', 'إيه', 'ايه', 'تأكيد', 'أكد', 'تاكيد', 'حاب نشري', 'نعم حاب', 'حاب ندير كوماند', 'حاب نطلب',
+      'ديها', 'بعثهالي', 'ابعثهالي', 'yes', 'ok', 'oui', 'مشري', 'حاب نديها', 'نديها', 'daccord', 'd\'accord', 'ouais',
+      'aked', 'akedli', 'akedha', 'akedhali', 'akidli', 'akid', 'akedna', 'confirmi', 'wi', 'waye', 'wayh',
+      'confirm', 'confirmer', 'akedlih', 'اكدلي', 'أكدلي', 'اكدها', 'أكدها', 'ثبتها',
+      'ثبتلي', 'ملا', 'مالا', 'صح', 'اوكي', 'ماذا بيك', 'ابعث'
+    ].some(k => normText === k || pLower === k || normText.startsWith(k) || normText.includes(k) || pLower.includes(k));
+
+    // Parse any details supplied in current message
+    const parsed = parseOrderDetails(messageText);
+
+    if (!waitlistEntry && !isConfirmIntent && !parsed.name && !parsed.wilaya) {
+      return false;
+    }
 
     if (waitlistEntry) {
-      const rawName = (waitlistEntry.client_name || '').trim();
+      const rawName = (parsed.name || waitlistEntry.client_name || '').trim();
       const hasRealName = rawName && rawName !== 'زبون الواتساب' && rawName !== 'زبون المحادثة';
-      const hasWilaya = Boolean(waitlistEntry.wilaya && waitlistEntry.wilaya.trim());
+      const rawWilaya = (parsed.wilaya || waitlistEntry.wilaya || '').trim();
+      const hasWilaya = Boolean(rawWilaya);
 
-      // STRICT RULE: If customer name or wilaya is missing/generic, DO NOT CREATE ORDER! Ask for full details first!
-      if (!hasRealName || !hasWilaya) {
+      // If customer has not provided details yet and sent confirmation intent (e.g., "oui"), prompt for details!
+      if ((!hasRealName || !hasWilaya) && isConfirmIntent && !parsed.name && !parsed.wilaya) {
         const entryTitle = waitlistEntry.product_title || waitlistEntry.product || 'بيجامات فاخرة';
         const entrySize = waitlistEntry.size || '';
         const entryColor = waitlistEntry.color || '';
@@ -1395,147 +1440,82 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
         return true;
       }
 
-      // Find matching product in catalog for price & details
-      const entryTitle = waitlistEntry.product_title || waitlistEntry.product || '';
-      const matchedProd = (products || []).find(p => {
-        const titleNorm = normalizeText(p.title || '').toLowerCase();
-        return titleNorm && normalizeText(entryTitle).toLowerCase().includes(titleNorm);
-      }) || products?.[0];
+      if (hasRealName || parsed.name) {
+        const clientNameStr = parsed.name || waitlistEntry.client_name || 'زبون المتجر';
+        const clientWilayaStr = parsed.wilaya || waitlistEntry.wilaya || 'الشلف';
+        const clientCommuneStr = parsed.commune || waitlistEntry.commune || 'المركز';
+        const deliveryCompanyStr = parsed.deliveryCompany || waitlistEntry.deliveryCompany || 'Livraison Domicile';
+        const deliveryModeStr = parsed.deliveryMode || 'home';
 
-      const itemPrice = matchedProd?.price ? Number(matchedProd.price) : 3500;
-      const prodNameStr = `${entryTitle || matchedProd?.title || 'بيجامات فاخرة'} (${waitlistEntry.color ? waitlistEntry.color + ' - ' : ''}${waitlistEntry.size || 'M'})`;
+        const entryTitle = waitlistEntry.product_title || waitlistEntry.product || '';
+        const matchedProd = (products || []).find(p => {
+          const titleNorm = normalizeText(p.title || '').toLowerCase();
+          return titleNorm && normalizeText(entryTitle).toLowerCase().includes(titleNorm);
+        }) || products?.[0];
 
-      // Create ONE REAL CONFIRMED ORDER in orders table!
-      const createRes = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({
-          clientName: waitlistEntry.client_name,
-          phone: localPhone,
-          wilaya: waitlistEntry.wilaya,
-          commune: waitlistEntry.commune || 'المركز',
-          deliveryMode: 'home',
-          deliveryCompany: 'Livraison Domicile',
-          product: prodNameStr,
-          price: itemPrice,
-          quantity: 1,
-          status: 'confirmee',
-          archived: true,
-          created_at: new Date().toISOString(),
-          items: [{
-            productId: matchedProd?.id,
-            product: entryTitle || matchedProd?.title,
-            color: waitlistEntry.color,
-            size: waitlistEntry.size,
+        const itemPrice = matchedProd?.price ? Number(matchedProd.price) : 3500;
+        const prodNameStr = `${entryTitle || matchedProd?.title || 'بيجامات فاخرة'} (${waitlistEntry.color ? waitlistEntry.color + ' - ' : ''}${waitlistEntry.size || 'M'})`;
+
+        // Create ONE REAL CONFIRMED ORDER in orders table!
+        const createRes = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
+            clientName: clientNameStr,
+            phone: localPhone,
+            wilaya: clientWilayaStr,
+            commune: clientCommuneStr,
+            deliveryMode: deliveryModeStr,
+            deliveryCompany: deliveryCompanyStr,
+            product: prodNameStr,
             price: itemPrice,
-            qty: 1
-          }]
-        })
-      });
+            quantity: 1,
+            status: 'confirmee',
+            archived: true,
+            created_at: new Date().toISOString(),
+            items: [{
+              productId: matchedProd?.id,
+              product: entryTitle || matchedProd?.title,
+              color: waitlistEntry.color,
+              size: waitlistEntry.size,
+              price: itemPrice,
+              qty: 1
+            }]
+          })
+        });
 
-      const newOrderData = await createRes.json();
-      if (Array.isArray(newOrderData) && newOrderData[0]) {
-        order = newOrderData[0];
-      }
+        const newOrderData = await createRes.json();
+        let order = (Array.isArray(newOrderData) && newOrderData[0]) ? newOrderData[0] : null;
 
-      // Mark waitlist entry as confirmed
-      await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${waitlistEntry.id}`, {
-        method: 'PATCH',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: 'confirmed' })
-      });
-    }
-
-    if (!order) {
-      // Fallback: Check pending orders
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(nouvelle,nouvel,new,pending,en_attente_confirmation,attente_confirmation,attente_confirmation_restock,en_attente_stock,pending_stock)&order=created_at.desc&limit=1`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      const pendingOrders = await res.json();
-      if (Array.isArray(pendingOrders) && pendingOrders[0]) {
-        order = pendingOrders[0];
-        await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
+        // Mark waitlist entry as confirmed
+        await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${waitlistEntry.id}`, {
           method: 'PATCH',
           headers: {
             'apikey': SUPABASE_KEY,
             'Authorization': `Bearer ${SUPABASE_KEY}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ status: 'confirmee', archived: true })
+          body: JSON.stringify({ status: 'confirmed', client_name: clientNameStr, wilaya: clientWilayaStr })
         });
-      }
-    }
 
-    if (!order) return false;
+        if (order) {
+          const orderNumStr = await getSequentialOrderNum(order);
+          const confirmMsg = `الله يحفظك خويا ${clientNameStr}، تم تأكيد الطلبية تاعك رقم #${orderNumStr} بنجاح (${prodNameStr})، بالتوصيل لـ ${deliveryCompanyStr} في ${clientWilayaStr}${clientCommuneStr ? ' - ' + clientCommuneStr : ''} فور شحنها باش تستلمها. شكرا لك على ثقتك في متجرنا Pyjama DZ.`;
 
-    // Deduct stock in Supabase for matched product
-    if (Array.isArray(products) && products.length > 0) {
-      const items = Array.isArray(order.items) ? order.items : [];
-      const item = items[0] || {};
-      const orderProdText = item.product || order.product || '';
-      const orderSize = item.size || order.size || '';
-      const orderColor = item.color || order.color || '';
-
-      const matchedProducts = products.filter(p => {
-        const titleNorm = normalizeText(p.title || '').toLowerCase();
-        return titleNorm && normalizeText(orderProdText).toLowerCase().includes(titleNorm);
-      });
-
-      for (const matchedProd of matchedProducts) {
-        if (matchedProd && Array.isArray(matchedProd.colorVariants)) {
-          const updatedVariants = [...matchedProd.colorVariants];
-          const vIdx = updatedVariants.findIndex(v => {
-            const vColor = normalizeText(v.color || v.name || '').toLowerCase();
-            return !orderColor || vColor.includes(normalizeText(orderColor).toLowerCase());
-          });
-
-          const targetIdx = vIdx >= 0 ? vIdx : 0;
-          const targetVariant = updatedVariants[targetIdx];
-          if (targetVariant && targetVariant.stock) {
-            const stockKeys = Object.keys(targetVariant.stock);
-            const targetKey = stockKeys.find(k => k.trim().toLowerCase() === String(orderSize).trim().toLowerCase()) || stockKeys[0];
-            if (targetKey && targetVariant.stock[targetKey] !== undefined) {
-              const currentQty = Number(targetVariant.stock[targetKey] || 1);
-              const newQty = Math.max(0, currentQty - 1);
-              updatedVariants[targetIdx] = {
-                ...targetVariant,
-                stock: { ...targetVariant.stock, [targetKey]: newQty }
-              };
-
-              await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${matchedProd.id}`, {
-                method: 'PATCH',
-                headers: {
-                  'apikey': SUPABASE_KEY,
-                  'Authorization': `Bearer ${SUPABASE_KEY}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ colorVariants: updatedVariants })
-              });
-            }
-          }
+          await sendWhatsAppMessage(fromPhone, confirmMsg);
+          return true;
         }
       }
     }
 
-    const orderNumStr = await getSequentialOrderNum(order);
-    const clientNameStr = (order.clientName && order.clientName !== 'زبون الواتساب') ? order.clientName : '';
-    const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-
-    const confirmMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح! 📦\n\n- المنتج: ${order.product || 'بيجامات فاخرة'}\n- المبلغ: ${order.price || 3500} د.ج\n- المكان: ${order.wilaya || 'الجزائر'}\n- التوصيل: ${order.deliveryCompany || 'Livraison Domicile'}\n\nجاري تجهيز طلبك وشحنه في أقرب وقت. شكراً لثقتك بنا!`;
-
-    await sendWhatsAppMessage(fromPhone, confirmMsg);
-    return true;
+    return false;
   } catch (err) {
-    console.error('Error processing restock confirmation intent:', err);
+    console.error('Error in processRestockConfirmationIntent:', err);
   }
   return false;
 }
