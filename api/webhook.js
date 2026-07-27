@@ -1268,6 +1268,7 @@ async function checkAndAlertLowStock(product, storeSettings) {
   
   const boutiqueManagerPhone = (storeSettings.whatsappBoutiqueManager && !storeSettings.whatsappBoutiqueManager.includes('123456')) ? storeSettings.whatsappBoutiqueManager : null;
   const livraisonManagerPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456')) ? storeSettings.whatsappLivraisonManager : null;
+  const defaultManagerPhone = livraisonManagerPhone || boutiqueManagerPhone || storeSettings.whatsapp || '0771335039';
 
   const isBoutiqueProduct = (product.category && String(product.category).startsWith('boutique__')) ||
                             (product.badge && String(product.badge).includes('Boutique'));
@@ -1281,10 +1282,8 @@ async function checkAndAlertLowStock(product, storeSettings) {
                               String(variant.name || variant.color || '').toLowerCase().includes('boutique') ||
                               String(variant.name || variant.color || '').toLowerCase().includes('محل');
     
-    // Strict Manager Routing:
-    // Boutique stock alerts ONLY go to boutiqueManagerPhone.
-    // Livraison stock alerts ONLY go to livraisonManagerPhone.
-    const targetPhone = isBoutiqueVariant ? boutiqueManagerPhone : livraisonManagerPhone;
+    // Guaranteed target phone (with fallback so NO product stock alert is skipped)
+    const targetPhone = isBoutiqueVariant ? (boutiqueManagerPhone || defaultManagerPhone) : (livraisonManagerPhone || defaultManagerPhone);
     const locationLabel = isBoutiqueVariant ? "سطوك المحل (Boutique)" : "سطوك التوصيل (Livraison)";
 
     // Skip if no manager phone is registered for this specific stock type

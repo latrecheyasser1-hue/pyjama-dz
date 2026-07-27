@@ -339,7 +339,8 @@ export default async function handler(req, res) {
                                       String(variant.name || variant.color || '').toLowerCase().includes('boutique') ||
                                       String(variant.name || variant.color || '').toLowerCase().includes('محل');
             
-            const targetPhone = isBoutiqueVariant ? boutiqueManagerPhone : livraisonManagerPhone;
+            const defaultManagerPhone = livraisonManagerPhone || boutiqueManagerPhone || storeSettings.whatsapp || '0771335039';
+            const targetPhone = isBoutiqueVariant ? (boutiqueManagerPhone || defaultManagerPhone) : (livraisonManagerPhone || defaultManagerPhone);
             const locationLabel = isBoutiqueVariant ? "سطوك المحل (Boutique)" : "سطوك التوصيل (Livraison)";
 
             if (!targetPhone) continue;
