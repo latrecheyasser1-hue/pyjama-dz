@@ -310,7 +310,21 @@ export default async function handler(req, res) {
       if (sizeMatches && prodMatches && colorMatches) {
         notifiedPhones.add(waPhone);
         global._recentRestockMap.set(waPhone, now);
-        if (entry.id) await saveNotifiedWaitlistId(entry.id);
+        if (entry.id) {
+          await saveNotifiedWaitlistId(entry.id);
+          // Mark waitlist status as notified in Supabase so customer is NEVER notified again for this request
+          try {
+            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ status: 'notified' })
+            });
+          } catch (e) {}
+        }
 
         const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
