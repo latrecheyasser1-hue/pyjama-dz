@@ -116,15 +116,224 @@ async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
   }
 }
 
+async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
+  try {
+    if (!size || newQty <= 0) return;
+
+    let availableQty = Number(newQty);
+    const targetSize = String(size).trim().toUpperCase();
+
+    let productTitle = '';
+    if (productId) {
+      try {
+        const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const prods = await prodRes.json();
+        if (Array.isArray(prods) && prods[0]) {
+          productTitle = prods[0].title || '';
+        }
+      } catch (e) {}
+    }
+
+    let orders = [];
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=in.(en_attente_stock,pending_stock,rupture_stock,attente_stock,out_of_stock)&order=created_at.asc`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      orders = await res.json();
+      if (!Array.isArray(orders)) orders = [];
+    } catch (e) {
+      orders = [];
+    }
+
+    let waitlistEntries = [];
+    try {
+      const waitlistRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?status=in.(pending,en_attente)&order=created_at.asc`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      waitlistEntries = await waitlistRes.json();
+      if (!Array.isArray(waitlistEntries)) waitlistEntries = [];
+    } catch (e) {
+      waitlistEntries = [];
+    }
+
+    const notifiedPhones = new Set();
+    const notifiedWaitlistIds = new Set();
+    const notifiedPhonesSet = new Set();
+    try {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(notified_waitlist_ids,notified_phones_list)&select=*`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const rows = await setRes.json();
+      if (Array.isArray(rows)) {
+        rows.forEach(r => {
+          if (r.key === 'notified_waitlist_ids' && r.value) {
+            const arr = JSON.parse(r.value);
+            if (Array.isArray(arr)) arr.forEach(id => notifiedWaitlistIds.add(id));
+          } else if (r.key === 'notified_phones_list' && r.value) {
+            const arr = JSON.parse(r.value);
+            if (Array.isArray(arr)) arr.forEach(p => notifiedPhonesSet.add(p));
+          }
+        });
+      }
+    } catch (e) {}
+
+    const saveNotifiedPhone = async (phoneStr) => {
+      if (!phoneStr) return;
+      notifiedPhonesSet.add(phoneStr);
+      const last8 = phoneStr.slice(-8);
+      if (last8) notifiedPhonesSet.add(last8);
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ key: 'notified_phones_list', value: JSON.stringify(Array.from(notifiedPhonesSet)) })
+        });
+      } catch (e) {}
+    };
+
+    const isProdMatch = (targetId, targetTitle, orderId, orderText) => {
+      if (targetId && orderId && String(targetId).trim() === String(orderId).trim()) return true;
+      const nTarget = String(targetTitle || '').toLowerCase().trim();
+      const nOrder = String(orderText || '').toLowerCase().trim();
+      if (nTarget && nOrder) {
+        if (nOrder.includes(nTarget) || nTarget.includes(nOrder)) return true;
+      }
+      return false;
+    };
+
+    const isSzMatch = (targetSz, orderSz) => {
+      if (!targetSz || !orderSz) return false;
+      const nTarget = String(targetSz).trim().toUpperCase();
+      const nOrder = String(orderSz).trim().toUpperCase();
+      return nOrder === nTarget || nOrder === 'STANDARD' || nTarget === 'STANDARD' || nOrder === 'ALL';
+    };
+
+    for (const order of orders) {
+      if (availableQty <= 0) break;
+      const items = Array.isArray(order.items) ? order.items : [];
+      const item = items[0] || {};
+      const orderSize = (item.size || order.size || '');
+      const orderProdId = item.productId || item.product_id || order.productId || order.product_id;
+      const orderProdText = item.product || item.title || order.product || '';
+
+      const sizeMatches = isSzMatch(targetSize, orderSize);
+      const prodMatches = isProdMatch(productId, productTitle, orderProdId, orderProdText);
+
+      if (sizeMatches && prodMatches && order.phone) {
+        const orderNumStr = String(order.id).slice(-4);
+        const clientNameStr = (order.clientName && order.clientName !== 'زبون الواتساب' && order.clientName !== 'زبون المحادثة')
+          ? order.clientName : '';
+        const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
+        const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
+
+        const restockMsg = `أهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}.\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح وجاري تجهيزها للشحن. شكراً لانتظارك.`;
+        
+        const cleanPhone = order.phone.replace(/\D/g, '');
+        const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
+        await sendWhatsAppMessage(waPhone, restockMsg);
+        notifiedPhones.add(waPhone);
+        await saveNotifiedPhone(cleanPhone);
+
+        availableQty = Math.max(0, availableQty - 1);
+      }
+    }
+
+    if (availableQty > 0) {
+      for (const entry of waitlistEntries) {
+        if (availableQty <= 0) break;
+        if (entry.id && notifiedWaitlistIds.has(entry.id)) continue;
+
+        const entryPhone = entry.whatsapp_number || entry.phone;
+        const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
+        const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
+        const last8 = cleanPhone.slice(-8);
+
+        if (!waPhone || notifiedPhones.has(waPhone) || (cleanPhone && notifiedPhonesSet.has(cleanPhone)) || (last8 && notifiedPhonesSet.has(last8))) {
+          continue;
+        }
+
+        const entrySize = entry.size || '';
+        const entryProdId = entry.product_id || entry.productId;
+        const entryProdText = entry.product_title || entry.product || '';
+
+        const sizeMatches = isSzMatch(targetSize, entrySize);
+        const prodMatches = isProdMatch(productId, productTitle, entryProdId, entryProdText);
+
+        if (sizeMatches && prodMatches) {
+          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: 'notified' })
+          });
+
+          if (cleanPhone) {
+            const p1 = '0' + cleanPhone.slice(-9);
+            const p2 = '213' + cleanPhone.slice(-9);
+            const p3 = cleanPhone;
+            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=in.(${p1},${p2},${p3})`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ status: 'notified' })
+            });
+            await saveNotifiedPhone(cleanPhone);
+          }
+
+          if (entry.id) {
+            notifiedWaitlistIds.add(entry.id);
+            try {
+              await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+                method: 'POST',
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                  'Content-Type': 'application/json',
+                  'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({ key: 'notified_waitlist_ids', value: JSON.stringify(Array.from(notifiedWaitlistIds)) })
+              });
+            } catch (e) {}
+          }
+
+          const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
+          const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
+          const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
+
+          const restockMsg = `أهلاً بك${nameGreeting}.\nبشرى سارة 🎉 توفر مقاسك (${targetSize}) مجدداً${prodDesc}.\nيمكنك الآن إتمام طلبك عبر موقعنا الرسمي: https://pyjama-dz.vercel.app أو بالرد على هذه الرسالة. شكراً لانتظارك.`;
+
+          await sendWhatsAppMessage(waPhone, restockMsg);
+          notifiedPhones.add(waPhone);
+
+          availableQty = Math.max(0, availableQty - 1);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error notifying waiting customers:', err);
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
   try {
-    const { productId } = req.query.productId ? req.query : (req.body || {});
+    const productId = req.query?.productId || req.body?.productId;
 
     // 1. Fetch store settings
     const settingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=*`, {
@@ -161,7 +370,6 @@ export default async function handler(req, res) {
       for (const product of products) {
         if (!product || !Array.isArray(product.colorVariants)) continue;
 
-        // Check if product belongs to Boutique stock vs Livraison stock
         const isBoutiqueProduct = (product.category && String(product.category).startsWith('boutique__')) ||
                                   (product.badge && String(product.badge).includes('Boutique'));
 
@@ -169,26 +377,27 @@ export default async function handler(req, res) {
           const variant = product.colorVariants[cIdx];
           if (!variant || !variant.stock) continue;
 
-          const isBoutiqueVariant = isBoutiqueProduct ||
-                                    String(variant.name || variant.color || '').toLowerCase().includes('حانيت') || 
-                                    String(variant.name || variant.color || '').toLowerCase().includes('boutique') ||
-                                    String(variant.name || variant.color || '').toLowerCase().includes('محل');
-          
-          // Strict Manager Routing:
-          // Boutique stock alerts ONLY go to boutiqueManagerPhone.
-          // Livraison stock alerts ONLY go to livraisonManagerPhone.
-          const targetPhone = isBoutiqueVariant ? boutiqueManagerPhone : livraisonManagerPhone;
-          const locationLabel = isBoutiqueVariant ? "سطوك المحل (Boutique)" : "سطوك التوصيل (Livraison)";
-
-          // Skip if no manager phone is registered for this specific stock type
-          if (!targetPhone) continue;
-
           for (const [size, qty] of Object.entries(variant.stock)) {
             const numQty = parseInt(qty);
+            
+            // 🚀 AUTOMATIC RESTOCK NOTIFICATIONS TO WAITING CUSTOMERS WHEN QTY > 0
+            if (!isNaN(numQty) && numQty > 0) {
+              await notifyWaitingCustomers(product.id, cIdx, size, numQty);
+            }
+
+            const isBoutiqueVariant = isBoutiqueProduct ||
+                                      String(variant.name || variant.color || '').toLowerCase().includes('حانيت') || 
+                                      String(variant.name || variant.color || '').toLowerCase().includes('boutique') ||
+                                      String(variant.name || variant.color || '').toLowerCase().includes('محل');
+            
+            const targetPhone = isBoutiqueVariant ? boutiqueManagerPhone : livraisonManagerPhone;
+            const locationLabel = isBoutiqueVariant ? "سطوك المحل (Boutique)" : "سطوك التوصيل (Livraison)";
+
+            if (!targetPhone) continue;
+
             if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
               const alertKey = `${product.id}_${cIdx}_${size}`;
 
-              // Check last alert state for this specific product + color + size
               let lastAlertState = null;
               try {
                 const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}&select=value`, {
@@ -205,13 +414,11 @@ export default async function handler(req, res) {
               const is30MinElapsed = lastAlertState && (now - (lastAlertState.timestamp || 0) >= 30 * 60 * 1000);
               const isRecentlySentIn2Min = lastAlertState && (now - (lastAlertState.timestamp || 0) < 2 * 60 * 1000);
 
-              // Anti-duplicate lock: Do not send if sent less than 2 minutes ago
               if (isRecentlySentIn2Min) {
                 console.log(`Skipping duplicate alert for ${product.title} ${size} - already sent less than 2 mins ago.`);
                 continue;
               }
 
-              // Only send if quantity dropped/changed OR 30 minutes elapsed
               if (isQtyChanged || is30MinElapsed) {
                 const alertMsg = `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.`;
 
@@ -220,7 +427,6 @@ export default async function handler(req, res) {
                   const newMsgId = alertRes.messages[0].id;
                   await saveStockAlertRecord(newMsgId, targetPhone, product.id, cIdx, size);
 
-                  // Update alert state for this item
                   await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
                     method: 'POST',
                     headers: {
@@ -235,7 +441,6 @@ export default async function handler(req, res) {
                     })
                   });
 
-                  // Track active message IDs for auto-deletion
                   let activeMsgs = [];
                   try {
                     const activeRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.active_msgs_${alertKey}&select=value`, {
