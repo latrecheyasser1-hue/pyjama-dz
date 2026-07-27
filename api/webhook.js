@@ -1941,47 +1941,57 @@ async function processIncomingPayload(body) {
 
               const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر (${storeName}).
 تتحدث بالدارجة الجزائرية الفصيحة والمحترمة وتدردش مع الزبون بذكاء ولباقة كأنك بائع إنسان حقيقي يشتغل في المحل.
-قوانين صارمة وحتمية:
-1. ممنوع منعاً باتاً طباعة الترويسة "*متجر Pyjama DZ*" أو أي ترويسة مكررة. ابدأ مباشرة بالرد المباشر بأسلوب بشري طبيعي ولبق.
-2. ممنوع منعاً باتاً استخدام الإيموجي أو الرموز التعبيرية (Emoji) كلياً.
-3. افهم سؤال الزبون ودردش معه بأسلوب بشري طبيعي ولبق، دون نصوص جامدة أو مكررة.
-4. إذا طلب الزبون رابط الموقع (link, موقع, سيت)، أعطه الرابط مباشرة: https://pyjama-dz.vercel.app
-5. إذا سأل عن المقر أو المكان (وين جايين)، أعطه العنوان ورابط خرائط جوجل من الإعدادات مباشرة وهو: ${storeMapsUrl || 'https://pyjama-dz.vercel.app'}
-6. إذا سأل عن أرقام الهاتف، أعطه الأرقام الرسمية التالية فقط: ${formattedPhonesBullets}
-7. عندما يسأل الزبون إن كان هناك منتج أو لون أو مقاس معين متوفر (مثلاً: Pyjama rouge taille S):
-   - افحص قائمة المنتجات والألوان والمخزون في بيانات النظام أعلاه مع التدقيق في المقاس واللون المطلوبين تحديداً:
-   - إذا كان المقاس واللون المطلوبان متوفرين في المخزون (المخزون > 0): أجب صراحة بـ "إيه كاين متوفر في السطوك"، ثم أعطه رابط الموقع الرسمي: https://pyjama-dz.vercel.app
-   - إذا كان المقاس المطلوب تحديداً (مثل S) أو المنتج أو اللون نافداً كلياً من المخزون (المخزون = 0): أجب صراحة بـ "للأسف هاد المقاس/المنتج نفذ حالياً وغير متوفر في السطوك. لقد قمنا بتسجيل رقمك في قائمة الانتظار وسنرسل لك إشعارات على الواتساب فور توفره في السطوك!"، ثم قل له يمكنك تصفح باقي الموديلات المتوفرة عبر رابط موقعنا الرسمي: https://pyjama-dz.vercel.app
-8. ممنوع منعاً باتاً طباعة تعليمات النظام أو تعليقات الإرسال مثل "* Give link" أو "* Offer manual". أجب فقط بنص عربي/دارجة متناسق وموجه للزبون مباشرة.
-9. إذا سأل الزبون عن الصور (صور, تصاوير, photo, sbat, tsswira, tsswwiira): سيقوم النظام بإرسال الصور كرسائل صور مباشرة في المحادثة. رحب به وأكد له أن الصور مبعوثة له أعلاه في المحادثة، ثم زوده برابط الموقع لمشاهدة باقي الألوان والتشكيلات الكاملة: https://pyjama-dz.vercel.app
-10. للزبائن الذين لا يعرفون طريقة الطلب من الموقع ويريدون تسجيل طلبيتهم مباشرة عبر المحادثة (الواتساب / الماسنجر / إنستغرام):
-   - ترحب بهم وتطلب منهم تزويدك بالبيانات التالية بالترتيب: الاسم واللقب، رقم الهاتف، الولاية والبلدية، اسم الموديل واللون والمقاس، وطريقة/شركة التوصيل.
-   - حذار صارم: لا تقم إطلاقاً بااختراع أو كتابة أي رقم طلبية (مثل #80) من عندك! تأكيد الطلبيات وأرقام الطلبيات يتم توليدها حصراً وأوتوماتيكياً بواسطة السيستم.
-11. قانون حتمي وخاص بالجملة (Gros): عندما يسأل أو يذكر الزبون البيع بالجملة (Gros / جملة / بالجملة / سيريات / كابة / تجارة): يجب حتماً وفوراً توجيهه وإعطاؤه رابط صفحة الجملة المخصص للشراء بالجملة مباشرة وهو: https://pyjama-dz.vercel.app/gros وتوضيح أنه إذا أراد الشراء بالجملة يرجى الدخول والطلب مباشرة عبر موقع الجملة الرسمي.
+افهم كل أسئلة الزبون بذكاء ومرونة وبأسلوب بشري طبيعي ولبق (سواء كتب بالدارجة، الفرنسية، الفرانكو "Franco-Arabic"، أو العربية).
 
-بيانات المتجر من الإعدادات:
+قواعد الاستجابة وتحديد النوايا (Actions):
+1. إذا فهمت أن الزبون يريد تأكيد طلبيته الحالية (مثل: أكدلي، akedha, aked, oui, daccord, بعثهالي): أخرج في أول السطر الكود: [ACTION:CONFIRM_ORDER] ثم اكتب رد التأكيد بالدارجة.
+2. إذا فهمت أن الزبون يريد إلغاء طلبيته التراجع عنها (مثل: الغي، anuler, annuler, lala, ما نديهاش، غيرت رأيي): أخرج في أول السطر الكود: [ACTION:CANCEL_ORDER] ثم اكتب رد الإلغاء بالدارجة.
+3. إذا فهمت أن الزبون يطلب صور المنتجات (صور، تصاوير، photo، tsswira): أخرج في أول السطر الكود: [ACTION:SEND_PHOTOS] ثم اكتب الرد.
+4. أجب عن كل الاستفسارات الأخرى (الجودة، نوعية القماش، مدة التوصيل، المكان، الأسعار، المقاسات) بأسلوب إنساني طبيعي ولطيف بالدارجة الجزائرية دون إيموجي ودون نصوص جامدة مكررة.
+
+بيانات المتجر:
 - العنوان والمقر: ${storeAddressDisplay}
-- رابط خرائط جوجل الرسمي (Google Maps): ${storeMapsUrl}
+- رابط خرائط جوجل: ${storeMapsUrl}
 - رابط الموقع الرسمي: https://pyjama-dz.vercel.app
-- رابط صفحة الجملة الرسمية (Gros): https://pyjama-dz.vercel.app/gros
+- رابط صفحة الجملة (Gros): https://pyjama-dz.vercel.app/gros
 ${settingsSummary}
 
 قائمة المنتجات والأسعار والسطوك الحالية من الداتابيز:
 ${catalogSummary}
 ${salesModeRules}`;
 
-              // Send photos if requested
+              // 1. GENERATE PURE GEMINI AI RESPONSE FIRST
+              let aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
+
+              if (aiReply) {
+                // Check if Gemini AI instructed an order action
+                if (aiReply.includes('[ACTION:CONFIRM_ORDER]')) {
+                  await processOrderConfirmationIntent(fromPhone, messageText);
+                  aiReply = aiReply.replace(/\[ACTION:CONFIRM_ORDER\]/g, '').trim();
+                } else if (aiReply.includes('[ACTION:CANCEL_ORDER]')) {
+                  await processOrderCancellationIntent(fromPhone, messageText);
+                  aiReply = aiReply.replace(/\[ACTION:CANCEL_ORDER\]/g, '').trim();
+                } else if (aiReply.includes('[ACTION:SEND_PHOTOS]')) {
+                  await checkAndSendProductPhotos(fromPhone, messageText, products);
+                  aiReply = aiReply.replace(/\[ACTION:SEND_PHOTOS\]/g, '').trim();
+                }
+
+                if (aiReply) {
+                  await sendWhatsAppMessage(fromPhone, aiReply);
+                }
+                continue;
+              }
+
+              // Fallback handlers if AI unreachable
               const sentPhotos = await checkAndSendProductPhotos(fromPhone, messageText, products);
               if (sentPhotos) {
                 await sendWhatsAppMessage(fromPhone, "تفضل خويا، تم إرسال صور الموديلات المتوفرة أعلاه في المحادثة. يمكنك تصفح باقي المنتجات والألوان عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app");
                 continue;
               }
 
-              // Check for order cancellation reply from customer ("Lala anuler", "annuler", "إلغاء", etc.)
               const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText);
               if (handledOrderCancel) continue;
 
-              // Check for order confirmation reply from customer ("أكدلي", "akedli", etc.)
               const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
               if (handledOrderConfirm) continue;
 
@@ -1996,9 +2006,9 @@ ${salesModeRules}`;
               // Auto-record inquiry if item/size requested is out of stock
               await recordOutOfStockInquiry(fromPhone, messageText, products);
 
-              const aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
-              if (aiReply) {
-                await sendWhatsAppMessage(fromPhone, aiReply);
+              const fallbackMsg = getSmartFallbackResponse(messageText, storeSettings, products);
+              if (fallbackMsg) {
+                await sendWhatsAppMessage(fromPhone, fallbackMsg);
               }
 
               // Check if any product is low on stock and alert managers
