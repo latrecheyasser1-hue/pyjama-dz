@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/process-delayed-confirmations",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron-notifications?action=weekly_hot_sale",
       "schedule": "0 10 * * 1"
     },

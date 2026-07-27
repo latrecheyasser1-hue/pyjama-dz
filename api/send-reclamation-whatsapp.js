@@ -102,25 +102,7 @@ export default async function handler(req, res) {
       ? ` ${clientName.trim()}`
       : '';
 
-    const replyMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك جزيلاً على تواصلك معنا وعلى مشاركتنا ملاحظاتك وتقييمك القيّم. 🙏\nتأكد أن رأيك ورضاك هما أولويتنا دائماً، وسنعمل باستمرار على تقديم الأفضل والأحسن لخدمتك على أكمل وجه بإذن الله. ✨❤️`;
-
-    const metaRes = await fetch(`https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: waPhone,
-        type: 'text',
-        text: { body: replyMsg }
-      })
-    });
-
-    const metaData = await metaRes.json();
-    // Save to Supabase settings table (reclamations array) as backend safety backup
+    // Save to Supabase settings table (reclamations array) queued for 10-minute delayed WhatsApp delivery
     try {
       const curSettingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations&select=*`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -138,6 +120,7 @@ export default async function handler(req, res) {
         whatsappNumber: whatsappNumber || waPhone,
         message: message ? message.trim() : '',
         status: 'nouvelle',
+        whatsapp_sent: false,
         createdAt: new Date().toISOString()
       };
 
@@ -159,7 +142,12 @@ export default async function handler(req, res) {
       console.error('Error saving reclamation in send-reclamation-whatsapp API:', e);
     }
 
-    return res.status(200).json({ success: true, type, metaData });
+    // Trigger asynchronous check for delayed confirmations
+    try {
+      fetch('https://pyjama-dz.vercel.app/api/process-delayed-confirmations').catch(() => {});
+    } catch(e) {}
+
+    return res.status(200).json({ success: true, delayed: true, message: 'Reclamation queued for 10-minute delayed WhatsApp delivery' });
   } catch (err) {
     console.error('Send reclamation whatsapp error:', err);
     return res.status(500).json({ error: err.message });

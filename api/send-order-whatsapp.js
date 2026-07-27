@@ -79,43 +79,46 @@ export default async function handler(req, res) {
     let messageText = '';
     let orderNum = '';
 
+    let metaData = null;
+
     if (isWaitlist) {
+      // Waitlist notifications remain INSTANT (فَمْ فَمْ)
       messageText = `أهلاً بك${nameGreeting}.\nعذراً، هذا الموديل أو المقاس (${cleanProduct}) غير متوفر حالياً.\nتم حفظ طلبك وسنخبرك عبر الواتساب فور توفره مجدداً إن شاء الله. شكراً لاهتمامك!`;
+
+      const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
+      const messageBody = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: formattedPhone,
+        type: 'text',
+        text: { preview_url: false, body: messageText }
+      };
+
+      const apiRes = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(messageBody)
+      });
+      metaData = await apiRes.json();
     } else {
-      orderNum = await getSequentialOrderNum(id);
-      messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك عبر الموقع بنجاح:\n\n• رقم الطلب: #${orderNum}\n• المنتجات: ${cleanProduct}\n• الولاية: ${wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* (أو *إلغاء*) لتأكيد طلبك وتجهيز شحنتك.`;
+      // Order confirmations are queued for 10-MINUTE DELAY
+      console.log(`Order #${id} registered. Queued for 10-minute delayed WhatsApp confirmation delivery.`);
     }
 
-    const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
-    const messageBody = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: formattedPhone,
-      type: 'text',
-      text: {
-        preview_url: false,
-        body: messageText
-      }
-    };
-
-    const apiRes = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(messageBody)
-    });
-
-    const data = await apiRes.json();
-    console.log('Server-to-server Meta WhatsApp order result:', data);
-
-    // Server-side low stock check trigger right after order notification
+    // Instant server-side low stock check trigger
     try {
       fetch('https://pyjama-dz.vercel.app/api/check-low-stock', { method: 'POST' }).catch(() => {});
     } catch (e) {}
 
-    return res.status(200).json({ success: true, metaResponse: data, orderNumber: orderNum });
+    // Asynchronous check for delayed confirmations
+    try {
+      fetch('https://pyjama-dz.vercel.app/api/process-delayed-confirmations').catch(() => {});
+    } catch (e) {}
+
+    return res.status(200).json({ success: true, metaResponse: metaData, delayed: !isWaitlist });
   } catch (err) {
     console.error('Error sending order WhatsApp:', err);
     return res.status(500).json({ error: err.message });
