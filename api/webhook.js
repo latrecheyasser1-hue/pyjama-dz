@@ -1707,35 +1707,21 @@ async function processIncomingPayload(body) {
               if (!messageText) continue;
               console.log(`Received message from ${fromPhone}: ${messageText}`);
 
-              // A. WORKER STOCK RESTOCK via REPLY
+              // A. WORKER STOCK RESTOCK via DIRECT REPLY ONLY
               let refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
               
               if (!refMatch && message.context?.id) {
-                const contextAlert = await getStockAlertByMsgId(message.context.id);
-                if (contextAlert) {
-                  refMatch = [null, contextAlert.productId, String(contextAlert.colorIdx), contextAlert.size];
-                }
-              }
-
-              if (!refMatch) {
                 const senderLast9 = fromPhone.replace(/\D/g, '').slice(-9);
                 const managerPhones = [
                   storeSettings.whatsappBoutiqueManager,
-                  storeSettings.whatsappLivraisonManager,
-                  storeSettings.whatsapp,
-                  storeSettings.phoneOrders,
-                  storeSettings.phones,
-                  "0554128933",
-                  "0771335039"
+                  storeSettings.whatsappLivraisonManager
                 ].filter(Boolean).map(p => String(p).replace(/\D/g, '').slice(-9));
 
-                const isManager = managerPhones.length === 0 || managerPhones.some(mp => mp && senderLast9.endsWith(mp));
-                const pureNumMatch = messageText.match(/(?:^|\+|\s|^)(\d{1,4})(?:\s|$|حبة|حبات|piece|pcs)?/i);
-
-                if (isManager && pureNumMatch) {
-                  const lastAlert = await getLatestStockAlertForPhone(fromPhone);
-                  if (lastAlert) {
-                    refMatch = [null, lastAlert.productId, String(lastAlert.colorIdx), lastAlert.size];
+                const isManager = managerPhones.length > 0 && managerPhones.some(mp => mp && senderLast9.endsWith(mp));
+                if (isManager) {
+                  const contextAlert = await getStockAlertByMsgId(message.context.id);
+                  if (contextAlert) {
+                    refMatch = [null, contextAlert.productId, String(contextAlert.colorIdx), contextAlert.size];
                   }
                 }
               }
