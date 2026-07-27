@@ -1272,6 +1272,21 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
     let order = null;
 
     if (waitlistEntry) {
+      const rawName = (waitlistEntry.client_name || '').trim();
+      const hasRealName = rawName && rawName !== 'زبون الواتساب' && rawName !== 'زبون المحادثة';
+      const hasWilaya = Boolean(waitlistEntry.wilaya && waitlistEntry.wilaya.trim());
+
+      // STRICT RULE: If customer name or wilaya is missing/generic, DO NOT CREATE ORDER! Ask for full details first!
+      if (!hasRealName || !hasWilaya) {
+        const entryTitle = waitlistEntry.product_title || waitlistEntry.product || 'بيجامات فاخرة';
+        const entrySize = waitlistEntry.size || '';
+        const entryColor = waitlistEntry.color || '';
+
+        const promptDetailsMsg = `أهلاً وسهلاً بك! 🌸\nلتأكيد وتجهيز طلبية شحن هذه القطعة (${entryTitle} ${entryColor ? entryColor + ' ' : ''}${entrySize ? '(' + entrySize + ')' : ''})، يرجى تزويدنا بالبيانات التالية كود واحدة:\n- الاسم واللقب الكامل\n- رقم الهاتف\n- الولاية والبلدية\n- طريقة التوصيل (للمنزل أو للمكتب)\n\nشكراً لك وسنعمل على تأكيد وشحن الطلبية فور إرسال البيانات! ✨`;
+        await sendWhatsAppMessage(fromPhone, promptDetailsMsg);
+        return true;
+      }
+
       // Find matching product in catalog for price & details
       const entryTitle = waitlistEntry.product_title || waitlistEntry.product || '';
       const matchedProd = (products || []).find(p => {
@@ -1292,10 +1307,10 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
           'Prefer': 'return=representation'
         },
         body: JSON.stringify({
-          clientName: waitlistEntry.client_name || 'زبون الواتساب',
+          clientName: waitlistEntry.client_name,
           phone: localPhone,
-          wilaya: waitlistEntry.wilaya || 'الشلف',
-          commune: waitlistEntry.commune || '',
+          wilaya: waitlistEntry.wilaya,
+          commune: waitlistEntry.commune || 'المركز',
           deliveryMode: 'home',
           deliveryCompany: 'Livraison Domicile',
           product: prodNameStr,
