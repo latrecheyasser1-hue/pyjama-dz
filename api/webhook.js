@@ -853,6 +853,14 @@ async function recordOutOfStockInquiry(fromPhone, messageText, products) {
   }
 }
 
+function isValidAlgerianPhone(phoneStr) {
+  if (!phoneStr) return false;
+  const digits = String(phoneStr).replace(/\D/g, '');
+  if (digits.length === 10 && /^(05|06|07)\d{8}$/.test(digits)) return true;
+  if (digits.length === 12 && /^213(5|6|7)\d{8}$/.test(digits)) return true;
+  return false;
+}
+
 async function processDirectOrderFromMessage(fromPhone, messageText, products) {
   try {
     const normText = normalizeText(messageText);
@@ -864,19 +872,31 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
 
     if (isQuestion) return false;
 
-    const phoneMatch = messageText.match(/(0[567]\d{8})/);
+    const phoneMatch = messageText.match(/(0\d{8,11}|\+?213\d{8,11})/);
+    if (phoneMatch) {
+      const extractedPhone = phoneMatch[1];
+      if (!isValidAlgerianPhone(extractedPhone)) {
+        const invalidMsg = `⚠️ *رقم الهاتف غير صحيح*\nيرجى كتابة رقم هاتف جزائري يتكون من 10 أرقام ويبدأ بـ 05 أو 06 أو 07 (مثال: 0771335039) لتتمكن من التسجيل وتأكيد طلبك.`;
+        await sendWhatsAppMessage(fromPhone, invalidMsg);
+        return true;
+      }
+    }
+
     const wilayas = ["ادرار", "الشلف", "الأغواط", "أم البواقي", "باتنة", "بجاية", "بسكرة", "بشار", "بليدة", "بويرة", "تمنراست", "تبسة", "تلمسان", "تيارت", "تيزي وزو", "الجزائر", "الجلفة", "جيجل", "سطيف", "سعيدة", "سكيكدة", "سيدي بلعباس", "عنابة", "قالمة", "قسنطينة", "مدية", "مستغانم", "مسيلة", "معسكر", "ورقلة", "وهران", "بيض", "إليزي", "برج بوعريريج", "بومرداس", "الطارف", "تندوف", "تيسمسيلت", "الوادي", "خنشلة", "سوق أهراس", "تيبازة", "ميلة", "عين الدفلى", "نعامة", "عين تموشنت", "غرداية", "غليزان", "المغير", "المنيعة", "أولاد جلال", "برج باجي مختار", "بني عباس", "تيميمون", "تقرت", "جانت", "إن صالح", "إن قزام", "alger", "oran", "blida", "chlef", "setif", "constantine"];
     const wilayaMatch = wilayas.find(w => normText.includes(w.toLowerCase()) || pLower.includes(w.toLowerCase()));
 
     // Explicit order intent keywords (MUST express intention to place/register an order)
     const explicitOrderKeywords = [
-      'حاب ندير كوموند', 'حاب نطلب', 'سجللي كوموند', 'سجل طلبية', 'ندير كوموند', 'نطلب بيجامة',
+      'سجللي كوموند', 'سجل طلبية', 'ندير كوموند', 'نطلب بيجامة',
       'ارسللي', 'ابعثلي كوموند', 'passer commande', 'commander', 'نطلبها'
     ];
 
     const hasExplicitOrderIntent = explicitOrderKeywords.some(k => normText.includes(k) || pLower.includes(k));
     const sizeMatchForCheck = messageText.match(/(?:pointure|مقاس|حجم|قياس|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL)/i) || messageText.match(/\b(3[5-9]|4[0-8]|S|M|L|XL|2XL|3XL|4XL)\b/i);
-    const hasFullDetails = phoneMatch && wilayaMatch && sizeMatchForCheck;
+    
+    // Strict Full Details Requirement: Phone + Wilaya + Size MUST all be present to create an order
+    const hasValidPhone = phoneMatch && isValidAlgerianPhone(phoneMatch[1]);
+    const hasFullDetails = hasValidPhone && wilayaMatch && sizeMatchForCheck;
 
     if (!hasExplicitOrderIntent && !hasFullDetails) return false;
 
