@@ -116,7 +116,7 @@ async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
   }
 }
 
-async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
+async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variantColor) {
   try {
     if (!size || newQty <= 0) return;
     const targetSize = String(size).trim().toUpperCase();
@@ -178,17 +178,27 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
       return nOrder === nTarget || nOrder === 'STANDARD' || nTarget === 'STANDARD' || nOrder === 'ALL';
     };
 
+    const isColorMatch = (targetCol, entryCol) => {
+      if (!entryCol || entryCol === 'الافتراضي' || entryCol === 'default') return true;
+      if (!targetCol) return true;
+      const nTarget = String(targetCol).toLowerCase().trim();
+      const nEntry = String(entryCol).toLowerCase().trim();
+      return nTarget.includes(nEntry) || nEntry.includes(nTarget);
+    };
+
     for (const order of orders) {
       const items = Array.isArray(order.items) ? order.items : [];
       const item = items[0] || {};
       const orderSize = (item.size || order.size || '');
+      const orderColor = (item.color || order.color || '');
       const orderProdId = item.productId || item.product_id || order.productId || order.product_id;
       const orderProdText = item.product || item.title || order.product || '';
 
       const sizeMatches = isSzMatch(targetSize, orderSize);
+      const colorMatches = isColorMatch(variantColor, orderColor);
       const prodMatches = isProdMatch(productId, productTitle, orderProdId, orderProdText);
 
-      if (sizeMatches && prodMatches && order.phone) {
+      if (sizeMatches && colorMatches && prodMatches && order.phone) {
         const cleanPhone = order.phone.replace(/\D/g, '');
         const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
 
@@ -214,24 +224,38 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
 
       if (!waPhone || notifiedPhones.has(waPhone)) continue;
 
+      // Check settings table to ensure exact single alert per waitlist entry
+      try {
+        const sRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_${entry.id}&select=value`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const sRows = await sRes.json();
+        if (Array.isArray(sRows) && sRows.length > 0) continue;
+      } catch (e) {}
+
       const entrySize = entry.size || '';
+      const entryColor = entry.color || '';
       const entryProdId = entry.product_id || entry.productId;
       const entryProdText = entry.product_title || entry.product || '';
 
       const sizeMatches = isSzMatch(targetSize, entrySize);
+      const colorMatches = isColorMatch(variantColor, entryColor);
       const prodMatches = isProdMatch(productId, productTitle, entryProdId, entryProdText);
 
-      if (sizeMatches && prodMatches) {
-        // Mark waitlist entry status as notified in Supabase table
-        await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ status: 'notified' })
-        });
+      if (sizeMatches && colorMatches && prodMatches) {
+        // Mark waitlist entry status in settings table so it is never notified again
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: 'true' })
+          });
+        } catch (e) {}
 
         const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
@@ -303,7 +327,7 @@ export default async function handler(req, res) {
             
             // 🚀 AUTOMATIC RESTOCK NOTIFICATIONS TO WAITING CUSTOMERS WHEN QTY > 0
             if (!isNaN(numQty) && numQty > 0) {
-              await notifyWaitingCustomers(product.id, cIdx, size, numQty);
+              await notifyWaitingCustomers(product.id, cIdx, size, numQty, variant.name || variant.color);
             }
 
             const isBoutiqueVariant = isBoutiqueProduct ||
