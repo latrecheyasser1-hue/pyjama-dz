@@ -323,8 +323,8 @@ export default async function handler(req, res) {
       const waPhone = formatWhatsAppPhone(entryPhone);
       const last8 = cleanPhone.slice(-8);
 
-      // 🛑 STRICT DUPLICATE PREVENTION: Skip if phone already received notification!
-      if (!waPhone || notifiedPhones.has(waPhone) || (cleanPhone && notifiedPhonesSet.has(cleanPhone)) || (last8 && notifiedPhonesSet.has(last8))) {
+      // Check if phone already notified in current run or waitlist entry already notified
+      if (!waPhone || notifiedPhones.has(waPhone)) {
         continue;
       }
 
