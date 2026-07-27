@@ -116,11 +116,73 @@ export default function App() {
     setLoading(false);
   };
 
+  const pendingUpdatesRef = useRef({});
+  const updateDebounceRef = useRef({});
+
   const fetchData = async (table, setter) => {
     const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
     if (!error && data) {
-      setter(data);
+      if (table === 'products') {
+        const now = Date.now();
+        setter(prev => {
+          return data.map(dbProd => {
+            const pending = pendingUpdatesRef.current[dbProd.id];
+            if (pending && (now - pending.timestamp < 4000)) {
+              return pending.product;
+            }
+            return dbProd;
+          });
+        });
+      } else {
+        setter(data);
+      }
     }
+  };
+
+  const handleUpdateProduct = (updatedProd) => {
+    const { id } = updatedProd;
+    if (!id) return;
+
+    const now = Date.now();
+    pendingUpdatesRef.current[id] = { product: updatedProd, timestamp: now };
+
+    // 1. Instant Optimistic Local Update (0ms lag!)
+    setProducts(prev => prev.map(p => p.id === id ? updatedProd : p));
+
+    // 2. Clear previous pending DB update for this product
+    if (updateDebounceRef.current[id]) {
+      clearTimeout(updateDebounceRef.current[id]);
+    }
+
+    // 3. Debounce background Supabase sync (250ms) to combine rapid + / - clicks into 1 single DB query
+    updateDebounceRef.current[id] = setTimeout(async () => {
+      try {
+        const sanitizedProd = sanitizeProductForDb(updatedProd);
+        const { data, error } = await supabase.from('products').update(sanitizedProd).eq('id', id).select();
+        if (error) {
+          console.error('Error updating product:', error);
+        } else if (data && data.length > 0) {
+          const finalProduct = { ...updatedProd, ...data[0] };
+          pendingUpdatesRef.current[id] = { product: finalProduct, timestamp: Date.now() };
+          setProducts(prev => prev.map(p => p.id === id ? finalProduct : p));
+
+          setTimeout(() => {
+            if (pendingUpdatesRef.current[id] && (Date.now() - pendingUpdatesRef.current[id].timestamp >= 3500)) {
+              delete pendingUpdatesRef.current[id];
+            }
+          }, 4000);
+
+          // Single source of truth trigger for low stock check
+          fetch('/api/check-low-stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product: finalProduct })
+          }).catch(err => console.error('Low stock check error:', err));
+        }
+      } catch (err) {
+        console.error('Error in debounced product update:', err);
+      }
+    }, 250);
   };
 
   const fetchSettings = async () => {
@@ -336,44 +398,6 @@ export default function App() {
     } else if (data && data.length > 0) {
       setProducts(prev => [{ ...newProd, ...data[0] }, ...prev]);
     }
-  };
-
-  const updateDebounceRef = useRef({});
-
-  const handleUpdateProduct = (updatedProd) => {
-    const { id } = updatedProd;
-    if (!id) return;
-
-    // 1. Instant Optimistic Local Update (0ms lag!)
-    setProducts(prev => prev.map(p => p.id === id ? updatedProd : p));
-
-    // 2. Clear previous pending DB update for this product
-    if (updateDebounceRef.current[id]) {
-      clearTimeout(updateDebounceRef.current[id]);
-    }
-
-    // 3. Debounce background Supabase sync (250ms) to combine rapid + / - clicks into 1 single DB query
-    updateDebounceRef.current[id] = setTimeout(async () => {
-      try {
-        const sanitizedProd = sanitizeProductForDb(updatedProd);
-        const { data, error } = await supabase.from('products').update(sanitizedProd).eq('id', id).select();
-        if (error) {
-          console.error('Error updating product:', error);
-        } else if (data && data.length > 0) {
-          const finalProduct = { ...updatedProd, ...data[0] };
-          setProducts(prev => prev.map(p => p.id === id ? finalProduct : p));
-
-          // Single source of truth trigger for low stock check
-          fetch('/api/check-low-stock', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ product: finalProduct })
-          }).catch(err => console.error('Low stock check error:', err));
-        }
-      } catch (err) {
-        console.error('Error in debounced product update:', err);
-      }
-    }, 250);
   };
 
   const handleDeleteProduct = async (prodId) => {

@@ -2735,3 +2735,13 @@ tr:hover {
   color: #64748B;
   margin: 0;
 }
+
+/* Hide browser default number input up/down spinner arrows */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
