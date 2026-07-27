@@ -1388,6 +1388,61 @@ function parseOrderDetails(text) {
   return { name, phone, wilaya, commune, deliveryCompany, deliveryMode };
 }
 
+async function deductStockForOrder(productTitle, color, size, qty = 1, products = []) {
+  try {
+    if (!products || products.length === 0) return false;
+    const titleNorm = normalizeText(productTitle || '').toLowerCase();
+    const matchedProd = products.find(p => {
+      const pNorm = normalizeText(p.title || '').toLowerCase();
+      return pNorm && titleNorm.includes(pNorm);
+    }) || products[0];
+
+    if (!matchedProd || !Array.isArray(matchedProd.colorVariants) || matchedProd.colorVariants.length === 0) {
+      return false;
+    }
+
+    const updatedVariants = [...matchedProd.colorVariants];
+    let vIdx = updatedVariants.findIndex(v => {
+      const vName = normalizeText(v.name || v.color || '').toLowerCase();
+      const targetColor = normalizeText(color || '').toLowerCase();
+      return targetColor && (vName.includes(targetColor) || targetColor.includes(vName));
+    });
+
+    if (vIdx === -1) vIdx = 0;
+
+    const targetVariant = updatedVariants[vIdx];
+    if (targetVariant && targetVariant.stock) {
+      const stockKeys = Object.keys(targetVariant.stock);
+      const targetSizeKey = stockKeys.find(k => k.trim().toLowerCase() === String(size || '').trim().toLowerCase()) || stockKeys[0];
+
+      if (targetSizeKey && targetVariant.stock[targetSizeKey] !== undefined) {
+        const currentQty = Number(targetVariant.stock[targetSizeKey] || 0);
+        const newQty = Math.max(0, currentQty - qty);
+
+        updatedVariants[vIdx] = {
+          ...targetVariant,
+          stock: { ...targetVariant.stock, [targetSizeKey]: newQty }
+        };
+
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${matchedProd.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ colorVariants: updatedVariants })
+        });
+        console.log(`Deducted stock for ${matchedProd.title} (${targetSizeKey}): ${currentQty} -> ${newQty}, Status: ${res.status}`);
+        return true;
+      }
+    }
+  } catch (err) {
+    console.error("Error deducting stock for order:", err);
+  }
+  return false;
+}
+
 async function processRestockConfirmationIntent(fromPhone, messageText, products) {
   try {
     if (!messageText) return false;
@@ -1520,6 +1575,7 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
         });
 
         if (order) {
+          await deductStockForOrder(entryTitle || matchedProd?.title, chosenColor, waitlistEntry.size || 'M', 1, products);
           const orderNumStr = await getSequentialOrderNum(order);
           const confirmMsg = `الله يحفظك خويا ${clientNameStr}، تم تأكيد الطلبية تاعك رقم #${orderNumStr} بنجاح (${prodNameStr})، بالتوصيل لـ ${deliveryCompanyStr} في ${clientWilayaStr}${clientCommuneStr ? ' - ' + clientCommuneStr : ''} فور شحنها باش تستلمها. شكرا لك على ثقتك في متجرنا Pyjama DZ.`;
 
@@ -1621,6 +1677,8 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
 
     const orderToConfirm = pendingOrders[0];
     await updateOrderStatusAndArchive(orderToConfirm.id, 'confirmee');
+    const products = await getAllProducts();
+    await deductStockForOrder(orderToConfirm.product, orderToConfirm.color, orderToConfirm.size, 1, products);
 
     const orderNumStr = await getSequentialOrderNum(orderToConfirm);
     const rawName = orderToConfirm.clientName || '';
