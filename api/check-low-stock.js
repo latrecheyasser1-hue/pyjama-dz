@@ -138,8 +138,10 @@ export default async function handler(req, res) {
       });
     }
 
-    const boutiquePhone = storeSettings.whatsappBoutiqueManager || storeSettings.phoneBoutique || "0554128933";
-    const livraisonPhone = storeSettings.whatsappLivraisonManager || storeSettings.whatsapp || storeSettings.phoneOrders || "0554128933";
+    const validBoutiquePhone = (storeSettings.whatsappBoutiqueManager && !storeSettings.whatsappBoutiqueManager.includes('123456')) ? storeSettings.whatsappBoutiqueManager : null;
+    const validLivraisonPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456')) ? storeSettings.whatsappLivraisonManager : null;
+
+    const fallbackManagerPhones = [validBoutiquePhone, validLivraisonPhone, storeSettings.whatsapp, storeSettings.phoneOrders, "0554128933"].filter(p => p && String(p).trim() !== '' && !String(p).includes('123456'));
 
     // 2. Fetch target product or all products
     let url = `${SUPABASE_URL}/rest/v1/products?select=*`;
@@ -163,7 +165,16 @@ export default async function handler(req, res) {
           const isBoutiqueStock = String(variant.name || variant.color || '').toLowerCase().includes('حانيت') || 
                                   String(variant.name || variant.color || '').toLowerCase().includes('boutique') ||
                                   String(variant.name || variant.color || '').toLowerCase().includes('محل');
-          const targetPhone = isBoutiqueStock ? boutiquePhone : livraisonPhone;
+          
+          let targetPhones = [];
+          if (isBoutiqueStock && validBoutiquePhone) {
+            targetPhones = [validBoutiquePhone];
+          } else if (!isBoutiqueStock && validLivraisonPhone) {
+            targetPhones = [validLivraisonPhone];
+          } else {
+            targetPhones = fallbackManagerPhones.length > 0 ? fallbackManagerPhones : ["0554128933"];
+          }
+
           const locationLabel = isBoutiqueStock ? "سطوك المحل (Boutique)" : "سطوك التوصيل (Livraison)";
 
           for (const [size, qty] of Object.entries(variant.stock)) {
@@ -171,13 +182,15 @@ export default async function handler(req, res) {
             if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
               const alertMsg = `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.\n\n🔄 للإضافة في المخزون، قم بالرد المباشر (Répondre) على هذه الرسالة برقم الكمية المضافة فقط (مثال: 15).\n[REF:${product.id}:${cIdx}:${size}]`;
 
-              // Send template to open Meta's 24-hour window automatically if needed
-              await sendWhatsAppTemplate(targetPhone, 'hello_world', 'en_US');
+              for (const targetPhone of targetPhones) {
+                // Send template to open Meta's 24-hour window automatically if needed
+                await sendWhatsAppTemplate(targetPhone, 'hello_world', 'en_US');
 
-              const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
-              if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
-                await saveStockAlertRecord(alertRes.messages[0].id, targetPhone, product.id, cIdx, size);
-                alertsSent++;
+                const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
+                if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
+                  await saveStockAlertRecord(alertRes.messages[0].id, targetPhone, product.id, cIdx, size);
+                  alertsSent++;
+                }
               }
             }
           }

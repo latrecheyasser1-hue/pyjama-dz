@@ -348,6 +348,9 @@ export default function App() {
     } else if (data && data.length > 0) {
       const finalProduct = { ...updatedProd, ...data[0] };
       setProducts(prev => prev.map(p => p.id === id ? finalProduct : p));
+
+      // Trigger low stock check automatically for updated product
+      fetch(`/api/check-low-stock?productId=${id}`).catch(err => console.error('Low stock check error:', err));
     } else {
       alert("Erreur: La modification a été bloquée (vérifiez que RLS est bien désactivé).");
     }
