@@ -415,12 +415,14 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}, userMessage = "", products = []) {
-  const modelEndpoints = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'];
+  const modelEndpoints = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
   const keys = await getGeminiKeys();
-  for (const selectedKey of keys) {
+  for (const selectedKey of keys.slice(0, 3)) {
     for (const model of modelEndpoints) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
         const res = await fetch(url, {
           method: 'POST',
           headers: {
@@ -431,8 +433,10 @@ async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = 
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
             generationConfig: { temperature: 0.3, maxOutputTokens: 1000 }
-          })
+          }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (res.status === 200) {
           const data = await res.json();
@@ -440,12 +444,8 @@ async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = 
           const textParts = parts.filter(p => p.text && !p.thought).map(p => p.text).filter(Boolean);
           const text = textParts.join('');
           if (text) return removeEmojis(text.trim());
-        } else {
-          console.error(`Gemini AI status for ${model}: ${res.status}`);
         }
-      } catch (err) {
-        console.error('Gemini error:', err);
-      }
+      } catch (err) {}
     }
   }
 
@@ -1834,6 +1834,7 @@ async function processIncomingPayload(body) {
               }
 
               const normText = normalizeText(messageText);
+              const rawLowerText = String(messageText).toLowerCase();
 
               // RECLAMATION HANDLER (Only for explicit complaints/reclamations)
               const complaintKeywords = [
