@@ -210,7 +210,7 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
         const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
 
-        const restockMsg = `أهلاً بك${nameGreeting}.\nبشرى سارة 🎉 توفر مقاسك (${targetSize}) مجدداً${prodDesc}.\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح وجاري تجهيزها للشحن. شكراً لانتظارك.`;
+        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\n🎉 بشرى سارة! توفر مقاسك (${targetSize}) مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
         
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);

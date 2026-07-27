@@ -300,7 +300,7 @@ export default async function handler(req, res) {
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
         const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
 
-        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}! 🔥\nهل ما زلت ترغب في تأكيد وطلب هذه القطعة قبل نفاذ الكمية مجدداً؟\n\n👉 أجب بـ *نعم* أو *إيه* أو *تأكيد* لتأكيد طلبك فوراً.`;
+        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
 
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);
@@ -376,7 +376,7 @@ export default async function handler(req, res) {
         const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
         const sizeDesc = targetSize ? ` (${targetSize})` : '';
 
-        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك${sizeDesc} مجدداً${prodDesc}! 🔥\nيمكنك الآن إتمام طلبك عبر موقعنا الرسمي: https://pyjama-dz.vercel.app أو بالرد على هذه الرسالة. شكراً لانتظارك.`;
+        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك${sizeDesc} مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
 
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedCount++;
