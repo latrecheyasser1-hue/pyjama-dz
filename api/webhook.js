@@ -1767,11 +1767,20 @@ async function processIncomingPayload(body) {
                 let colorsStr = "متوفر";
                 if (Array.isArray(p.colorVariants) && p.colorVariants.length > 0) {
                   colorsStr = p.colorVariants.map(cv => {
-                    const stockSum = typeof cv.stock === 'object' ? Object.values(cv.stock).reduce((a, b) => a + Number(b), 0) : Number(cv.stock || 0);
-                    return `${cv.name} (المخزون المتوفر: ${stockSum} حبة)`;
-                  }).join(', ');
+                    const colorName = cv.name || cv.color || 'rouge (أحمر)';
+                    if (typeof cv.stock === 'object' && cv.stock !== null) {
+                      const sizesStr = Object.entries(cv.stock).map(([sz, qty]) => {
+                        const numQ = Number(qty || 0);
+                        return `${sz}: ${numQ > 0 ? numQ + ' حبة (متوفر)' : '0 حبة (غير متوفر/نافذ)'}`;
+                      }).join(', ');
+                      return `اللون (${colorName}): [${sizesStr}]`;
+                    } else {
+                      const numQ = Number(cv.stock || 0);
+                      return `اللون (${colorName}): ${numQ > 0 ? numQ + ' حبة (متوفر)' : '0 حبة (غير متوفر/نافذ)'}`;
+                    }
+                  }).join(' | ');
                 }
-                return `- ${p.title}: السعر ${p.price} دج | الألوان والسطوك: ${colorsStr}`;
+                return `- ${p.title}: السعر ${p.price} دج | السطوك الحقيقي حسب المقاسات والألوان: ${colorsStr}`;
               }).join('\n');
               const settingsSummary = Object.entries(storeSettings).map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
 
