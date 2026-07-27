@@ -415,7 +415,7 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}, userMessage = "", products = []) {
-  const modelEndpoints = ['gemini-flash-latest', 'gemini-2.0-flash'];
+  const modelEndpoints = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'];
   const keys = await getGeminiKeys();
   for (const selectedKey of keys) {
     for (const model of modelEndpoints) {
@@ -449,7 +449,10 @@ async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = 
     }
   }
 
-  return getSmartFallbackResponse(userMessage || prompt, storeSettings, products);
+  if (userMessage && userMessage.length > 3) {
+    return getSmartFallbackResponse(userMessage, storeSettings, products);
+  }
+  return "";
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
@@ -1530,26 +1533,16 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
   return false;
 }
 
-async function processOrderCancellationIntent(fromPhone, messageText, storeSettings, products) {
+async function processOrderCancellationIntent(fromPhone, messageText) {
   try {
     if (!messageText) return false;
     const rawLower = String(messageText).toLowerCase().trim();
     const normText = normalizeText(messageText);
 
-    // Fast direct check first
-    let isCancel = [
+    const isCancel = [
       'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'انولي', 'أنولي', 'لا اريد', 'لا أريد', 'ما نديهاش', 'ما رانيش حاب',
       'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation', 'lala anuler'
     ].some(kw => normText.includes(kw) || rawLower.includes(kw));
-
-    // Smart Gemini AI Intent Evaluation if ambiguous (e.g., "Lala chouiya anuler")
-    if (!isCancel && messageText.length < 50) {
-      const intentPrompt = `رسالة الزبون: "${messageText}". هل الزبون يطلب إلغاء أو عدم تأكيد أو التراجع عن طلبه؟ أجب حصراً بكلمة YES أو NO فقط.`;
-      const aiIntent = await generateGeminiAI(intentPrompt, "أنت محلل نية الزبون. أخرج كلمة YES إذا كان يطلب الإلغاء، أو NO فقط.", storeSettings, messageText, products);
-      if (aiIntent && aiIntent.trim().toUpperCase().includes('YES')) {
-        isCancel = true;
-      }
-    }
 
     if (!isCancel) return false;
 
@@ -1586,32 +1579,23 @@ async function processOrderCancellationIntent(fromPhone, messageText, storeSetti
   return false;
 }
 
-async function processOrderConfirmationIntent(fromPhone, messageText, storeSettings, products) {
+async function processOrderConfirmationIntent(fromPhone, messageText) {
   try {
     if (!messageText) return false;
     const rawLower = String(messageText).toLowerCase().trim();
     const normText = normalizeText(messageText);
 
-    // Skip immediately if customer is asking to cancel!
-    if (['anuler', 'annuler', 'anule', 'annule', 'الغي', 'ألغي', 'إلغاء', 'الغاء', 'lala', 'لا اريد', 'لاريد'].some(k => rawLower.includes(k) || normText.includes(k))) {
+    // Skip immediately if customer is asking a question or saying no!
+    if (['anuler', 'annuler', 'anule', 'annule', 'الغي', 'ألغي', 'إلغاء', 'الغاء', 'lala', 'لا اريد', 'لاريد', 'chhal', 'شحال', 'كيفاه', 'qualite', 'qualité'].some(k => rawLower.includes(k) || normText.includes(k))) {
       return false;
     }
 
-    let isConfirm = [
+    const isConfirm = [
       'أكد', 'أكدلي', 'تأكيد', 'نؤكد', 'أكدها', 'نعم أكد', 'نعم أكدلي', 'مالا أكدلي', 'ملا أكدلي',
       'أكد الطلبية', 'تأكيد الطلبية', 'تأكيد الطلب', 'أكدلي الطلبية', 'أكدلي طلبية', 'أكدلي الطلب',
       'akedha', 'aked', 'akedli', 'akedlii', 'confirme', 'confirmer', 'confirmation',
       'oui confirme', 'oui akedli', 'oui aked', 'daccord confirme', 'oui akedha'
     ].some(kw => normText.includes(kw) || rawLower.includes(kw));
-
-    // Smart Gemini AI Intent Evaluation for confirmation if direct match didn't catch it
-    if (!isConfirm && messageText.length < 50) {
-      const intentPrompt = `رسالة الزبون: "${messageText}". هل الزبون يطلب تأكيد طلبيته الموافقة عليها وشحنها؟ أجب حصراً بكلمة YES أو NO فقط.`;
-      const aiIntent = await generateGeminiAI(intentPrompt, "أنت محلل نية الزبون. أخرج كلمة YES إذا كان يطلب التأكيد والشحن، أو NO فقط.", storeSettings, messageText, products);
-      if (aiIntent && aiIntent.trim().toUpperCase().includes('YES')) {
-        isConfirm = true;
-      }
-    }
 
     if (!isConfirm) return false;
 
