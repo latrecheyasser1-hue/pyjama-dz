@@ -581,13 +581,8 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
 
             return (
               <div className="mazyoud-pdp-option-section">
-                <div className="option-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="option-label">
                   <span>🔢 الكمية (Quantité) :</span>
-                  {selectedSize && maxAvailableStock < 999 && (
-                    <span style={{ fontSize: '0.85rem', color: maxAvailableStock > 0 ? '#059669' : '#DC2626', fontWeight: 800 }}>
-                      {maxAvailableStock > 0 ? `المتبقي في المخزون: ${maxAvailableStock} قطعة` : 'نفذت الكمية'}
-                    </span>
-                  )}
                 </div>
                 <div className="mazyoud-pdp-qty-selector">
                   <button 
