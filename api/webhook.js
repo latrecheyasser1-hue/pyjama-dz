@@ -718,8 +718,42 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
       return nOrder === nTarget || nOrder === 'STANDARD' || nTarget === 'STANDARD' || nOrder === 'ALL';
     };
 
+    // Fetch store settings to identify and exclude manager phone numbers
+    const managerPhones = new Set(['0771335039', '213771335039', '0554128933', '213554128933']);
+    try {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=*`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const settingsRows = await setRes.json();
+      if (Array.isArray(settingsRows)) {
+        settingsRows.forEach(r => {
+          if (r.value && (r.key === 'whatsappLivraisonManager' || r.key === 'whatsappBoutiqueManager' || r.key === 'whatsappAdmin' || r.key === 'whatsapp')) {
+            const rawDigits = String(r.value).replace(/\D/g, '');
+            if (rawDigits) {
+              managerPhones.add(rawDigits);
+              managerPhones.add(rawDigits.replace(/^0/, '213'));
+              managerPhones.add('0' + rawDigits.slice(-9));
+            }
+          }
+        });
+      }
+    } catch (e) {}
+
+    const isManagerPhone = (phoneStr) => {
+      if (!phoneStr) return false;
+      const clean = String(phoneStr).replace(/\D/g, '');
+      if (!clean) return false;
+      const last8 = clean.slice(-8);
+      for (const mPhone of managerPhones) {
+        if (mPhone.endsWith(last8)) return true;
+      }
+      return false;
+    };
+
     for (const order of orders) {
       if (availableQty <= 0) break;
+      if (isManagerPhone(order.phone)) continue;
+
       const items = Array.isArray(order.items) ? order.items : [];
       const item = items[0] || {};
       const orderSize = (item.size || order.size || '');
@@ -756,6 +790,8 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
         if (entry.id && notifiedWaitlistIds.has(entry.id)) continue;
 
         const entryPhone = entry.whatsapp_number || entry.phone;
+        if (isManagerPhone(entryPhone)) continue;
+
         const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
         const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
         const last8 = cleanPhone.slice(-8);
