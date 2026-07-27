@@ -648,8 +648,21 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
 
     const notifiedPhones = new Set();
 
+    // Load persistent notified waitlist IDs to ensure NO duplicate notifications
+    const notifiedWaitlistIds = new Set();
+    try {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_ids&select=*`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const rows = await setRes.json();
+      if (Array.isArray(rows) && rows[0]?.value) {
+        const arr = JSON.parse(rows[0].value);
+        if (Array.isArray(arr)) arr.forEach(id => notifiedWaitlistIds.add(id));
+      }
+    } catch (e) {}
+
     const isProdMatch = (targetId, targetTitle, orderId, orderText) => {
-      if (targetId && orderId && String(targetId) === String(orderId)) return true;
+      if (targetId && orderId && String(targetId).trim() === String(orderId).trim()) return true;
       const nTarget = normalizeText(targetTitle);
       const nOrder = normalizeText(orderText);
       if (nTarget && nOrder) {
@@ -658,21 +671,14 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
         const ow = nOrder.split(/\s+/).filter(w => w.length >= 3);
         if (tw.some(w => ow.includes(w))) return true;
       }
-      if (!targetId && !targetTitle) return true;
-      if (!orderId && !orderText) return true;
       return false;
     };
 
-    const isSzMatch = (targetSz, orderSz, orderText) => {
-      if (!targetSz) return true;
+    const isSzMatch = (targetSz, orderSz) => {
+      if (!targetSz || !orderSz) return false;
       const nTarget = String(targetSz).trim().toUpperCase();
-      const nOrder = String(orderSz || '').trim().toUpperCase();
-      if (!nOrder) {
-        if (!orderText) return true;
-        const nOt = String(orderText).toUpperCase();
-        return nOt.includes(nTarget) || nOt.includes('ALL') || nOt.includes('STANDARD');
-      }
-      return nOrder === nTarget || nOrder === 'STANDARD' || nTarget === 'STANDARD';
+      const nOrder = String(orderSz).trim().toUpperCase();
+      return nOrder === nTarget || nOrder === 'STANDARD' || nTarget === 'STANDARD' || nOrder === 'ALL';
     };
 
     for (const order of orders) {
@@ -683,7 +689,7 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
       const orderProdId = item.productId || item.product_id || order.productId || order.product_id;
       const orderProdText = item.product || item.title || order.product || '';
 
-      const sizeMatches = isSzMatch(targetSize, orderSize, orderProdText);
+      const sizeMatches = isSzMatch(targetSize, orderSize);
       const prodMatches = isProdMatch(productId, productTitle, orderProdId, orderProdText);
 
       if (sizeMatches && prodMatches && order.phone) {
@@ -703,37 +709,14 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
         notifiedPhones.add(waPhone);
 
         availableQty = Math.max(0, availableQty - 1);
-
-        if (productId && colorIdx >= 0) {
-          const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-          });
-          const prods = await prodRes.json();
-          const product = Array.isArray(prods) ? prods[0] : null;
-          if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
-            const updatedVariants = [...product.colorVariants];
-            updatedVariants[colorIdx] = {
-              ...updatedVariants[colorIdx],
-              stock: { ...(updatedVariants[colorIdx].stock || {}), [size]: availableQty }
-            };
-            await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
-              method: 'PATCH',
-              headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
-              },
-              body: JSON.stringify({ colorVariants: updatedVariants })
-            });
-          }
-        }
       }
     }
 
     if (availableQty > 0) {
       for (const entry of waitlistEntries) {
         if (availableQty <= 0) break;
+        if (entry.id && notifiedWaitlistIds.has(entry.id)) continue;
+
         const entryPhone = entry.whatsapp_number || entry.phone;
         const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
         const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
@@ -743,10 +726,11 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
         const entryProdId = entry.product_id || entry.productId;
         const entryProdText = entry.product_title || entry.product || '';
 
-        const sizeMatches = isSzMatch(targetSize, entrySize, entryProdText);
+        const sizeMatches = isSzMatch(targetSize, entrySize);
         const prodMatches = isProdMatch(productId, productTitle, entryProdId, entryProdText);
 
         if (sizeMatches && prodMatches) {
+          // Mark waitlist entry status as notified in Supabase table
           await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
             method: 'PATCH',
             headers: {
@@ -756,6 +740,36 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
             },
             body: JSON.stringify({ status: 'notified' })
           });
+
+          // Also mark ALL matching pending entries for this phone as notified
+          if (cleanPhone) {
+            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.%${cleanPhone.slice(-8)}%`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ status: 'notified' })
+            });
+          }
+
+          if (entry.id) {
+            notifiedWaitlistIds.add(entry.id);
+            // Save to settings
+            try {
+              await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+                method: 'POST',
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                  'Content-Type': 'application/json',
+                  'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({ key: 'notified_waitlist_ids', value: JSON.stringify(Array.from(notifiedWaitlistIds)) })
+              });
+            } catch (e) {}
+          }
 
           const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
           const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
