@@ -1492,97 +1492,14 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
       }
     } catch (e) {}
 
-    if (waitlistEntry) {
-      const rawName = (parsed.name || (waitlistEntry.client_name !== 'زبون الواتساب' ? waitlistEntry.client_name : '') || '').trim();
-      const hasRealName = Boolean(rawName);
-      const rawWilaya = (parsed.wilaya || waitlistEntry.wilaya || '').trim();
-      const hasWilaya = Boolean(rawWilaya);
+    if (waitlistEntry && isConfirmIntent) {
+      const entryTitle = waitlistEntry.product_title || waitlistEntry.product || 'الموديل المطلوب';
+      const entrySize = waitlistEntry.size || '';
+      const entryColor = waitlistEntry.color || '';
 
-      // If customer has not provided details yet and sent confirmation intent (e.g., "oui"), prompt for details!
-      if ((!hasRealName || !hasWilaya) && isConfirmIntent && !hasFullDetailsInMsg) {
-        const entryTitle = waitlistEntry.product_title || waitlistEntry.product || 'بيجامات فاخرة';
-        const entrySize = waitlistEntry.size || '';
-        const entryColor = waitlistEntry.color || '';
-
-        const promptDetailsMsg = `أهلاً وسهلاً بك! 🌸\nلتأكيد وتجهيز طلبية شحن هاد الموديل (${entryTitle} ${entryColor ? entryColor + ' ' : ''}${entrySize ? '(' + entrySize + ')' : ''}) فوراً، يرجى تزويدنا بالبيانات التالية بالكامل:\n- الاسم واللقب الكامل\n- رقم الهاتف\n- الولاية والبلدية/العنوان\n- نوع التوصيل (للمنزل أو لمكتب ياليدين Yalidine)\n\nشكراً لك، وسنعمل على تسجيل وشحن الطلبية فور إرسالك هذه المعلومات! ✨`;
-        await sendWhatsAppMessage(fromPhone, promptDetailsMsg);
-        return true;
-      }
-
-      if (hasRealName && (hasWilaya || parsed.wilaya)) {
-        const clientNameStr = parsed.name || waitlistEntry.client_name || 'زبون المتجر';
-        const clientWilayaStr = parsed.wilaya || waitlistEntry.wilaya || 'الشلف';
-        const clientCommuneStr = parsed.commune || waitlistEntry.commune || 'المركز';
-        const deliveryCompanyStr = parsed.deliveryCompany || waitlistEntry.deliveryCompany || 'Livraison Domicile';
-        const deliveryModeStr = parsed.deliveryMode || 'home';
-
-        const entryTitle = waitlistEntry.product_title || waitlistEntry.product || '';
-        const matchedProd = (products || []).find(p => {
-          const titleNorm = normalizeText(p.title || '').toLowerCase();
-          return titleNorm && normalizeText(entryTitle).toLowerCase().includes(titleNorm);
-        }) || products?.[0];
-
-        const itemPrice = matchedProd?.price ? Number(matchedProd.price) : 3500;
-        const chosenColor = parsed.color || waitlistEntry.color || matchedProd?.colorVariants?.[0]?.name || matchedProd?.colorVariants?.[0]?.color || '';
-        const colorDisplay = chosenColor ? ` - ${chosenColor}` : '';
-        const prodNameStr = `${entryTitle || matchedProd?.title || 'بيجامات فاخرة'}${colorDisplay} (${waitlistEntry.size || 'M'})`;
-
-        // Create ONE REAL CONFIRMED ORDER in orders table!
-        const createRes = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify({
-            clientName: clientNameStr,
-            phone: localPhone,
-            wilaya: clientWilayaStr,
-            commune: clientCommuneStr,
-            deliveryMode: deliveryModeStr,
-            deliveryCompany: deliveryCompanyStr,
-            product: prodNameStr,
-            price: itemPrice,
-            quantity: 1,
-            status: 'confirmee',
-            archived: true,
-            created_at: new Date().toISOString(),
-            items: [{
-              productId: matchedProd?.id,
-              product: entryTitle || matchedProd?.title,
-              color: waitlistEntry.color,
-              size: waitlistEntry.size,
-              price: itemPrice,
-              qty: 1
-            }]
-          })
-        });
-
-        const newOrderData = await createRes.json();
-        let order = (Array.isArray(newOrderData) && newOrderData[0]) ? newOrderData[0] : null;
-
-        // Mark waitlist entry as confirmed
-        await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${waitlistEntry.id}`, {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ status: 'confirmed', client_name: clientNameStr, wilaya: clientWilayaStr })
-        });
-
-        if (order) {
-          await deductStockForOrder(entryTitle || matchedProd?.title, chosenColor, waitlistEntry.size || 'M', 1, products);
-          const orderNumStr = await getSequentialOrderNum(order);
-          const confirmMsg = `الله يحفظك خويا ${clientNameStr}، تم تأكيد الطلبية تاعك رقم #${orderNumStr} بنجاح (${prodNameStr})، بالتوصيل لـ ${deliveryCompanyStr} في ${clientWilayaStr}${clientCommuneStr ? ' - ' + clientCommuneStr : ''} فور شحنها باش تستلمها. شكرا لك على ثقتك في متجرنا Pyjama DZ.`;
-
-          await sendWhatsAppMessage(fromPhone, confirmMsg);
-          return true;
-        }
-      }
+      const redirectWebsiteMsg = `أهلاً وسهلاً بك! 🌸\nبشرى سارة! توفر هاد الموديل (${entryTitle} ${entryColor ? entryColor + ' ' : ''}${entrySize ? '(' + entrySize + ')' : ''}) مجدداً في الستوك!\n\nلتأكيد واختيار الطلبية فوراً قبل نفاد الكمية، يرجى الدخول والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nتفضل بالدخول واختيار المقاس واللون وسنعمل على شحنها لك فوراً! ✨`;
+      await sendWhatsAppMessage(fromPhone, redirectWebsiteMsg);
+      return true;
     }
 
     return false;
@@ -2010,20 +1927,18 @@ function checkStockInquiry(messageText, products) {
   return null;
 }
 
-              const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر (${storeName}).
-تتحدث بالدارجة الجزائرية الفصيحة والمحترمة وتدردش مع الزبون بذكاء ولباقة كأنك بائع إنسان حقيقي يشتغل في المحل.
+const systemInstruction = `أنت مساعد ومسؤول خدمة العملاء المحترف لمتجر (${storeName}).
+تتحدث بالدارجة الجزائرية الفصيحة والمحترمة وتدردش مع الزبون بذكاء ولباقة كأنك إنسان حقيقي يشتغل في المتجر.
 افهم كل أسئلة الزبون بذكاء ومرونة وبأسلوب بشري طبيعي ولبق (سواء كتب بالدارجة، الفرنسية، الفرانكو "Franco-Arabic"، أو العربية).
 
-قواعد الاستجابة وتحديد النوايا (Actions) والسطوك:
-1. إذا فهمت أن الزبون يريد تأكيد طلبيته الحالية (مثل: أكدلي، akedha, aked, oui, daccord, بعثهالي): أخرج في أول السطر الكود: [ACTION:CONFIRM_ORDER] ثم اكتب رد التأكيد بالدارجة.
-2. إذا فهمت أن الزبون يريد إلغاء طلبيته التراجع عنها (مثل: الغي، anuler, annuler, lala, ما نديهاش، غيرت رأيي): أخرج في أول السطر الكود: [ACTION:CANCEL_ORDER] ثم اكتب رد الإلغاء بالدارجة.
-3. إذا فهمت أن الزبون يطلب صور المنتجات (صور، تصاوير، photo، tsswira): أخرج في أول السطر الكود: [ACTION:SEND_PHOTOS] ثم اكتب الرد.
-4. قانون حتمي وفحص صارم للسطوك: افحص السطوك الحقيقي المكتوب في بيانات النظام للمقاس واللون المطلوبين تحديداً. إذا كان السطوك (0 حبة / غير متوفر) أخبره صراحة أن ذلك المقاس واللون غير متوفر حالياً في السطوك، وأنه تم تسجيل طلبه وسنحيطه علماً فور توفره مجدداً عبر الواتساب، دون ذكر أو سرد المقاسات الأخرى إطلاقاً.
-5. أجب عن كل الاستفسارات الأخرى (الجودة، نوعية القماش، مدة التوصيل، المكان، الأسعار، المقاسات) بأسلوب إنساني طبيعي ولطيف بالدارجة الجزائرية دون إيموجي ودون نصوص جامدة مكررة.
-6. عند رد الزبون برغبته في إتمام الطلب بعد توفر الستوك أو للشراء (مثل: نعم، حاب ندير كوماند، oui، نطلب):
-   شرط صارم وحتمي: إختيار "اللون" و "المقاس" إجباري ومطلوب حتماً لكل كوماند. يرجى الطلب منه تقديم كامل البيانات:
-   (1) الاسم واللقب، (2) رقم الهاتف، (3) اللون والمقاس المطلوبين تحديداً (اللون إجباري حتماً)، (4) الولاية والبلدية/العنوان، (5) نوع التوصيل (منزل أم مكتب ياليدين Yalidine).
-   وعندما يقدم الزبون هذه البيانات كاملة، أخرج الكود: [ACTION:CONFIRM_ORDER] في بداية السطر فوراً لتأكيد وإنشاء الطلبية بنجاح.
+قواعد الاستجابة وتوجيه الزبون:
+1. قانون صارم وحتمي: الطلبيات تتم حصرياً ومباشرة عبر موقعنا الرسمي (https://pyjama-dz.vercel.app). يمنع منعاً باتاً إنشاء أو تسجيل أي طلبية جديدة داخل الشات. إذا أراد الزبون الشراء أو الطلب (مثل: نطلب، ندير كوماند، حاب نشري، commande، oui، نعم): وجهه مباشرة لرابط الموقع الرسمي للشراء واختيار المقاس واللون منه مباشرة: https://pyjama-dz.vercel.app
+2. إذا كان للزبون طلبية سابقة مسجلة في الداتابيز من الموقع ويريد تأكيدها (مثل: أكدلي، aked, confirme): أخرج الكود: [ACTION:CONFIRM_ORDER] ثم اكتب رد التأكيد بالدارجة.
+3. إذا أراد الزبون إلغاء طلبيته المسجلة من الموقع (مثل: الغي، anuler, annuler): أخرج الكود: [ACTION:CANCEL_ORDER] ثم اكتب رد الإلغاء بالدارجة.
+4. إذا طلب الزبون صور المنتجات (صور، تصاوير، photo، tsswira): أخرج الكود: [ACTION:SEND_PHOTOS] ووجهه للموقع لرؤية كافة الصور والموديلات المتوفرة.
+5. استفسارات المكان والمقر والعنوان: أعطه العنوان ورابط خرائط جوجل من بيانات النظام.
+6. استفسارات أرقام الهاتف: أعطه أرقام الهاتف الرسمية المكتوبة في بيانات النظام.
+7. استفسارات الأسعار والمقاسات والألوان والجودة: أجب بأسلوب لطيف بالدارجة الجزائرية ووجهه للموقع الرسمي لتصفح كافة الصور والأسعار والطلب مباشرة: https://pyjama-dz.vercel.app
 
 بيانات المتجر:
 - العنوان والمقر: ${storeAddressDisplay}
