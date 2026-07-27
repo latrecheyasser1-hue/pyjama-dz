@@ -68,7 +68,19 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => setCurrentPath(window.location.pathname);
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+
+    // Preload all page route bundles silently in background after 500ms for 0ms instant page transitions
+    const preloadTimer = setTimeout(() => {
+      import('./components/AdminDashboard').catch(() => {});
+      import('./components/GrosStorefront').catch(() => {});
+      import('./components/CashierPOS').catch(() => {});
+      import('./components/EmballagePOS').catch(() => {});
+    }, 500);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      clearTimeout(preloadTimer);
+    };
   }, []);
 
   useEffect(() => {

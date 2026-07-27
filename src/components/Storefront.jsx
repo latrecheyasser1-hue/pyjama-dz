@@ -96,7 +96,7 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList }
         <div style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch', width: '100%', height: '100%', scrollbarWidth: 'none' }}>
           {Array.isArray(displayImages) && displayImages.map((img, idx) => (
             <div key={idx} style={{ flex: '0 0 100%', scrollSnapAlign: 'start', height: '100%', position: 'relative' }}>
-              <img src={img || ''} alt={product?.title || ''} className="product-image" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={img || ''} alt={product?.title || ''} loading="lazy" decoding="async" className="product-image" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               {displayImages.length > 1 && (
                 <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: '6px', pointerEvents: 'none' }}>
                   {displayImages.map((_, dotIdx) => (
