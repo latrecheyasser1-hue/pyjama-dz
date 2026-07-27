@@ -186,39 +186,44 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
       return nTarget.includes(nEntry) || nEntry.includes(nTarget);
     };
 
-    for (const order of orders) {
-      const items = Array.isArray(order.items) ? order.items : [];
-      const item = items[0] || {};
-      const orderSize = (item.size || order.size || '');
-      const orderColor = (item.color || order.color || '');
-      const orderProdId = item.productId || item.product_id || order.productId || order.product_id;
-      const orderProdText = item.product || item.title || order.product || '';
-
-      const sizeMatches = isSzMatch(targetSize, orderSize);
-      const colorMatches = isColorMatch(variantColor, orderColor);
-      const prodMatches = isProdMatch(productId, productTitle, orderProdId, orderProdText);
-
-      if (sizeMatches && colorMatches && prodMatches && order.phone) {
-        const cleanPhone = order.phone.replace(/\D/g, '');
-        const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
-
-        if (notifiedPhones.has(waPhone)) continue;
-
-        const orderNumStr = String(order.id).slice(-4);
-        const clientNameStr = (order.clientName && order.clientName !== 'زبون الواتساب' && order.clientName !== 'زبون المحادثة')
-          ? order.clientName : '';
-        const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-        const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
-
-        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\n🎉 بشرى سارة! توفر مقاسك (${targetSize}) مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
-        
-        await sendWhatsAppMessage(waPhone, restockMsg);
-        notifiedPhones.add(waPhone);
+    // Fetch store settings to identify and exclude manager phone numbers
+    const managerPhones = new Set(['0771335039', '213771335039', '0554128933', '213554128933']);
+    try {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=*`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const settingsRows = await setRes.json();
+      if (Array.isArray(settingsRows)) {
+        settingsRows.forEach(r => {
+          if (r.value && (r.key === 'whatsappLivraisonManager' || r.key === 'whatsappBoutiqueManager' || r.key === 'whatsappAdmin' || r.key === 'whatsapp')) {
+            const rawDigits = String(r.value).replace(/\D/g, '');
+            if (rawDigits) {
+              managerPhones.add(rawDigits);
+              managerPhones.add(rawDigits.replace(/^0/, '213'));
+              managerPhones.add('0' + rawDigits.slice(-9));
+            }
+          }
+        });
       }
-    }
+    } catch (e) {}
 
+    const isManagerPhone = (phoneStr) => {
+      if (!phoneStr) return false;
+      const clean = String(phoneStr).replace(/\D/g, '');
+      if (!clean) return false;
+      const last8 = clean.slice(-8);
+      for (const mPhone of managerPhones) {
+        if (mPhone.endsWith(last8)) return true;
+      }
+      return false;
+    };
+
+    // Only process waitlist entries (customers who explicitly asked to be notified on restock)
     for (const entry of waitlistEntries) {
       if (entry.status !== 'pending' && entry.status !== 'en_attente') continue;
+
+      const entryPhone = entry.whatsapp_number || entry.phone;
+      if (isManagerPhone(entryPhone)) continue;
 
       // Check settings table to ensure exact single alert per waitlist entry ID
       try {
@@ -229,7 +234,6 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
         if (Array.isArray(sRows) && sRows.length > 0) continue;
       } catch (e) {}
 
-      const entryPhone = entry.whatsapp_number || entry.phone;
       const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
       const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
 
