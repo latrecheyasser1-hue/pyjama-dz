@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ALGERIA_WILAYAS } from '../data/mockData';
 import { showToast } from '../utils/toast';
+import { sanitizeAlgerianPhone, isValidAlgerianPhone } from '../utils/phoneUtils';
 import { ShoppingBag, ArrowRight, MapPin, Trash2, Check, Search, Phone, ShoppingCart } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 
@@ -227,6 +228,10 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
     }
     if (!checkoutName.trim() || !checkoutPhone.trim() || !checkoutWilaya) {
       showToast("⚠️ يرجى ملء الحقول الأساسية: الاسم، الهاتف، والولاية.", 'warning');
+      return;
+    }
+    if (!isValidAlgerianPhone(checkoutPhone)) {
+      showToast("⚠️ يرجى إدخال رقم هاتف جزائري صحيح يبدأ بـ 05 أو 06 أو 07 يتكون من 10 أرقام (مثال: 0771335039)", 'error');
       return;
     }
     if (checkoutDeliveryMode.includes('Livraison') && !checkoutDeliveryCompany) {
@@ -713,10 +718,11 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
                       <input 
                         type="tel" 
                         required 
-                        placeholder="رقم الهاتف" 
+                        placeholder="رقم الهاتف (مثال: 0771335039)" 
                         className="form-input-gros"
                         value={checkoutPhone}
-                        onChange={(e) => setCheckoutPhone(e.target.value)}
+                        onChange={(e) => setCheckoutPhone(sanitizeAlgerianPhone(e.target.value))}
+                        maxLength={10}
                       />
                     </div>
 
@@ -728,7 +734,8 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
                         placeholder="رقم الواتساب للتواصل وإرسال الفاتورة" 
                         className="form-input-gros"
                         value={checkoutWhatsapp}
-                        onChange={(e) => setCheckoutWhatsapp(e.target.value)}
+                        onChange={(e) => setCheckoutWhatsapp(sanitizeAlgerianPhone(e.target.value))}
+                        maxLength={10}
                       />
                     </div>
 

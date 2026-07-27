@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ALGERIA_WILAYAS, DEFAULT_CATEGORIES } from '../data/mockData';
 import { showToast } from '../utils/toast';
+import { sanitizeAlgerianPhone, isValidAlgerianPhone } from '../utils/phoneUtils';
 import { supabase } from '../lib/supabaseClient';
 import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2, Check, Heart, Star, Search, User, Bell, AlertTriangle } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
@@ -631,6 +632,10 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                     <form onSubmit={async (e) => {
                       e.preventDefault();
                       if(!waitlistName || !waitlistWhatsapp) return;
+                      if(!isValidAlgerianPhone(waitlistWhatsapp)) {
+                        showToast("⚠️ يرجى إدخال رقم واتساب جزائري صحيح يبدأ بـ 05 أو 06 أو 07 يتكون من 10 أرقام", "error");
+                        return;
+                      }
                       setIsWaitlistSubmitting(true);
                       
                       const { error } = await supabase.from('waitlist').insert([{
@@ -676,10 +681,11 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                       />
                       <input 
                         type="tel" 
-                        placeholder="رقم الواتساب (مثال: 0555...)" 
+                        placeholder="رقم الواتساب (مثال: 0771335039)" 
                         required 
                         value={waitlistWhatsapp}
-                        onChange={(e) => setWaitlistWhatsapp(e.target.value)}
+                        onChange={(e) => setWaitlistWhatsapp(sanitizeAlgerianPhone(e.target.value))}
+                        maxLength={10}
                         style={{ width: '100%', padding: '12px', border: '1px solid #FECDD3', borderRadius: '10px', marginBottom: '15px', outline: 'none', direction: 'ltr', textAlign: 'left' }}
                       />
                       <button 
@@ -1254,6 +1260,12 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
     e.preventDefault();
     if (!clientName || !phone || !commune || !deliveryCompany) {
       showToast("⚠️ الرجاء ملء جميع الحقول الإلزامية (الاسم الكامل، رقم الهاتف، البلدية وشركة التوصيل)", 'warning');
+      return;
+    }
+
+    const cleanPhone = sanitizeAlgerianPhone(phone);
+    if (!isValidAlgerianPhone(cleanPhone)) {
+      showToast("⚠️ يرجى إدخال رقم هاتف جزائري صحيح يبدأ بـ 05 أو 06 أو 07 ويتكون من 10 أرقام (مثال: 0771335039)", 'error');
       return;
     }
     const activeCartItems = cartItems.filter(item => item.qty > 0);
@@ -1892,9 +1904,10 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
                     <div className="form-group" style={{ marginBottom: '18px' }}>
                       <label className="form-label" style={{ fontWeight: 700 }}>رقم الهاتف (واتساب) *</label>
                       <input 
-                        type="tel" required placeholder="Ex: 0554128933" 
+                        type="tel" required placeholder="مثال: 0771335039 (10 أرقام)" 
                         className="form-input" style={{ padding: '12px 16px', fontSize: '1rem', direction: 'ltr', textAlign: 'left' }}
-                        value={phone} onChange={(e) => setPhone(e.target.value)}
+                        value={phone} onChange={(e) => setPhone(sanitizeAlgerianPhone(e.target.value))}
+                        maxLength={10}
                       />
                     </div>
                     
