@@ -750,40 +750,7 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
       return false;
     };
 
-    for (const order of orders) {
-      if (availableQty <= 0) break;
-      if (isManagerPhone(order.phone)) continue;
-
-      const items = Array.isArray(order.items) ? order.items : [];
-      const item = items[0] || {};
-      const orderSize = (item.size || order.size || '');
-      const orderProdId = item.productId || item.product_id || order.productId || order.product_id;
-      const orderProdText = item.product || item.title || order.product || '';
-
-      const sizeMatches = isSzMatch(targetSize, orderSize);
-      const prodMatches = isProdMatch(productId, productTitle, orderProdId, orderProdText);
-
-      if (sizeMatches && prodMatches && order.phone) {
-        await updateOrderStatusAndArchive(order.id, 'confirmee');
-        
-        const orderNumStr = await getSequentialOrderNum(order);
-        const clientNameStr = (order.clientName && order.clientName !== 'زبون الواتساب' && order.clientName !== 'زبون المحادثة')
-          ? order.clientName : '';
-        const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-        const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
-
-        const restockMsg = `أهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}.\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح وجاري تجهيزها للشحن. شكراً لانتظارك.`;
-        
-        const cleanPhone = order.phone.replace(/\D/g, '');
-        const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
-        await sendWhatsAppMessage(waPhone, restockMsg);
-        notifiedPhones.add(waPhone);
-        await saveNotifiedPhone(cleanPhone);
-
-        availableQty = Math.max(0, availableQty - 1);
-      }
-    }
-
+    // Only process waitlist entries (customers who explicitly asked to be notified on restock)
     if (availableQty > 0) {
       for (const entry of waitlistEntries) {
         if (availableQty <= 0) break;

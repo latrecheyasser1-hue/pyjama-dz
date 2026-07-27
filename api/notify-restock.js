@@ -299,53 +299,7 @@ export default async function handler(req, res) {
       return false;
     };
 
-    for (const order of orders) {
-      if (availableQty <= 0) break;
-      if (isManagerPhone(order.phone)) continue;
-      const items = Array.isArray(order.items) ? order.items : [];
-      const item = items[0] || {};
-      const orderSize = (item.size || order.size || '');
-      const orderProdId = item.productId || item.product_id || order.productId || order.product_id;
-      const orderProdText = item.product || item.title || order.product || '';
-
-      const sizeMatches = isSizeMatch(targetSize, orderSize, orderProdText);
-      const prodMatches = isProductMatch(productId, productTitle, orderProdId, orderProdText);
-
-      if (sizeMatches && prodMatches && order.phone) {
-        const waPhone = formatWhatsAppPhone(order.phone);
-        if (!waPhone || notifiedPhones.has(waPhone)) continue;
-
-        const lastSent = global._recentRestockMap.get(waPhone);
-        if (lastSent && (now - lastSent < 60000)) continue;
-
-        await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ status: 'attente_confirmation_restock', archived: false })
-        });
-
-        const clientNameStr = (order.clientName && order.clientName !== 'زبون الواتساب' && order.clientName !== 'زبون المحادثة')
-          ? order.clientName : '';
-        const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-        const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
-
-        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
-
-        await sendWhatsAppMessage(waPhone, restockMsg);
-        notifiedPhones.add(waPhone);
-        global._recentRestockMap.set(waPhone, now);
-        await saveNotifiedPhone(order.phone.replace(/\D/g, ''));
-
-        notifiedCount++;
-        availableQty = Math.max(0, availableQty - 1);
-      }
-    }
-
-    // Process Waitlist Entries (always process waiting customers)
+    // Process Waitlist Entries (only process customers who explicitly signed up for waitlist)
     for (const entry of waitlistEntries) {
       if (entry.id && notifiedWaitlistIds.has(entry.id)) {
         continue; // 🛑 ALREADY NOTIFIED IN THE PAST - SKIP FOREVER!
