@@ -1531,8 +1531,9 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
 
     const isCancel = [
       'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'انولي', 'أنولي', 'لا اريد', 'لا أريد', 'ما نديهاش', 'ما رانيش حاب',
-      'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation', 'lala anuler'
-    ].some(kw => normText.includes(kw) || rawLower.includes(kw));
+      'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation', 'lala anuler',
+      'non', 'no', 'lala', 'لا', 'لأ', 'لالا', 'non merci', 'pas'
+    ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
 
     if (!isCancel) return false;
 
@@ -1541,7 +1542,7 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
     const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
     const cleanPhoneNo0 = localPhone.replace(/^0/, '');
 
-    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&order=created_at.desc&limit=1`, {
+    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&status=in.(nouvelle,pending,attente,attente_confirmation,nouveau)&order=created_at.desc&limit=1`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
 
