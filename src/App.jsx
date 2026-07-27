@@ -38,12 +38,32 @@ const playNotificationSound = () => {
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState(() => {
+    try {
+      const cached = localStorage.getItem('pyjama_products_cache');
+      return cached ? JSON.parse(cached) : [];
+    } catch(e) { return []; }
+  });
+  const [orders, setOrders] = useState(() => {
+    try {
+      const cached = localStorage.getItem('pyjama_orders_cache');
+      return cached ? JSON.parse(cached) : [];
+    } catch(e) { return []; }
+  });
   const [suppliers, setSuppliers] = useState([]);
   const [expenses, setExpenses] = useState([]);
-  const [settings, setSettings] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState(() => {
+    try {
+      const cached = localStorage.getItem('pyjama_settings_cache');
+      return cached ? JSON.parse(cached) : {};
+    } catch(e) { return {}; }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cachedProds = localStorage.getItem('pyjama_products_cache');
+      return !cachedProds;
+    } catch(e) { return true; }
+  });
 
   useEffect(() => {
     const handlePopState = () => setCurrentPath(window.location.pathname);
@@ -107,17 +127,20 @@ export default function App() {
   }, []);
 
   const fetchInitialData = async () => {
-    // 1. Fetch essential storefront data (Products & Settings) and unblock initial loading IMMEDIATELY (0.2s load time!)
-    await Promise.all([
-      fetchData('products', setProducts),
-      fetchSettings()
-    ]);
-    setLoading(false);
+    // Instant unblock loading screen if cached data exists or in max 100ms
+    setTimeout(() => setLoading(false), 100);
 
-    // 2. Fetch admin data in background without blocking initial rendering
-    fetchData('orders', setOrders);
-    fetchData('suppliers', setSuppliers);
-    fetchData('expenses', setExpenses);
+    // Fetch fresh data in parallel in background
+    Promise.all([
+      fetchData('products', setProducts),
+      fetchSettings(),
+      fetchData('orders', setOrders),
+      fetchData('suppliers', setSuppliers),
+      fetchData('expenses', setExpenses)
+    ]).then(() => setLoading(false)).catch(err => {
+      console.error('Initial data fetch error:', err);
+      setLoading(false);
+    });
   };
 
   const pendingUpdatesRef = useRef({});
@@ -127,6 +150,7 @@ export default function App() {
     const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
     if (!error && data) {
       if (table === 'products') {
+        try { localStorage.setItem('pyjama_products_cache', JSON.stringify(data)); } catch(e) {}
         const now = Date.now();
         setter(prev => {
           return data.map(dbProd => {
@@ -138,6 +162,9 @@ export default function App() {
           });
         });
       } else {
+        if (table === 'orders') {
+          try { localStorage.setItem('pyjama_orders_cache', JSON.stringify(data)); } catch(e) {}
+        }
         setter(data);
       }
     }
@@ -207,12 +234,14 @@ export default function App() {
         }
       });
       setSettings(prev => {
+        const newSettings = { ...prev, ...obj };
+        try { localStorage.setItem('pyjama_settings_cache', JSON.stringify(newSettings)); } catch(e) {}
         const prevRecs = Array.isArray(prev?.reclamations) ? prev.reclamations : [];
         const newRecs = Array.isArray(obj?.reclamations) ? obj.reclamations : [];
         if (prevRecs.length > 0 && newRecs.length > prevRecs.length) {
           try { playNotificationSound(); } catch(e) {}
         }
-        return { ...prev, ...obj };
+        return newSettings;
       });
     }
   };
