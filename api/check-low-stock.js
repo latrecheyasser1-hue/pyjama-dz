@@ -119,8 +119,6 @@ async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
 async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
   try {
     if (!size || newQty <= 0) return;
-
-    let availableQty = Number(newQty);
     const targetSize = String(size).trim().toUpperCase();
 
     let productTitle = '';
@@ -159,44 +157,6 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
     }
 
     const notifiedPhones = new Set();
-    const notifiedWaitlistIds = new Set();
-    const notifiedPhonesSet = new Set();
-    try {
-      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(notified_waitlist_ids,notified_phones_list)&select=*`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      const rows = await setRes.json();
-      if (Array.isArray(rows)) {
-        rows.forEach(r => {
-          if (r.key === 'notified_waitlist_ids' && r.value) {
-            const arr = JSON.parse(r.value);
-            if (Array.isArray(arr)) arr.forEach(id => notifiedWaitlistIds.add(id));
-          } else if (r.key === 'notified_phones_list' && r.value) {
-            const arr = JSON.parse(r.value);
-            if (Array.isArray(arr)) arr.forEach(p => notifiedPhonesSet.add(p));
-          }
-        });
-      }
-    } catch (e) {}
-
-    const saveNotifiedPhone = async (phoneStr) => {
-      if (!phoneStr) return;
-      notifiedPhonesSet.add(phoneStr);
-      const last8 = phoneStr.slice(-8);
-      if (last8) notifiedPhonesSet.add(last8);
-      try {
-        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates'
-          },
-          body: JSON.stringify({ key: 'notified_phones_list', value: JSON.stringify(Array.from(notifiedPhonesSet)) })
-        });
-      } catch (e) {}
-    };
 
     const isProdMatch = (targetId, targetTitle, orderId, orderText) => {
       if (targetId && orderId && String(targetId).trim() === String(orderId).trim()) return true;
@@ -204,6 +164,9 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
       const nOrder = String(orderText || '').toLowerCase().trim();
       if (nTarget && nOrder) {
         if (nOrder.includes(nTarget) || nTarget.includes(nOrder)) return true;
+        const tw = nTarget.split(/\s+/).filter(w => w.length >= 3);
+        const ow = nOrder.split(/\s+/).filter(w => w.length >= 3);
+        if (tw.some(w => ow.includes(w))) return true;
       }
       return false;
     };
@@ -216,7 +179,6 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
     };
 
     for (const order of orders) {
-      if (availableQty <= 0) break;
       const items = Array.isArray(order.items) ? order.items : [];
       const item = items[0] || {};
       const orderSize = (item.size || order.size || '');
@@ -227,99 +189,58 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
       const prodMatches = isProdMatch(productId, productTitle, orderProdId, orderProdText);
 
       if (sizeMatches && prodMatches && order.phone) {
+        const cleanPhone = order.phone.replace(/\D/g, '');
+        const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
+
+        if (notifiedPhones.has(waPhone)) continue;
+
         const orderNumStr = String(order.id).slice(-4);
         const clientNameStr = (order.clientName && order.clientName !== 'زبون الواتساب' && order.clientName !== 'زبون المحادثة')
           ? order.clientName : '';
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
         const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
 
-        const restockMsg = `أهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}.\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح وجاري تجهيزها للشحن. شكراً لانتظارك.`;
+        const restockMsg = `أهلاً بك${nameGreeting}.\nبشرى سارة 🎉 توفر مقاسك (${targetSize}) مجدداً${prodDesc}.\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح وجاري تجهيزها للشحن. شكراً لانتظارك.`;
         
-        const cleanPhone = order.phone.replace(/\D/g, '');
-        const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);
-        await saveNotifiedPhone(cleanPhone);
-
-        availableQty = Math.max(0, availableQty - 1);
       }
     }
 
-    if (availableQty > 0) {
-      for (const entry of waitlistEntries) {
-        if (availableQty <= 0) break;
-        if (entry.id && notifiedWaitlistIds.has(entry.id)) continue;
+    for (const entry of waitlistEntries) {
+      const entryPhone = entry.whatsapp_number || entry.phone;
+      const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
+      const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
 
-        const entryPhone = entry.whatsapp_number || entry.phone;
-        const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
-        const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
-        const last8 = cleanPhone.slice(-8);
+      if (!waPhone || notifiedPhones.has(waPhone)) continue;
 
-        if (!waPhone || notifiedPhones.has(waPhone) || (cleanPhone && notifiedPhonesSet.has(cleanPhone)) || (last8 && notifiedPhonesSet.has(last8))) {
-          continue;
-        }
+      const entrySize = entry.size || '';
+      const entryProdId = entry.product_id || entry.productId;
+      const entryProdText = entry.product_title || entry.product || '';
 
-        const entrySize = entry.size || '';
-        const entryProdId = entry.product_id || entry.productId;
-        const entryProdText = entry.product_title || entry.product || '';
+      const sizeMatches = isSzMatch(targetSize, entrySize);
+      const prodMatches = isProdMatch(productId, productTitle, entryProdId, entryProdText);
 
-        const sizeMatches = isSzMatch(targetSize, entrySize);
-        const prodMatches = isProdMatch(productId, productTitle, entryProdId, entryProdText);
+      if (sizeMatches && prodMatches) {
+        // Mark waitlist entry status as notified in Supabase table
+        await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'notified' })
+        });
 
-        if (sizeMatches && prodMatches) {
-          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
-            method: 'PATCH',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ status: 'notified' })
-          });
+        const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
+        const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
+        const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
 
-          if (cleanPhone) {
-            const p1 = '0' + cleanPhone.slice(-9);
-            const p2 = '213' + cleanPhone.slice(-9);
-            const p3 = cleanPhone;
-            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=in.(${p1},${p2},${p3})`, {
-              method: 'PATCH',
-              headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ status: 'notified' })
-            });
-            await saveNotifiedPhone(cleanPhone);
-          }
+        const restockMsg = `أهلاً بك${nameGreeting}.\nبشرى سارة 🎉 توفر مقاسك (${targetSize}) مجدداً${prodDesc}.\nيمكنك الآن إتمام طلبك عبر موقعنا الرسمي: https://pyjama-dz.vercel.app أو بالرد على هذه الرسالة. شكراً لانتظارك.`;
 
-          if (entry.id) {
-            notifiedWaitlistIds.add(entry.id);
-            try {
-              await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-                method: 'POST',
-                headers: {
-                  'apikey': SUPABASE_KEY,
-                  'Authorization': `Bearer ${SUPABASE_KEY}`,
-                  'Content-Type': 'application/json',
-                  'Prefer': 'resolution=merge-duplicates'
-                },
-                body: JSON.stringify({ key: 'notified_waitlist_ids', value: JSON.stringify(Array.from(notifiedWaitlistIds)) })
-              });
-            } catch (e) {}
-          }
-
-          const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
-          const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-          const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
-
-          const restockMsg = `أهلاً بك${nameGreeting}.\nبشرى سارة 🎉 توفر مقاسك (${targetSize}) مجدداً${prodDesc}.\nيمكنك الآن إتمام طلبك عبر موقعنا الرسمي: https://pyjama-dz.vercel.app أو بالرد على هذه الرسالة. شكراً لانتظارك.`;
-
-          await sendWhatsAppMessage(waPhone, restockMsg);
-          notifiedPhones.add(waPhone);
-
-          availableQty = Math.max(0, availableQty - 1);
-        }
+        await sendWhatsAppMessage(waPhone, restockMsg);
+        notifiedPhones.add(waPhone);
       }
     }
   } catch (err) {
