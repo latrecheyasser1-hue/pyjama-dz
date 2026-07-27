@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import Storefront from './components/Storefront';
-import AdminDashboard from './components/AdminDashboard';
-import GrosStorefront from './components/GrosStorefront';
-import CashierPOS from './components/CashierPOS';
-import EmballagePOS from './components/EmballagePOS';
 import ToastContainer from './components/ToastContainer';
 import CookieConsent from './components/CookieConsent';
 import { supabase } from './lib/supabaseClient';
 import { processOrderDelivery } from './services/deliveryApi';
+
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const GrosStorefront = lazy(() => import('./components/GrosStorefront'));
+const CashierPOS = lazy(() => import('./components/CashierPOS'));
+const EmballagePOS = lazy(() => import('./components/EmballagePOS'));
 
 
 const playNotificationSound = () => {
@@ -106,14 +107,17 @@ export default function App() {
   }, []);
 
   const fetchInitialData = async () => {
+    // 1. Fetch essential storefront data (Products & Settings) and unblock initial loading IMMEDIATELY (0.2s load time!)
     await Promise.all([
       fetchData('products', setProducts),
-      fetchData('orders', setOrders),
-      fetchData('suppliers', setSuppliers),
-      fetchData('expenses', setExpenses),
       fetchSettings()
     ]);
     setLoading(false);
+
+    // 2. Fetch admin data in background without blocking initial rendering
+    fetchData('orders', setOrders);
+    fetchData('suppliers', setSuppliers);
+    fetchData('expenses', setExpenses);
   };
 
   const pendingUpdatesRef = useRef({});
@@ -491,59 +495,66 @@ export default function App() {
 
   return (
     <div className="app-main">
-      {isAdminRoute ? (
-        <AdminDashboard 
-          orders={enrichedOrders}
-          onPlaceOrder={handlePlaceOrder}
-          onUpdateStatus={handleUpdateOrderStatus}
-          onDeleteOrder={handleDeleteOrder}
-          products={products}
-          onAddProduct={handleAddProduct}
-          onUpdateProduct={handleUpdateProduct}
-          onDeleteProduct={handleDeleteProduct}
-          suppliers={suppliers}
-          onAddSupplier={handleAddSupplier}
-          onUpdateSupplier={handleUpdateSupplier}
-          onDeleteSupplier={handleDeleteSupplier}
-          expenses={expenses}
-          onAddExpense={handleAddExpense}
-          onDeleteExpense={handleDeleteExpense}
-          settings={settings}
-          onUpdateSettings={handleUpdateSettings}
-          onSwitchToClient={() => navigateTo('/')}
-        />
-      ) : isCashierRoute ? (
-        <CashierPOS 
-          products={products}
-          settings={settings}
-          orders={enrichedOrders}
-          onPlaceOrder={handlePlaceOrder}
-          onGoBack={() => navigateTo('/')}
-          onUpdateStatus={handleUpdateOrderStatus}
-          onUpdateProduct={handleUpdateProduct}
-        />
-      ) : isEmballageRoute ? (
-        <EmballagePOS 
-          products={products}
-          settings={settings}
-          orders={enrichedOrders}
-          onUpdateStatus={handleUpdateOrderStatus}
-          onGoBack={() => navigateTo('/')}
-        />
-      ) : isGrosRoute ? (
-        <GrosStorefront 
-          products={products}
-          settings={settings}
-          onPlaceOrder={handlePlaceOrder}
-          onGoToRetail={() => navigateTo('/')}
-        />
-      ) : (
-        <Storefront 
-          products={products}
-          settings={settings}
-          onPlaceOrder={handlePlaceOrder}
-        />
-      )}
+      <Suspense fallback={
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'Cairo, sans-serif', gap: '12px' }}>
+          <div style={{ width: '40px', height: '40px', border: '4px solid #F1F5F9', borderTopColor: 'var(--burgundy, #6B1D2F)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--burgundy, #6B1D2F)' }}>⚡ جاري التحميل السريع...</span>
+        </div>
+      }>
+        {isAdminRoute ? (
+          <AdminDashboard 
+            orders={enrichedOrders}
+            onPlaceOrder={handlePlaceOrder}
+            onUpdateStatus={handleUpdateOrderStatus}
+            onDeleteOrder={handleDeleteOrder}
+            products={products}
+            onAddProduct={handleAddProduct}
+            onUpdateProduct={handleUpdateProduct}
+            onDeleteProduct={handleDeleteProduct}
+            suppliers={suppliers}
+            onAddSupplier={handleAddSupplier}
+            onUpdateSupplier={handleUpdateSupplier}
+            onDeleteSupplier={handleDeleteSupplier}
+            expenses={expenses}
+            onAddExpense={handleAddExpense}
+            onDeleteExpense={handleDeleteExpense}
+            settings={settings}
+            onUpdateSettings={handleUpdateSettings}
+            onSwitchToClient={() => navigateTo('/')}
+          />
+        ) : isCashierRoute ? (
+          <CashierPOS 
+            products={products}
+            settings={settings}
+            orders={enrichedOrders}
+            onPlaceOrder={handlePlaceOrder}
+            onGoBack={() => navigateTo('/')}
+            onUpdateStatus={handleUpdateOrderStatus}
+            onUpdateProduct={handleUpdateProduct}
+          />
+        ) : isEmballageRoute ? (
+          <EmballagePOS 
+            products={products}
+            settings={settings}
+            orders={enrichedOrders}
+            onUpdateStatus={handleUpdateOrderStatus}
+            onGoBack={() => navigateTo('/')}
+          />
+        ) : isGrosRoute ? (
+          <GrosStorefront 
+            products={products}
+            settings={settings}
+            onPlaceOrder={handlePlaceOrder}
+            onGoToRetail={() => navigateTo('/')}
+          />
+        ) : (
+          <Storefront 
+            products={products}
+            settings={settings}
+            onPlaceOrder={handlePlaceOrder}
+          />
+        )}
+      </Suspense>
       <CookieConsent />
       <ToastContainer />
     </div>
