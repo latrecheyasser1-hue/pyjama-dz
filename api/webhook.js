@@ -1546,8 +1546,9 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
     const rawDigits = fromPhone.replace(/\D/g, '');
     const localPhone = rawDigits.startsWith('213') ? '0' + rawDigits.slice(3) : rawDigits;
     const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
+    const cleanPhoneNo0 = localPhone.replace(/^0/, '');
 
-    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(nouvelle,nouvel,new,pending,en_attente_confirmation,attente_confirmation,attente_confirmation_restock,en_attente_stock,pending_stock,confirmee)&order=created_at.desc&limit=1`, {
+    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&order=created_at.desc&limit=1`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
 
@@ -1601,8 +1602,9 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
     const rawDigits = fromPhone.replace(/\D/g, '');
     const localPhone = rawDigits.startsWith('213') ? '0' + rawDigits.slice(3) : rawDigits;
     const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
+    const cleanPhoneNo0 = localPhone.replace(/^0/, '');
 
-    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(nouvelle,nouvel,new,pending,en_attente_confirmation,attente_confirmation,attente_confirmation_restock,en_attente_stock,pending_stock)&order=created_at.desc&limit=1`, {
+    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&order=created_at.desc&limit=1`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
 
