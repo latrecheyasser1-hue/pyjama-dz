@@ -178,20 +178,26 @@ export default async function handler(req, res) {
       orders = [];
     }
 
-    // 2. Fetch persistent notified waitlist IDs from settings table
+    // 2. Fetch persistent notified waitlist IDs and notified phones from settings table
     let notifiedWaitlistIds = new Set();
+    let notifiedPhonesSet = new Set();
     let settingsRow = null;
     try {
-      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_ids&select=*`, {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(notified_waitlist_ids,notified_phones_list)&select=*`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       const rows = await setRes.json();
-      if (Array.isArray(rows) && rows.length > 0) {
-        settingsRow = rows[0];
-        const parsed = JSON.parse(settingsRow.value || '[]');
-        if (Array.isArray(parsed)) {
-          parsed.forEach(id => notifiedWaitlistIds.add(id));
-        }
+      if (Array.isArray(rows)) {
+        rows.forEach(r => {
+          if (r.key === 'notified_waitlist_ids' && r.value) {
+            if (r.key === 'notified_waitlist_ids') settingsRow = r;
+            const parsed = JSON.parse(r.value || '[]');
+            if (Array.isArray(parsed)) parsed.forEach(id => notifiedWaitlistIds.add(id));
+          } else if (r.key === 'notified_phones_list' && r.value) {
+            const parsed = JSON.parse(r.value || '[]');
+            if (Array.isArray(parsed)) parsed.forEach(p => notifiedPhonesSet.add(p));
+          }
+        });
       }
     } catch (e) {}
 
@@ -222,6 +228,25 @@ export default async function handler(req, res) {
           });
           settingsRow = { key: 'notified_waitlist_ids' };
         }
+      } catch (e) {}
+    };
+
+    const saveNotifiedPhone = async (phoneStr) => {
+      if (!phoneStr) return;
+      notifiedPhonesSet.add(phoneStr);
+      const last8 = phoneStr.slice(-8);
+      if (last8) notifiedPhonesSet.add(last8);
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ key: 'notified_phones_list', value: JSON.stringify(Array.from(notifiedPhonesSet)) })
+        });
       } catch (e) {}
     };
 
@@ -280,6 +305,7 @@ export default async function handler(req, res) {
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);
         global._recentRestockMap.set(waPhone, now);
+        await saveNotifiedPhone(order.phone.replace(/\D/g, ''));
 
         notifiedCount++;
         availableQty = Math.max(0, availableQty - 1);
@@ -293,8 +319,14 @@ export default async function handler(req, res) {
       }
 
       const entryPhone = entry.whatsapp_number || entry.phone;
+      const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
       const waPhone = formatWhatsAppPhone(entryPhone);
-      if (!waPhone || notifiedPhones.has(waPhone)) continue;
+      const last8 = cleanPhone.slice(-8);
+
+      // 🛑 STRICT DUPLICATE PREVENTION: Skip if phone already received notification!
+      if (!waPhone || notifiedPhones.has(waPhone) || (cleanPhone && notifiedPhonesSet.has(cleanPhone)) || (last8 && notifiedPhonesSet.has(last8))) {
+        continue;
+      }
 
       const lastSent = global._recentRestockMap.get(waPhone);
       if (lastSent && (now - lastSent < 60000)) continue;

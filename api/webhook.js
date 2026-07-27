@@ -648,18 +648,45 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
 
     const notifiedPhones = new Set();
 
-    // Load persistent notified waitlist IDs to ensure NO duplicate notifications
+    // Load persistent notified waitlist IDs and notified phones to ensure NO duplicate notifications
     const notifiedWaitlistIds = new Set();
+    const notifiedPhonesSet = new Set();
     try {
-      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_ids&select=*`, {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(notified_waitlist_ids,notified_phones_list)&select=*`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       const rows = await setRes.json();
-      if (Array.isArray(rows) && rows[0]?.value) {
-        const arr = JSON.parse(rows[0].value);
-        if (Array.isArray(arr)) arr.forEach(id => notifiedWaitlistIds.add(id));
+      if (Array.isArray(rows)) {
+        rows.forEach(r => {
+          if (r.key === 'notified_waitlist_ids' && r.value) {
+            const arr = JSON.parse(r.value);
+            if (Array.isArray(arr)) arr.forEach(id => notifiedWaitlistIds.add(id));
+          } else if (r.key === 'notified_phones_list' && r.value) {
+            const arr = JSON.parse(r.value);
+            if (Array.isArray(arr)) arr.forEach(p => notifiedPhonesSet.add(p));
+          }
+        });
       }
     } catch (e) {}
+
+    const saveNotifiedPhone = async (phoneStr) => {
+      if (!phoneStr) return;
+      notifiedPhonesSet.add(phoneStr);
+      const last8 = phoneStr.slice(-8);
+      if (last8) notifiedPhonesSet.add(last8);
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ key: 'notified_phones_list', value: JSON.stringify(Array.from(notifiedPhonesSet)) })
+        });
+      } catch (e) {}
+    };
 
     const isProdMatch = (targetId, targetTitle, orderId, orderText) => {
       if (targetId && orderId && String(targetId).trim() === String(orderId).trim()) return true;
@@ -707,6 +734,7 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
         const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);
+        await saveNotifiedPhone(cleanPhone);
 
         availableQty = Math.max(0, availableQty - 1);
       }
@@ -720,7 +748,12 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
         const entryPhone = entry.whatsapp_number || entry.phone;
         const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
         const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
-        if (!waPhone || notifiedPhones.has(waPhone)) continue;
+        const last8 = cleanPhone.slice(-8);
+
+        // 🛑 STRICT DUPLICATE PREVENTION: Skip if phone already received notification!
+        if (!waPhone || notifiedPhones.has(waPhone) || (cleanPhone && notifiedPhonesSet.has(cleanPhone)) || (last8 && notifiedPhonesSet.has(last8))) {
+          continue;
+        }
 
         const entrySize = entry.size || '';
         const entryProdId = entry.product_id || entry.productId;
@@ -755,11 +788,11 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
               },
               body: JSON.stringify({ status: 'notified' })
             });
+            await saveNotifiedPhone(cleanPhone);
           }
 
           if (entry.id) {
             notifiedWaitlistIds.add(entry.id);
-            // Save to settings
             try {
               await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
                 method: 'POST',
