@@ -1551,16 +1551,21 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                             if (!isNaN(numB)) return 1;
                             return ALL_SIZES.indexOf(a[0]) - ALL_SIZES.indexOf(b[0]);
                           }).map(([sz, qty]) => (
-                            <div key={sz} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'white', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700 }}>
+                            <div key={sz} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'white', border: '1px solid #CBD5E1', padding: '3px 6px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700 }}>
                               <span style={{ color: 'var(--burgundy-dark)', fontWeight: 800 }}>{sz} :</span>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickQtyAdjust(p, cIdx, sz, -1)}
+                                style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '4px', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 900, color: '#334155' }}
+                              >-</button>
                               <input
                                 type="number"
                                 min="0"
                                 value={qty}
                                 onChange={(e) => handleDirectStockChange(p, cIdx, sz, e.target.value)}
                                 style={{
-                                  width: '54px',
-                                  padding: '2px 4px',
+                                  width: '46px',
+                                  padding: '2px 2px',
                                   fontSize: '0.85rem',
                                   fontWeight: 900,
                                   textAlign: 'center',
@@ -1570,6 +1575,11 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                                   color: qty > 0 ? '#15803D' : '#DC2626'
                                 }}
                               />
+                              <button
+                                type="button"
+                                onClick={() => handleQuickQtyAdjust(p, cIdx, sz, 1)}
+                                style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '4px', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 900, color: '#334155' }}
+                              >+</button>
                               <span style={{ fontSize: '0.72rem', color: '#64748B' }}>قطعة</span>
                             </div>
                           ))}
@@ -1818,16 +1828,21 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
                     {Object.entries(cv.stock || {}).map(([sz, qty]) => (
-                      <div key={sz} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'white', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700 }}>
+                      <div key={sz} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'white', border: '1px solid #CBD5E1', padding: '3px 6px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700 }}>
                         <span style={{ color: 'var(--burgundy-dark)', fontWeight: 800 }}>{sz} :</span>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickQtyAdjust(quickViewProduct, cIdx, sz, -1)}
+                          style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '4px', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 900, color: '#334155' }}
+                        >-</button>
                         <input
                           type="number"
                           min="0"
                           value={qty}
                           onChange={(e) => handleDirectStockChange(quickViewProduct, cIdx, sz, e.target.value)}
                           style={{
-                            width: '54px',
-                            padding: '2px 4px',
+                            width: '46px',
+                            padding: '2px 2px',
                             fontSize: '0.85rem',
                             fontWeight: 900,
                             textAlign: 'center',
@@ -1837,6 +1852,11 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                             color: qty > 0 ? '#15803D' : '#DC2626'
                           }}
                         />
+                        <button
+                          type="button"
+                          onClick={() => handleQuickQtyAdjust(quickViewProduct, cIdx, sz, 1)}
+                          style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '4px', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 900, color: '#334155' }}
+                        >+</button>
                         <span style={{ fontSize: '0.72rem', color: '#64748B' }}>قطعة</span>
                       </div>
                     ))}

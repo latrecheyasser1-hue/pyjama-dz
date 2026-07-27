@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Storefront from './components/Storefront';
 import AdminDashboard from './components/AdminDashboard';
 import GrosStorefront from './components/GrosStorefront';
@@ -338,26 +338,42 @@ export default function App() {
     }
   };
 
-  const handleUpdateProduct = async (updatedProd) => {
-    const { id } = updatedProd;
-    const sanitizedProd = sanitizeProductForDb(updatedProd);
-    const { data, error } = await supabase.from('products').update(sanitizedProd).eq('id', id).select();
-    if (error) {
-      console.error(error);
-      alert("Erreur lors de la modification du produit: " + error.message);
-    } else if (data && data.length > 0) {
-      const finalProduct = { ...updatedProd, ...data[0] };
-      setProducts(prev => prev.map(p => p.id === id ? finalProduct : p));
+  const updateDebounceRef = useRef({});
 
-      // Single source of truth trigger for low stock check
-      fetch('/api/check-low-stock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: finalProduct })
-      }).catch(err => console.error('Low stock check error:', err));
-    } else {
-      alert("Erreur: La modification a été bloquée (vérifiez que RLS est bien désactivé).");
+  const handleUpdateProduct = (updatedProd) => {
+    const { id } = updatedProd;
+    if (!id) return;
+
+    // 1. Instant Optimistic Local Update (0ms lag!)
+    setProducts(prev => prev.map(p => p.id === id ? updatedProd : p));
+
+    // 2. Clear previous pending DB update for this product
+    if (updateDebounceRef.current[id]) {
+      clearTimeout(updateDebounceRef.current[id]);
     }
+
+    // 3. Debounce background Supabase sync (250ms) to combine rapid + / - clicks into 1 single DB query
+    updateDebounceRef.current[id] = setTimeout(async () => {
+      try {
+        const sanitizedProd = sanitizeProductForDb(updatedProd);
+        const { data, error } = await supabase.from('products').update(sanitizedProd).eq('id', id).select();
+        if (error) {
+          console.error('Error updating product:', error);
+        } else if (data && data.length > 0) {
+          const finalProduct = { ...updatedProd, ...data[0] };
+          setProducts(prev => prev.map(p => p.id === id ? finalProduct : p));
+
+          // Single source of truth trigger for low stock check
+          fetch('/api/check-low-stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product: finalProduct })
+          }).catch(err => console.error('Low stock check error:', err));
+        }
+      } catch (err) {
+        console.error('Error in debounced product update:', err);
+      }
+    }, 250);
   };
 
   const handleDeleteProduct = async (prodId) => {
