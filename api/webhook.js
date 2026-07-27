@@ -1530,18 +1530,72 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
   return false;
 }
 
+async function processOrderCancellationIntent(fromPhone, messageText) {
+  try {
+    if (!messageText) return false;
+    const rawLower = String(messageText).toLowerCase().trim();
+    const normText = normalizeText(messageText);
+
+    const cancelKeywords = [
+      'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'لا تلغي', 'انولي', 'أنولي', 'لا أستطيع', 'لا اريد', 'لا أريد',
+      'إلغاء الطلبية', 'إلغاء الطلب', 'الغاء الطلبية', 'الغاء الطلب', 'ألغيلي', 'الغيلي', 'أنوليلي',
+      'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation',
+      'lala anuler', 'lala anule', 'lala annuler', 'non annuler', 'lala lala anuler', 'lala lala anule'
+    ];
+
+    const isCancelIntent = cancelKeywords.some(kw => normText.includes(kw) || rawLower.includes(kw));
+    if (!isCancelIntent) return false;
+
+    const rawDigits = fromPhone.replace(/\D/g, '');
+    const localPhone = rawDigits.startsWith('213') ? '0' + rawDigits.slice(3) : rawDigits;
+    const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
+
+    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone})&status=in.(nouvelle,nouvel,new,pending,en_attente_confirmation,attente_confirmation,attente_confirmation_restock,en_attente_stock,pending_stock,confirmee)&order=created_at.desc&limit=1`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+
+    const pendingOrders = await orderCheckRes.json();
+    if (!Array.isArray(pendingOrders) || pendingOrders.length === 0) {
+      return false;
+    }
+
+    const orderToCancel = pendingOrders[0];
+    await updateOrderStatusAndArchive(orderToCancel.id, 'annulee');
+
+    const orderNumStr = await getSequentialOrderNum(orderToCancel);
+    const rawName = orderToCancel.clientName || '';
+    const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
+      ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
+      : '';
+    const clientNameStr = cleanName ? ` ${cleanName}` : '';
+
+    const cancelMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${clientNameStr}.\nتم إلغاء طلبيتك رقم #${orderNumStr} بنجاح بناءً على طلبك.\nنتمنى أن نخدمك مجدداً في المرات القادمة! 🌸`;
+
+    await sendWhatsAppMessage(fromPhone, cancelMsg);
+    return true;
+  } catch (err) {
+    console.error('Error processing order cancellation intent:', err);
+  }
+  return false;
+}
+
 async function processOrderConfirmationIntent(fromPhone, messageText) {
   try {
     if (!messageText) return false;
     const rawLower = String(messageText).toLowerCase().trim();
     const normText = normalizeText(messageText);
 
+    // Skip if customer is asking to cancel or saying no!
+    if (['anuler', 'annuler', 'anule', 'annule', 'الغي', 'ألغي', 'إلغاء', 'الغاء', 'lala'].some(k => rawLower.includes(k) || normText.includes(k))) {
+      return false;
+    }
+
     const confirmKeywords = [
       'أكد', 'أكدلي', 'تأكيد', 'نؤكد', 'أكدها', 'نعم أكد', 'نعم أكدلي', 'مالا أكدلي', 'ملا أكدلي',
       'أكد الطلبية', 'تأكيد الطلبية', 'تأكيد الطلب', 'أكدلي الطلبية', 'أكدلي طلبية', 'أكدلي الطلب',
       'أكدلي خويا', 'أكد خويا', 'نعم أكدها', 'ملا أكدها', 'مالا أكدها', 'أكدها خويا', 'أكد هاد الطلبية',
-      'aked', 'akedli', 'akedlii', 'akedha', 'confirme', 'confirmer', 'confirmation',
-      'oui confirme', 'oui akedli', 'oui aked', 'daccord confirme'
+      'akedha', 'akedha', 'aked', 'akedli', 'akedlii', 'confirme', 'confirmer', 'confirmation',
+      'oui confirme', 'oui akedli', 'oui aked', 'daccord confirme', 'oui akedha'
     ];
 
     const isConfirmIntent = confirmKeywords.some(kw => normText.includes(kw) || rawLower.includes(kw));
@@ -1786,15 +1840,14 @@ async function processIncomingPayload(body) {
               const rawLowerText = String(messageText).toLowerCase();
               const praiseKeywords = [
                 'شكرا', 'شكرااا', 'شكرا لكم', 'مشكور', 'بارك الله', 'يعطيكم الصحة', 'يعطيك الصحة',
-                'ماشاء الله', 'مشاء الله', 'روعة', 'ما شاء الله', 'شكر', 'تسلم', 'تسلموا', 'ربي يحفظكم', 'ربي يوفقكم',
+                'ماشاء الله', 'مشاء الله', 'روعة', 'ما شاء الله', 'تسلم', 'تسلموا', 'ربي يحفظكم', 'ربي يوفقكم',
                 'عجبني', 'عجبوني', 'عجبتني', 'شباب بزاف', 'ما شاء الله عليكم', 'يعطيك الصحه', 'الله يحفظك',
                 'خدمة روعة', 'سلعة روعة', 'وصلتني روعة', 'بيجامة روعة', 'يعطيكم الصحه', 'هايل', 'هايلة', 'ممتاز', 'ممتازة',
                 'machallah', 'machaallah', 'machalah', 'macha allah', 'macheallah',
                 '3jbetni', '3jbetnii', '3jbatni', 'ajbatni', 'ejbetni', 'ejbetnii',
                 'rbii yahfedkom', 'rbi yahfedkom', 'rbi yahfdkom', 'rbi yahfadkom', 'god bless',
-                'nchaallah', 'nchallah', 'inshallah', 'inchallah',
                 'qualite', 'qualité', 'bzeef', 'bzeeef', 'bzaf', 'bzaaf',
-                'top', 'merci', 'bravo', 'bien', 'tres bien', 'très bien', 'magnifique',
+                'bravo', 'tres bien', 'très bien', 'magnifique',
                 'sublime', 'super', 'parfait', 'fort', 'foor', 'tahya', 'chbab', 'chbaba',
                 'hayla', 'hayel', 'zinek', 'ya3tikom', 'ya3tik'
               ];
@@ -1934,6 +1987,10 @@ ${salesModeRules}`;
                 await sendWhatsAppMessage(fromPhone, "تفضل خويا، تم إرسال صور الموديلات المتوفرة أعلاه في المحادثة. يمكنك تصفح باقي المنتجات والألوان عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app");
                 continue;
               }
+
+              // Check for order cancellation reply from customer ("Lala anuler", "annuler", "إلغاء", etc.)
+              const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText);
+              if (handledOrderCancel) continue;
 
               // Check for order confirmation reply from customer ("أكدلي", "akedli", etc.)
               const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
