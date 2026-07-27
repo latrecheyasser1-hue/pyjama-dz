@@ -2026,10 +2026,6 @@ ${salesModeRules}`;
               const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
               if (handledOrderConfirm) continue;
 
-              // Check for restock confirmation reply from customer
-              const handledRestockConfirm = await processRestockConfirmationIntent(fromPhone, messageText, products);
-              if (handledRestockConfirm) continue;
-
               // Process direct order intent and delivery stock check
               const handledOrder = await processDirectOrderFromMessage(fromPhone, messageText, products);
               if (handledOrder) continue;
