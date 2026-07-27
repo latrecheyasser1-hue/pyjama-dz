@@ -368,25 +368,27 @@ export default async function handler(req, res) {
               const is30MinElapsed = lastAlertState && (now - (lastAlertState.timestamp || 0) >= 30 * 60 * 1000);
 
               if (isQtyChanged || is30MinElapsed) {
-                const alertMsg = `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.`;
+                const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                const alertMsg = numQty === 0
+                  ? `🛑 *تنبيه نفاد المخزون بالكامل (${locationLabel})* 🛑\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}`
+                  : `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}`;
 
                 const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
                 if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
                   const newMsgId = alertRes.messages[0].id;
                   await saveStockAlertRecord(newMsgId, targetPhone, product.id, cIdx, size);
 
+                  const alertStateVal = JSON.stringify({ qty: numQty, timestamp: now, isResolved: false });
+                  await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}`, {
+                    method: 'PATCH',
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value: alertStateVal })
+                  });
+
                   await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
                     method: 'POST',
-                    headers: {
-                      'apikey': SUPABASE_KEY,
-                      'Authorization': `Bearer ${SUPABASE_KEY}`,
-                      'Content-Type': 'application/json',
-                      'Prefer': 'resolution=merge-duplicates'
-                    },
-                    body: JSON.stringify({
-                      key: `alert_state_${alertKey}`,
-                      value: JSON.stringify({ qty: numQty, timestamp: now, isResolved: false })
-                    })
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+                    body: JSON.stringify({ key: `alert_state_${alertKey}`, value: alertStateVal })
                   });
 
                   let activeMsgs = [];
