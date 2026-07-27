@@ -743,7 +743,10 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
 
           // Also mark ALL matching pending entries for this phone as notified
           if (cleanPhone) {
-            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.%${cleanPhone.slice(-8)}%`, {
+            const p1 = '0' + cleanPhone.slice(-9);
+            const p2 = '213' + cleanPhone.slice(-9);
+            const p3 = cleanPhone;
+            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=in.(${p1},${p2},${p3})`, {
               method: 'PATCH',
               headers: {
                 'apikey': SUPABASE_KEY,

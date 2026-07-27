@@ -310,11 +310,23 @@ export default async function handler(req, res) {
       if (sizeMatches && prodMatches && colorMatches) {
         notifiedPhones.add(waPhone);
         global._recentRestockMap.set(waPhone, now);
-        if (entry.id) {
-          await saveNotifiedWaitlistId(entry.id);
-          // Mark waitlist status as notified in Supabase so customer is NEVER notified again for this request
+
+        const cleanNum = (entry.whatsapp_number || entry.phone || '').replace(/\D/g, '');
+        if (cleanNum && cleanNum.length >= 8) {
+          const last8 = cleanNum.slice(-8);
           try {
-            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
+            // Fetch all waitlist IDs for this phone and add to persistent set
+            const findRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.%${last8}%&select=id`, {
+              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+            });
+            const allRows = await findRes.json();
+            if (Array.isArray(allRows)) {
+              for (const r of allRows) {
+                if (r.id) await saveNotifiedWaitlistId(r.id);
+              }
+            }
+            // Patch status of ALL waitlist entries for this phone to notified
+            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.%${last8}%`, {
               method: 'PATCH',
               headers: {
                 'apikey': SUPABASE_KEY,
@@ -326,14 +338,17 @@ export default async function handler(req, res) {
           } catch (e) {}
         }
 
-        const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
+        const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب' && entry.client_name !== 'زبون المحادثة')
+          ? entry.client_name : '';
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-        const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
+        const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
+        const sizeDesc = targetSize ? ` (${targetSize})` : '';
 
-        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر المقاس المطلوب (${targetSize}) مجدداً${prodDesc}! 🔥\nهل ما زلت ترغب فـ تأكيد وتجهيز الطلبية لشحنها لك الآن؟\n\n👉 أجب بـ *نعم* أو *إيه* أو *تأكيد* لتأكيد الطلب فوراً.`;
+        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك${sizeDesc} مجدداً${prodDesc}! 🔥\nيمكنك الآن إتمام طلبك عبر موقعنا الرسمي: https://pyjama-dz.vercel.app أو بالرد على هذه الرسالة. شكراً لانتظارك.`;
 
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedCount++;
+        availableQty = Math.max(0, availableQty - 1);
       }
     }
 
