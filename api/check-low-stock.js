@@ -243,7 +243,16 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
       const prodMatches = isProdMatch(productId, productTitle, entryProdId, entryProdText);
 
       if (sizeMatches && colorMatches && prodMatches) {
-        // Mark waitlist entry status in settings table so it is never notified again
+        const phoneKey = `restock_notified_${cleanPhone}_${targetSize}_${productId || ''}`;
+        try {
+          const pRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.${phoneKey}&select=value`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          const pRows = await pRes.json();
+          if (Array.isArray(pRows) && pRows.length > 0) continue;
+        } catch (e) {}
+
+        // Mark waitlist entry and phone key in settings table so it is NEVER notified twice
         try {
           await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
             method: 'POST',
@@ -255,13 +264,24 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
             },
             body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: 'true' })
           });
+
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({ key: phoneKey, value: 'true' })
+          });
         } catch (e) {}
 
         const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
         const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-        const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
+        const prodDesc = productTitle || entryProdText ? `${productTitle || entryProdText}` : 'المنتج';
 
-        const restockMsg = `أهلاً بك${nameGreeting}.\nبشرى سارة 🎉 توفر مقاسك (${targetSize}) مجدداً${prodDesc}.\nيمكنك الآن إتمام طلبك عبر موقعنا الرسمي: https://pyjama-dz.vercel.app أو بالرد على هذه الرسالة. شكراً لانتظارك.`;
+        const restockMsg = `أهلاً بك${nameGreeting}.\n🎉 بشرى سارة! توفر مقاسك (${targetSize}) في موديل ${prodDesc} مجدداً قبل ما يعاود يكمل!\nإذا حاب تدير الطلبية تاعك ضرك، رد على هاد الرسالة بـ (نعم / حاب ندير كوماند) وإذا حاب اطلب مباشرة عبر موقعنا الرسمي: https://pyjama-dz.vercel.app 🌸`;
 
         await sendWhatsAppMessage(waPhone, restockMsg);
         notifiedPhones.add(waPhone);
