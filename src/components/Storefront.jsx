@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ALGERIA_WILAYAS, DEFAULT_CATEGORIES } from '../data/mockData';
 import { showToast } from '../utils/toast';
 import { supabase } from '../lib/supabaseClient';
-import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2, Check, Heart, Star, Search, User } from 'lucide-react';
+import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2, Check, Heart, Star, Search, User, Bell, AlertTriangle } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 const getProductDisplayCategory = (prodCategory, categoriesList) => {
   if (!Array.isArray(categoriesList)) return prodCategory || 'Pyjama DZ';
@@ -946,10 +946,96 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
     }
     return Number(item.price || 0);
   };
+  const getItemSizeStock = (item, productsList) => {
+    if (!item || !Array.isArray(productsList)) return -1;
+    const matchedProd = productsList.find(p => p.id === item.productId || (p.title || '').toLowerCase() === (item.title || '').toLowerCase()) || productsList[0];
+    if (!matchedProd) return -1;
+
+    const colorVariants = matchedProd.colorVariants || matchedProd.colorvariants || [];
+    const matchedVariant = colorVariants.find(cv => {
+      const cvName = (cv.name || cv.color || '').toLowerCase();
+      const itemColor = (item.color || '').toLowerCase();
+      return cvName && itemColor && (cvName === itemColor || cvName.includes(itemColor) || itemColor.includes(cvName));
+    }) || colorVariants[0];
+
+    if (matchedVariant && matchedVariant.stock && item.size && matchedVariant.stock[item.size] !== undefined) {
+      return Number(matchedVariant.stock[item.size] ?? 0);
+    }
+    if (matchedProd.stock && item.size && matchedProd.stock[item.size] !== undefined) {
+      return Number(matchedProd.stock[item.size] ?? 0);
+    }
+    return -1;
+  };
+
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   
+  // Waitlist modal state for cart out-of-stock items
+  const [waitlistModalItem, setWaitlistModalItem] = useState(null);
+  const [waitlistName, setWaitlistName] = useState('');
+  const [waitlistPhone, setWaitlistPhone] = useState('');
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistError, setWaitlistError] = useState('');
+  const [waitlistSuccess, setWaitlistSuccess] = useState(false);
+
+  const handleWaitlistSubmit = async (e) => {
+    e.preventDefault();
+    if (!waitlistModalItem) return;
+    if (!waitlistName || waitlistName.trim().length < 2) {
+      setWaitlistError('يرجى كتابة الاسم واللقب الكامل.');
+      return;
+    }
+    const cleanPhone = waitlistPhone.replace(/\D/g, '');
+    if (!/^(05|06|07)\d{8}$/.test(cleanPhone) && !/^213(5|6|7)\d{8}$/.test(cleanPhone)) {
+      setWaitlistError('يرجى إدخال رقم هاتف جزائري مكون من 10 أرقام ويبدأ بـ 05 أو 06 أو 07 (مثال: 0771335039).');
+      return;
+    }
+
+    setWaitlistLoading(true);
+    setWaitlistError('');
+
+    try {
+      const formattedPhone = cleanPhone.length === 10 ? cleanPhone : '0' + cleanPhone.slice(-9);
+      const SUPABASE_URL = 'https://qnbwyblbxtwubmuejwtp.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
+
+      await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          client_name: waitlistName.trim(),
+          whatsapp_number: formattedPhone,
+          product_id: waitlistModalItem.productId,
+          product_title: waitlistModalItem.title,
+          color: waitlistModalItem.color,
+          size: waitlistModalItem.size,
+          status: 'pending',
+          created_at: new Date().toISOString()
+        })
+      });
+
+      setWaitlistSuccess(true);
+      const itemToRemove = waitlistModalItem;
+      setTimeout(() => {
+        removeCartItem(itemToRemove.cartItemId);
+        setWaitlistModalItem(null);
+        setWaitlistSuccess(false);
+        setWaitlistName('');
+        setWaitlistPhone('');
+        showToast('✅ تم تسجيل رقمك بنجاح! سنخبرك فور توفر السلعة، وتمت إزالتها من السلة.');
+      }, 1500);
+    } catch (err) {
+      setWaitlistError('حدث خطأ أثناء التسجيل. يرجى المحاولة مجدداً.');
+    } finally {
+      setWaitlistLoading(false);
+    }
+  };
+
   // Form fields
   const [clientName, setClientName] = useState('');
   const [phone, setPhone] = useState('');
@@ -1908,14 +1994,48 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
                               </select>
                             </div>
                             
-                            {/* Qty & Remove */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', background: '#F5F5F5', borderRadius: '8px', padding: '4px' }}>
-                                <button type="button" onClick={() => updateCartItem(item.cartItemId, 'qty', Math.max(0, item.qty - 1))} style={{ background: 'white', border: '1px solid #DDD', borderRadius: '6px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Minus size={14} /></button>
-                                <input type="number" min="0" value={item.qty} onChange={(e) => updateCartItem(item.cartItemId, 'qty', e.target.value)} style={{ width: '40px', textAlign: 'center', fontWeight: 700, fontSize: '0.95rem', border: '1px solid #DDD', borderRadius: '4px', background: item.qty === 0 ? '#FFF0F0' : 'white', color: item.qty === 0 ? '#D32F2F' : '#333' }} />
-                                <button type="button" onClick={() => updateCartItem(item.cartItemId, 'qty', item.qty + 1)} style={{ background: 'white', border: '1px solid #DDD', borderRadius: '6px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Plus size={14} /></button>
-                              </div>
-                            </div>
+                            {/* Out of Stock Warning & Restock Request Button */}
+                            {(() => {
+                              const sizeStock = getItemSizeStock(item, products);
+                              const isItemOutOfStock = sizeStock === 0;
+                              if (!isItemOutOfStock) return null;
+                              return (
+                                <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '10px', padding: '10px', marginTop: '4px' }}>
+                                  <div style={{ color: '#991B1B', fontSize: '0.82rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                                    <AlertTriangle size={16} /> المقاس ({item.size}) غير متوفر في السطوك (نفذت الكمية)
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setWaitlistModalItem(item);
+                                      setWaitlistName('');
+                                      setWaitlistPhone('');
+                                      setWaitlistError('');
+                                      setWaitlistSuccess(false);
+                                    }}
+                                    style={{
+                                      background: 'var(--burgundy)',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '8px',
+                                      padding: '10px 12px',
+                                      fontSize: '0.88rem',
+                                      fontWeight: 800,
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      gap: '6px',
+                                      width: '100%',
+                                      boxShadow: '0 4px 10px rgba(128,0,32,0.25)',
+                                      transition: 'transform 0.2s ease'
+                                    }}
+                                  >
+                                    <Bell size={16} /> 🔔 طلب إشعار عند توفر المخزون (تسجيل رقمك)
+                                  </button>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -1941,33 +2061,73 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
                   <span style={{ fontSize: '1.6rem', color: 'var(--burgundy-dark)', fontWeight: 900 }}>{(Number(cartTotal) || 0).toLocaleString()} DA</span>
                 </div>
                 
-                {checkoutStep ? (
-                  <div style={{ display: 'flex', gap: '12px' }}>
+                {(() => {
+                  const hasAnyOutOfStockItem = cartItems.some(item => getItemSizeStock(item, products) === 0);
+                  if (hasAnyOutOfStockItem) {
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <button 
+                          type="button"
+                          disabled
+                          onClick={() => alert('تنبيه: يوجد منتج نافذ في السلة. يرجى الضغط على "طلب إشعار عند توفر المخزون" لتسجيل رقمك أو حذف القطعة من السلة لتتمكن من إتمام الطلب.')}
+                          style={{ 
+                            width: '100%', 
+                            padding: '16px', 
+                            fontSize: '1.05rem', 
+                            fontWeight: 800,
+                            justifyContent: 'center',
+                            background: '#94A3B8',
+                            color: 'white',
+                            borderRadius: '10px',
+                            border: 'none',
+                            cursor: 'not-allowed',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            opacity: 0.9
+                          }}
+                        >
+                          ⚠️ يرجى تسوية المقاسات النافذة أولاً <ArrowRight size={20} />
+                        </button>
+                        <p style={{ fontSize: '0.8rem', color: '#D32F2F', textAlign: 'center', fontWeight: 800, margin: 0, lineHeight: 1.4 }}>
+                          تنبيه: لا يمكنك إتمام الطلب لأن مقاساً في السلة نافذ من السطوك. يرجى الضغط على "طلب إشعار عند توفر المخزون" لتسجيل رقمك أو حذف القطعة.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  if (checkoutStep) {
+                    return (
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button 
+                          type="button"
+                          onClick={() => setCheckoutStep(false)}
+                          className="btn btn-secondary"
+                          style={{ padding: '16px', flex: '0 0 auto' }}
+                        >
+                          Retour
+                        </button>
+                        <button 
+                          type="submit" form="checkout-form"
+                          className="btn btn-primary" 
+                          style={{ flex: 1, padding: '16px', fontSize: '1.1rem', justifyContent: 'center' }}
+                        >
+                          <CheckCircle2 size={20} /> التأكيد (Confirmer)
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
                     <button 
-                      type="button"
-                      onClick={() => setCheckoutStep(false)}
-                      className="btn btn-secondary"
-                      style={{ padding: '16px', flex: '0 0 auto' }}
-                    >
-                      Retour
-                    </button>
-                    <button 
-                      type="submit" form="checkout-form"
+                      onClick={() => setCheckoutStep(true)}
                       className="btn btn-primary" 
-                      style={{ flex: 1, padding: '16px', fontSize: '1.1rem', justifyContent: 'center' }}
+                      style={{ width: '100%', padding: '16px', fontSize: '1.15rem', justifyContent: 'center' }}
                     >
-                      <CheckCircle2 size={20} /> التأكيد (Confirmer)
+                      Passer à la caisse (إتمام الطلب) <ArrowRight size={20} />
                     </button>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={() => setCheckoutStep(true)}
-                    className="btn btn-primary" 
-                    style={{ width: '100%', padding: '16px', fontSize: '1.15rem', justifyContent: 'center' }}
-                  >
-                    Passer à la caisse (إتمام الطلب) <ArrowRight size={20} />
-                  </button>
-                )}
+                  );
+                })()}
                 
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '16px', color: '#1F8A55', fontSize: '0.85rem', fontWeight: 600 }}>
                   <ShieldCheck size={16} /> Paiement à la livraison 100% sécurisé
@@ -2173,6 +2333,125 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
                 {isSubmittingReclamation ? 'جاري الإرسال...' : 'إرسال الشكوى 📢'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Waitlist Out-of-Stock Modal Popup */}
+      {waitlistModalItem && (
+        <div 
+          onClick={() => setWaitlistModalItem(null)}
+          style={{ 
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+            background: 'rgba(0,0,0,0.65)', 
+            backdropFilter: 'blur(4px)',
+            zIndex: 10005, 
+            display: 'flex', 
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="animate-scale-up"
+            style={{ 
+              background: 'white', 
+              borderRadius: '20px', 
+              width: '100%', 
+              maxWidth: '440px',
+              padding: '28px 24px',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.3)',
+              position: 'relative',
+              boxSizing: 'border-box'
+            }}
+          >
+            <button 
+              type="button"
+              onClick={() => setWaitlistModalItem(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' }}
+            >
+              <X size={20} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--burgundy)', marginBottom: '14px' }}>
+              <div style={{ background: '#FFF1F2', padding: '10px', borderRadius: '12px', color: 'var(--burgundy)' }}>
+                <Bell size={26} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: 'var(--burgundy-dark)' }}>إشعار توفر المخزون</h3>
+                <span style={{ fontSize: '0.8rem', color: '#64748B' }}>تسجيل في قائمة الانتظار الأوتوماتيكية</span>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.9rem', color: '#475569', marginBottom: '18px', lineHeight: 1.5, background: '#F8FAFC', padding: '12px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+              المقاس <strong>({waitlistModalItem.size})</strong> في موديل <strong>{waitlistModalItem.title}</strong> نافذ حالياً في السطوك. سجّل رقمك وسنرسل لك إشعاراً أوتوماتيكياً عبر الواتساب فور توفر هذا المقاس مجدداً! 📲
+            </p>
+
+            {waitlistSuccess ? (
+              <div style={{ background: '#ECFDF5', border: '1px solid #6EE7B7', color: '#065F46', padding: '18px', borderRadius: '14px', textAlign: 'center', fontWeight: 800, fontSize: '0.95rem', lineHeight: 1.5 }}>
+                ✅ تم تسجيل طلبك بنجاح! سنرسل لك إشعاراً على الواتساب فور توفر هذه القطعة مجدداً. جاري إزالتها من السلة...
+              </div>
+            ) : (
+              <form onSubmit={handleWaitlistSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {waitlistError && (
+                  <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', padding: '10px 14px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 700 }}>
+                    {waitlistError}
+                  </div>
+                )}
+
+                <div style={{ textAlign: 'right' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 800, color: '#334155', marginBottom: '6px' }}>
+                    الاسم واللقب الكامل *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="مثال: ياسر لطرش"
+                    value={waitlistName}
+                    onChange={(e) => setWaitlistName(e.target.value)}
+                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 800, color: '#334155', marginBottom: '6px' }}>
+                    رقم هاتف الواتساب (WhatsApp) *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="مثال: 0771335039"
+                    value={waitlistPhone}
+                    onChange={(e) => setWaitlistPhone(e.target.value)}
+                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={waitlistLoading}
+                  style={{
+                    background: 'var(--burgundy)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '15px',
+                    fontSize: '1rem',
+                    fontWeight: 900,
+                    cursor: waitlistLoading ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginTop: '8px',
+                    boxShadow: '0 4px 15px rgba(128,0,32,0.3)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {waitlistLoading ? 'جاري التسجيل...' : 'تأكيد التسجيل وإزالة من السلة ✨'}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}
