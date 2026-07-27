@@ -220,6 +220,15 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
     for (const entry of waitlistEntries) {
       if (entry.status !== 'pending' && entry.status !== 'en_attente') continue;
 
+      // Check settings table to ensure exact single alert per waitlist entry ID
+      try {
+        const sRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_${entry.id}&select=value`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const sRows = await sRes.json();
+        if (Array.isArray(sRows) && sRows.length > 0) continue;
+      } catch (e) {}
+
       const entryPhone = entry.whatsapp_number || entry.phone;
       const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
       const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
@@ -238,17 +247,17 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
       if (sizeMatches && colorMatches && prodMatches) {
         notifiedPhones.add(waPhone);
         
-        // Mark ALL pending waitlist entries for this phone as notified in Supabase
+        // Save persistent notified key in settings table for this waitlist entry
         try {
-          const raw9 = cleanPhone.slice(-9);
-          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.*${raw9}*&status=in.(pending,en_attente)`, {
-            method: 'PATCH',
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
             headers: {
               'apikey': SUPABASE_KEY,
               'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
             },
-            body: JSON.stringify({ status: 'notified' })
+            body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: 'true' })
           });
         } catch (e) {}
 
