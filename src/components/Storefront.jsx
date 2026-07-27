@@ -619,7 +619,7 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                 <div style={{ marginTop: '20px', background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: '16px', padding: '20px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#E11D48', marginBottom: '15px', fontWeight: 'bold' }}>
                     <span style={{ fontSize: '1.2rem' }}>⚠️</span>
-                    <span>عذراً، نفدت الكمية من هذا المقاس واللون!</span>
+                    <span>عذراً، هذا المقاس غير متوفر حالياً!</span>
                   </div>
                   
                   {waitlistSuccess ? (
@@ -2031,7 +2031,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
                               return (
                                 <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '10px', padding: '10px', marginTop: '4px' }}>
                                   <div style={{ color: '#991B1B', fontSize: '0.82rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                                    <AlertTriangle size={16} /> المقاس ({item.size}) غير متوفر في السطوك (نفذت الكمية)
+                                    <AlertTriangle size={16} /> المقاس ({item.size}) غير متوفر حالياً في السطوك
                                   </div>
                                   <button
                                     type="button"
