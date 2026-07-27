@@ -1939,15 +1939,52 @@ async function processIncomingPayload(body) {
               }).join('\n');
               const settingsSummary = Object.entries(storeSettings).map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
 
+function checkStockInquiry(messageText, products) {
+  if (!messageText || !Array.isArray(products) || products.length === 0) return null;
+  const norm = normalizeText(messageText);
+  const rawLower = String(messageText).toLowerCase();
+
+  const sizeMatch = rawLower.match(/(?:taille|مقاس|تراي|تياي|مكاس|تراس)?\s*\b(3xl|xxxl|2xl|xxl|xl|l|m|s)\b/i);
+  if (!sizeMatch) return null;
+
+  let reqSize = sizeMatch[1].toUpperCase();
+  if (reqSize === 'XXL') reqSize = '2XL';
+  if (reqSize === 'XXXL') reqSize = '3XL';
+
+  for (const p of products) {
+    if (Array.isArray(p.colorVariants)) {
+      for (const cv of p.colorVariants) {
+        const colorName = String(cv.name || cv.color || '').toLowerCase();
+        const normColor = normalizeText(colorName);
+        if (colorName && (rawLower.includes(colorName) || norm.includes(normColor))) {
+          if (typeof cv.stock === 'object' && cv.stock !== null) {
+            const qty = Number(cv.stock[reqSize] || 0);
+            if (qty === 0) {
+              const availableSizes = Object.entries(cv.stock)
+                .filter(([sz, q]) => Number(q || 0) > 0)
+                .map(([sz]) => sz)
+                .join(', ');
+
+              return `للأسف المقاس (${reqSize}) في اللون (${cv.name || cv.color}) نافذ حالياً وغير متوفر في السطوك.\nالمقاسات المتوفرة حالياً في هذا اللون هي: [${availableSizes || 'نافذ كلياً'}].\nيمكنك تصفح باقي الموديلات والألوان المتوفرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+            }
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
               const systemInstruction = `أنت بائع ومساعد مبيعات ذكي ومحترف لمتجر (${storeName}).
 تتحدث بالدارجة الجزائرية الفصيحة والمحترمة وتدردش مع الزبون بذكاء ولباقة كأنك بائع إنسان حقيقي يشتغل في المحل.
 افهم كل أسئلة الزبون بذكاء ومرونة وبأسلوب بشري طبيعي ولبق (سواء كتب بالدارجة، الفرنسية، الفرانكو "Franco-Arabic"، أو العربية).
 
-قواعد الاستجابة وتحديد النوايا (Actions):
+قواعد الاستجابة وتحديد النوايا (Actions) والسطوك:
 1. إذا فهمت أن الزبون يريد تأكيد طلبيته الحالية (مثل: أكدلي، akedha, aked, oui, daccord, بعثهالي): أخرج في أول السطر الكود: [ACTION:CONFIRM_ORDER] ثم اكتب رد التأكيد بالدارجة.
 2. إذا فهمت أن الزبون يريد إلغاء طلبيته التراجع عنها (مثل: الغي، anuler, annuler, lala, ما نديهاش، غيرت رأيي): أخرج في أول السطر الكود: [ACTION:CANCEL_ORDER] ثم اكتب رد الإلغاء بالدارجة.
 3. إذا فهمت أن الزبون يطلب صور المنتجات (صور، تصاوير، photo، tsswira): أخرج في أول السطر الكود: [ACTION:SEND_PHOTOS] ثم اكتب الرد.
-4. أجب عن كل الاستفسارات الأخرى (الجودة، نوعية القماش، مدة التوصيل، المكان، الأسعار، المقاسات) بأسلوب إنساني طبيعي ولطيف بالدارجة الجزائرية دون إيموجي ودون نصوص جامدة مكررة.
+4. قانون حتمي وفحص صارم للسطوك: افحص السطوك الحقيقي المكتوب في بيانات النظام للمقاس واللون المطلوبين تحديداً. إذا كان السطوك (0 حبة / غير متوفر) أخبره صراحة أن ذلك المقاس نافذ وغير متوفر في السطوك واقترح عليه المقاسات المتوفرة.
+5. أجب عن كل الاستفسارات الأخرى (الجودة، نوعية القماش، مدة التوصيل، المكان، الأسعار، المقاسات) بأسلوب إنساني طبيعي ولطيف بالدارجة الجزائرية دون إيموجي ودون نصوص جامدة مكررة.
 
 بيانات المتجر:
 - العنوان والمقر: ${storeAddressDisplay}
@@ -1960,7 +1997,15 @@ ${settingsSummary}
 ${catalogSummary}
 ${salesModeRules}`;
 
-              // 1. GENERATE PURE GEMINI AI RESPONSE FIRST
+              // 0. Check for 0-stock size query first
+              const outOfStockReply = checkStockInquiry(messageText, products);
+              if (outOfStockReply) {
+                await sendWhatsAppMessage(fromPhone, outOfStockReply);
+                await recordOutOfStockInquiry(fromPhone, messageText, products);
+                continue;
+              }
+
+              // 1. GENERATE PURE GEMINI AI RESPONSE
               let aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
 
               if (aiReply) {
