@@ -1135,26 +1135,26 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                                         inputMode="numeric"
                                         pattern="[0-9]*"
                                         placeholder="--"
-                                        value={selectedVariants[v.color][size] === '' ? '' : selectedVariants[v.color][size]}
-                                        onFocus={() => {
-                                          setSelectedVariants(prev => {
-                                            const next = { ...prev };
-                                            next[v.color] = {
-                                              ...next[v.color],
-                                              [size]: ''
-                                            };
-                                            return next;
-                                          });
+                                        value={selectedVariants[v.color]?.[size] === '' ? '' : (selectedVariants[v.color]?.[size] ?? 1)}
+                                        onMouseDown={() => {
+                                          setSelectedVariants(prev => ({
+                                            ...prev,
+                                            [v.color]: { ...(prev[v.color] || {}), [size]: '' }
+                                          }));
                                         }}
-                                        onClick={() => {
-                                          setSelectedVariants(prev => {
-                                            const next = { ...prev };
-                                            next[v.color] = {
-                                              ...next[v.color],
-                                              [size]: ''
-                                            };
-                                            return next;
-                                          });
+                                        onFocus={(e) => {
+                                          e.target.select();
+                                          setSelectedVariants(prev => ({
+                                            ...prev,
+                                            [v.color]: { ...(prev[v.color] || {}), [size]: '' }
+                                          }));
+                                        }}
+                                        onClick={(e) => {
+                                          e.target.select();
+                                          setSelectedVariants(prev => ({
+                                            ...prev,
+                                            [v.color]: { ...(prev[v.color] || {}), [size]: '' }
+                                          }));
                                         }}
                                         onChange={(e) => {
                                           const raw = e.target.value;
@@ -1165,26 +1165,18 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                                             const parsed = parseInt(raw, 10);
                                             val = isNaN(parsed) ? '' : Math.max(1, Math.min(qty, parsed));
                                           }
-                                          setSelectedVariants(prev => {
-                                            const next = { ...prev };
-                                            next[v.color] = {
-                                              ...next[v.color],
-                                              [size]: val
-                                            };
-                                            return next;
-                                          });
+                                          setSelectedVariants(prev => ({
+                                            ...prev,
+                                            [v.color]: { ...(prev[v.color] || {}), [size]: val }
+                                          }));
                                         }}
                                         onBlur={() => {
                                           const cur = selectedVariants[v.color]?.[size];
                                           if (cur === '' || cur === undefined || cur === null || Number(cur) < 1) {
-                                            setSelectedVariants(prev => {
-                                              const next = { ...prev };
-                                              next[v.color] = {
-                                                ...next[v.color],
-                                                [size]: 1
-                                              };
-                                              return next;
-                                            });
+                                            setSelectedVariants(prev => ({
+                                              ...prev,
+                                              [v.color]: { ...(prev[v.color] || {}), [size]: 1 }
+                                            }));
                                           }
                                         }}
                                         style={{
@@ -1279,26 +1271,26 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 placeholder="--"
-                                value={selectedVariants['Standard']['Standard'] === '' ? '' : selectedVariants['Standard']['Standard']}
-                                onFocus={() => {
-                                  setSelectedVariants(prev => {
-                                    const next = { ...prev };
-                                    next['Standard'] = {
-                                      ...next['Standard'],
-                                      ['Standard']: ''
-                                    };
-                                    return next;
-                                  });
+                                value={selectedVariants['Standard']?.['Standard'] === '' ? '' : (selectedVariants['Standard']?.['Standard'] ?? 1)}
+                                onMouseDown={() => {
+                                  setSelectedVariants(prev => ({
+                                    ...prev,
+                                    Standard: { ...(prev.Standard || {}), Standard: '' }
+                                  }));
                                 }}
-                                onClick={() => {
-                                  setSelectedVariants(prev => {
-                                    const next = { ...prev };
-                                    next['Standard'] = {
-                                      ...next['Standard'],
-                                      ['Standard']: ''
-                                    };
-                                    return next;
-                                  });
+                                onFocus={(e) => {
+                                  e.target.select();
+                                  setSelectedVariants(prev => ({
+                                    ...prev,
+                                    Standard: { ...(prev.Standard || {}), Standard: '' }
+                                  }));
+                                }}
+                                onClick={(e) => {
+                                  e.target.select();
+                                  setSelectedVariants(prev => ({
+                                    ...prev,
+                                    Standard: { ...(prev.Standard || {}), Standard: '' }
+                                  }));
                                 }}
                                 onChange={(e) => {
                                   const raw = e.target.value;
@@ -1309,26 +1301,18 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                                     const parsed = parseInt(raw, 10);
                                     val = isNaN(parsed) ? '' : Math.max(1, Math.min(qty, parsed));
                                   }
-                                  setSelectedVariants(prev => {
-                                    const next = { ...prev };
-                                    next['Standard'] = {
-                                      ...next['Standard'],
-                                      ['Standard']: val
-                                    };
-                                    return next;
-                                  });
+                                  setSelectedVariants(prev => ({
+                                    ...prev,
+                                    Standard: { ...(prev.Standard || {}), Standard: val }
+                                  }));
                                 }}
                                 onBlur={() => {
                                   const cur = selectedVariants['Standard']?.['Standard'];
                                   if (cur === '' || cur === undefined || cur === null || Number(cur) < 1) {
-                                    setSelectedVariants(prev => {
-                                      const next = { ...prev };
-                                      next['Standard'] = {
-                                        ...next['Standard'],
-                                        ['Standard']: 1
-                                      };
-                                      return next;
-                                    });
+                                    setSelectedVariants(prev => ({
+                                      ...prev,
+                                      Standard: { ...(prev.Standard || {}), Standard: 1 }
+                                    }));
                                   }
                                 }}
                                 style={{
