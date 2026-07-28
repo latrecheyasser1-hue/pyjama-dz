@@ -5,13 +5,22 @@ import App from './App.jsx'
 
 import { HelmetProvider } from 'react-helmet-async'
 
-// 🧹 Auto-clear PWA Service Worker cache to force fresh UI updates
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(registrations => {
-    for (let registration of registrations) {
-      registration.unregister();
-    }
-  }).catch(() => {});
+// 🧹 Auto-clear PWA Service Worker & Cache Storage to force immediate fresh bundle load
+if (typeof window !== 'undefined') {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      for (let registration of registrations) {
+        registration.unregister();
+      }
+    }).catch(() => {});
+  }
+  if ('caches' in window) {
+    caches.keys().then(names => {
+      for (let name of names) {
+        caches.delete(name);
+      }
+    }).catch(() => {});
+  }
 }
 
 class ErrorBoundary extends React.Component {
