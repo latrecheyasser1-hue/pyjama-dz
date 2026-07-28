@@ -1131,12 +1131,21 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                                     {/* Quantity Input Square */}
                                     {isSelected && !isZeroSize && (
                                       <input
-                                        type="number"
-                                        min="1"
-                                        max={qty}
-                                        value={selectedVariants[v.color][size]}
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        placeholder="--"
+                                        value={selectedVariants[v.color][size] === '' ? '' : selectedVariants[v.color][size]}
+                                        onFocus={(e) => e.target.select()}
                                         onChange={(e) => {
-                                          const val = Math.max(1, Math.min(qty, parseInt(e.target.value) || 1));
+                                          const raw = e.target.value;
+                                          let val;
+                                          if (raw === '') {
+                                            val = '';
+                                          } else {
+                                            const parsed = parseInt(raw, 10);
+                                            val = isNaN(parsed) ? '' : Math.max(1, Math.min(qty, parsed));
+                                          }
                                           setSelectedVariants(prev => {
                                             const next = { ...prev };
                                             next[v.color] = {
@@ -1145,6 +1154,19 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                                             };
                                             return next;
                                           });
+                                        }}
+                                        onBlur={() => {
+                                          const cur = selectedVariants[v.color]?.[size];
+                                          if (cur === '' || cur === undefined || cur === null || Number(cur) < 1) {
+                                            setSelectedVariants(prev => {
+                                              const next = { ...prev };
+                                              next[v.color] = {
+                                                ...next[v.color],
+                                                [size]: 1
+                                              };
+                                              return next;
+                                            });
+                                          }
                                         }}
                                         style={{
                                           width: '64px',
@@ -1234,12 +1256,21 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
 
                             {isSelected && (
                               <input
-                                type="number"
-                                min="1"
-                                max={qty}
-                                value={selectedVariants['Standard']['Standard']}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                placeholder="--"
+                                value={selectedVariants['Standard']['Standard'] === '' ? '' : selectedVariants['Standard']['Standard']}
+                                onFocus={(e) => e.target.select()}
                                 onChange={(e) => {
-                                  const val = Math.max(1, Math.min(qty, parseInt(e.target.value) || 1));
+                                  const raw = e.target.value;
+                                  let val;
+                                  if (raw === '') {
+                                    val = '';
+                                  } else {
+                                    const parsed = parseInt(raw, 10);
+                                    val = isNaN(parsed) ? '' : Math.max(1, Math.min(qty, parsed));
+                                  }
                                   setSelectedVariants(prev => {
                                     const next = { ...prev };
                                     next['Standard'] = {
@@ -1248,6 +1279,19 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                                     };
                                     return next;
                                   });
+                                }}
+                                onBlur={() => {
+                                  const cur = selectedVariants['Standard']?.['Standard'];
+                                  if (cur === '' || cur === undefined || cur === null || Number(cur) < 1) {
+                                    setSelectedVariants(prev => {
+                                      const next = { ...prev };
+                                      next['Standard'] = {
+                                        ...next['Standard'],
+                                        ['Standard']: 1
+                                      };
+                                      return next;
+                                    });
+                                  }
                                 }}
                                 style={{
                                   width: '64px',
