@@ -5,6 +5,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/check-low-stock",
+      "schedule": "*/30 * * * *"
+    },
+    {
       "path": "/api/cron-notifications?action=weekly_hot_sale",
       "schedule": "0 10 * * 1"
     },
