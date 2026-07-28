@@ -12,11 +12,5 @@
       "path": "/api/cron-notifications?action=followup_14_days",
       "schedule": "0 11 * * *"
     }
-  ],
-  "rewrites": [
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
-    }
   ]
 }
