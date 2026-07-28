@@ -1136,7 +1136,26 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                                         pattern="[0-9]*"
                                         placeholder="--"
                                         value={selectedVariants[v.color][size] === '' ? '' : selectedVariants[v.color][size]}
-                                        onFocus={(e) => e.target.select()}
+                                        onFocus={() => {
+                                          setSelectedVariants(prev => {
+                                            const next = { ...prev };
+                                            next[v.color] = {
+                                              ...next[v.color],
+                                              [size]: ''
+                                            };
+                                            return next;
+                                          });
+                                        }}
+                                        onClick={() => {
+                                          setSelectedVariants(prev => {
+                                            const next = { ...prev };
+                                            next[v.color] = {
+                                              ...next[v.color],
+                                              [size]: ''
+                                            };
+                                            return next;
+                                          });
+                                        }}
                                         onChange={(e) => {
                                           const raw = e.target.value;
                                           let val;
@@ -1261,7 +1280,26 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                                 pattern="[0-9]*"
                                 placeholder="--"
                                 value={selectedVariants['Standard']['Standard'] === '' ? '' : selectedVariants['Standard']['Standard']}
-                                onFocus={(e) => e.target.select()}
+                                onFocus={() => {
+                                  setSelectedVariants(prev => {
+                                    const next = { ...prev };
+                                    next['Standard'] = {
+                                      ...next['Standard'],
+                                      ['Standard']: ''
+                                    };
+                                    return next;
+                                  });
+                                }}
+                                onClick={() => {
+                                  setSelectedVariants(prev => {
+                                    const next = { ...prev };
+                                    next['Standard'] = {
+                                      ...next['Standard'],
+                                      ['Standard']: ''
+                                    };
+                                    return next;
+                                  });
+                                }}
                                 onChange={(e) => {
                                   const raw = e.target.value;
                                   let val;
