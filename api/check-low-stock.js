@@ -377,7 +377,7 @@ export default async function handler(req, res) {
 
     // A. Send individual messages for Stock Livraison items
     if (livraisonPhone && livraisonLowItems.length > 0) {
-      for (const item of livraisonLowItems) {
+      const tasks = livraisonLowItems.map(async (item) => {
         const alertMsg = item.qty === 0
           ? `🛑 *تنبيه نفاد المخزون بالكامل (سطوك التوصيل)* 🛑\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
           : `⚠️ *تنبيه مخزون منخفض (سطوك التوصيل)* ⚠️\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• الكمية المتبقية: ${item.qty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
@@ -386,15 +386,17 @@ export default async function handler(req, res) {
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
           await saveStockAlertRecord(newMsgId, livraisonPhone, item.productId, item.colorIdx, item.size);
-          alertsSent++;
+          return true;
         }
-        await new Promise(r => setTimeout(r, 200));
-      }
+        return false;
+      });
+      const results = await Promise.allSettled(tasks);
+      alertsSent += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
     }
 
     // B. Send individual messages for Stock Hanout (Boutique) items
     if (boutiquePhone && hanoutLowItems.length > 0 && boutiquePhone !== livraisonPhone) {
-      for (const item of hanoutLowItems) {
+      const tasks = hanoutLowItems.map(async (item) => {
         const alertMsg = item.qty === 0
           ? `🛑 *تنبيه نفاد المخزون بالكامل (سطوك المحل)* 🛑\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
           : `⚠️ *تنبيه مخزون منخفض (سطوك المحل)* ⚠️\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• الكمية المتبقية: ${item.qty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
@@ -403,10 +405,12 @@ export default async function handler(req, res) {
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
           await saveStockAlertRecord(newMsgId, boutiquePhone, item.productId, item.colorIdx, item.size);
-          alertsSent++;
+          return true;
         }
-        await new Promise(r => setTimeout(r, 200));
-      }
+        return false;
+      });
+      const results = await Promise.allSettled(tasks);
+      alertsSent += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
     }
 
     return res.status(200).json({ success: true, alertsSent, totalLivraisonLow: livraisonLowItems.length, totalHanoutLow: hanoutLowItems.length });
