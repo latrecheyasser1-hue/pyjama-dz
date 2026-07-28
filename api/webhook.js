@@ -499,6 +499,32 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   }
 }
 
+async function sendMessengerMessage(recipientId, textBody) {
+  const token = await getMetaAccessToken();
+  if (!token || !recipientId) return;
+
+  const cleanBody = removeEmojis(textBody);
+  const url = `https://graph.facebook.com/v21.0/me/messages`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: { text: cleanBody }
+      })
+    });
+    const data = await res.json();
+    console.log('Messenger/IG send result:', data);
+    return data;
+  } catch (err) {
+    console.error('Send Messenger/IG error:', err);
+  }
+}
+
 async function uploadMediaToMeta(token, imageUrl) {
   try {
     let blob, mimeType = "image/jpeg";
@@ -1709,6 +1735,35 @@ async function processIncomingPayload(body) {
   try {
     const entries = body?.entry || (Array.isArray(body) ? body : [body]);
     for (const entry of entries) {
+      // A. Facebook Messenger & Instagram Direct Messages (entry.messaging)
+      const messagingList = entry?.messaging || [];
+      for (const msgObj of messagingList) {
+        try {
+          const senderId = msgObj.sender?.id;
+          const messageText = msgObj.message?.text;
+          const isEcho = msgObj.message?.is_echo;
+          if (senderId && messageText && !isEcho) {
+            console.log(`Received Messenger/IG message from ${senderId}: ${messageText}`);
+            const products = await getAllProducts();
+            const storeSettings = await getStoreSettings();
+
+            let prompt = `رسالة الزبون من الفايسبوك/إنستغرام: "${messageText}"`;
+            let systemInstruction = "أنت مساعد مبيعات في متجر Pyjama DZ. أجب الزبون بالدارجة الجزائرية بدون إيموجي كلياً وساعده في الشراء واختيار الألوان والأسعار.";
+
+            let aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
+            if (!aiReply) {
+              aiReply = getSmartFallbackResponse(messageText, storeSettings, products);
+            }
+            if (aiReply) {
+              await sendMessengerMessage(senderId, aiReply);
+            }
+          }
+        } catch (e) {
+          console.error('Error handling Messenger/IG msg:', e);
+        }
+      }
+
+      // B. WhatsApp Messages (entry.changes)
       const changes = entry?.changes || [];
       for (const change of changes) {
         const value = change?.value || change;
