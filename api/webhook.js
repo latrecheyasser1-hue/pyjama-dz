@@ -2189,6 +2189,16 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     let body = req.body;
+    if (!body || (typeof body === 'object' && Object.keys(body).length === 0)) {
+      try {
+        const buffers = [];
+        for await (const chunk of req) {
+          buffers.push(chunk);
+        }
+        const rawText = Buffer.concat(buffers).toString('utf8');
+        if (rawText) body = JSON.parse(rawText);
+      } catch (e) {}
+    }
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch(e) {}
     }
