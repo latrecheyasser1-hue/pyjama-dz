@@ -325,19 +325,30 @@ export default function App() {
         for (const item of orderItems) {
           if (item.isDiscount) continue;
 
-          const product = workingProducts.find(p => {
+          // Find ALL matching target products (exact ID match, barcode match, or clean title match)
+          let targetProducts = workingProducts.filter(p => {
             if (!p) return false;
             if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
             if (item.barcode && p.barcode && String(p.barcode).trim() === String(item.barcode).trim()) return true;
             if (p.title && item.product) {
               const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
               const cleanProdTitle = String(p.title).trim().toLowerCase();
-              if (cleanProdTitle === cleanItemTitle || cleanProdTitle.includes(cleanItemTitle) || cleanItemTitle.includes(cleanProdTitle)) return true;
+              if (cleanProdTitle === cleanItemTitle) return true;
             }
             return false;
           });
 
-          if (product) {
+          if (targetProducts.length === 0) {
+            const fallbackProd = workingProducts.find(p => {
+              if (!p || !p.title || !item.product) return false;
+              const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+              const cleanProdTitle = String(p.title).trim().toLowerCase();
+              return cleanProdTitle.includes(cleanItemTitle) || cleanItemTitle.includes(cleanProdTitle);
+            });
+            if (fallbackProd) targetProducts.push(fallbackProd);
+          }
+
+          for (const product of targetProducts) {
             let updatedPayload = {};
             const itemQty = Math.max(1, parseInt(item.qty) || 1);
 
@@ -447,18 +458,28 @@ export default function App() {
         for (const item of orderItems) {
           if (item.isDiscount) continue;
 
-          const product = workingProducts.find(p => {
+          let targetProducts = workingProducts.filter(p => {
             if (!p) return false;
             if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
             if (p.title && item.product) {
               const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
               const cleanProdTitle = String(p.title).trim().toLowerCase();
-              if (cleanProdTitle === cleanItemTitle || cleanProdTitle.includes(cleanItemTitle) || cleanItemTitle.includes(cleanProdTitle)) return true;
+              if (cleanProdTitle === cleanItemTitle) return true;
             }
             return false;
           });
 
-          if (product) {
+          if (targetProducts.length === 0) {
+            const fallbackProd = workingProducts.find(p => {
+              if (!p || !p.title || !item.product) return false;
+              const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+              const cleanProdTitle = String(p.title).trim().toLowerCase();
+              return cleanProdTitle.includes(cleanItemTitle) || cleanItemTitle.includes(cleanProdTitle);
+            });
+            if (fallbackProd) targetProducts.push(fallbackProd);
+          }
+
+          for (const product of targetProducts) {
             let updatedPayload = {};
             const restoreQty = Math.max(1, parseInt(item.qty) || 1);
 
