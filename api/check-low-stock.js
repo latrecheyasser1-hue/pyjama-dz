@@ -369,6 +369,7 @@ export default async function handler(req, res) {
         }
       }
     }
+    let alertsSent = 0;
     const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
     const livraisonPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456')) ? storeSettings.whatsappLivraisonManager : (storeSettings.whatsapp || '0771335039');
