@@ -2195,6 +2195,19 @@ export default async function handler(req, res) {
     }
 
     if (body) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ key: 'last_webhook_payload', value: JSON.stringify({ body, time: new Date().toISOString() }) })
+        });
+      } catch (e) {}
+
       await processIncomingPayload(body);
     }
 
