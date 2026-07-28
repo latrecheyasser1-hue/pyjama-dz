@@ -290,7 +290,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const productId = req.query?.productId || req.body?.productId;
+    let bodyData = req.body;
+    if (typeof bodyData === 'string') {
+      try { bodyData = JSON.parse(bodyData); } catch(e) {}
+    }
+    const productId = req.query?.productId || bodyData?.productId;
 
     // 1. Fetch store settings
     const settingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=*`, {
@@ -309,8 +313,8 @@ export default async function handler(req, res) {
 
     // 2. Fetch target product or use product object passed in request body
     let products = [];
-    if (req.body && req.body.product) {
-      products = [req.body.product];
+    if (bodyData && bodyData.product) {
+      products = [bodyData.product];
     } else {
       let url = `${SUPABASE_URL}/rest/v1/products?select=*`;
       if (productId) {
