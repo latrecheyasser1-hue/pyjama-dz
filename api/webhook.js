@@ -1731,43 +1731,7 @@ async function processIncomingPayload(body) {
   try {
     const entries = body?.entry || (Array.isArray(body) ? body : [body]);
     for (const entry of entries) {
-      // A. Facebook Messenger & Instagram Direct Messages (entry.messaging / entry.standby)
-      const messagingList = [];
-      if (Array.isArray(entry?.messaging)) messagingList.push(...entry.messaging);
-      if (Array.isArray(entry?.standby)) messagingList.push(...entry.standby);
-      if (Array.isArray(entry?.changes)) {
-        entry.changes.forEach(c => {
-          if (c.value?.messaging && Array.isArray(c.value.messaging)) messagingList.push(...c.value.messaging);
-        });
-      }
-
-      for (const msgObj of messagingList) {
-        try {
-          const senderId = msgObj.sender?.id;
-          const messageText = msgObj.message?.text;
-          const isEcho = msgObj.message?.is_echo;
-          if (senderId && messageText && !isEcho) {
-            console.log(`Received Messenger/IG message from ${senderId}: ${messageText}`);
-            const products = await getAllProducts();
-            const storeSettings = await getStoreSettings();
-
-            let prompt = `رسالة الزبون من الفايسبوك/إنستغرام: "${messageText}"`;
-            let systemInstruction = "أنت مساعد مبيعات في متجر Pyjama DZ. أجب الزبون بالدارجة الجزائرية بدون إيموجي كلياً وساعده في الشراء واختيار الألوان والأسعار.";
-
-            let aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
-            if (!aiReply) {
-              aiReply = getSmartFallbackResponse(messageText, storeSettings, products);
-            }
-            if (aiReply) {
-              await sendMessengerMessage(senderId, aiReply, entry?.id);
-            }
-          }
-        } catch (e) {
-          console.error('Error handling Messenger/IG msg:', e);
-        }
-      }
-
-      // B. WhatsApp Messages (entry.changes)
+      // WhatsApp Messages (entry.changes)
       const changes = entry?.changes || [];
       for (const change of changes) {
         const value = change?.value || change;
