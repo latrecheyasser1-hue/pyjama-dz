@@ -493,12 +493,13 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   }
 }
 
-async function sendMessengerMessage(recipientId, textBody) {
+async function sendMessengerMessage(recipientId, textBody, pageId = null) {
   const token = await getMetaAccessToken();
   if (!token || !recipientId) return;
 
   const cleanBody = removeEmojis(textBody);
-  const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
+  const targetPath = pageId || 'me';
+  const url = `https://graph.facebook.com/v21.0/${targetPath}/messages?access_token=${encodeURIComponent(token)}`;
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -1757,7 +1758,7 @@ async function processIncomingPayload(body) {
               aiReply = getSmartFallbackResponse(messageText, storeSettings, products);
             }
             if (aiReply) {
-              await sendMessengerMessage(senderId, aiReply);
+              await sendMessengerMessage(senderId, aiReply, entry?.id);
             }
           }
         } catch (e) {
