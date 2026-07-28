@@ -504,12 +504,11 @@ async function sendMessengerMessage(recipientId, textBody) {
   if (!token || !recipientId) return;
 
   const cleanBody = removeEmojis(textBody);
-  const url = `https://graph.facebook.com/v21.0/me/messages`;
+  const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
