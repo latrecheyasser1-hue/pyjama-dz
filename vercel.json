@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/process-delayed-confirmations",
+      "path": "/api/cron-notifications?action=process_delayed_confirmations",
       "schedule": "* * * * *"
     },
     {

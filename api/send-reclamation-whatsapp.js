@@ -144,7 +144,7 @@ export default async function handler(req, res) {
 
     // Trigger asynchronous check for delayed confirmations
     try {
-      fetch('https://pyjama-dz.vercel.app/api/process-delayed-confirmations').catch(() => {});
+      fetch('https://pyjama-dz.vercel.app/api/cron-notifications?action=process_delayed_confirmations').catch(() => {});
     } catch(e) {}
 
     return res.status(200).json({ success: true, delayed: true, message: 'Reclamation queued for 10-minute delayed WhatsApp delivery' });

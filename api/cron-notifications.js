@@ -131,7 +131,6 @@ export default async function handler(req, res) {
     let hotSaleResult = null;
 
     if (action === 'weekly_hot_sale' || action === 'all') {
-      // 1. Fetch Hot Sale product IDs from settings
       const settingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.hot_sale_products&select=value`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
@@ -144,7 +143,6 @@ export default async function handler(req, res) {
         } catch(e) {}
       }
 
-      // 2. Fetch products and deduplicate
       let products = [];
       if (hotSaleIds.length > 0) {
         const idFilter = hotSaleIds.map(id => `"${id}"`).join(',');
@@ -161,7 +159,6 @@ export default async function handler(req, res) {
         products = await fallbackRes.json();
       }
 
-      // Prepare product images and captions with STRICT DEDUPLICATION
       const productMediaList = [];
       const seenProdIds = new Set();
       const seenImgUrls = new Set();
@@ -184,7 +181,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // 3. Fetch all unique clients from orders table
       const orderRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=phone,clientName&order=created_at.desc&limit=500`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
@@ -209,7 +205,6 @@ export default async function handler(req, res) {
         const firstName = cleanClientName(rawName);
         const greeting = firstName ? `أهلاً وسهلاً بك ${firstName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
 
-        // Send individual product photos first
         for (const item of productMediaList) {
           if (item.imageUrl) {
             const caption = `✨ *${item.title}*\nالسعر: ${item.price} دج`;
@@ -218,7 +213,6 @@ export default async function handler(req, res) {
           }
         }
 
-        // Send short text message at the end explaining these are the most sold products this week
         const textMsg = `*متجر Pyjama DZ*\n\n${greeting}! 🌸\nهذو هما المنتجات والسلعة الأكثر مبيعاً هاد الأسبوع في متجرنا! 🔥✨\n\nتفضل بتصفح كافة الصور والمنتجات والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
 
         await sendWhatsAppMessage(phone, textMsg);
@@ -231,7 +225,6 @@ export default async function handler(req, res) {
 
     let followupResult = null;
 
-    // 2. 14-DAY POST-ORDER FOLLOW-UP CAMPAIGN
     if (action === 'followup_14_days' || action === 'all') {
       const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
       const sixteenDaysAgo = new Date(Date.now() - 16 * 24 * 60 * 60 * 1000).toISOString();
@@ -271,11 +264,139 @@ export default async function handler(req, res) {
       followupResult = { status: 'success', sentCount: followUpCount };
     }
 
+    // 3. 10-MINUTE DELAYED ORDER & RECLAMATION CONFIRMATION CAMPAIGN
+    let delayedConfirmationsResult = null;
+    if (action === 'process_delayed_confirmations' || action === 'all') {
+      const now = Date.now();
+      const TEN_MINUTES_MS = 10 * 60 * 1000;
+
+      let processedOrdersCount = 0;
+      let processedReclamationsCount = 0;
+
+      const sentOrderIds = new Set();
+      try {
+        const sRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.sent_order_confirmations&select=value`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const sData = await sRes.json();
+        if (Array.isArray(sData) && sData[0]?.value) {
+          const arr = typeof sData[0].value === 'string' ? JSON.parse(sData[0].value) : sData[0].value;
+          if (Array.isArray(arr)) arr.forEach(id => sentOrderIds.add(id));
+        }
+      } catch(e) {}
+
+      try {
+        const ordersRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc&limit=200`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const recentOrders = await ordersRes.json();
+
+        if (Array.isArray(recentOrders) && recentOrders.length > 0) {
+          let sentIdsUpdated = false;
+
+          for (const order of recentOrders) {
+            if (!order.id || !order.phone || sentOrderIds.has(order.id)) continue;
+
+            const createdTimeMs = order.created_at ? new Date(order.created_at).getTime() : 0;
+            const ageMs = now - createdTimeMs;
+
+            // STRICT 10-MINUTE DELAY GUARD: Must be at least 10 minutes old AND less than 48 hours old
+            if (createdTimeMs > 0 && ageMs >= TEN_MINUTES_MS && ageMs <= (48 * 60 * 60 * 1000)) {
+              const displayName = order.clientName || '';
+              const nameGreeting = displayName && displayName !== 'الزبون' ? ` ${displayName}` : '';
+              const cleanProduct = String(order.product || 'بيجامة').replace(/\(\(/g, '').replace(/\)\)/g, '');
+
+              const messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك عبر الموقع بنجاح:\n\n• المنتجات: ${cleanProduct}\n• الولاية: ${order.wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* (أو *إلغاء*) لتأكيد طلبك وتجهيز شحنتك.`;
+
+              await sendWhatsAppMessage(order.phone, messageText);
+              sentOrderIds.add(order.id);
+              sentIdsUpdated = true;
+              processedOrdersCount++;
+              await new Promise(r => setTimeout(r, 200));
+            }
+          }
+
+          if (sentIdsUpdated) {
+            const valStr = JSON.stringify(Array.from(sentOrderIds));
+            await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({ key: 'sent_order_confirmations', value: valStr })
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Error processing delayed order confirmations:', e);
+      }
+
+      try {
+        const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations&select=*`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const settingsData = await setRes.json();
+
+        if (Array.isArray(settingsData) && settingsData[0]?.value) {
+          let reclamations = typeof settingsData[0].value === 'string' ? JSON.parse(settingsData[0].value) : settingsData[0].value;
+          if (Array.isArray(reclamations)) {
+            let updated = false;
+
+            for (let i = 0; i < reclamations.length; i++) {
+              const rec = reclamations[i];
+              if (rec.whatsapp_sent === false) {
+                const createdMs = rec.createdAt ? new Date(rec.createdAt).getTime() : 0;
+                const ageMs = now - createdMs;
+
+                // STRICT 10-MINUTE DELAY GUARD: Must be at least 10 minutes old AND less than 48 hours old
+                if (createdMs > 0 && ageMs >= TEN_MINUTES_MS && ageMs <= (48 * 60 * 60 * 1000)) {
+                  const phone = rec.whatsappNumber || rec.phone;
+                  if (phone) {
+                    const greetingName = (rec.clientName && rec.clientName.trim() !== '' && rec.clientName !== 'زبون المحادثة' && rec.clientName !== 'زبون الواتساب')
+                      ? ` ${rec.clientName.trim()}`
+                      : '';
+
+                    const replyMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك جزيلاً على تواصلك معنا وعلى مشاركتنا ملاحظاتك وتقييمك القيّم. 🙏\nتأكد أن رأيك ورضاك هما أولويتنا دائماً، وسنعمل باستمرار على تقديم الأفضل والأحسن لخدمتك على أكمل وجه بإذن الله. ✨❤️`;
+
+                    await sendWhatsAppMessage(phone, replyMsg);
+                    rec.whatsapp_sent = true;
+                    updated = true;
+                    processedReclamationsCount++;
+                    await new Promise(r => setTimeout(r, 200));
+                  }
+                }
+              }
+            }
+
+            if (updated) {
+              await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations`, {
+                method: 'PATCH',
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ value: JSON.stringify(reclamations) })
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error processing delayed reclamation confirmations:', e);
+      }
+
+      delayedConfirmationsResult = { status: 'success', processedOrdersCount, processedReclamationsCount };
+    }
+
     return res.status(200).json({
       success: true,
       timestamp: new Date().toISOString(),
       hotSaleResult,
-      followupResult
+      followupResult,
+      delayedConfirmationsResult
     });
   } catch (err) {
     console.error('Error running cron notifications:', err);
