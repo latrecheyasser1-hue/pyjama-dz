@@ -400,17 +400,18 @@ export default async function handler(req, res) {
     }
 
     // B. Send individual messages for Stock Hanout (Boutique) items
-    if (boutiquePhone && hanoutLowItems.length > 0 && boutiquePhone !== livraisonPhone) {
+    const targetBoutiquePhone = boutiquePhone || livraisonPhone;
+    if (targetBoutiquePhone && hanoutLowItems.length > 0) {
       const itemsToAlert = hanoutLowItems.slice(0, 15);
       const tasks = itemsToAlert.map(async (item) => {
         const alertMsg = item.qty === 0
           ? `🛑 *تنبيه نفاد المخزون بالكامل (سطوك المحل)* 🛑\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
           : `⚠️ *تنبيه مخزون منخفض (سطوك المحل)* ⚠️\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• الكمية المتبقية: ${item.qty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
         
-        const resVal = await sendWhatsAppMessage(boutiquePhone, alertMsg);
+        const resVal = await sendWhatsAppMessage(targetBoutiquePhone, alertMsg);
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
-          await saveStockAlertRecord(newMsgId, boutiquePhone, item.productId, item.colorIdx, item.size);
+          await saveStockAlertRecord(newMsgId, targetBoutiquePhone, item.productId, item.colorIdx, item.size);
           return true;
         }
         return false;
