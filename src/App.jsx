@@ -269,78 +269,104 @@ export default function App() {
   };
 
   const handlePlaceOrder = async (newOrder) => {
-    const { id, ...orderWithoutId } = newOrder;
-    
-    // Sanitise payload: only include valid DB columns of 'orders' table
-    const validColumns = ['clientName', 'phone', 'wilaya', 'commune', 'deliveryMode', 'deliveryCompany', 'trackingNumber', 'shippingLabelUrl', 'product', 'price', 'quantity', 'status', 'archived', 'date', 'items'];
-    const sanitizedOrder = {};
-    validColumns.forEach(col => {
-      if (orderWithoutId[col] !== undefined) {
-        sanitizedOrder[col] = orderWithoutId[col];
-      }
-    });
-
-    const { data: insertedOrder, error } = await supabase.from('orders').insert(sanitizedOrder).select().single();
-    
-    if (error) {
-      console.error("Supabase Order Insert Error:", error);
-    }
-    
-    if (!error) {
-      setOrders(prev => [...prev, insertedOrder]);
+    try {
+      const { id, ...orderWithoutId } = newOrder;
       
-      // Auto Send WhatsApp Confirmation to Customer via Serverless API
-      try {
-        const customerPhone = insertedOrder.whatsapp || insertedOrder.phone;
-        if (customerPhone) {
-          fetch('/api/send-order-whatsapp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: customerPhone,
-              clientName: insertedOrder.clientName || insertedOrder.nom,
-              nom: insertedOrder.clientName || insertedOrder.nom,
-              id: insertedOrder.id,
-              wilaya: insertedOrder.wilaya,
-              product: insertedOrder.product
-            })
-          }).catch(e => console.error("WhatsApp trigger error:", e));
+      // Sanitise payload: only include valid DB columns of 'orders' table
+      const validColumns = ['clientName', 'phone', 'wilaya', 'commune', 'deliveryMode', 'deliveryCompany', 'trackingNumber', 'shippingLabelUrl', 'product', 'price', 'quantity', 'status', 'archived', 'date', 'items'];
+      const sanitizedOrder = {};
+      validColumns.forEach(col => {
+        if (orderWithoutId[col] !== undefined) {
+          sanitizedOrder[col] = orderWithoutId[col];
         }
-      } catch (err) {
-        console.error("WhatsApp notification error:", err);
+      });
+
+      const { data: insertedOrder, error } = await supabase.from('orders').insert(sanitizedOrder).select().single();
+      
+      if (error) {
+        console.error("Supabase Order Insert Error:", error);
       }
-      // Deduct stock and trigger low stock alerts for Storefront & POS orders
-      if (newOrder.items) {
-        for (const item of newOrder.items) {
+      
+      if (!error && insertedOrder) {
+        setOrders(prev => [...prev, insertedOrder]);
+        
+        // Auto Send WhatsApp Confirmation to Customer via Serverless API
+        try {
+          const customerPhone = insertedOrder.whatsapp || insertedOrder.phone;
+          if (customerPhone) {
+            fetch('/api/send-order-whatsapp', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phone: customerPhone,
+                clientName: insertedOrder.clientName || insertedOrder.nom,
+                nom: insertedOrder.clientName || insertedOrder.nom,
+                id: insertedOrder.id,
+                wilaya: insertedOrder.wilaya,
+                product: insertedOrder.product
+              })
+            }).catch(e => console.error("WhatsApp trigger error:", e));
+          }
+        } catch (err) {
+          console.error("WhatsApp notification error:", err);
+        }
+
+        // Deduct stock for Storefront & POS orders
+        const orderItems = newOrder.items || (newOrder.productId || newOrder.product ? [{
+          productId: newOrder.productId,
+          product: newOrder.product,
+          color: newOrder.color || newOrder.colorVariant,
+          size: newOrder.size,
+          qty: newOrder.qty || 1
+        }] : []);
+
+        let workingProducts = [...products];
+
+        for (const item of orderItems) {
           if (item.isDiscount) continue;
 
-          const product = products.find(p => p.id === item.productId || (p.title && item.product && p.title.toLowerCase().trim() === item.product.toLowerCase().trim()));
+          const product = workingProducts.find(p => {
+            if (!p) return false;
+            if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
+            if (item.barcode && p.barcode && String(p.barcode).trim() === String(item.barcode).trim()) return true;
+            if (p.title && item.product) {
+              const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+              const cleanProdTitle = String(p.title).trim().toLowerCase();
+              if (cleanProdTitle === cleanItemTitle || cleanProdTitle.includes(cleanItemTitle) || cleanItemTitle.includes(cleanProdTitle)) return true;
+            }
+            return false;
+          });
+
           if (product) {
             let updatedPayload = {};
-            let updatedProductObj = { ...product };
             const itemQty = Math.max(1, parseInt(item.qty) || 1);
 
-            if (product.colorVariants && product.colorVariants.length > 0) {
+            let colorVariantsArr = product.colorVariants;
+            if (typeof colorVariantsArr === 'string') {
+              try { colorVariantsArr = JSON.parse(colorVariantsArr); } catch (e) { colorVariantsArr = []; }
+            }
+
+            if (Array.isArray(colorVariantsArr) && colorVariantsArr.length > 0) {
               const targetColor = (item.color || '').trim().toLowerCase();
               const targetSize = String(item.size || '').trim().toLowerCase();
 
-              // Bulletproof variant index locator
-              let targetVariantIdx = product.colorVariants.findIndex(v => {
+              let targetVariantIdx = colorVariantsArr.findIndex(v => {
+                if (!v) return false;
                 const vColor = (v.name || v.color || '').trim().toLowerCase();
                 return targetColor && (vColor === targetColor || vColor.includes(targetColor) || targetColor.includes(vColor));
               });
 
               if (targetVariantIdx === -1) {
-                targetVariantIdx = product.colorVariants.findIndex(v => {
-                  if (!v.stock) return false;
+                targetVariantIdx = colorVariantsArr.findIndex(v => {
+                  if (!v || !v.stock) return false;
                   return Object.keys(v.stock).some(k => String(k).trim().toLowerCase() === targetSize);
                 });
               }
 
               if (targetVariantIdx === -1) targetVariantIdx = 0;
 
-              const updatedVariants = product.colorVariants.map((v, idx) => {
-                if (idx === targetVariantIdx && v.stock) {
+              const updatedVariants = colorVariantsArr.map((v, idx) => {
+                if (idx === targetVariantIdx && v && v.stock) {
                   const sizeKey = Object.keys(v.stock).find(k => String(k).trim().toLowerCase() === targetSize) || item.size;
                   const currentStock = parseInt(v.stock[sizeKey]) || 0;
                   const newQty = Math.max(0, currentStock - itemQty);
@@ -349,167 +375,177 @@ export default function App() {
                 return v;
               });
 
-              const newTotalStock = updatedVariants.reduce((sum, v) => {
-                if (!v.stock) return sum;
-                return sum + Object.values(v.stock).reduce((a, b) => a + (parseInt(b) || 0), 0);
-              }, 0);
-
               updatedPayload.colorVariants = updatedVariants;
-              updatedPayload.stock = newTotalStock;
-              updatedProductObj.colorVariants = updatedVariants;
-              updatedProductObj.stock = newTotalStock;
             } else {
               const currentStock = parseInt(product.stock) || 0;
-              const newRootStock = Math.max(0, currentStock - itemQty);
-              updatedPayload.stock = newRootStock;
-              updatedProductObj.stock = newRootStock;
+              updatedPayload.stock = Math.max(0, currentStock - itemQty);
             }
 
             const safePayload = sanitizeProductForDb(updatedPayload);
             if (Object.keys(safePayload).length > 0) {
-              const { error: updateErr } = await supabase.from('products').update(safePayload).eq('id', product.id);
-              if (updateErr) {
-                console.error("Failed to update product stock in Supabase:", updateErr);
-              } else {
-                setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
-              }
+              const updatedProductFull = { ...product, ...safePayload };
+              
+              pendingUpdatesRef.current[product.id] = { 
+                product: updatedProductFull, 
+                timestamp: Date.now() 
+              };
+
+              const targetIdStr = String(product.id).trim().toLowerCase();
+              workingProducts = workingProducts.map(p => {
+                const pIdStr = String(p.id).trim().toLowerCase();
+                return pIdStr === targetIdStr ? updatedProductFull : p;
+              });
+
+              await supabase.from('products').update(safePayload).eq('id', product.id);
             }
 
-            // Trigger low stock check & manager alert for order item
             fetch('/api/check-low-stock', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ product: updatedProductObj, productId: product.id })
+              body: JSON.stringify({ product: { ...product, ...safePayload }, productId: product.id })
             }).catch(e => console.error("Low stock check error:", e));
           }
         }
-      } 
-      // Deduct stock for Storefront orders
-      else if (newOrder.productId || newOrder.product) {
-        const product = products.find(p => p.id === newOrder.productId || p.title === newOrder.product);
-        if (product) {
-          let updatedPayload = {};
-          let updatedProductObj = { ...product };
 
-          if (product.colorVariants && product.colorVariants.length > 0) {
-            const targetColor = newOrder.color || newOrder.colorVariant || '';
-            const targetSize = newOrder.size || '';
-            
-            const updatedVariants = product.colorVariants.map(v => {
-              const vColor = v.name || v.color || '';
-              const isMatchColor = !targetColor || vColor.toLowerCase().trim() === targetColor.toLowerCase().trim();
-              if (isMatchColor && v.stock && v.stock[targetSize] !== undefined) {
-                const currentStock = parseInt(v.stock[targetSize]) || 0;
-                const newQty = Math.max(0, currentStock - (newOrder.qty || 1));
-                return { ...v, stock: { ...v.stock, [targetSize]: newQty } };
-              }
-              return v;
-            });
-
-            updatedPayload.colorVariants = updatedVariants;
-            updatedProductObj.colorVariants = updatedVariants;
-
-            if (product.stock !== undefined) {
-              const newRootStock = Math.max(0, (parseInt(product.stock) || 0) - (newOrder.qty || 1));
-              updatedPayload.stock = newRootStock;
-              updatedProductObj.stock = newRootStock;
-            }
-          } else if (product.stock !== undefined) {
-            const newRootStock = Math.max(0, (parseInt(product.stock) || 0) - (newOrder.qty || 1));
-            updatedPayload.stock = newRootStock;
-            updatedProductObj.stock = newRootStock;
-          }
-
-          const safePayload = sanitizeProductForDb(updatedPayload);
-          if (Object.keys(safePayload).length > 0) {
-            await supabase.from('products').update(safePayload).eq('id', product.id);
-            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
-          }
-
-          // Trigger low stock check & manager alert for storefront order
-          fetch('/api/check-low-stock', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ product: updatedProductObj })
-          }).catch(e => console.error('Low stock check error:', e));
-        }
+        setProducts([...workingProducts]);
+        try { localStorage.setItem('pyjama_products_cache', JSON.stringify(workingProducts)); } catch(e) {}
       }
       return insertedOrder;
+    } catch (err) {
+      console.error("Critical error in handlePlaceOrder:", err);
+      return null;
     }
-    return null;
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus, archived) => {
-    const updatePayload = { status: newStatus };
-    if (archived !== undefined) updatePayload.archived = archived;
-    
-    const orderToUpdate = orders.find(o => o.id === orderId);
-    
-    // If order is being cancelled or returned, restore stock
-    const wasAlreadyReturned = orderToUpdate?.status === 'annulee' || orderToUpdate?.status === 'retour';
-    const isNowReturned = newStatus === 'annulee' || newStatus === 'retour';
-    const shouldRestoreStock = isNowReturned && !wasAlreadyReturned;
+    try {
+      const updatePayload = { status: newStatus };
+      if (archived !== undefined) updatePayload.archived = archived;
+      
+      const orderToUpdate = orders.find(o => String(o.id).trim() === String(orderId).trim());
+      
+      const { error: orderErr } = await supabase.from('orders').update(updatePayload).eq('id', orderId);
+      if (orderErr) console.error("Order status update error:", orderErr);
 
-    if (orderToUpdate && shouldRestoreStock) {
-      if (orderToUpdate.items) {
-        for (const item of orderToUpdate.items) {
-          const product = products.find(p => p.id === item.productId || p.title === item.product);
+      setOrders(prev => prev.map(o => String(o.id).trim() === String(orderId).trim() ? { ...o, ...updatePayload } : o));
+
+      const wasAlreadyReturned = orderToUpdate?.status === 'annulee' || orderToUpdate?.status === 'retour';
+      const isNowReturned = newStatus === 'annulee' || newStatus === 'retour';
+      const shouldRestoreStock = isNowReturned && !wasAlreadyReturned;
+
+      if (orderToUpdate && shouldRestoreStock) {
+        const orderItems = orderToUpdate.items || (orderToUpdate.productId || orderToUpdate.product ? [{
+          productId: orderToUpdate.productId,
+          product: orderToUpdate.product,
+          color: orderToUpdate.color || orderToUpdate.colorVariant,
+          size: orderToUpdate.size,
+          qty: orderToUpdate.qty || 1
+        }] : []);
+
+        let workingProducts = [...products];
+
+        for (const item of orderItems) {
+          if (item.isDiscount) continue;
+
+          const product = workingProducts.find(p => {
+            if (!p) return false;
+            if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
+            if (p.title && item.product) {
+              const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+              const cleanProdTitle = String(p.title).trim().toLowerCase();
+              if (cleanProdTitle === cleanItemTitle || cleanProdTitle.includes(cleanItemTitle) || cleanItemTitle.includes(cleanProdTitle)) return true;
+            }
+            return false;
+          });
+
           if (product) {
             let updatedPayload = {};
-            if (product.colorVariants && product.colorVariants.length > 0 && item.color) {
-               const updatedVariants = product.colorVariants.map(v => {
-                 if (v.color === item.color && v.stock && v.stock[item.size] !== undefined) {
-                   const currentStock = v.stock[item.size];
-                   return { ...v, stock: { ...v.stock, [item.size]: currentStock + (item.qty || 1) } };
-                 }
-                 return v;
-               });
-               updatedPayload.colorVariants = updatedVariants;
-               if (product.stock !== undefined) {
-                 updatedPayload.stock = product.stock + (item.qty || 1);
-               }
-            } else if (product.stock !== undefined) {
-               updatedPayload.stock = product.stock + (item.qty || 1);
+            const restoreQty = Math.max(1, parseInt(item.qty) || 1);
+
+            let colorVariantsArr = product.colorVariants;
+            if (typeof colorVariantsArr === 'string') {
+              try { colorVariantsArr = JSON.parse(colorVariantsArr); } catch (e) { colorVariantsArr = []; }
             }
-             const safePayload = sanitizeProductForDb(updatedPayload);
-             if (Object.keys(safePayload).length > 0) {
-               await supabase.from('products').update(safePayload).eq('id', product.id);
-               setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
-             }
+
+            if (Array.isArray(colorVariantsArr) && colorVariantsArr.length > 0) {
+              const targetColor = (item.color || '').trim().toLowerCase();
+              const targetSize = String(item.size || '').trim().toLowerCase();
+
+              let targetVariantIdx = colorVariantsArr.findIndex(v => {
+                if (!v) return false;
+                const vColor = (v.name || v.color || '').trim().toLowerCase();
+                return targetColor && (vColor === targetColor || vColor.includes(targetColor) || targetColor.includes(vColor));
+              });
+
+              if (targetVariantIdx === -1) {
+                targetVariantIdx = colorVariantsArr.findIndex(v => {
+                  if (!v || !v.stock) return false;
+                  return Object.keys(v.stock).some(k => String(k).trim().toLowerCase() === targetSize);
+                });
+              }
+
+              if (targetVariantIdx === -1) targetVariantIdx = 0;
+
+              const updatedVariants = colorVariantsArr.map((v, idx) => {
+                if (idx === targetVariantIdx && v && v.stock) {
+                  const sizeKey = Object.keys(v.stock).find(k => String(k).trim().toLowerCase() === targetSize) || item.size;
+                  const currentStock = parseInt(v.stock[sizeKey]) || 0;
+                  const newQty = currentStock + restoreQty;
+                  return { ...v, stock: { ...v.stock, [sizeKey]: newQty } };
+                }
+                return v;
+              });
+
+              updatedPayload.colorVariants = updatedVariants;
+            } else {
+              const currentStock = parseInt(product.stock) || 0;
+              updatedPayload.stock = currentStock + restoreQty;
+            }
+
+            const safePayload = sanitizeProductForDb(updatedPayload);
+            if (Object.keys(safePayload).length > 0) {
+              const updatedProductFull = { ...product, ...safePayload };
+              
+              pendingUpdatesRef.current[product.id] = { 
+                product: updatedProductFull, 
+                timestamp: Date.now() 
+              };
+
+              const targetIdStr = String(product.id).trim().toLowerCase();
+              workingProducts = workingProducts.map(p => {
+                const pIdStr = String(p.id).trim().toLowerCase();
+                return pIdStr === targetIdStr ? updatedProductFull : p;
+              });
+
+              await supabase.from('products').update(safePayload).eq('id', product.id);
+            }
           }
         }
-      } else if (orderToUpdate.productId) {
-        const product = products.find(p => p.id === orderToUpdate.productId);
-        if (product && product.stock !== undefined) {
-          const newStock = product.stock + (orderToUpdate.qty || 1);
-           const safePayload = sanitizeProductForDb({ stock: newStock });
-           if (Object.keys(safePayload).length > 0) {
-             await supabase.from('products').update(safePayload).eq('id', product.id);
-             setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
-           }
+
+        setProducts([...workingProducts]);
+        try { localStorage.setItem('pyjama_products_cache', JSON.stringify(workingProducts)); } catch(e) {}
+      }
+
+      // Process delivery API if status is changed to confirmee and no tracking number exists
+      if (newStatus === 'confirmee' && orderToUpdate && !orderToUpdate.trackingNumber) {
+        const deliveryResult = await processOrderDelivery(orderToUpdate);
+        if (deliveryResult.success) {
+          updatePayload.trackingNumber = deliveryResult.trackingNumber;
+          updatePayload.shippingLabelUrl = deliveryResult.shippingLabelUrl;
+          updatePayload.deliveryCompany = deliveryResult.deliveryCompany;
+        } else {
+          console.error('Failed to process delivery API', deliveryResult.error);
         }
       }
-    }
-    
-    // Process delivery API if status is changed to confirmee and no tracking number exists
-    if (newStatus === 'confirmee' && orderToUpdate && !orderToUpdate.trackingNumber) {
-      const deliveryResult = await processOrderDelivery(orderToUpdate);
-      if (deliveryResult.success) {
-        updatePayload.trackingNumber = deliveryResult.trackingNumber;
-        updatePayload.shippingLabelUrl = deliveryResult.shippingLabelUrl;
-        updatePayload.deliveryCompany = deliveryResult.deliveryCompany;
-      } else {
-        // Optionally handle API failure (e.g. show alert)
-        console.error('Failed to process delivery API', deliveryResult.error);
-      }
-    }
 
-    const { error } = await supabase.from('orders').update(updatePayload).eq('id', orderId);
-    if (!error) {
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updatePayload } : o));
-    } else {
-      console.error("Supabase Order Update Error:", error);
-      alert("خطأ تقني من قاعدة البيانات: \n" + (error.message || JSON.stringify(error)) + "\n\nصورلي هاد الخطأ باش نعرف المشكل وين راه بالظبط!");
+      const { error: finalOrderErr } = await supabase.from('orders').update(updatePayload).eq('id', orderId);
+      if (!finalOrderErr) {
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updatePayload } : o));
+      } else {
+        console.error("Supabase Order Update Error:", finalOrderErr);
+      }
+    } catch (err) {
+      console.error("Critical error in handleUpdateOrderStatus:", err);
     }
   };
 
