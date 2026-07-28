@@ -74,52 +74,76 @@ export default async function handler(req, res) {
 
   try {
     const now = Date.now();
-    const tenMinutesAgoMs = now - (10 * 60 * 1000);
-    const tenMinutesAgoIso = new Date(tenMinutesAgoMs).toISOString();
+    const TEN_MINUTES_MS = 10 * 60 * 1000;
 
     let processedOrdersCount = 0;
     let processedReclamationsCount = 0;
 
-    // 1. Process 10-Minute Delayed Orders
+    // 1. Fetch persistent sent_order_confirmations list from settings
+    const sentOrderIds = new Set();
     try {
-      const ordersRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?created_at=lte.${tenMinutesAgoIso}&or=(whatsapp_sent.is.null,whatsapp_sent.eq.false)&select=*`, {
+      const sRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.sent_order_confirmations&select=value`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
-      const ordersToNotify = await ordersRes.json();
+      const sData = await sRes.json();
+      if (Array.isArray(sData) && sData[0]?.value) {
+        const arr = typeof sData[0].value === 'string' ? JSON.parse(sData[0].value) : sData[0].value;
+        if (Array.isArray(arr)) arr.forEach(id => sentOrderIds.add(id));
+      }
+    } catch(e) {}
 
-      if (Array.isArray(ordersToNotify) && ordersToNotify.length > 0) {
-        for (const order of ordersToNotify) {
-          if (!order.phone) continue;
+    // 2. Process 10-Minute Delayed Orders
+    try {
+      const ordersRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc&limit=200`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const recentOrders = await ordersRes.json();
 
-          const orderNumStr = await getSequentialOrderNum(order.id);
-          const displayName = order.clientName || '';
-          const nameGreeting = displayName && displayName !== 'الزبون' ? ` ${displayName}` : '';
-          const cleanProduct = String(order.product || 'بيجامة').replace(/\(\(/g, '').replace(/\)\)/g, '');
+      if (Array.isArray(recentOrders) && recentOrders.length > 0) {
+        let sentIdsUpdated = false;
 
-          const messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك عبر الموقع بنجاح:\n\n• رقم الطلب: #${orderNumStr}\n• المنتجات: ${cleanProduct}\n• الولاية: ${order.wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* (أو *إلغاء*) لتأكيد طلبك وتجهيز شحنتك.`;
+        for (const order of recentOrders) {
+          if (!order.id || !order.phone || sentOrderIds.has(order.id)) continue;
 
-          await sendWhatsAppMessage(order.phone, messageText);
+          const createdTimeMs = order.created_at ? new Date(order.created_at).getTime() : 0;
+          const ageMs = now - createdTimeMs;
 
-          // Mark order as whatsapp_sent = true in Supabase
-          await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
-            method: 'PATCH',
+          // STRICT 10-MINUTE DELAY GUARD: Must be at least 10 minutes old AND less than 48 hours old
+          if (createdTimeMs > 0 && ageMs >= TEN_MINUTES_MS && ageMs <= (48 * 60 * 60 * 1000)) {
+            const orderNumStr = await getSequentialOrderNum(order.id);
+            const displayName = order.clientName || '';
+            const nameGreeting = displayName && displayName !== 'الزبون' ? ` ${displayName}` : '';
+            const cleanProduct = String(order.product || 'بيجامة').replace(/\(\(/g, '').replace(/\)\)/g, '');
+
+            const messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك عبر الموقع بنجاح:\n\n• رقم الطلب: #${orderNumStr}\n• المنتجات: ${cleanProduct}\n• الولاية: ${order.wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* (أو *إلغاء*) لتأكيد طلبك وتجهيز شحنتك.`;
+
+            await sendWhatsAppMessage(order.phone, messageText);
+            sentOrderIds.add(order.id);
+            sentIdsUpdated = true;
+            processedOrdersCount++;
+            await new Promise(r => setTimeout(r, 200));
+          }
+        }
+
+        if (sentIdsUpdated) {
+          const valStr = JSON.stringify(Array.from(sentOrderIds));
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
             headers: {
               'apikey': SUPABASE_KEY,
               'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
             },
-            body: JSON.stringify({ whatsapp_sent: true })
+            body: JSON.stringify({ key: 'sent_order_confirmations', value: valStr })
           });
-
-          processedOrdersCount++;
-          await new Promise(r => setTimeout(r, 200));
         }
       }
     } catch (e) {
       console.error('Error processing delayed order confirmations:', e);
     }
 
-    // 2. Process 10-Minute Delayed Reclamations
+    // 3. Process 10-Minute Delayed Reclamations
     try {
       const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations&select=*`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -133,9 +157,12 @@ export default async function handler(req, res) {
 
           for (let i = 0; i < reclamations.length; i++) {
             const rec = reclamations[i];
-            if (!rec.whatsapp_sent) {
+            if (rec.whatsapp_sent === false) {
               const createdMs = rec.createdAt ? new Date(rec.createdAt).getTime() : 0;
-              if (createdMs > 0 && (now - createdMs) >= (10 * 60 * 1000)) {
+              const ageMs = now - createdMs;
+
+              // STRICT 10-MINUTE DELAY GUARD: Must be at least 10 minutes old AND less than 48 hours old
+              if (createdMs > 0 && ageMs >= TEN_MINUTES_MS && ageMs <= (48 * 60 * 60 * 1000)) {
                 const phone = rec.whatsappNumber || rec.phone;
                 if (phone) {
                   const greetingName = (rec.clientName && rec.clientName.trim() !== '' && rec.clientName !== 'زبون المحادثة' && rec.clientName !== 'زبون الواتساب')
