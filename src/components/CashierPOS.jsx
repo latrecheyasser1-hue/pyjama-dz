@@ -1128,70 +1128,117 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                                       </span>
                                     </button>
 
-                                    {/* Quantity Input Square */}
+                                    {/* Quantity Stepper Controls with - and + */}
                                     {isSelected && !isZeroSize && (
-                                      <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        pattern="[0-9]*"
-                                        placeholder="--"
-                                        value={selectedVariants[v.color]?.[size] === '' ? '' : (selectedVariants[v.color]?.[size] ?? 1)}
-                                        onMouseDown={() => {
-                                          setSelectedVariants(prev => ({
-                                            ...prev,
-                                            [v.color]: { ...(prev[v.color] || {}), [size]: '' }
-                                          }));
-                                        }}
-                                        onFocus={(e) => {
-                                          e.target.select();
-                                          setSelectedVariants(prev => ({
-                                            ...prev,
-                                            [v.color]: { ...(prev[v.color] || {}), [size]: '' }
-                                          }));
-                                        }}
-                                        onClick={(e) => {
-                                          e.target.select();
-                                          setSelectedVariants(prev => ({
-                                            ...prev,
-                                            [v.color]: { ...(prev[v.color] || {}), [size]: '' }
-                                          }));
-                                        }}
-                                        onChange={(e) => {
-                                          const raw = e.target.value;
-                                          let val;
-                                          if (raw === '') {
-                                            val = '';
-                                          } else {
-                                            const parsed = parseInt(raw, 10);
-                                            val = isNaN(parsed) ? '' : Math.max(1, Math.min(qty, parsed));
-                                          }
-                                          setSelectedVariants(prev => ({
-                                            ...prev,
-                                            [v.color]: { ...(prev[v.color] || {}), [size]: val }
-                                          }));
-                                        }}
-                                        onBlur={() => {
-                                          const cur = selectedVariants[v.color]?.[size];
-                                          if (cur === '' || cur === undefined || cur === null || Number(cur) < 1) {
+                                      <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        background: '#E0F2FE',
+                                        border: '2px solid #0284C7',
+                                        borderRadius: '10px',
+                                        padding: '2px',
+                                        boxShadow: '0 2px 4px rgba(2, 132, 199, 0.15)',
+                                        gap: '2px'
+                                      }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const current = Number(selectedVariants[v.color]?.[size]) || 1;
+                                            const newQty = Math.max(1, current - 1);
                                             setSelectedVariants(prev => ({
                                               ...prev,
-                                              [v.color]: { ...(prev[v.color] || {}), [size]: 1 }
+                                              [v.color]: { ...(prev[v.color] || {}), [size]: newQty }
                                             }));
-                                          }
-                                        }}
-                                        style={{
-                                          width: '64px',
-                                          textAlign: 'center',
-                                          padding: '6px',
-                                          border: '2px solid #0284C7',
-                                          borderRadius: '8px',
-                                          fontSize: '0.9rem',
-                                          fontWeight: 900,
-                                          outline: 'none',
-                                          background: 'white',
-                                          boxShadow: '0 2px 4px rgba(2, 132, 199, 0.1)'
-                                        }}
-                                      />
+                                          }}
+                                          style={{
+                                            width: '26px',
+                                            height: '26px',
+                                            borderRadius: '6px',
+                                            border: 'none',
+                                            background: '#0284C7',
+                                            color: 'white',
+                                            fontWeight: 900,
+                                            fontSize: '1.1rem',
+                                            lineHeight: 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            userSelect: 'none'
+                                          }}
+                                        >
+                                          -
+                                        </button>
+                                        <input
+                                          type="text"
+                                          inputMode="numeric"
+                                          pattern="[0-9]*"
+                                          value={selectedVariants[v.color]?.[size] === '' ? '' : (selectedVariants[v.color]?.[size] ?? 1)}
+                                          onFocus={(e) => e.target.select()}
+                                          onChange={(e) => {
+                                            const raw = e.target.value;
+                                            let val;
+                                            if (raw === '') {
+                                              val = '';
+                                            } else {
+                                              const parsed = parseInt(raw, 10);
+                                              val = isNaN(parsed) ? '' : Math.max(1, Math.min(qty, parsed));
+                                            }
+                                            setSelectedVariants(prev => ({
+                                              ...prev,
+                                              [v.color]: { ...(prev[v.color] || {}), [size]: val }
+                                            }));
+                                          }}
+                                          onBlur={() => {
+                                            const cur = selectedVariants[v.color]?.[size];
+                                            if (cur === '' || cur === undefined || cur === null || Number(cur) < 1) {
+                                              setSelectedVariants(prev => ({
+                                                ...prev,
+                                                [v.color]: { ...(prev[v.color] || {}), [size]: 1 }
+                                              }));
+                                            }
+                                          }}
+                                          style={{
+                                            width: '32px',
+                                            textAlign: 'center',
+                                            border: 'none',
+                                            background: 'transparent',
+                                            fontSize: '0.95rem',
+                                            fontWeight: 900,
+                                            color: '#0369A1',
+                                            outline: 'none'
+                                          }}
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const current = Number(selectedVariants[v.color]?.[size]) || 1;
+                                            const newQty = Math.min(qty, current + 1);
+                                            setSelectedVariants(prev => ({
+                                              ...prev,
+                                              [v.color]: { ...(prev[v.color] || {}), [size]: newQty }
+                                            }));
+                                          }}
+                                          style={{
+                                            width: '26px',
+                                            height: '26px',
+                                            borderRadius: '6px',
+                                            border: 'none',
+                                            background: '#0284C7',
+                                            color: 'white',
+                                            fontWeight: 900,
+                                            fontSize: '1.1rem',
+                                            lineHeight: 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            userSelect: 'none'
+                                          }}
+                                        >
+                                          +
+                                        </button>
+                                      </div>
                                     )}
                                   </div>
                                 );
@@ -1266,67 +1313,115 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                             </button>
 
                             {isSelected && (
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                placeholder="--"
-                                value={selectedVariants['Standard']?.['Standard'] === '' ? '' : (selectedVariants['Standard']?.['Standard'] ?? 1)}
-                                onMouseDown={() => {
-                                  setSelectedVariants(prev => ({
-                                    ...prev,
-                                    Standard: { ...(prev.Standard || {}), Standard: '' }
-                                  }));
-                                }}
-                                onFocus={(e) => {
-                                  e.target.select();
-                                  setSelectedVariants(prev => ({
-                                    ...prev,
-                                    Standard: { ...(prev.Standard || {}), Standard: '' }
-                                  }));
-                                }}
-                                onClick={(e) => {
-                                  e.target.select();
-                                  setSelectedVariants(prev => ({
-                                    ...prev,
-                                    Standard: { ...(prev.Standard || {}), Standard: '' }
-                                  }));
-                                }}
-                                onChange={(e) => {
-                                  const raw = e.target.value;
-                                  let val;
-                                  if (raw === '') {
-                                    val = '';
-                                  } else {
-                                    const parsed = parseInt(raw, 10);
-                                    val = isNaN(parsed) ? '' : Math.max(1, Math.min(qty, parsed));
-                                  }
-                                  setSelectedVariants(prev => ({
-                                    ...prev,
-                                    Standard: { ...(prev.Standard || {}), Standard: val }
-                                  }));
-                                }}
-                                onBlur={() => {
-                                  const cur = selectedVariants['Standard']?.['Standard'];
-                                  if (cur === '' || cur === undefined || cur === null || Number(cur) < 1) {
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                background: '#E0F2FE',
+                                border: '2px solid #0284C7',
+                                borderRadius: '10px',
+                                padding: '2px',
+                                boxShadow: '0 2px 4px rgba(2, 132, 199, 0.15)',
+                                gap: '2px'
+                              }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const current = Number(selectedVariants['Standard']?.['Standard']) || 1;
+                                    const newQty = Math.max(1, current - 1);
                                     setSelectedVariants(prev => ({
                                       ...prev,
-                                      Standard: { ...(prev.Standard || {}), Standard: 1 }
+                                      Standard: { ...(prev.Standard || {}), Standard: newQty }
                                     }));
-                                  }
-                                }}
-                                style={{
-                                  width: '64px',
-                                  textAlign: 'center',
-                                  padding: '6px',
-                                  border: '2px solid #0284C7',
-                                  borderRadius: '8px',
-                                  fontSize: '0.9rem',
-                                  fontWeight: 900,
-                                  outline: 'none',
-                                  background: 'white'
-                                }}
-                              />
+                                  }}
+                                  style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: '#0284C7',
+                                    color: 'white',
+                                    fontWeight: 900,
+                                    fontSize: '1.1rem',
+                                    lineHeight: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    userSelect: 'none'
+                                  }}
+                                >
+                                  -
+                                </button>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  value={selectedVariants['Standard']?.['Standard'] === '' ? '' : (selectedVariants['Standard']?.['Standard'] ?? 1)}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    let val;
+                                    if (raw === '') {
+                                      val = '';
+                                    } else {
+                                      const parsed = parseInt(raw, 10);
+                                      val = isNaN(parsed) ? '' : Math.max(1, Math.min(qty, parsed));
+                                    }
+                                    setSelectedVariants(prev => ({
+                                      ...prev,
+                                      Standard: { ...(prev.Standard || {}), Standard: val }
+                                    }));
+                                  }}
+                                  onBlur={() => {
+                                    const cur = selectedVariants['Standard']?.['Standard'];
+                                    if (cur === '' || cur === undefined || cur === null || Number(cur) < 1) {
+                                      setSelectedVariants(prev => ({
+                                        ...prev,
+                                        Standard: { ...(prev.Standard || {}), Standard: 1 }
+                                      }));
+                                    }
+                                  }}
+                                  style={{
+                                    width: '32px',
+                                    textAlign: 'center',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    fontSize: '0.95rem',
+                                    fontWeight: 900,
+                                    color: '#0369A1',
+                                    outline: 'none'
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const current = Number(selectedVariants['Standard']?.['Standard']) || 1;
+                                    const newQty = Math.min(qty, current + 1);
+                                    setSelectedVariants(prev => ({
+                                      ...prev,
+                                      Standard: { ...(prev.Standard || {}), Standard: newQty }
+                                    }));
+                                  }}
+                                  style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: '#0284C7',
+                                    color: 'white',
+                                    fontWeight: 900,
+                                    fontSize: '1.1rem',
+                                    lineHeight: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    userSelect: 'none'
+                                  }}
+                                >
+                                  +
+                                </button>
+                              </div>
                             )}
                           </div>
                         );
