@@ -225,8 +225,18 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     setBarcode(p.barcode || String(100000000000 + Math.floor(Math.random() * 900000000000)));
     setDescription(p.description || '');
 
-    if (p.colorVariants && p.colorVariants.length > 0) {
-      setColorVariants(p.colorVariants.map(cv => ({
+const getParsedColorVariants = (prod) => {
+  if (!prod) return [];
+  let variants = prod.colorVariants;
+  if (typeof variants === 'string') {
+    try { variants = JSON.parse(variants); } catch (e) { variants = []; }
+  }
+  return Array.isArray(variants) ? variants : [];
+};
+
+    const colorVariantsArr = getParsedColorVariants(p);
+    if (colorVariantsArr.length > 0) {
+      setColorVariants(colorVariantsArr.map(cv => ({
         color: cv.color,
         colorHex: cv.colorHex || '#CBD5E1',
         image: cv.image || '',
@@ -615,11 +625,12 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
   // Quick stock quantity adjuster
   const handleQuickQtyAdjust = (product, colorIdx, size, delta) => {
-    const targetCv = product.colorVariants?.[colorIdx];
+    const colorVariantsArr = getParsedColorVariants(product);
+    const targetCv = colorVariantsArr[colorIdx];
     const currentQty = Number(targetCv?.stock?.[size] || 0);
     const nextQty = Math.max(0, currentQty + delta);
 
-    const updatedVariants = product.colorVariants.map((cv, i) => {
+    const updatedVariants = colorVariantsArr.map((cv, i) => {
       if (i !== colorIdx) return cv;
       return {
         ...cv,
@@ -637,9 +648,10 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
   // Direct stock quantity setter (number input box)
   const handleDirectStockChange = (product, colorIdx, size, newQtyVal) => {
+    const colorVariantsArr = getParsedColorVariants(product);
     const nextQty = Math.max(0, Number(newQtyVal) || 0);
 
-    const updatedVariants = product.colorVariants.map((cv, i) => {
+    const updatedVariants = colorVariantsArr.map((cv, i) => {
       if (i !== colorIdx) return cv;
       return {
         ...cv,
@@ -1502,7 +1514,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                     <div style={{ marginTop: 6, marginBottom: 8, display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#333' }}>🎨 الألوان:</span> 
                       <div style={{ display: 'flex', gap: '4px' }}>
-                        {p.colorVariants?.map((cv, i) => (
+                        {getParsedColorVariants(p).map((cv, i) => (
                           <div key={i} title={cv.color} style={{ width: '16px', height: '16px', borderRadius: '50%', background: cv.colorHex || '#CBD5E1', border: '1px solid #94A3B8' }} />
                         ))}
                       </div>
@@ -1530,7 +1542,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                 ) : (
                   <div style={{ background: '#FAF8F5', padding: '10px', borderRadius: '8px', marginBottom: 14 }}>
                     <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--burgundy)' }}>📊 المخزون الحالي حسب اللون والمقاس :</span>
-                    {p.colorVariants?.map((cv, cIdx) => (
+                    {getParsedColorVariants(p).map((cv, cIdx) => (
                       <div key={cIdx} style={{ marginTop: 8, borderTop: cIdx > 0 ? '1px dashed #DDD' : 'none', paddingTop: cIdx > 0 ? 6 : 0 }}>
                         <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#333' }}>🎨 {cv.color} :</span>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
@@ -1811,7 +1823,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
               <h5 style={{ margin: '0 0 10px 0', fontSize: '0.92rem', fontWeight: 800, color: 'var(--burgundy-dark)', borderBottom: '1px dashed #E2E8F0', paddingBottom: '6px' }}>
                 📊 المخزون والكميات الحالية حسب اللون والمقاس :
               </h5>
-              {quickViewProduct.colorVariants?.map((cv, cIdx) => (
+              {getParsedColorVariants(quickViewProduct).map((cv, cIdx) => (
                 <div key={cIdx} style={{ marginTop: 8, borderTop: cIdx > 0 ? '1px dashed #DDD' : 'none', paddingTop: cIdx > 0 ? 8 : 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: cv.colorHex || '#CBD5E1', display: 'inline-block', border: '1px solid #94A3B8' }} />
