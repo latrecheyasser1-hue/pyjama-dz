@@ -507,6 +507,7 @@ async function sendMessengerMessage(recipientId, textBody) {
       },
       body: JSON.stringify({
         recipient: { id: recipientId },
+        messaging_type: 'RESPONSE',
         message: { text: cleanBody }
       })
     });
@@ -1728,8 +1729,16 @@ async function processIncomingPayload(body) {
   try {
     const entries = body?.entry || (Array.isArray(body) ? body : [body]);
     for (const entry of entries) {
-      // A. Facebook Messenger & Instagram Direct Messages (entry.messaging)
-      const messagingList = entry?.messaging || [];
+      // A. Facebook Messenger & Instagram Direct Messages (entry.messaging / entry.standby)
+      const messagingList = [];
+      if (Array.isArray(entry?.messaging)) messagingList.push(...entry.messaging);
+      if (Array.isArray(entry?.standby)) messagingList.push(...entry.standby);
+      if (Array.isArray(entry?.changes)) {
+        entry.changes.forEach(c => {
+          if (c.value?.messaging && Array.isArray(c.value.messaging)) messagingList.push(...c.value.messaging);
+        });
+      }
+
       for (const msgObj of messagingList) {
         try {
           const senderId = msgObj.sender?.id;
