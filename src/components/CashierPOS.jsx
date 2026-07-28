@@ -316,29 +316,36 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
   // Open Product Modal
   const openProductCard = (product) => {
     setSelectedProductModal(product);
-    setSelectedVariants({});
-    setActiveColors([]);
     setSelectedQty(1);
     
-    // Default color & size selection
+    // Default color & size selection with selectedVariants initialized
     if (product.colorVariants && product.colorVariants.length > 0) {
       const firstAvailableColor = product.colorVariants.find(v => {
         const total = v.stock ? Object.values(v.stock).reduce((a, b) => a + (Number(b) || 0), 0) : 0;
         return total > 0;
       }) || product.colorVariants[0];
       
-      setSelectedColor(firstAvailableColor.color || '');
+      const col = firstAvailableColor.color || 'الافتراضي';
+      setActiveColors([col]);
+      
+      let initSize = 'Standard';
       if (firstAvailableColor.stock) {
         const availableSizes = Object.entries(firstAvailableColor.stock)
           .filter(([_, qty]) => Number(qty) > 0)
           .map(([size, _]) => size);
-        setSelectedSize(availableSizes.length > 0 ? availableSizes[0] : Object.keys(firstAvailableColor.stock)[0] || 'Standard');
-      } else {
-        setSelectedSize('Standard');
+        initSize = availableSizes.length > 0 ? availableSizes[0] : (Object.keys(firstAvailableColor.stock)[0] || 'Standard');
       }
+      setSelectedColor(col);
+      setSelectedSize(initSize);
+      setSelectedVariants({
+        [col]: { [initSize]: 1 }
+      });
     } else {
       setSelectedColor('Standard');
       setSelectedSize('Standard');
+      setSelectedVariants({
+        'Standard': { 'Standard': 1 }
+      });
     }
   };
 
