@@ -258,7 +258,7 @@ export default function App() {
   };
 
   const sanitizeProductForDb = (prodObj) => {
-    const validProductColumns = ['title', 'category', 'purchasePrice', 'price', 'oldPrice', 'supplier', 'images', 'barcode', 'description', 'colorVariants', 'created_at'];
+    const validProductColumns = ['title', 'category', 'purchasePrice', 'price', 'oldPrice', 'supplier', 'images', 'barcode', 'description', 'colorVariants', 'stock', 'created_at'];
     const sanitized = {};
     validProductColumns.forEach(col => {
       if (prodObj && prodObj[col] !== undefined) {
@@ -312,62 +312,74 @@ export default function App() {
       // Deduct stock and trigger low stock alerts for Storefront & POS orders
       if (newOrder.items) {
         for (const item of newOrder.items) {
+          if (item.isDiscount) continue;
+
           const product = products.find(p => p.id === item.productId || (p.title && item.product && p.title.toLowerCase().trim() === item.product.toLowerCase().trim()));
           if (product) {
             let updatedPayload = {};
             let updatedProductObj = { ...product };
+            const itemQty = Math.max(1, parseInt(item.qty) || 1);
 
             if (product.colorVariants && product.colorVariants.length > 0) {
-               const targetColor = (item.color || '').trim().toLowerCase();
-               const targetSize = String(item.size || '').trim();
+              const targetColor = (item.color || '').trim().toLowerCase();
+              const targetSize = String(item.size || '').trim().toLowerCase();
 
-               // Bulletproof variant index locator
-               let targetVariantIdx = product.colorVariants.findIndex(v => {
-                 const vColor = (v.name || v.color || '').trim().toLowerCase();
-                 return targetColor && (vColor === targetColor || vColor.includes(targetColor) || targetColor.includes(vColor));
-               });
+              // Bulletproof variant index locator
+              let targetVariantIdx = product.colorVariants.findIndex(v => {
+                const vColor = (v.name || v.color || '').trim().toLowerCase();
+                return targetColor && (vColor === targetColor || vColor.includes(targetColor) || targetColor.includes(vColor));
+              });
 
-               if (targetVariantIdx === -1) {
-                 // Fallback to first variant containing targetSize stock key
-                 targetVariantIdx = product.colorVariants.findIndex(v => v.stock && v.stock[targetSize] !== undefined);
-               }
+              if (targetVariantIdx === -1) {
+                targetVariantIdx = product.colorVariants.findIndex(v => {
+                  if (!v.stock) return false;
+                  return Object.keys(v.stock).some(k => String(k).trim().toLowerCase() === targetSize);
+                });
+              }
 
-               if (targetVariantIdx === -1) targetVariantIdx = 0;
+              if (targetVariantIdx === -1) targetVariantIdx = 0;
 
-               const updatedVariants = product.colorVariants.map((v, idx) => {
-                 if (idx === targetVariantIdx && v.stock && v.stock[targetSize] !== undefined) {
-                   const currentStock = parseInt(v.stock[targetSize]) || 0;
-                   const newQty = Math.max(0, currentStock - (item.qty || 1));
-                   return { ...v, stock: { ...v.stock, [targetSize]: newQty } };
-                 }
-                 return v;
-               });
+              const updatedVariants = product.colorVariants.map((v, idx) => {
+                if (idx === targetVariantIdx && v.stock) {
+                  const sizeKey = Object.keys(v.stock).find(k => String(k).trim().toLowerCase() === targetSize) || item.size;
+                  const currentStock = parseInt(v.stock[sizeKey]) || 0;
+                  const newQty = Math.max(0, currentStock - itemQty);
+                  return { ...v, stock: { ...v.stock, [sizeKey]: newQty } };
+                }
+                return v;
+              });
 
-               updatedPayload.colorVariants = updatedVariants;
-               updatedProductObj.colorVariants = updatedVariants;
+              const newTotalStock = updatedVariants.reduce((sum, v) => {
+                if (!v.stock) return sum;
+                return sum + Object.values(v.stock).reduce((a, b) => a + (parseInt(b) || 0), 0);
+              }, 0);
 
-               if (product.stock !== undefined) {
-                 const newRootStock = Math.max(0, (parseInt(product.stock) || 0) - (item.qty || 1));
-                 updatedPayload.stock = newRootStock;
-                 updatedProductObj.stock = newRootStock;
-               }
-            } else if (product.stock !== undefined) {
-               const newRootStock = Math.max(0, (parseInt(product.stock) || 0) - (item.qty || 1));
-               updatedPayload.stock = newRootStock;
-               updatedProductObj.stock = newRootStock;
+              updatedPayload.colorVariants = updatedVariants;
+              updatedPayload.stock = newTotalStock;
+              updatedProductObj.colorVariants = updatedVariants;
+              updatedProductObj.stock = newTotalStock;
+            } else {
+              const currentStock = parseInt(product.stock) || 0;
+              const newRootStock = Math.max(0, currentStock - itemQty);
+              updatedPayload.stock = newRootStock;
+              updatedProductObj.stock = newRootStock;
             }
 
             const safePayload = sanitizeProductForDb(updatedPayload);
             if (Object.keys(safePayload).length > 0) {
-              await supabase.from('products').update(safePayload).eq('id', product.id);
-              setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
+              const { error: updateErr } = await supabase.from('products').update(safePayload).eq('id', product.id);
+              if (updateErr) {
+                console.error("Failed to update product stock in Supabase:", updateErr);
+              } else {
+                setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...safePayload } : p));
+              }
             }
 
-            // Trigger low stock check & manager alert for storefront order item
+            // Trigger low stock check & manager alert for order item
             fetch('/api/check-low-stock', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ product: updatedProductObj })
+              body: JSON.stringify({ product: updatedProductObj, productId: product.id })
             }).catch(e => console.error("Low stock check error:", e));
           }
         }
