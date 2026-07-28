@@ -498,25 +498,26 @@ async function sendMessengerMessage(recipientId, textBody, pageId = null) {
   if (!token || !recipientId) return;
 
   const cleanBody = removeEmojis(textBody);
-  const targetPath = pageId || 'me';
-  const url = `https://graph.facebook.com/v21.0/${targetPath}/messages?access_token=${encodeURIComponent(token)}`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        recipient: { id: recipientId },
-        messaging_type: 'RESPONSE',
-        message: { text: cleanBody }
-      })
-    });
-    const data = await res.json();
-    console.log('Messenger/IG send result:', data);
-    return data;
-  } catch (err) {
-    console.error('Send Messenger/IG error:', err);
+  const pathsToTry = pageId ? [pageId, 'me'] : ['me'];
+
+  for (const p of pathsToTry) {
+    const url = `https://graph.facebook.com/v21.0/${p}/messages?access_token=${encodeURIComponent(token)}`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          messaging_type: 'RESPONSE',
+          message: { text: cleanBody }
+        })
+      });
+      const data = await res.json();
+      console.log(`Messenger/IG send result via /${p}/messages:`, data);
+      if (data && (data.message_id || data.recipient_id)) return data;
+    } catch (err) {
+      console.error(`Send Messenger/IG error via /${p}/messages:`, err);
+    }
   }
 }
 
@@ -2189,16 +2190,6 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     let body = req.body;
-    if (!body || (typeof body === 'object' && Object.keys(body).length === 0)) {
-      try {
-        const buffers = [];
-        for await (const chunk of req) {
-          buffers.push(chunk);
-        }
-        const rawText = Buffer.concat(buffers).toString('utf8');
-        if (rawText) body = JSON.parse(rawText);
-      } catch (e) {}
-    }
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch(e) {}
     }
