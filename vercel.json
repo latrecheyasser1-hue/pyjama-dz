@@ -13,19 +13,11 @@
   "crons": [
     {
       "path": "/api/cron-notifications?action=process_delayed_confirmations",
-      "schedule": "* * * * *"
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/check-low-stock",
-      "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/cron-notifications?action=weekly_hot_sale",
-      "schedule": "0 10 * * 1"
-    },
-    {
-      "path": "/api/cron-notifications?action=followup_14_days",
-      "schedule": "0 11 * * *"
+      "schedule": "0 10 * * *"
     }
   ]
 }
