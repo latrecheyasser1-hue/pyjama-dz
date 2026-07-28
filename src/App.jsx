@@ -5,9 +5,9 @@ import CookieConsent from './components/CookieConsent';
 import { supabase } from './lib/supabaseClient';
 import { processOrderDelivery } from './services/deliveryApi';
 
+import CashierPOS from './components/CashierPOS';
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const GrosStorefront = lazy(() => import('./components/GrosStorefront'));
-const CashierPOS = lazy(() => import('./components/CashierPOS'));
 const EmballagePOS = lazy(() => import('./components/EmballagePOS'));
 
 
@@ -73,7 +73,6 @@ export default function App() {
     const preloadTimer = setTimeout(() => {
       import('./components/AdminDashboard').catch(() => {});
       import('./components/GrosStorefront').catch(() => {});
-      import('./components/CashierPOS').catch(() => {});
       import('./components/EmballagePOS').catch(() => {});
     }, 500);
 
