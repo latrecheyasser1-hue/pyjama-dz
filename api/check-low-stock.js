@@ -376,10 +376,15 @@ export default async function handler(req, res) {
     let alertsSent = 0;
     const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
-    const livraisonPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456')) ? storeSettings.whatsappLivraisonManager : (storeSettings.whatsapp || '0771335039');
-    const boutiquePhone = (storeSettings.whatsappBoutiqueManager && !storeSettings.whatsappBoutiqueManager.includes('123456')) ? storeSettings.whatsappBoutiqueManager : (storeSettings.whatsapp || '0771335039');
+    const livraisonPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456'))
+      ? storeSettings.whatsappLivraisonManager
+      : null;
 
-    // A. Send individual messages for Stock Livraison items
+    const boutiquePhone = (storeSettings.whatsappBoutiqueManager && !storeSettings.whatsappBoutiqueManager.includes('123456'))
+      ? storeSettings.whatsappBoutiqueManager
+      : null;
+
+    // A. Send ONLY Stock Livraison items to Livraison Worker (if phone is set)
     if (livraisonPhone && livraisonLowItems.length > 0) {
       const itemsToAlert = livraisonLowItems.slice(0, 15);
       const tasks = itemsToAlert.map(async (item) => {
@@ -390,7 +395,7 @@ export default async function handler(req, res) {
         const resVal = await sendWhatsAppMessage(livraisonPhone, alertMsg);
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
-          await saveStockAlertRecord(newMsgId, livraisonPhone, item.productId, item.colorIdx, item.size);
+          saveStockAlertRecord(newMsgId, livraisonPhone, item.productId, item.colorIdx, item.size).catch(() => {});
           return true;
         }
         return false;
@@ -399,19 +404,18 @@ export default async function handler(req, res) {
       alertsSent += results.filter(r => r.status === 'fulfilled' && r.value === true).length;
     }
 
-    // B. Send individual messages for Stock Hanout (Boutique) items
-    const targetBoutiquePhone = boutiquePhone || livraisonPhone;
-    if (targetBoutiquePhone && hanoutLowItems.length > 0) {
+    // B. Send ONLY Stock Hanout (Boutique) items to Boutique Worker (if phone is set)
+    if (boutiquePhone && hanoutLowItems.length > 0) {
       const itemsToAlert = hanoutLowItems.slice(0, 15);
       const tasks = itemsToAlert.map(async (item) => {
         const alertMsg = item.qty === 0
           ? `🛑 *تنبيه نفاد المخزون بالكامل (سطوك المحل)* 🛑\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
           : `⚠️ *تنبيه مخزون منخفض (سطوك المحل)* ⚠️\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• الكمية المتبقية: ${item.qty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
         
-        const resVal = await sendWhatsAppMessage(targetBoutiquePhone, alertMsg);
+        const resVal = await sendWhatsAppMessage(boutiquePhone, alertMsg);
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
-          await saveStockAlertRecord(newMsgId, targetBoutiquePhone, item.productId, item.colorIdx, item.size);
+          saveStockAlertRecord(newMsgId, boutiquePhone, item.productId, item.colorIdx, item.size).catch(() => {});
           return true;
         }
         return false;
