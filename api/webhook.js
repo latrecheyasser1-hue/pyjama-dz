@@ -10,19 +10,13 @@ let cachedToken = null;
 let lastTokenFetch = 0;
 
 async function getMetaAccessToken() {
-  const now = Date.now();
-  if (cachedToken && (now - lastTokenFetch < 5 * 60 * 1000)) {
-    return cachedToken;
-  }
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.meta_access_token`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const data = await res.json();
     if (Array.isArray(data) && data[0] && data[0].value && data[0].value.length > 20) {
-      cachedToken = data[0].value.trim();
-      lastTokenFetch = now;
-      return cachedToken;
+      return data[0].value.trim();
     }
   } catch (err) {
     console.error('Error fetching token from Supabase:', err);
