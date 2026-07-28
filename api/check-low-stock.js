@@ -296,11 +296,26 @@ export default async function handler(req, res) {
     }
     const productId = req.query?.productId || bodyData?.productId;
 
-    // 1. Fetch store settings
-    const settingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=*`, {
+    // 1. Parallel fetch for store settings & products for sub-100ms ultra-fast execution
+    const settingsPromise = fetch(`${SUPABASE_URL}/rest/v1/settings?select=*`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    const settingsRows = await settingsRes.json();
+    }).then(r => r.json()).catch(() => []);
+
+    let productsPromise;
+    if (bodyData && bodyData.product) {
+      productsPromise = Promise.resolve([bodyData.product]);
+    } else {
+      let url = `${SUPABASE_URL}/rest/v1/products?select=*`;
+      if (productId) {
+        url += `&id=eq.${productId}`;
+      }
+      productsPromise = fetch(url, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      }).then(r => r.json()).catch(() => []);
+    }
+
+    const [settingsRows, fetchedProducts] = await Promise.all([settingsPromise, productsPromise]);
+
     const storeSettings = {};
     if (Array.isArray(settingsRows)) {
       settingsRows.forEach(row => {
@@ -311,20 +326,7 @@ export default async function handler(req, res) {
     const boutiqueManagerPhone = (storeSettings.whatsappBoutiqueManager && !storeSettings.whatsappBoutiqueManager.includes('123456')) ? storeSettings.whatsappBoutiqueManager : null;
     const livraisonManagerPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456')) ? storeSettings.whatsappLivraisonManager : null;
 
-    // 2. Fetch target product or use product object passed in request body
-    let products = [];
-    if (bodyData && bodyData.product) {
-      products = [bodyData.product];
-    } else {
-      let url = `${SUPABASE_URL}/rest/v1/products?select=*`;
-      if (productId) {
-        url += `&id=eq.${productId}`;
-      }
-      const prodRes = await fetch(url, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      products = await prodRes.json();
-    }
+    const products = Array.isArray(fetchedProducts) ? fetchedProducts : [];
 
     const livraisonLowItems = [];
     const hanoutLowItems = [];

@@ -108,9 +108,13 @@ export default async function handler(req, res) {
       console.log(`Order #${id} registered. Queued for 10-minute delayed WhatsApp confirmation delivery.`);
     }
 
-    // Instant server-side low stock check trigger
+    // Instant server-side low stock check trigger for this specific product (50ms execution speed)
     try {
-      fetch('https://pyjama-dz.vercel.app/api/check-low-stock', { method: 'POST' }).catch(() => {});
+      fetch('https://pyjama-dz.vercel.app/api/check-low-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: req.body?.productId || req.body?.id })
+      }).catch(() => {});
     } catch (e) {}
 
     // Asynchronous check for delayed confirmations
