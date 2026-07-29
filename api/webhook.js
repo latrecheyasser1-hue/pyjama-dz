@@ -779,8 +779,6 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
         if (entry.id && notifiedWaitlistIds.has(entry.id)) continue;
 
         const entryPhone = entry.whatsapp_number || entry.phone;
-        if (isManagerPhone(entryPhone)) continue;
-
         const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
         const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
         const last8 = cleanPhone.slice(-8);

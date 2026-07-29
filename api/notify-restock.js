@@ -306,7 +306,6 @@ export default async function handler(req, res) {
       }
 
       const entryPhone = entry.whatsapp_number || entry.phone;
-      if (isManagerPhone(entryPhone)) continue;
       const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
       const waPhone = formatWhatsAppPhone(entryPhone);
       const last8 = cleanPhone.slice(-8);
