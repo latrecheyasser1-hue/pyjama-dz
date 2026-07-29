@@ -1949,25 +1949,9 @@ async function processIncomingPayload(body) {
                   } catch (e) {}
                 }
 
-                // 2. Check alertKey-level resolution (if current stock > 5 OR isResolved is true)
-                try {
-                  const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}&select=value`, {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                  });
-                  const stateRows = await stateRes.json();
-                  if (Array.isArray(stateRows) && stateRows[0]?.value) {
-                    const parsedState = typeof stateRows[0].value === 'string' ? JSON.parse(stateRows[0].value) : stateRows[0].value;
-                    if (parsedState.isResolved || currentQty > 5) {
-                      isAlreadyResolved = true;
-                    }
-                  } else if (currentQty > 5) {
-                    isAlreadyResolved = true;
-                  }
-                } catch (e) {}
-
                 if (isAlreadyResolved) {
                   const prodTitle = product ? product.title : 'المنتج';
-                  await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nℹ️ *صايي، تم إعادة تزويد هذا المخزون سابقاً!*\n• المنتج: ${prodTitle}\n• المقاس: ${size}\n• المخزون الحالي بالمحل/التوصيل: *${currentQty} حبة*.\n\nلم يتم تكرار الإضافة لتفادي دبلجة الكميات بالخطأ. 🌸`);
+                  await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nℹ️ *صايي، تم إعادة تزويد هذا التنبيه المحدد سابقاً!*\n• المنتج: ${prodTitle}\n• المقاس: ${size}\n• المخزون الحالي بالمحل/التوصيل: *${currentQty} حبة*.\n\nلم يتم تكرار الإضافة لتفادي دبلجة الكميات بالخطأ. 🌸`);
                   continue;
                 }
 
@@ -2005,19 +1989,13 @@ async function processIncomingPayload(body) {
                       });
                     }
 
-                    // Mark global alertState as isResolved: true
-                    await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-                      method: 'POST',
+                    // Clear alert_state lock key because stock is now replenished (> 5 or updated)
+                    await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}`, {
+                      method: 'DELETE',
                       headers: {
                         'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'resolution=merge-duplicates'
-                      },
-                      body: JSON.stringify({
-                        key: `alert_state_${alertKey}`,
-                        value: JSON.stringify({ qty: newQty, timestamp: Date.now(), isResolved: true })
-                      })
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                      }
                     });
 
                     await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
