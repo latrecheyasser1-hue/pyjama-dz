@@ -341,9 +341,19 @@ export default function App() {
           // Strictly separate Hanoot (boutique__) vs Gros (gros__) vs Delivery (pure category) stocks
           let targetProducts = [];
 
-          // 1. If item.productId is provided, match THAT EXACT product exclusively
+          // 1. If item.productId is provided, match THAT EXACT product exclusively adhering to order category
           if (item.productId) {
-            const exactProd = workingProducts.find(p => String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase());
+            const exactProd = workingProducts.find(p => {
+              if (String(p.id).trim().toLowerCase() !== String(item.productId).trim().toLowerCase()) return false;
+              const cat = String(p.category || '').trim();
+              const isBoutiqueProd = cat.startsWith('boutique__') || cat === '__boutique__';
+              const isGrosProd = cat.startsWith('gros__') || cat.startsWith('super_gros__');
+
+              if (isPosOrder && !isBoutiqueProd) return false;
+              if (isGrosOrder && !isGrosProd) return false;
+              if (!isPosOrder && !isGrosOrder && (isBoutiqueProd || isGrosProd)) return false;
+              return true;
+            });
             if (exactProd) targetProducts = [exactProd];
           }
 

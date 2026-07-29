@@ -282,9 +282,16 @@ export default async function handler(req, res) {
     const [settingsRows, fetchedProducts] = await Promise.all([settingsPromise, productsPromise]);
 
     const storeSettings = {};
+    const alertStatesMap = new Map();
     if (Array.isArray(settingsRows)) {
       settingsRows.forEach(row => {
         storeSettings[row.key] = row.value;
+        if (row.key && row.key.startsWith('alert_state_') && row.value) {
+          try {
+            const val = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+            alertStatesMap.set(row.key.replace('alert_state_', ''), val);
+          } catch (e) {}
+        }
       });
     }
 
@@ -321,16 +328,7 @@ export default async function handler(req, res) {
 
             if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
               const alertKey = `${product.id}_${cIdx}_${size}`;
-              let lastAlertState = null;
-              try {
-                const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}&select=value`, {
-                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                });
-                const rows = await stateRes.json();
-                if (Array.isArray(rows) && rows[0]?.value) {
-                  lastAlertState = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
-                }
-              } catch (e) {}
+              const lastAlertState = alertStatesMap.get(alertKey);
 
               let shouldSendAlert = false;
               if (numQty === 0) {
