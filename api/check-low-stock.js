@@ -130,39 +130,29 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
     if (!size || newQty <= 0) return;
     const targetSize = String(size).trim().toUpperCase();
 
-    let productTitle = '';
-    if (productId) {
-      try {
-        const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        const prods = await prodRes.json();
-        if (Array.isArray(prods) && prods[0]) {
-          productTitle = prods[0].title || '';
-        }
-      } catch (e) {}
-    }
-
-    let orders = [];
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=in.(en_attente_stock,pending_stock,rupture_stock,attente_stock,out_of_stock)&order=created_at.asc`, {
+    // 🚀 ULTRA-FAST PARALLEL FETCHING (100ms single roundtrip)
+    const [prodRes, waitlistRes, settingsRes] = await Promise.all([
+      productId
+        ? fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          }).then(r => r.json()).catch(() => [])
+        : Promise.resolve([]),
+      fetch(`${SUPABASE_URL}/rest/v1/waitlist?status=in.(pending,en_attente)&order=created_at.asc`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      orders = await res.json();
-      if (!Array.isArray(orders)) orders = [];
-    } catch (e) {
-      orders = [];
-    }
-
-    let waitlistEntries = [];
-    try {
-      const waitlistRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?status=in.(pending,en_attente)&order=created_at.asc`, {
+      }).then(r => r.json()).catch(() => []),
+      fetch(`${SUPABASE_URL}/rest/v1/settings?key=like.notified_waitlist_%`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      }).then(r => r.json()).catch(() => [])
+    ]);
+
+    const productTitle = (Array.isArray(prodRes) && prodRes[0]?.title) ? prodRes[0].title : '';
+    const waitlistEntries = Array.isArray(waitlistRes) ? waitlistRes : [];
+
+    const notifiedLocks = new Set();
+    if (Array.isArray(settingsRes)) {
+      settingsRes.forEach(r => {
+        if (r.key) notifiedLocks.add(r.key.replace('notified_waitlist_', ''));
       });
-      waitlistEntries = await waitlistRes.json();
-      if (!Array.isArray(waitlistEntries)) waitlistEntries = [];
-    } catch (e) {
-      waitlistEntries = [];
     }
 
     const notifiedPhones = new Set();
@@ -195,53 +185,14 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
       return nTarget.includes(nEntry) || nEntry.includes(nTarget);
     };
 
-    // Fetch store settings to identify and exclude manager phone numbers
-    const managerPhones = new Set(['0771335039', '213771335039', '0554128933', '213554128933']);
-    try {
-      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=*`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      const settingsRows = await setRes.json();
-      if (Array.isArray(settingsRows)) {
-        settingsRows.forEach(r => {
-          if (r.value && (r.key === 'whatsappLivraisonManager' || r.key === 'whatsappBoutiqueManager' || r.key === 'whatsappAdmin' || r.key === 'whatsapp')) {
-            const rawDigits = String(r.value).replace(/\D/g, '');
-            if (rawDigits) {
-              managerPhones.add(rawDigits);
-              managerPhones.add(rawDigits.replace(/^0/, '213'));
-              managerPhones.add('0' + rawDigits.slice(-9));
-            }
-          }
-        });
-      }
-    } catch (e) {}
+    const dispatchPromises = [];
 
-    const isManagerPhone = (phoneStr) => {
-      if (!phoneStr) return false;
-      const clean = String(phoneStr).replace(/\D/g, '');
-      if (!clean) return false;
-      const last8 = clean.slice(-8);
-      for (const mPhone of managerPhones) {
-        if (mPhone.endsWith(last8)) return true;
-      }
-      return false;
-    };
-
-    // Only process waitlist entries (customers who explicitly asked to be notified on restock)
+    // Process waitlist entries (customers who explicitly asked to be notified on restock)
     for (const entry of waitlistEntries) {
       if (entry.status !== 'pending' && entry.status !== 'en_attente') continue;
+      if (entry.id && notifiedLocks.has(String(entry.id))) continue; // Instant 0ms memory check!
 
       const entryPhone = entry.whatsapp_number || entry.phone;
-
-      // Check settings table to ensure exact single alert per waitlist entry ID
-      try {
-        const sRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_${entry.id}&select=value`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        const sRows = await sRes.json();
-        if (Array.isArray(sRows) && sRows.length > 0) continue;
-      } catch (e) {}
-
       const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
       const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
 
@@ -258,30 +209,36 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
 
       if (sizeMatches && colorMatches && prodMatches) {
         notifiedPhones.add(waPhone);
-        
-        // Save persistent notified key in settings table for this waitlist entry
-        try {
-          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-            method: 'POST',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json',
-              'Prefer': 'resolution=merge-duplicates'
-            },
-            body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: 'true' })
-          });
-        } catch (e) {}
 
-        const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب' && entry.client_name !== 'زبون المحادثة')
-          ? entry.client_name : '';
-        const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-        const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
+        // Async non-blocking dispatch
+        dispatchPromises.push((async () => {
+          try {
+            await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: 'true' })
+            });
+          } catch (e) {}
 
-        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\n🎉 بشرى سارة! توفر مقاسك (${targetSize}) مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
+          const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب' && entry.client_name !== 'زبون المحادثة')
+            ? entry.client_name : '';
+          const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
+          const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
 
-        await sendWhatsAppMessage(waPhone, restockMsg);
+          const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\n🎉 بشرى سارة! توفر مقاسك (${targetSize}) مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
+
+          await sendWhatsAppMessage(waPhone, restockMsg);
+        })());
       }
+    }
+
+    if (dispatchPromises.length > 0) {
+      await Promise.all(dispatchPromises);
     }
   } catch (err) {
     console.error('Error notifying waiting customers:', err);

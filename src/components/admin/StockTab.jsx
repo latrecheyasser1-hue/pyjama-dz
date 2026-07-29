@@ -512,7 +512,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       } catch (err) {
         console.warn('Restock notify fetch failed:', err);
       }
-    }, 400);
+    }, 20);
   };
 
   const handleSubmit = (e) => {
