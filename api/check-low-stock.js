@@ -223,7 +223,6 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
       if (entry.status !== 'pending' && entry.status !== 'en_attente') continue;
 
       const entryPhone = entry.whatsapp_number || entry.phone;
-      if (isManagerPhone(entryPhone)) continue;
 
       // Check settings table to ensure exact single alert per waitlist entry ID
       try {
