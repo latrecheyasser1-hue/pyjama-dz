@@ -104,8 +104,28 @@ export default async function handler(req, res) {
       });
       metaData = await apiRes.json();
     } else {
-      // Order confirmations are queued for 10-MINUTE DELAY
-      console.log(`Order #${id} registered. Queued for 10-minute delayed WhatsApp confirmation delivery.`);
+      // Order confirmations are INSTANT (فَمْ فَمْ)
+      orderNum = await getSequentialOrderNum(id);
+      messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك عبر الموقع بنجاح:\n\n• رقم الطلب: #${orderNum}\n• المنتجات: ${cleanProduct}\n• الولاية: ${wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* (أو *إلغاء*) لتأكيد طلبك وتجهيز شحنتك.`;
+
+      const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
+      const messageBody = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: formattedPhone,
+        type: 'text',
+        text: { preview_url: false, body: messageText }
+      };
+
+      const apiRes = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(messageBody)
+      });
+      metaData = await apiRes.json();
     }
 
     // Instant server-side low stock check trigger for this specific product (50ms execution speed)

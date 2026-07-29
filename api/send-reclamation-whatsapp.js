@@ -102,7 +102,7 @@ export default async function handler(req, res) {
       ? ` ${clientName.trim()}`
       : '';
 
-    // Save to Supabase settings table (reclamations array) queued for 10-minute delayed WhatsApp delivery
+    // Save to Supabase settings table (reclamations array)
     try {
       const curSettingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations&select=*`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
         whatsappNumber: whatsappNumber || waPhone,
         message: message ? message.trim() : '',
         status: 'nouvelle',
-        whatsapp_sent: false,
+        whatsapp_sent: true,
         createdAt: new Date().toISOString()
       };
 
@@ -142,12 +142,32 @@ export default async function handler(req, res) {
       console.error('Error saving reclamation in send-reclamation-whatsapp API:', e);
     }
 
-    // Trigger asynchronous check for delayed confirmations
+    // Send INSTANT (فَمْ فَمْ) WhatsApp response to client
+    let metaRes = null;
     try {
-      fetch('https://pyjama-dz.vercel.app/api/cron-notifications?action=process_delayed_confirmations').catch(() => {});
-    } catch(e) {}
+      const replyMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك جزيلاً على تواصلك معنا وعلى مشاركتنا ملاحظاتك وتقييمك القيّم. 🙏\nتأكد أن رأيك ورضاك هما أولويتنا دائماً، وسنعمل باستمرار على تقديم الأفضل والأحسن لخدمتك على أكمل وجه بإذن الله. ✨❤️`;
 
-    return res.status(200).json({ success: true, delayed: true, message: 'Reclamation queued for 10-minute delayed WhatsApp delivery' });
+      const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
+      const apiRes = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: waPhone,
+          type: 'text',
+          text: { preview_url: false, body: replyMsg }
+        })
+      });
+      metaRes = await apiRes.json();
+    } catch (e) {
+      console.error('Error sending instant reclamation WhatsApp reply:', e);
+    }
+
+    return res.status(200).json({ success: true, instant: true, metaResponse: metaRes });
   } catch (err) {
     console.error('Send reclamation whatsapp error:', err);
     return res.status(500).json({ error: err.message });
