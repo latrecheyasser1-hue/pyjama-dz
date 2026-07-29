@@ -1537,7 +1537,88 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
         body: JSON.stringify({ status: 'notified_sent' })
       });
 
-      const redirectWebsiteMsg = `أهلاً وasync function processOrderCancellationIntent(fromPhone, messageText) {
+      const redirectWebsiteMsg = `أهلاً وسهلاً بك! 🌸\nبشرى سارة! توفر هاد الموديل (${entryTitle} ${entryColor ? entryColor + ' ' : ''}${entrySize ? '(' + entrySize + ')' : ''}) مجدداً في الستوك!\n\nلتأكيد واختيار الطلبية فوراً قبل نفاد الكمية، يرجى الدخول والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nتفضل بالدخول واختيار المقاس واللون وسنعمل على شحنها لك فوراً! ✨`;
+      await sendWhatsAppMessage(fromPhone, redirectWebsiteMsg);
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error('Error in processRestockConfirmationIntent:', err);
+  }
+  return false;
+}
+
+async function restoreStockForOrder(order, products = []) {
+  try {
+    if (!order || !products || products.length === 0) return false;
+    
+    const itemsToRestore = Array.isArray(order.items) && order.items.length > 0
+      ? order.items
+      : [{
+          product: order.product,
+          color: order.color,
+          size: order.size,
+          qty: order.quantity || order.qty || 1
+        }];
+
+    for (const item of itemsToRestore) {
+      const itemTitle = normalizeText(item.product || item.title || order.product || '').toLowerCase();
+      const matchedProd = products.find(p => {
+        const pNorm = normalizeText(p.title || '').toLowerCase();
+        return pNorm && itemTitle.includes(pNorm);
+      }) || products[0];
+
+      if (!matchedProd || !Array.isArray(matchedProd.colorVariants) || matchedProd.colorVariants.length === 0) {
+        continue;
+      }
+
+      const updatedVariants = [...matchedProd.colorVariants];
+      let vIdx = updatedVariants.findIndex(v => {
+        const vName = normalizeText(v.name || v.color || '').toLowerCase();
+        const targetColor = normalizeText(item.color || order.color || '').toLowerCase();
+        return targetColor && (vName.includes(targetColor) || targetColor.includes(vName));
+      });
+
+      if (vIdx === -1) vIdx = 0;
+
+      const targetVariant = updatedVariants[vIdx];
+      if (targetVariant && targetVariant.stock) {
+        const itemSize = item.size || order.size || '';
+        const stockKeys = Object.keys(targetVariant.stock);
+        const targetSizeKey = stockKeys.find(k => k.trim().toLowerCase() === String(itemSize || '').trim().toLowerCase()) || stockKeys[0];
+
+        if (targetSizeKey && targetVariant.stock[targetSizeKey] !== undefined) {
+          const currentQty = Number(targetVariant.stock[targetSizeKey] || 0);
+          const restoreQty = Number(item.qty || item.quantity || 1);
+          const newQty = currentQty + restoreQty;
+
+          updatedVariants[vIdx] = {
+            ...targetVariant,
+            stock: { ...targetVariant.stock, [targetSizeKey]: newQty }
+          };
+
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${matchedProd.id}`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ colorVariants: updatedVariants })
+          });
+          console.log(`Restored stock for ${matchedProd.title} (${targetSizeKey}): ${currentQty} -> ${newQty}, Status: ${res.status}`);
+        }
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error("Error restoring stock for order:", err);
+  }
+  return false;
+}
+
+async function processOrderCancellationIntent(fromPhone, messageText) {
   try {
     if (!messageText) return false;
     const rawLower = String(messageText).toLowerCase().trim();
