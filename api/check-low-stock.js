@@ -416,13 +416,21 @@ export default async function handler(req, res) {
     let alertsSent = 0;
     const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
-    const livraisonPhone = (storeSettings.whatsappLivraisonManager && String(storeSettings.whatsappLivraisonManager).trim() && !storeSettings.whatsappLivraisonManager.includes('123456'))
+    const mainStorePhone = (storeSettings.whatsapp && String(storeSettings.whatsapp).trim() && !storeSettings.whatsapp.includes('123456'))
+      ? String(storeSettings.whatsapp).trim()
+      : null;
+
+    const rawLivraisonPhone = (storeSettings.whatsappLivraisonManager && String(storeSettings.whatsappLivraisonManager).trim() && !storeSettings.whatsappLivraisonManager.includes('123456'))
       ? String(storeSettings.whatsappLivraisonManager).trim()
       : null;
 
-    const boutiquePhone = (storeSettings.whatsappBoutiqueManager && String(storeSettings.whatsappBoutiqueManager).trim() && !storeSettings.whatsappBoutiqueManager.includes('123456'))
+    const rawBoutiquePhone = (storeSettings.whatsappBoutiqueManager && String(storeSettings.whatsappBoutiqueManager).trim() && !storeSettings.whatsappBoutiqueManager.includes('123456'))
       ? String(storeSettings.whatsappBoutiqueManager).trim()
       : null;
+
+    // Smart fallback: If user set only one manager phone, send all store low-stock alerts to that active phone
+    let boutiquePhone = rawBoutiquePhone || rawLivraisonPhone || mainStorePhone;
+    let livraisonPhone = rawLivraisonPhone || rawBoutiquePhone || mainStorePhone;
 
     // Helper to send individual alerts sequentially for a given list of items to a target phone
     global._activeSendingLocks = global._activeSendingLocks || new Set();
