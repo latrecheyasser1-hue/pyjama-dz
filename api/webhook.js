@@ -1796,17 +1796,13 @@ async function processIncomingPayload(body) {
               let refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
               
               if (!refMatch && message.context?.id) {
-                const senderLast9 = fromPhone.replace(/\D/g, '').slice(-9);
-                const managerPhones = [
-                  storeSettings.whatsappBoutiqueManager,
-                  storeSettings.whatsappLivraisonManager
-                ].filter(Boolean).map(p => String(p).replace(/\D/g, '').slice(-9));
-
-                const isManager = managerPhones.length > 0 && managerPhones.some(mp => mp && senderLast9.endsWith(mp));
-                if (isManager) {
-                  const contextAlert = await getStockAlertByMsgId(message.context.id);
-                  if (contextAlert) {
-                    refMatch = [null, contextAlert.productId, String(contextAlert.colorIdx), contextAlert.size];
+                const contextAlert = await getStockAlertByMsgId(message.context.id);
+                if (contextAlert) {
+                  refMatch = [null, contextAlert.productId, String(contextAlert.colorIdx), contextAlert.size];
+                } else {
+                  const latestAlert = await getLatestStockAlertForPhone(fromPhone);
+                  if (latestAlert) {
+                    refMatch = [null, latestAlert.productId, String(latestAlert.colorIdx), latestAlert.size];
                   }
                 }
               }
@@ -1817,18 +1813,19 @@ async function processIncomingPayload(body) {
                 const size = refMatch[3];
                 const alertKey = `${productId}_${colorIdx}_${size}`;
 
-                // Check if this item's alerts were ALREADY resolved to prevent duplicate restocking
+                // Check if THIS SPECIFIC WHATSAPP ALERT MESSAGE was ALREADY resolved to prevent duplicate restocking
                 let isAlreadyResolved = false;
-                try {
-                  const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}&select=value`, {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                  });
-                  const rows = await stateRes.json();
-                  if (Array.isArray(rows) && rows[0]?.value) {
-                    const st = JSON.parse(rows[0].value);
-                    if (st.isResolved) isAlreadyResolved = true;
-                  }
-                } catch (e) {}
+                if (message.context?.id) {
+                  try {
+                    const msgRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_resolved_${message.context.id}&select=value`, {
+                      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                    });
+                    const msgRows = await msgRes.json();
+                    if (Array.isArray(msgRows) && msgRows[0]?.value) {
+                      isAlreadyResolved = true;
+                    }
+                  } catch (e) {}
+                }
 
                 if (isAlreadyResolved) {
                   await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n⚠️ *تنبيه: تم تحديث هذا المخزون سابقاً!*\nلم يتم تكرار الإضافة لتفادي الخطأ.`);
@@ -1859,7 +1856,23 @@ async function processIncomingPayload(body) {
                       stock: { ...(updatedVariants[colorIdx].stock || {}), [size]: newQty }
                     };
 
-                    // Mark alert state as RESOLVED so subsequent replies to old messages are blocked
+                    // Mark THIS SPECIFIC WHATSAPP ALERT MESSAGE as RESOLVED so replying to it again is blocked
+                    if (message.context?.id) {
+                      await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+                        method: 'POST',
+                        headers: {
+                          'apikey': SUPABASE_KEY,
+                          'Authorization': `Bearer ${SUPABASE_KEY}`,
+                          'Content-Type': 'application/json',
+                          'Prefer': 'resolution=merge-duplicates'
+                        },
+                        body: JSON.stringify({
+                          key: `alert_resolved_${message.context.id}`,
+                          value: JSON.stringify({ resolvedAt: Date.now(), addedQty, newQty })
+                        })
+                      });
+                    }
+
                     await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
                       method: 'POST',
                       headers: {
@@ -1870,7 +1883,7 @@ async function processIncomingPayload(body) {
                       },
                       body: JSON.stringify({
                         key: `alert_state_${alertKey}`,
-                        value: JSON.stringify({ qty: newQty, timestamp: Date.now(), isResolved: true })
+                        value: JSON.stringify({ qty: newQty, timestamp: Date.now(), isResolved: false })
                       })
                     });
 
