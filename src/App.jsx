@@ -488,17 +488,14 @@ export default function App() {
 
               await supabase.from('products').update(safePayload).eq('id', product.id);
             }
-
-            fetch('/api/check-low-stock', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ product: { ...product, ...safePayload }, productId: product.id })
-            }).catch(e => console.error("Low stock check error:", e));
           }
         }
 
         setProducts([...workingProducts]);
         try { localStorage.setItem('pyjama_products_cache', JSON.stringify(workingProducts)); } catch(e) {}
+
+        // Trigger single low stock check after order stock deduction completes
+        fetch('/api/check-low-stock').catch(e => console.error("Low stock check error:", e));
       }
       return insertedOrder;
     } catch (err) {

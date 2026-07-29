@@ -396,11 +396,16 @@ export default async function handler(req, res) {
       : null;
 
     // Helper to send individual alerts sequentially for a given list of items to a target phone
+    global._activeSendingLocks = global._activeSendingLocks || new Set();
+
     async function sendIndividualAlerts(itemsList, targetPhone, stockTypeTitle) {
       if (!targetPhone || !Array.isArray(itemsList) || itemsList.length === 0) return 0;
 
       let count = 0;
       for (const item of itemsList) {
+        if (global._activeSendingLocks.has(item.alertKey)) continue;
+        global._activeSendingLocks.add(item.alertKey);
+
         const alertStateVal = JSON.stringify({ 
           qty: item.qty, 
           timestamp: Date.now(), 
@@ -421,6 +426,8 @@ export default async function handler(req, res) {
           : `⚠️ *تنبيه مخزون منخفض (${stockTypeTitle})* ⚠️\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• الكمية المتبقية: ${item.qty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
 
         const resVal = await sendWhatsAppMessage(targetPhone, alertMsg, item.imageUrl);
+        global._activeSendingLocks.delete(item.alertKey);
+
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           count++;
           const newMsgId = resVal.messages[0].id;
