@@ -316,6 +316,31 @@ export default async function handler(req, res) {
                                       String(variant.name || variant.color || '').toLowerCase().includes('محل');
 
             if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
+              const alertKey = `${product.id}_${cIdx}_${size}`;
+              let lastAlertState = null;
+              try {
+                const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}&select=value`, {
+                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                const rows = await stateRes.json();
+                if (Array.isArray(rows) && rows[0]?.value) {
+                  lastAlertState = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+                }
+              } catch (e) {}
+
+              let shouldSendAlert = false;
+              if (numQty === 0) {
+                if (!lastAlertState || lastAlertState.alertType !== 'zero') {
+                  shouldSendAlert = true;
+                }
+              } else { // 1 <= numQty <= 5
+                if (!lastAlertState || (lastAlertState.alertType !== 'low' && lastAlertState.alertType !== 'zero')) {
+                  shouldSendAlert = true;
+                }
+              }
+
+              if (!shouldSendAlert) continue; // 🛑 ALREADY SENT ALERT FOR THIS STATE!
+
               const prodImgs = product.images || [];
               const rawImg = Array.isArray(prodImgs) && prodImgs[0] ? prodImgs[0] : (typeof prodImgs === 'string' ? prodImgs : null);
               
@@ -330,7 +355,8 @@ export default async function handler(req, res) {
                 color: variant.name || variant.color || 'الافتراضي',
                 size: size,
                 qty: numQty,
-                imageUrl: imageUrl
+                imageUrl: imageUrl,
+                alertKey: alertKey
               };
 
               if (isBoutiqueVariant) {
@@ -366,6 +392,24 @@ export default async function handler(req, res) {
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
           saveStockAlertRecord(newMsgId, livraisonPhone, item.productId, item.colorIdx, item.size).catch(() => {});
+
+          const alertStateVal = JSON.stringify({ 
+            qty: item.qty, 
+            timestamp: Date.now(), 
+            alertType: item.qty === 0 ? 'zero' : 'low',
+            isResolved: false 
+          });
+          fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${item.alertKey}`, {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: alertStateVal })
+          }).catch(() => {});
+          fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ key: `alert_state_${item.alertKey}`, value: alertStateVal })
+          }).catch(() => {});
+
           return true;
         }
         return false;
@@ -386,6 +430,24 @@ export default async function handler(req, res) {
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
           saveStockAlertRecord(newMsgId, boutiquePhone, item.productId, item.colorIdx, item.size).catch(() => {});
+
+          const alertStateVal = JSON.stringify({ 
+            qty: item.qty, 
+            timestamp: Date.now(), 
+            alertType: item.qty === 0 ? 'zero' : 'low',
+            isResolved: false 
+          });
+          fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${item.alertKey}`, {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: alertStateVal })
+          }).catch(() => {});
+          fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ key: `alert_state_${item.alertKey}`, value: alertStateVal })
+          }).catch(() => {});
+
           return true;
         }
         return false;
