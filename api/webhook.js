@@ -1300,11 +1300,21 @@ async function checkAndAlertLowStock(product, storeSettings) {
 
     for (const [size, qty] of Object.entries(variant.stock)) {
       const numQty = parseInt(qty);
-      if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
-        const alertKey = `${product.id}_${cIdx}_${size}`;
-        const now = Date.now();
+      const alertKey = `${product.id}_${cIdx}_${size}`;
+      const now = Date.now();
 
-        // 1. Fetch last alert state
+      if (!isNaN(numQty) && numQty > 5) {
+        // Stock is healthy again -> Clear lock state
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}`, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+        } catch (e) {}
+        continue;
+      }
+
+      if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
         let lastAlertState = null;
         try {
           const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}&select=value`, {
@@ -1312,15 +1322,23 @@ async function checkAndAlertLowStock(product, storeSettings) {
           });
           const rows = await stateRes.json();
           if (Array.isArray(rows) && rows[0]?.value) {
-            lastAlertState = JSON.parse(rows[0].value);
+            lastAlertState = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
           }
         } catch (e) {}
 
-        const isQtyChanged = !lastAlertState || lastAlertState.qty !== numQty;
-        const is30MinElapsed = lastAlertState && (now - (lastAlertState.timestamp || 0) >= 30 * 60 * 1000);
+        // Send alert ONLY ONCE when entering <= 5 zone, or ONCE when hitting 0
+        let shouldSendAlert = false;
+        if (numQty === 0) {
+          if (!lastAlertState || lastAlertState.alertType !== 'zero') {
+            shouldSendAlert = true;
+          }
+        } else { // 1 <= numQty <= 5
+          if (!lastAlertState || (lastAlertState.alertType !== 'low' && lastAlertState.alertType !== 'zero')) {
+            shouldSendAlert = true;
+          }
+        }
 
-        // Send alert if quantity changed (e.g. dropped to <= 5 or 0) OR 30 minutes elapsed
-        if (isQtyChanged || is30MinElapsed) {
+        if (shouldSendAlert) {
           const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
           const alertMsg = numQty === 0 
             ? `🛑 *تنبيه نفاد المخزون بالكامل (${locationLabel})* 🛑\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}`
@@ -1330,8 +1348,13 @@ async function checkAndAlertLowStock(product, storeSettings) {
           if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
             await saveStockAlertRecord(alertRes.messages[0].id, targetPhone, product.id, cIdx, size);
 
-            // Upsert new alert state in Supabase settings
-            const alertStateVal = JSON.stringify({ qty: numQty, timestamp: now, isResolved: false });
+            const alertStateVal = JSON.stringify({ 
+              qty: numQty, 
+              timestamp: now, 
+              alertType: numQty === 0 ? 'zero' : 'low',
+              isResolved: false 
+            });
+
             await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}`, {
               method: 'PATCH',
               headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
