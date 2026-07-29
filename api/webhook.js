@@ -1665,6 +1665,8 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
         const oRows = await orderRes.json();
         if (Array.isArray(oRows) && oRows[0]) {
           const targetOrder = oRows[0];
+          const previousStatus = targetOrder.status;
+
           await updateOrderStatusAndArchive(targetOrder.id, 'annulee');
           const products = await getAllProducts();
           await restoreStockForOrder(targetOrder, products);
@@ -1684,6 +1686,21 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
 
           const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}.\n\n✅ *تم إلغاء طلبك رقم #${orderNumStr} بنجاح وإرجاع المنتجات إلى المخزن.*\nنتمنى أن نخدمك مجدداً في المرات القادمة إن شاء الله! 🌸`;
           await sendWhatsAppMessage(fromPhone, confirmMsg);
+
+          // IF THE ORDER WAS CONFIRMED PRIOR TO CANCELLATION -> Notify Packaging Manager immediately!
+          if (previousStatus === 'confirmee' || previousStatus === 'confirme') {
+            try {
+              const storeSettings = await getStoreSettings();
+              const emballagePhone = storeSettings.whatsappEmballageManager || storeSettings.whatsappLivraisonManager || storeSettings.whatsapp || '0771335039';
+
+              const managerAlertMsg = `متجر Pyjama DZ - تنبيه عاجل للتغليف ⚠️\nالطلبية رقم: #${orderNumStr}${cleanName ? ' (باسم ' + cleanName + ')' : ''}\nتم إلغاؤها من الزبون للتو بعد أن كانت مؤكدة!\n\n🚨 يرجى عدم إرسالها أو تجهيز شحنتها`;
+
+              await sendWhatsAppMessage(emballagePhone, managerAlertMsg);
+            } catch (e) {
+              console.error('Error sending packaging manager alert for cancelled confirmed order:', e);
+            }
+          }
+
           return true;
         }
       } else if (isDeclineNo) {

@@ -22,6 +22,7 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   const [whatsapp, setWhatsapp] = useState(settings?.whatsapp || '0555123456');
   const [whatsappBoutiqueManager, setWhatsappBoutiqueManager] = useState(settings?.whatsappBoutiqueManager || '0555123456');
   const [whatsappLivraisonManager, setWhatsappLivraisonManager] = useState(settings?.whatsappLivraisonManager || '0555123456');
+  const [whatsappEmballageManager, setWhatsappEmballageManager] = useState(settings?.whatsappEmballageManager || '0771335039');
   const [phoneList, setPhoneList] = useState(() => parsePhones(settings?.phoneOrders));
   const [address, setAddress] = useState(settings?.address || 'Bab Ezzouar & Hydra, Alger');
   const [googleMapsUrl, setGoogleMapsUrl] = useState(settings?.googleMapsUrl || 'https://maps.google.com/?q=Bab+Ezzouar+Alger');
@@ -40,6 +41,7 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       if (settings.whatsapp !== undefined) setWhatsapp(settings.whatsapp);
       if (settings.whatsappBoutiqueManager !== undefined) setWhatsappBoutiqueManager(settings.whatsappBoutiqueManager);
       if (settings.whatsappLivraisonManager !== undefined) setWhatsappLivraisonManager(settings.whatsappLivraisonManager);
+      if (settings.whatsappEmballageManager !== undefined) setWhatsappEmballageManager(settings.whatsappEmballageManager);
       if (settings.phoneOrders !== undefined) setPhoneList(parsePhones(settings.phoneOrders));
       if (settings.address !== undefined) setAddress(settings.address);
       if (settings.googleMapsUrl !== undefined) setGoogleMapsUrl(settings.googleMapsUrl);
@@ -84,6 +86,7 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       whatsapp,
       whatsappBoutiqueManager,
       whatsappLivraisonManager,
+      whatsappEmballageManager,
       phoneOrders: finalPhones,
       address,
       storeName
@@ -140,48 +143,49 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
                 value={oldPinInput} 
                 onChange={(e) => setOldPinInput(e.target.value)} 
                 className="form-input" 
-                placeholder="Ex: 123456" 
+                placeholder="****" 
               />
             </div>
             <div className="form-group">
-              <label className="form-label">الرمز السري الجديد (Nouveau PIN 4-6 chiffres) *</label>
+              <label className="form-label">الرمز السري الجديد (Nouveau PIN) *</label>
               <input 
-                type="text" 
+                type="password" 
                 required 
                 value={newPinInput} 
                 onChange={(e) => setNewPinInput(e.target.value)} 
                 className="form-input" 
-                placeholder="Ex: 889900" 
+                placeholder="من 4 إلى 6 أرقام" 
               />
             </div>
             <div className="form-group">
-              <label className="form-label">تأكيد الرمز السري الجديد (Confirmation) *</label>
+              <label className="form-label">تأكيد الرمز السري الجديد (Confirmer PIN) *</label>
               <input 
-                type="text" 
+                type="password" 
                 required 
                 value={confirmPinInput} 
                 onChange={(e) => setConfirmPinInput(e.target.value)} 
                 className="form-input" 
-                placeholder="Ex: 889900" 
+                placeholder="أعد كتابة الرمز السري" 
               />
             </div>
 
             {pinMessage && (
-              <div style={{
-                padding: '12px',
-                borderRadius: '8px',
-                background: pinMessage.type === 'error' ? '#FFEBEE' : '#E8F5E9',
-                color: pinMessage.type === 'error' ? '#C62828' : '#2E7D32',
-                fontWeight: 700,
-                fontSize: '0.85rem'
+              <div style={{ 
+                padding: '12px', 
+                borderRadius: '8px', 
+                fontSize: '0.85rem', 
+                fontWeight: 700, 
+                background: pinMessage.type === 'error' ? '#FFEBEE' : '#E8F5E9', 
+                color: pinMessage.type === 'error' ? '#C62828' : '#2E7D32', 
+                border: `1px solid ${pinMessage.type === 'error' ? '#FFCDD2' : '#C8E6C9'}` 
               }}>
                 {pinMessage.text}
               </div>
             )}
 
             <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', padding: '12px' }}>
-              <Lock size={16} />
-              <span>تحديث وحفظ الرمز السري</span>
+              <Save size={16} />
+              <span>تحديث رمز الدخول السري</span>
             </button>
           </form>
         </div>
@@ -264,6 +268,10 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
                 <label className="form-label">📦 رقم مسؤول سطوك التوصيل (Livraison Stock Manager)</label>
                 <input type="text" value={whatsappLivraisonManager} onChange={(e) => setWhatsappLivraisonManager(e.target.value)} className="form-input" placeholder="0555654321" />
               </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">⚠️ رقم مسؤول التغليف لاستقبال تنبيهات الإلغاء (Emballage Alert Manager)</label>
+              <input type="text" value={whatsappEmballageManager} onChange={(e) => setWhatsappEmballageManager(e.target.value)} className="form-input" placeholder="0771335039" />
             </div>
             <div className="form-group">
               <label className="form-label">العنوان والمناطق (Adresse & Localisation)</label>
