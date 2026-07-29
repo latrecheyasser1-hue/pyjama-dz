@@ -354,7 +354,10 @@ export default async function handler(req, res) {
               }
 
               let shouldSendAlert = false;
-              if (numQty === 0) {
+              if (isExplicitSaleCheck) {
+                // Always force alert delivery for all low/zero sizes of explicitly sold products so no size is skipped
+                shouldSendAlert = true;
+              } else if (numQty === 0) {
                 if (!lastAlertState || lastAlertState.alertType !== 'zero' || (lastAlertState.qty !== undefined && lastAlertState.qty > 0)) {
                   shouldSendAlert = true;
                 }
