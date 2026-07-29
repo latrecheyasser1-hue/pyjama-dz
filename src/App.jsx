@@ -320,14 +320,27 @@ export default function App() {
           qty: newOrder.qty || 1
         }] : []);
 
+        // Determine if order originated from Cashier POS / Physical Store vs Online Storefront Delivery
+        const isPosOrder = Boolean(
+          newOrder.isPos === true || 
+          newOrder.orderType === 'hanoot' || 
+          newOrder.deliveryMode === 'محل البيع المباشر' || 
+          newOrder.deliveryMode === 'pos'
+        );
+
         let workingProducts = [...products];
 
         for (const item of orderItems) {
           if (item.isDiscount) continue;
 
-          // Find ALL matching target products (exact ID match, barcode match, or clean title match)
+          // Strictly separate Hanoot (boutique__) stock vs Delivery (non-boutique__) stock
           let targetProducts = workingProducts.filter(p => {
             if (!p) return false;
+
+            const isBoutiqueProd = Boolean(p.category && (p.category.startsWith('boutique__') || p.category === '__boutique__'));
+            if (isPosOrder && !isBoutiqueProd) return false; // Cashier POS sales ONLY touch Hanoot stock
+            if (!isPosOrder && isBoutiqueProd) return false; // Storefront delivery orders ONLY touch Delivery stock
+
             if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
             if (item.barcode && p.barcode && String(p.barcode).trim() === String(item.barcode).trim()) return true;
             if (p.title && item.product) {
@@ -341,6 +354,10 @@ export default function App() {
           if (targetProducts.length === 0) {
             const fallbackProd = workingProducts.find(p => {
               if (!p || !p.title || !item.product) return false;
+              const isBoutiqueProd = Boolean(p.category && (p.category.startsWith('boutique__') || p.category === '__boutique__'));
+              if (isPosOrder && !isBoutiqueProd) return false;
+              if (!isPosOrder && isBoutiqueProd) return false;
+
               const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
               const cleanProdTitle = String(p.title).trim().toLowerCase();
               return cleanProdTitle.includes(cleanItemTitle) || cleanItemTitle.includes(cleanProdTitle);
@@ -445,6 +462,13 @@ export default function App() {
       const shouldRestoreStock = isNowReturned && !wasAlreadyReturned;
 
       if (orderToUpdate && shouldRestoreStock) {
+        const isPosOrder = Boolean(
+          orderToUpdate.isPos === true || 
+          orderToUpdate.orderType === 'hanoot' || 
+          orderToUpdate.deliveryMode === 'محل البيع المباشر' || 
+          orderToUpdate.deliveryMode === 'pos'
+        );
+
         const orderItems = orderToUpdate.items || (orderToUpdate.productId || orderToUpdate.product ? [{
           productId: orderToUpdate.productId,
           product: orderToUpdate.product,
@@ -460,6 +484,11 @@ export default function App() {
 
           let targetProducts = workingProducts.filter(p => {
             if (!p) return false;
+
+            const isBoutiqueProd = Boolean(p.category && (p.category.startsWith('boutique__') || p.category === '__boutique__'));
+            if (isPosOrder && !isBoutiqueProd) return false;
+            if (!isPosOrder && isBoutiqueProd) return false;
+
             if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
             if (p.title && item.product) {
               const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
@@ -472,6 +501,10 @@ export default function App() {
           if (targetProducts.length === 0) {
             const fallbackProd = workingProducts.find(p => {
               if (!p || !p.title || !item.product) return false;
+              const isBoutiqueProd = Boolean(p.category && (p.category.startsWith('boutique__') || p.category === '__boutique__'));
+              if (isPosOrder && !isBoutiqueProd) return false;
+              if (!isPosOrder && isBoutiqueProd) return false;
+
               const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
               const cleanProdTitle = String(p.title).trim().toLowerCase();
               return cleanProdTitle.includes(cleanItemTitle) || cleanItemTitle.includes(cleanProdTitle);
