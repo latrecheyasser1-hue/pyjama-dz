@@ -395,74 +395,46 @@ export default async function handler(req, res) {
       ? String(storeSettings.whatsappBoutiqueManager).trim()
       : null;
 
-    // Helper to send exactly 1 single summary alert message per product/color variant to a target phone
+    // Helper to send individual alerts sequentially for a given list of items to a target phone
     global._activeSendingLocks = global._activeSendingLocks || new Set();
 
-    async function sendGroupedAlerts(itemsList, targetPhone, stockTypeTitle) {
+    async function sendIndividualAlerts(itemsList, targetPhone, stockTypeTitle) {
       if (!targetPhone || !Array.isArray(itemsList) || itemsList.length === 0) return 0;
 
-      const groups = {};
-      for (const item of itemsList) {
-        const groupKey = `${item.productId}_${item.colorIdx}`;
-        if (!groups[groupKey]) {
-          groups[groupKey] = {
-            productId: item.productId,
-            colorIdx: item.colorIdx,
-            title: item.title,
-            color: item.color,
-            imageUrl: item.imageUrl,
-            sizes: []
-          };
-        }
-        groups[groupKey].sizes.push(item);
-      }
-
       let count = 0;
-      for (const groupKey of Object.keys(groups)) {
-        if (global._activeSendingLocks.has(groupKey)) continue;
-        global._activeSendingLocks.add(groupKey);
+      for (const item of itemsList) {
+        if (global._activeSendingLocks.has(item.alertKey)) continue;
+        global._activeSendingLocks.add(item.alertKey);
 
-        const group = groups[groupKey];
-        const hasZero = group.sizes.some(s => s.qty === 0);
-        const headerIcon = hasZero ? '🛑' : '⚠️';
-        const headerTitle = hasZero
-          ? `*تنبيه نفاد المخزون (${stockTypeTitle})*`
-          : `*تنبيه مخزون منخفض (${stockTypeTitle})*`;
+        const alertStateVal = JSON.stringify({ 
+          qty: item.qty, 
+          timestamp: Date.now(), 
+          alertType: item.qty === 0 ? 'zero' : 'low',
+          isResolved: false 
+        });
 
-        const sizeLines = group.sizes.map(s => {
-          const statusStr = s.qty === 0 ? 'نافذ تماماً (0 حبة)' : `${s.qty} حبات متبقية`;
-          return `  • مقاس *${s.size}*: ${statusStr}`;
-        }).join('\n');
-
-        const alertMsg = `${headerIcon} ${headerTitle} ${headerIcon}\n\n• المنتج: *${group.title}*\n• اللون: *${group.color}*\n\n📋 *تفاصيل المقاسات المنخفضة/النافذة:*\n${sizeLines}\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
-
-        for (const sItem of group.sizes) {
-          const alertStateVal = JSON.stringify({ 
-            qty: sItem.qty, 
-            timestamp: Date.now(), 
-            alertType: sItem.qty === 0 ? 'zero' : 'low',
-            isResolved: false 
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ key: `alert_state_${item.alertKey}`, value: alertStateVal })
           });
-          try {
-            await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-              method: 'POST',
-              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-              body: JSON.stringify({ key: `alert_state_${sItem.alertKey}`, value: alertStateVal })
-            });
-          } catch (e) {}
-        }
+        } catch (e) {}
 
-        const resVal = await sendWhatsAppMessage(targetPhone, alertMsg, group.imageUrl);
-        global._activeSendingLocks.delete(groupKey);
+        const alertMsg = item.qty === 0
+          ? `🛑 *تنبيه نفاد المخزون بالكامل (${stockTypeTitle})* 🛑\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
+          : `⚠️ *تنبيه مخزون منخفض (${stockTypeTitle})* ⚠️\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• الكمية المتبقية: ${item.qty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
+
+        const resVal = await sendWhatsAppMessage(targetPhone, alertMsg, item.imageUrl);
+        global._activeSendingLocks.delete(item.alertKey);
 
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           count++;
           const newMsgId = resVal.messages[0].id;
-          for (const sItem of group.sizes) {
-            saveStockAlertRecord(newMsgId, targetPhone, sItem.productId, sItem.colorIdx, sItem.size).catch(() => {});
-          }
+          saveStockAlertRecord(newMsgId, targetPhone, item.productId, item.colorIdx, item.size).catch(() => {});
         }
 
+        // 600ms delay between sending individual messages to prevent WhatsApp API rate-limit drops
         await new Promise(resolve => setTimeout(resolve, 600));
       }
       return count;
@@ -470,12 +442,12 @@ export default async function handler(req, res) {
 
     // A. Send ONLY Stock Livraison items to Livraison Worker (if phone is set)
     if (livraisonPhone && livraisonLowItems.length > 0) {
-      alertsSent += await sendGroupedAlerts(livraisonLowItems.slice(0, 15), livraisonPhone, 'سطوك التوصيل');
+      alertsSent += await sendIndividualAlerts(livraisonLowItems.slice(0, 15), livraisonPhone, 'سطوك التوصيل');
     }
 
     // B. Send ONLY Stock Hanout (Boutique) items to Boutique Worker (if phone is set)
     if (boutiquePhone && hanoutLowItems.length > 0) {
-      alertsSent += await sendGroupedAlerts(hanoutLowItems.slice(0, 15), boutiquePhone, 'سطوك المحل');
+      alertsSent += await sendIndividualAlerts(hanoutLowItems.slice(0, 15), boutiquePhone, 'سطوك المحل');
     }
 
     return res.status(200).json({ success: true, alertsSent, totalLivraisonLow: livraisonLowItems.length, totalHanoutLow: hanoutLowItems.length });
