@@ -382,12 +382,14 @@ export default async function handler(req, res) {
 
     // A. Send ONLY Stock Livraison items to Livraison Worker (if phone is set)
     global._activeSendingLocks = global._activeSendingLocks || new Set();
+    const sentKeysInRun = new Set();
 
     if (livraisonPhone && livraisonLowItems.length > 0) {
       const itemsToAlert = livraisonLowItems.slice(0, 15);
       const tasks = itemsToAlert.map(async (item) => {
-        if (global._activeSendingLocks.has(item.alertKey)) return false;
+        if (global._activeSendingLocks.has(item.alertKey) || sentKeysInRun.has(item.alertKey)) return false;
         global._activeSendingLocks.add(item.alertKey);
+        sentKeysInRun.add(item.alertKey);
 
         const alertStateVal = JSON.stringify({ 
           qty: item.qty, 
@@ -427,8 +429,9 @@ export default async function handler(req, res) {
     if (boutiquePhone && hanoutLowItems.length > 0) {
       const itemsToAlert = hanoutLowItems.slice(0, 15);
       const tasks = itemsToAlert.map(async (item) => {
-        if (global._activeSendingLocks.has(item.alertKey)) return false;
+        if (global._activeSendingLocks.has(item.alertKey) || sentKeysInRun.has(item.alertKey)) return false;
         global._activeSendingLocks.add(item.alertKey);
+        sentKeysInRun.add(item.alertKey);
 
         const alertStateVal = JSON.stringify({ 
           qty: item.qty, 
