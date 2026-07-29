@@ -1537,88 +1537,7 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
         body: JSON.stringify({ status: 'notified_sent' })
       });
 
-      const redirectWebsiteMsg = `أهلاً وسهلاً بك! 🌸\nبشرى سارة! توفر هاد الموديل (${entryTitle} ${entryColor ? entryColor + ' ' : ''}${entrySize ? '(' + entrySize + ')' : ''}) مجدداً في الستوك!\n\nلتأكيد واختيار الطلبية فوراً قبل نفاد الكمية، يرجى الدخول والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nتفضل بالدخول واختيار المقاس واللون وسنعمل على شحنها لك فوراً! ✨`;
-      await sendWhatsAppMessage(fromPhone, redirectWebsiteMsg);
-      return true;
-    }
-
-    return false;
-  } catch (err) {
-    console.error('Error in processRestockConfirmationIntent:', err);
-  }
-  return false;
-}
-
-async function restoreStockForOrder(order, products = []) {
-  try {
-    if (!order || !products || products.length === 0) return false;
-    
-    const itemsToRestore = Array.isArray(order.items) && order.items.length > 0
-      ? order.items
-      : [{
-          product: order.product,
-          color: order.color,
-          size: order.size,
-          qty: order.quantity || order.qty || 1
-        }];
-
-    for (const item of itemsToRestore) {
-      const itemTitle = normalizeText(item.product || item.title || order.product || '').toLowerCase();
-      const matchedProd = products.find(p => {
-        const pNorm = normalizeText(p.title || '').toLowerCase();
-        return pNorm && itemTitle.includes(pNorm);
-      }) || products[0];
-
-      if (!matchedProd || !Array.isArray(matchedProd.colorVariants) || matchedProd.colorVariants.length === 0) {
-        continue;
-      }
-
-      const updatedVariants = [...matchedProd.colorVariants];
-      let vIdx = updatedVariants.findIndex(v => {
-        const vName = normalizeText(v.name || v.color || '').toLowerCase();
-        const targetColor = normalizeText(item.color || order.color || '').toLowerCase();
-        return targetColor && (vName.includes(targetColor) || targetColor.includes(vName));
-      });
-
-      if (vIdx === -1) vIdx = 0;
-
-      const targetVariant = updatedVariants[vIdx];
-      if (targetVariant && targetVariant.stock) {
-        const itemSize = item.size || order.size || '';
-        const stockKeys = Object.keys(targetVariant.stock);
-        const targetSizeKey = stockKeys.find(k => k.trim().toLowerCase() === String(itemSize || '').trim().toLowerCase()) || stockKeys[0];
-
-        if (targetSizeKey && targetVariant.stock[targetSizeKey] !== undefined) {
-          const currentQty = Number(targetVariant.stock[targetSizeKey] || 0);
-          const restoreQty = Number(item.qty || item.quantity || 1);
-          const newQty = currentQty + restoreQty;
-
-          updatedVariants[vIdx] = {
-            ...targetVariant,
-            stock: { ...targetVariant.stock, [targetSizeKey]: newQty }
-          };
-
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${matchedProd.id}`, {
-            method: 'PATCH',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ colorVariants: updatedVariants })
-          });
-          console.log(`Restored stock for ${matchedProd.title} (${targetSizeKey}): ${currentQty} -> ${newQty}, Status: ${res.status}`);
-        }
-      }
-    }
-    return true;
-  } catch (err) {
-    console.error("Error restoring stock for order:", err);
-  }
-  return false;
-}
-
-async function processOrderCancellationIntent(fromPhone, messageText) {
+      const redirectWebsiteMsg = `أهلاً وasync function processOrderCancellationIntent(fromPhone, messageText) {
   try {
     if (!messageText) return false;
     const rawLower = String(messageText).toLowerCase().trim();
@@ -1652,9 +1571,9 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
         'انوليها', 'انولي', 'ألغيها', 'الغها', 'annuler', 'anuler', 'yes', 'oui', 'ih', 'إيه', 'ايه'
       ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
 
-      const isNoOther = [
-        'ليست هذه', 'ليست هاته', 'ليس هذا', 'لا', '2', 'القبلها', 'الطلبية السابقة', 'واحدة أخرى',
-        'واحدة اخرى', 'اخري', 'أخرى', 'غير هادي', 'غير هذه', 'lala', 'no', 'non', 'pas celle ci'
+      const isDeclineNo = [
+        'لا', '2', 'تراجع', 'لا تلغي', 'لا تلغيها', 'تراجع عن الإلغاء', 'تراجع عن الغاء', 'تراجع عن الالغاء',
+        'lala', 'no', 'non', 'pas'
       ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
 
       if (isConfirmYes) {
@@ -1686,32 +1605,70 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
           await sendWhatsAppMessage(fromPhone, confirmMsg);
           return true;
         }
-      } else if (isNoOther) {
-        // Fetch next order in queue
-        const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&status=in.(nouvelle,confirmee,pending,attente,attente_confirmation,nouveau)&order=created_at.desc`, {
+      } else if (isDeclineNo) {
+        // Delete session state and cancel cancellation action
+        await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.cancel_state_${cleanPhoneKey}`, {
+          method: 'DELETE',
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        const activeOrders = await orderCheckRes.json();
-        const nextIdx = (activeState.orderIndex || 0) + 1;
+        }).catch(() => {});
 
-        if (Array.isArray(activeOrders) && nextIdx < activeOrders.length) {
-          const nextOrder = activeOrders[nextIdx];
-          const nextOrderNumStr = await getSequentialOrderNum(nextOrder);
-          const rawName = nextOrder.clientName || '';
-          const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
-            ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
-            : '';
-          const clientNameStr = cleanName ? ` ${cleanName}` : '';
-          const cleanProd = (nextOrder.product || '').replace(/\(واتساب:[^\)]+\)/g, '').trim();
+        await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nتم التراجع عن الإلغاء وتبقى طلبيتك مؤكدة وسارية. شكراً لتواصلك معنا! 🌸`);
+        return true;
+      }
+    }
 
-          // Save new session state
-          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-            method: 'POST',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json',
-              'Prefer': 'resolution=merge-duplicates'
+    // Check if customer initiates a NEW cancellation request
+    const isCancelRequest = [
+      'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'انولي', 'أنولي', 'حبيت نلغي', 'حاب نلغي', 'حابة نلغي',
+      'انولي الطلب', 'إلغاء الطلب', 'الغاء الطلب', 'ألغي الطلب', 'الغي الطلب',
+      'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation', 'annuler commande'
+    ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
+
+    if (!isCancelRequest) return false;
+
+    // Fetch STRICTLY the LATEST active order
+    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&status=in.(nouvelle,confirmee,pending,attente,attente_confirmation,nouveau)&order=created_at.desc&limit=1`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+
+    const activeOrders = await orderCheckRes.json();
+    if (!Array.isArray(activeOrders) || activeOrders.length === 0) {
+      return false;
+    }
+
+    const latestOrder = activeOrders[0];
+    const orderNumStr = await getSequentialOrderNum(latestOrder);
+    const rawName = latestOrder.clientName || '';
+    const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
+      ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
+      : '';
+    const clientNameStr = cleanName ? ` ${cleanName}` : '';
+    const cleanProd = (latestOrder.product || '').replace(/\(واتساب:[^\)]+\)/g, '').trim();
+
+    // Save cancellation session state
+    await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        key: `cancel_state_${cleanPhoneKey}`,
+        value: JSON.stringify({ orderId: latestOrder.id, orderIndex: 0, timestamp: Date.now() })
+      })
+    });
+
+    const promptMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${clientNameStr}.\nتلقينا طلبك لإلغاء الطلبية:\n\n• أحدث طلبية مسجلة باسمك هي رقم: #${orderNumStr}\n• المنتجات: ${cleanProd}\n• الولاية: ${latestOrder.wilaya || ''}\n\nهل أنت متأكد أنك تريد إلغاء هذه الطلبية؟\n\n👉 رد بـ *تأكيد الإلغاء* (أو *نعم*) لإلغاء هذه الطلبية.`;
+
+    await sendWhatsAppMessage(fromPhone, promptMsg);
+    return true;
+  } catch (err) {
+    console.error('Error processing order cancellation intent:', err);
+  }
+  return false;
+}=merge-duplicates'
             },
             body: JSON.stringify({
               key: `cancel_state_${cleanPhoneKey}`,
