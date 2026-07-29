@@ -346,12 +346,13 @@ export default function App() {
             const isBoutiqueProd = cat.startsWith('boutique__') || cat === '__boutique__';
             const isGrosProd = cat.startsWith('gros__') || cat.startsWith('super_gros__');
 
+            if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
+            if (item.barcode && p.barcode && String(p.barcode).trim() === String(item.barcode).trim()) return true;
+
             if (isPosOrder && !isBoutiqueProd) return false;
             if (isGrosOrder && !isGrosProd) return false;
             if (!isPosOrder && !isGrosOrder && (isBoutiqueProd || isGrosProd)) return false;
 
-            if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
-            if (item.barcode && p.barcode && String(p.barcode).trim() === String(item.barcode).trim()) return true;
             if (p.title && item.product) {
               const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
               const cleanProdTitle = String(p.title).trim().toLowerCase();
@@ -391,11 +392,31 @@ export default function App() {
               const targetColor = (item.color || '').trim().toLowerCase();
               const targetSize = String(item.size || '').trim().toLowerCase();
 
-              let targetVariantIdx = colorVariantsArr.findIndex(v => {
-                if (!v) return false;
-                const vColor = (v.name || v.color || '').trim().toLowerCase();
-                return targetColor && (vColor === targetColor || vColor.includes(targetColor) || targetColor.includes(vColor));
-              });
+              let targetVariantIdx = -1;
+
+              if (targetColor) {
+                targetVariantIdx = colorVariantsArr.findIndex(v => {
+                  if (!v) return false;
+                  const vColor = (v.name || v.color || '').trim().toLowerCase();
+                  return vColor === targetColor || vColor.includes(targetColor) || targetColor.includes(vColor);
+                });
+              }
+
+              if (targetVariantIdx === -1 && isPosOrder) {
+                targetVariantIdx = colorVariantsArr.findIndex(v => {
+                  if (!v) return false;
+                  const vColor = (v.name || v.color || '').trim().toLowerCase();
+                  return vColor.includes('محل') || vColor.includes('boutique') || vColor.includes('حانيت');
+                });
+              }
+
+              if (targetVariantIdx === -1 && !isPosOrder) {
+                targetVariantIdx = colorVariantsArr.findIndex(v => {
+                  if (!v) return false;
+                  const vColor = (v.name || v.color || '').trim().toLowerCase();
+                  return !vColor.includes('محل') && !vColor.includes('boutique') && !vColor.includes('حانيت');
+                });
+              }
 
               if (targetVariantIdx === -1) {
                 targetVariantIdx = colorVariantsArr.findIndex(v => {
