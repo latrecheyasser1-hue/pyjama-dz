@@ -1700,9 +1700,11 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
 
     // Check if customer initiates a NEW cancellation request
     const isCancelRequest = [
-      'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'انولي', 'أنولي', 'حبيت نلغي', 'حاب نلغي', 'حابة نلغي',
-      'انولي الطلب', 'إلغاء الطلب', 'الغاء الطلب', 'ألغي الطلب', 'الغي الطلب',
-      'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation', 'annuler commande'
+      'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'انولي', 'أنولي', 'نلغي', 'حبيت نلغي', 'حاب نلغي', 'حابة نلغي',
+      'انولي الطلب', 'إلغاء الطلب', 'الغاء الطلب', 'ألغي الطلب', 'الغي الطلب', 'نلغي الطلب', 'انولي لاكومند', 'انولي لا كومند',
+      'nanuli', 'anuli', 'nanulii', 'anulii', 'nanoli', 'anoli', 'nanolii', 'anoli', 'noli', 'nanuli la commande', 'anuli la commande',
+      'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation', 'annuler commande', 'anuler commande',
+      'nanuli la commande taa3i', 'anuler la commande', 'slm anuler la commande', 'slm ni haab nanuli'
     ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
 
     if (!isCancelRequest) return false;
@@ -2011,7 +2013,14 @@ async function processIncomingPayload(body) {
               const normText = normalizeText(messageText);
               const rawLowerText = String(messageText).toLowerCase();
 
-              // RECLAMATION HANDLER (Only for explicit complaints/reclamations)
+              // 1. Check for web order confirmation or cancellation reply from customer FIRST
+              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
+              if (handledOrderConfirm) continue;
+
+              const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText);
+              if (handledOrderCancel) continue;
+
+              // 2. RECLAMATION HANDLER (Only for explicit complaints/reclamations)
               const complaintKeywords = [
                 'شكوى', 'عتاب', 'ناقص', 'مكسور', 'رادي', 'ما وصلنيش', 'خاسر', 'تأخرت', 'مغشوش',
                 'مقطوع', 'فسد', 'وصلت ناقصة', 'وصلت خاسرة', 'سلعة خاسرة', 'خدمة سيئة',
@@ -2019,7 +2028,12 @@ async function processIncomingPayload(body) {
                 'retard', 'retarde', 'degueulasse', 'nul', 'nulle', 'zbel', 'khaser', 'khasra'
               ];
 
-              const isComplaint = complaintKeywords.some(k => normText.includes(k) || rawLowerText.includes(k));
+              const isCancelIntentWord = [
+                'anuler', 'annuler', 'anule', 'annule', 'nanuli', 'anuli', 'nanulii', 'anulii', 'nanoli', 'anoli',
+                'الغي', 'ألغي', 'إلغاء', 'الغاء', 'نلغي', 'انولي', 'أنولي'
+              ].some(k => rawLowerText.includes(k) || normText.includes(k));
+
+              const isComplaint = !isCancelIntentWord && complaintKeywords.some(k => normText.includes(k) || rawLowerText.includes(k));
 
               if (isComplaint) {
                 const rawContactName = order?.clientName || value?.contacts?.[0]?.profile?.name || '';
@@ -2166,13 +2180,6 @@ ${salesModeRules}`;
                 await recordOutOfStockInquiry(fromPhone, messageText, products);
                 continue;
               }
-
-              // 1. Check for web order confirmation or cancellation reply from customer FIRST
-              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
-              if (handledOrderConfirm) continue;
-
-              const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText);
-              if (handledOrderCancel) continue;
 
               // 2. GENERATE PURE GEMINI AI RESPONSE
               let aiReply = await generateGeminiAI(prompt, systemInstruction, storeSettings, messageText, products);
