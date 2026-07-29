@@ -1326,23 +1326,15 @@ async function checkAndAlertLowStock(product, storeSettings) {
           }
         } catch (e) {}
 
-        // Send alert ONLY ONCE when entering <= 5 zone, or ONCE when hitting 0
-        let shouldSendAlert = false;
-        if (numQty === 0) {
-          if (!lastAlertState || lastAlertState.alertType !== 'zero') {
-            shouldSendAlert = true;
-          }
-        } else { // 1 <= numQty <= 5
-          if (!lastAlertState || (lastAlertState.alertType !== 'low' && lastAlertState.alertType !== 'zero')) {
-            shouldSendAlert = true;
-          }
-        }
+        const isQtyChanged = !lastAlertState || lastAlertState.qty !== numQty;
+        const is30MinElapsed = lastAlertState && (now - (lastAlertState.timestamp || 0) >= 30 * 60 * 1000);
 
-        if (shouldSendAlert) {
+        // Send alert if quantity changed (5 -> 4 -> 3 -> 2 -> 1 -> 0) OR 30 minutes elapsed
+        if (isQtyChanged || is30MinElapsed) {
           const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
           const alertMsg = numQty === 0 
-            ? `🛑 *تنبيه نفاد المخزون بالكامل (${locationLabel})* 🛑\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}`
-            : `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}`;
+            ? `🛑 *تنبيه نفاد المخزون بالكامل (${locationLabel})* 🛑\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
+            : `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
           
           const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
           if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
@@ -1351,7 +1343,6 @@ async function checkAndAlertLowStock(product, storeSettings) {
             const alertStateVal = JSON.stringify({ 
               qty: numQty, 
               timestamp: now, 
-              alertType: numQty === 0 ? 'zero' : 'low',
               isResolved: false 
             });
 
@@ -1923,8 +1914,20 @@ async function processIncomingPayload(body) {
                 const size = refMatch[3];
                 const alertKey = `${productId}_${colorIdx}_${size}`;
 
-                // Check if THIS SPECIFIC WHATSAPP ALERT MESSAGE was ALREADY resolved to prevent duplicate restocking
+                // Fetch current product stock and check if this item was ALREADY restocked
+                const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
+                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                const prods = await prodRes.json();
+                const product = Array.isArray(prods) ? prods[0] : null;
+
                 let isAlreadyResolved = false;
+                let currentQty = 0;
+                if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
+                  currentQty = product.colorVariants[colorIdx].stock?.[size] || 0;
+                }
+
+                // 1. Check message-level resolution
                 if (message.context?.id) {
                   try {
                     const msgRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_resolved_${message.context.id}&select=value`, {
@@ -1937,8 +1940,25 @@ async function processIncomingPayload(body) {
                   } catch (e) {}
                 }
 
+                // 2. Check alertKey-level resolution (if current stock > 5 OR isResolved is true)
+                try {
+                  const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}&select=value`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                  });
+                  const stateRows = await stateRes.json();
+                  if (Array.isArray(stateRows) && stateRows[0]?.value) {
+                    const parsedState = typeof stateRows[0].value === 'string' ? JSON.parse(stateRows[0].value) : stateRows[0].value;
+                    if (parsedState.isResolved || currentQty > 5) {
+                      isAlreadyResolved = true;
+                    }
+                  } else if (currentQty > 5) {
+                    isAlreadyResolved = true;
+                  }
+                } catch (e) {}
+
                 if (isAlreadyResolved) {
-                  await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n⚠️ *تنبيه: تم تحديث هذا المخزون سابقاً!*\nلم يتم تكرار الإضافة لتفادي الخطأ.`);
+                  const prodTitle = product ? product.title : 'المنتج';
+                  await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nℹ️ *صايي، تم إعادة تزويد هذا المخزون سابقاً!*\n• المنتج: ${prodTitle}\n• المقاس: ${size}\n• المخزون الحالي بالمحل/التوصيل: *${currentQty} حبة*.\n\nلم يتم تكرار الإضافة لتفادي دبلجة الكميات بالخطأ. 🌸`);
                   continue;
                 }
 
@@ -1950,15 +1970,8 @@ async function processIncomingPayload(body) {
                 }
 
                 if (!isNaN(addedQty) && addedQty > 0) {
-                  const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                  });
-                  const prods = await prodRes.json();
-                  const product = Array.isArray(prods) ? prods[0] : null;
-
                   if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
                     const updatedVariants = [...product.colorVariants];
-                    const currentQty = updatedVariants[colorIdx].stock?.[size] || 0;
                     const newQty = currentQty + addedQty;
 
                     updatedVariants[colorIdx] = {
@@ -1966,7 +1979,7 @@ async function processIncomingPayload(body) {
                       stock: { ...(updatedVariants[colorIdx].stock || {}), [size]: newQty }
                     };
 
-                    // Mark THIS SPECIFIC WHATSAPP ALERT MESSAGE as RESOLVED so replying to it again is blocked
+                    // Mark THIS SPECIFIC WHATSAPP ALERT MESSAGE as RESOLVED
                     if (message.context?.id) {
                       await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
                         method: 'POST',
@@ -1983,6 +1996,7 @@ async function processIncomingPayload(body) {
                       });
                     }
 
+                    // Mark global alertState as isResolved: true
                     await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
                       method: 'POST',
                       headers: {
@@ -1993,7 +2007,7 @@ async function processIncomingPayload(body) {
                       },
                       body: JSON.stringify({
                         key: `alert_state_${alertKey}`,
-                        value: JSON.stringify({ qty: newQty, timestamp: Date.now(), isResolved: false })
+                        value: JSON.stringify({ qty: newQty, timestamp: Date.now(), isResolved: true })
                       })
                     });
 
