@@ -443,8 +443,8 @@ export default async function handler(req, res) {
           saveStockAlertRecord(newMsgId, targetPhone, item.productId, item.colorIdx, item.size).catch(() => {});
         }
 
-        // 600ms delay between sending individual messages to prevent WhatsApp API rate-limit drops
-        await new Promise(resolve => setTimeout(resolve, 600));
+        // 850ms delay between sending individual messages to prevent WhatsApp API rate-limit drops
+        await new Promise(resolve => setTimeout(resolve, 850));
       }
       return count;
     }
