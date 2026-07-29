@@ -332,11 +332,11 @@ export default async function handler(req, res) {
 
               let shouldSendAlert = false;
               if (numQty === 0) {
-                if (!lastAlertState || lastAlertState.alertType !== 'zero') {
+                if (!lastAlertState || lastAlertState.alertType !== 'zero' || (lastAlertState.qty !== undefined && lastAlertState.qty > 0)) {
                   shouldSendAlert = true;
                 }
               } else { // 1 <= numQty <= 5
-                if (!lastAlertState || (lastAlertState.alertType !== 'low' && lastAlertState.alertType !== 'zero')) {
+                if (!lastAlertState || lastAlertState.alertType !== 'low' || (lastAlertState.qty !== undefined && numQty < lastAlertState.qty)) {
                   shouldSendAlert = true;
                 }
               }
