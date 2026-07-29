@@ -113,25 +113,11 @@ function isColorMatch(targetColor, orderColor) {
   return normTarget === normOrder || normTarget.includes(normOrder) || normOrder.includes(normTarget);
 }
 
-function isSizeMatch(targetSize, orderSize, orderProdText) {
-  if (!targetSize) return true;
+function isSizeMatch(targetSize, orderSize) {
+  if (!targetSize || !orderSize) return true;
   const normTargetSize = String(targetSize).trim().toUpperCase();
-  const normOrderSize = String(orderSize || '').trim().toUpperCase();
-
-  if (!normOrderSize) {
-    if (!orderProdText) return true;
-    const normOrderText = String(orderProdText).toUpperCase();
-    return normOrderText.includes(normTargetSize) || normOrderText.includes('ALL') || normOrderText.includes('STANDARD');
-  }
-
-  if (normOrderSize === normTargetSize) return true;
-  if (normOrderSize === 'STANDARD' || normTargetSize === 'STANDARD') return true;
-
-  const sizeMap = { 'S': ['36'], 'M': ['37', '38'], 'L': ['39', '40'], 'XL': ['41', '42'], '2XL': ['43', '44'] };
-  if (sizeMap[normOrderSize] && sizeMap[normOrderSize].includes(normTargetSize)) return true;
-  if (sizeMap[normTargetSize] && sizeMap[normTargetSize].includes(normOrderSize)) return true;
-
-  return false;
+  const normOrderSize = String(orderSize).trim().toUpperCase();
+  return normOrderSize === normTargetSize || normOrderSize === 'STANDARD' || normTargetSize === 'STANDARD';
 }
 
 export default async function handler(req, res) {
@@ -357,32 +343,18 @@ export default async function handler(req, res) {
           } catch (e) {}
         }
 
-        const cleanNum = (entry.whatsapp_number || entry.phone || '').replace(/\D/g, '');
-        if (cleanNum && cleanNum.length >= 8) {
-          const last8 = cleanNum.slice(-8);
-          try {
-            // Fetch all waitlist IDs for this phone and add to persistent set
-            const findRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.%${last8}%&select=id`, {
-              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-            });
-            const allRows = await findRes.json();
-            if (Array.isArray(allRows)) {
-              for (const r of allRows) {
-                if (r.id) await saveNotifiedWaitlistId(r.id);
-              }
-            }
-            // Patch status of ALL waitlist entries for this phone to notified
-            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.%${last8}%`, {
-              method: 'PATCH',
-              headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ status: 'notified' })
-            });
-          } catch (e) {}
-        }
+        // Patch status of ONLY THIS SPECIFIC waitlist entry to notified
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: 'notified' })
+          });
+        } catch (e) {}
 
         const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب' && entry.client_name !== 'زبون المحادثة')
           ? entry.client_name : '';
