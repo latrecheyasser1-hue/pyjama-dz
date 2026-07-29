@@ -354,10 +354,7 @@ export default async function handler(req, res) {
               }
 
               let shouldSendAlert = false;
-              if (isExplicitSaleCheck) {
-                // Always force alert delivery for all low/zero sizes of explicitly sold products
-                shouldSendAlert = true;
-              } else if (numQty === 0) {
+              if (numQty === 0) {
                 if (!lastAlertState || lastAlertState.alertType !== 'zero' || (lastAlertState.qty !== undefined && lastAlertState.qty > 0)) {
                   shouldSendAlert = true;
                 }
@@ -367,7 +364,7 @@ export default async function handler(req, res) {
                 }
               }
 
-              if (!shouldSendAlert) continue; // 🛑 ALREADY SENT ALERT FOR THIS STATE!
+              if (!shouldSendAlert) continue; // 🛑 ALREADY SENT ALERT FOR THIS STOCK LEVEL!
 
               const prodImgs = product.images || [];
               const rawImg = Array.isArray(prodImgs) && prodImgs[0] ? prodImgs[0] : (typeof prodImgs === 'string' ? prodImgs : null);
@@ -439,7 +436,6 @@ export default async function handler(req, res) {
           : `⚠️ *تنبيه مخزون منخفض (${stockTypeTitle})* ⚠️\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• الكمية المتبقية: ${item.qty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
 
         const resVal = await sendWhatsAppMessage(targetPhone, alertMsg, item.imageUrl);
-        global._activeSendingLocks.delete(item.alertKey);
 
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           count++;
