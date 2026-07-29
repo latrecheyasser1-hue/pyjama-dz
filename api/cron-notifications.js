@@ -285,54 +285,8 @@ export default async function handler(req, res) {
         }
       } catch(e) {}
 
-      try {
-        const ordersRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=*&order=created_at.desc&limit=200`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        const recentOrders = await ordersRes.json();
-
-        if (Array.isArray(recentOrders) && recentOrders.length > 0) {
-          let sentIdsUpdated = false;
-
-          for (const order of recentOrders) {
-            if (!order.id || !order.phone || sentOrderIds.has(order.id)) continue;
-
-            const createdTimeMs = order.created_at ? new Date(order.created_at).getTime() : 0;
-            const ageMs = now - createdTimeMs;
-
-            // STRICT 10-MINUTE DELAY GUARD: Must be at least 10 minutes old AND less than 48 hours old
-            if (createdTimeMs > 0 && ageMs >= TEN_MINUTES_MS && ageMs <= (48 * 60 * 60 * 1000)) {
-              const displayName = order.clientName || '';
-              const nameGreeting = displayName && displayName !== 'الزبون' ? ` ${displayName}` : '';
-              const cleanProduct = String(order.product || 'بيجامة').replace(/\(\(/g, '').replace(/\)\)/g, '');
-
-              const messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك عبر الموقع بنجاح:\n\n• المنتجات: ${cleanProduct}\n• الولاية: ${order.wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* (أو *إلغاء*) لتأكيد طلبك وتجهيز شحنتك.`;
-
-              await sendWhatsAppMessage(order.phone, messageText);
-              sentOrderIds.add(order.id);
-              sentIdsUpdated = true;
-              processedOrdersCount++;
-              await new Promise(r => setTimeout(r, 200));
-            }
-          }
-
-          if (sentIdsUpdated) {
-            const valStr = JSON.stringify(Array.from(sentOrderIds));
-            await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-              method: 'POST',
-              headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'resolution=merge-duplicates'
-              },
-              body: JSON.stringify({ key: 'sent_order_confirmations', value: valStr })
-            });
-          }
-        }
-      } catch (e) {
-        console.error('Error processing delayed order confirmations:', e);
-      }
+      // Process 10-Minute Delayed Orders (DISABLED - Order confirmations are 100% INSTANT 0ms at checkout time)
+      // Delayed loop disabled to prevent sending duplicate or unexpected messages.
 
       try {
         const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations&select=*`, {
