@@ -326,9 +326,22 @@ export default async function handler(req, res) {
                                       String(variant.name || variant.color || '').toLowerCase().includes('boutique') ||
                                       String(variant.name || variant.color || '').toLowerCase().includes('محل');
 
-            if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
+            if (!isNaN(numQty)) {
               const alertKey = `${product.id}_${cIdx}_${size}`;
               const lastAlertState = alertStatesMap.get(alertKey);
+
+              if (numQty > 5) {
+                // If stock is replenished above 5, clear old alert state so fresh alert fires next time stock drops <= 5
+                if (lastAlertState && !lastAlertState.isResolved) {
+                  try {
+                    fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}`, {
+                      method: 'DELETE',
+                      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                    }).catch(() => {});
+                  } catch (e) {}
+                }
+                continue;
+              }
 
               let shouldSendAlert = false;
               if (numQty === 0) {
