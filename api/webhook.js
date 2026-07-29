@@ -1624,43 +1624,163 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
     const rawLower = String(messageText).toLowerCase().trim();
     const normText = normalizeText(messageText);
 
-    const isCancel = [
-      'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'انولي', 'أنولي', 'لا اريد', 'لا أريد', 'ما نديهاش', 'ما رانيش حاب',
-      'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation', 'lala anuler',
-      'non', 'no', 'lala', 'لا', 'لأ', 'لالا', 'non merci', 'pas'
-    ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
-
-    if (!isCancel) return false;
-
     const rawDigits = fromPhone.replace(/\D/g, '');
     const localPhone = rawDigits.startsWith('213') ? '0' + rawDigits.slice(3) : rawDigits;
     const fullPhone = fromPhone.startsWith('+') ? fromPhone : `+${fromPhone}`;
     const cleanPhoneNo0 = localPhone.replace(/^0/, '');
+    const cleanPhoneKey = localPhone || rawDigits;
 
-    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&status=in.(nouvelle,pending,attente,attente_confirmation,nouveau)&order=created_at.desc&limit=1`, {
+    // Check for active cancellation session lock in Supabase settings
+    let activeState = null;
+    try {
+      const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.cancel_state_${cleanPhoneKey}&select=value`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const rows = await stateRes.json();
+      if (Array.isArray(rows) && rows[0]?.value) {
+        activeState = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+        if (activeState && (Date.now() - (activeState.timestamp || 0)) > 30 * 60 * 1000) {
+          activeState = null;
+        }
+      }
+    } catch (e) {}
+
+    // Check if customer is responding to an existing cancellation confirmation prompt
+    if (activeState && activeState.orderId) {
+      const isConfirmYes = [
+        'تأكيد الإلغاء', 'تأكيد الغاء', 'تاكيد الغاء', 'تاكيد', 'تأكيد', 'نعم', '1', 'إلغاء الطلب', 'الغيها',
+        'انوليها', 'انولي', 'ألغيها', 'الغها', 'annuler', 'anuler', 'yes', 'oui', 'ih', 'إيه', 'ايه'
+      ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
+
+      const isNoOther = [
+        'ليست هذه', 'ليست هاته', 'ليس هذا', 'لا', '2', 'القبلها', 'الطلبية السابقة', 'واحدة أخرى',
+        'واحدة اخرى', 'اخري', 'أخرى', 'غير هادي', 'غير هذه', 'lala', 'no', 'non', 'pas celle ci'
+      ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
+
+      if (isConfirmYes) {
+        // Fetch order details
+        const orderRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${activeState.orderId}&select=*`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const oRows = await orderRes.json();
+        if (Array.isArray(oRows) && oRows[0]) {
+          const targetOrder = oRows[0];
+          await updateOrderStatusAndArchive(targetOrder.id, 'annulee');
+          const products = await getAllProducts();
+          await restoreStockForOrder(targetOrder, products);
+
+          const orderNumStr = await getSequentialOrderNum(targetOrder);
+          const rawName = targetOrder.clientName || '';
+          const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
+            ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
+            : '';
+          const clientNameStr = cleanName ? ` ${cleanName}` : '';
+
+          // Delete session state
+          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.cancel_state_${cleanPhoneKey}`, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          }).catch(() => {});
+
+          const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}.\n\n✅ *تم إلغاء طلبك رقم #${orderNumStr} بنجاح وإرجاع المنتجات إلى المخزن.*\nنتمنى أن نخدمك مجدداً في المرات القادمة إن شاء الله! 🌸`;
+          await sendWhatsAppMessage(fromPhone, confirmMsg);
+          return true;
+        }
+      } else if (isNoOther) {
+        // Fetch next order in queue
+        const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&status=in.(nouvelle,confirmee,pending,attente,attente_confirmation,nouveau)&order=created_at.desc`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const activeOrders = await orderCheckRes.json();
+        const nextIdx = (activeState.orderIndex || 0) + 1;
+
+        if (Array.isArray(activeOrders) && nextIdx < activeOrders.length) {
+          const nextOrder = activeOrders[nextIdx];
+          const nextOrderNumStr = await getSequentialOrderNum(nextOrder);
+          const rawName = nextOrder.clientName || '';
+          const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
+            ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
+            : '';
+          const clientNameStr = cleanName ? ` ${cleanName}` : '';
+          const cleanProd = (nextOrder.product || '').replace(/\(واتساب:[^\)]+\)/g, '').trim();
+
+          // Save new session state
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({
+              key: `cancel_state_${cleanPhoneKey}`,
+              value: JSON.stringify({ orderId: nextOrder.id, orderIndex: nextIdx, timestamp: Date.now() })
+            })
+          });
+
+          const promptMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${clientNameStr}.\n• الطلبية سابقة رقم (${nextIdx + 1}) المسجلة باسمك هي رقم: #${nextOrderNumStr}\n• المنتجات: ${cleanProd}\n• الولاية: ${nextOrder.wilaya || ''}\n\nهل هذه هي الطلبية التي تريد إلغاءها؟\n\n👉 رد بـ *تأكيد الإلغاء* (أو *نعم*) لإلغاء هذه الطلبية.\n👉 رد بـ *ليست هذه* (أو *لا*) للبحث في طلبيتك السابقة.`;
+          await sendWhatsAppMessage(fromPhone, promptMsg);
+          return true;
+        } else {
+          // No more active orders
+          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.cancel_state_${cleanPhoneKey}`, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          }).catch(() => {});
+
+          await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nلا توجد طلبيات أخرى سابقة مسجلة باسمك حالياً. شكراً لتواصلك معنا! 🌸`);
+          return true;
+        }
+      }
+    }
+
+    // Check if customer initiates a NEW cancellation request
+    const isCancelRequest = [
+      'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'انولي', 'أنولي', 'حبيت نلغي', 'حاب نلغي', 'حابة نلغي',
+      'انولي الطلب', 'إلغاء الطلب', 'الغاء الطلب', 'ألغي الطلب', 'الغي الطلب',
+      'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation', 'annuler commande'
+    ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
+
+    if (!isCancelRequest) return false;
+
+    // Fetch latest active order
+    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&status=in.(nouvelle,confirmee,pending,attente,attente_confirmation,nouveau)&order=created_at.desc&limit=5`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
 
-    const pendingOrders = await orderCheckRes.json();
-    if (!Array.isArray(pendingOrders) || pendingOrders.length === 0) {
+    const activeOrders = await orderCheckRes.json();
+    if (!Array.isArray(activeOrders) || activeOrders.length === 0) {
       return false;
     }
 
-    const orderToCancel = pendingOrders[0];
-    await updateOrderStatusAndArchive(orderToCancel.id, 'annulee');
-    const products = await getAllProducts();
-    await restoreStockForOrder(orderToCancel, products);
-
-    const orderNumStr = await getSequentialOrderNum(orderToCancel);
-    const rawName = orderToCancel.clientName || '';
+    const latestOrder = activeOrders[0];
+    const orderNumStr = await getSequentialOrderNum(latestOrder);
+    const rawName = latestOrder.clientName || '';
     const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
       ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
       : '';
     const clientNameStr = cleanName ? ` ${cleanName}` : '';
+    const cleanProd = (latestOrder.product || '').replace(/\(واتساب:[^\)]+\)/g, '').trim();
 
-    const cancelMsg = `أهلاً وسهلاً بك${clientNameStr}.\nتم إلغاء طلبيتك رقم #${orderNumStr} بنجاح بناءً على طلبك.\nنتمنى أن نخدمك مجدداً في المرات القادمة! 🌸`;
+    // Save cancellation session state
+    await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        key: `cancel_state_${cleanPhoneKey}`,
+        value: JSON.stringify({ orderId: latestOrder.id, orderIndex: 0, timestamp: Date.now() })
+      })
+    });
 
-    await sendWhatsAppMessage(fromPhone, cancelMsg);
+    const promptMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${clientNameStr}.\nتلقينا طلبك لإلغاء الطلبية:\n\n• أحدث طلبية مسجلة باسمك هي رقم: #${orderNumStr}\n• المنتجات: ${cleanProd}\n• الولاية: ${latestOrder.wilaya || ''}\n\nهل أنت متأكد أنك تريد إلغاء هذه الطلبية بالتحديد؟\n\n👉 رد بـ *تأكيد الإلغاء* (أو *نعم*) لإلغاء هذه الطلبية.\n👉 رد بـ *ليست هذه* (أو *لا*) للبحث في طلبيتك السابقة.`;
+
+    await sendWhatsAppMessage(fromPhone, promptMsg);
     return true;
   } catch (err) {
     console.error('Error processing order cancellation intent:', err);
