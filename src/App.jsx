@@ -346,12 +346,13 @@ export default function App() {
             const isBoutiqueProd = cat.startsWith('boutique__') || cat === '__boutique__';
             const isGrosProd = cat.startsWith('gros__') || cat.startsWith('super_gros__');
 
-            if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
-            if (item.barcode && p.barcode && String(p.barcode).trim() === String(item.barcode).trim()) return true;
-
+            // Category check MUST come FIRST before any ID or Title check!
             if (isPosOrder && !isBoutiqueProd) return false;
             if (isGrosOrder && !isGrosProd) return false;
             if (!isPosOrder && !isGrosOrder && (isBoutiqueProd || isGrosProd)) return false;
+
+            if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
+            if (item.barcode && p.barcode && String(p.barcode).trim() === String(item.barcode).trim()) return true;
 
             if (p.title && item.product) {
               const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
