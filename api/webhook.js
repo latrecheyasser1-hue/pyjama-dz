@@ -2250,12 +2250,7 @@ ${salesModeRules}`;
                 await sendWhatsAppMessage(fromPhone, fallbackMsg);
               }
 
-              // Check if any product is low on stock and alert managers
-              if (products.length > 0) {
-                for (const p of products.slice(0, 3)) {
-                  await checkAndAlertLowStock(p, storeSettings);
-                }
-              }
+
             }
           } catch (innerErr) {
             console.error('Error processing single message:', innerErr);

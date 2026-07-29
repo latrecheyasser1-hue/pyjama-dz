@@ -381,35 +381,40 @@ export default async function handler(req, res) {
       : null;
 
     // A. Send ONLY Stock Livraison items to Livraison Worker (if phone is set)
+    global._activeSendingLocks = global._activeSendingLocks || new Set();
+
     if (livraisonPhone && livraisonLowItems.length > 0) {
       const itemsToAlert = livraisonLowItems.slice(0, 15);
       const tasks = itemsToAlert.map(async (item) => {
+        if (global._activeSendingLocks.has(item.alertKey)) return false;
+        global._activeSendingLocks.add(item.alertKey);
+
+        const alertStateVal = JSON.stringify({ 
+          qty: item.qty, 
+          timestamp: Date.now(), 
+          alertType: item.qty === 0 ? 'zero' : 'low',
+          isResolved: false 
+        });
+
+        // Save DB lock BEFORE sending message to block concurrent runs
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ key: `alert_state_${item.alertKey}`, value: alertStateVal })
+          });
+        } catch (e) {}
+
         const alertMsg = item.qty === 0
           ? `🛑 *تنبيه نفاد المخزون بالكامل (سطوك التوصيل)* 🛑\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
           : `⚠️ *تنبيه مخزون منخفض (سطوك التوصيل)* ⚠️\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• الكمية المتبقية: ${item.qty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
         
         const resVal = await sendWhatsAppMessage(livraisonPhone, alertMsg, item.imageUrl);
+        global._activeSendingLocks.delete(item.alertKey);
+
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
           saveStockAlertRecord(newMsgId, livraisonPhone, item.productId, item.colorIdx, item.size).catch(() => {});
-
-          const alertStateVal = JSON.stringify({ 
-            qty: item.qty, 
-            timestamp: Date.now(), 
-            alertType: item.qty === 0 ? 'zero' : 'low',
-            isResolved: false 
-          });
-          fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${item.alertKey}`, {
-            method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ value: alertStateVal })
-          }).catch(() => {});
-          fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-            method: 'POST',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-            body: JSON.stringify({ key: `alert_state_${item.alertKey}`, value: alertStateVal })
-          }).catch(() => {});
-
           return true;
         }
         return false;
@@ -422,32 +427,35 @@ export default async function handler(req, res) {
     if (boutiquePhone && hanoutLowItems.length > 0) {
       const itemsToAlert = hanoutLowItems.slice(0, 15);
       const tasks = itemsToAlert.map(async (item) => {
+        if (global._activeSendingLocks.has(item.alertKey)) return false;
+        global._activeSendingLocks.add(item.alertKey);
+
+        const alertStateVal = JSON.stringify({ 
+          qty: item.qty, 
+          timestamp: Date.now(), 
+          alertType: item.qty === 0 ? 'zero' : 'low',
+          isResolved: false 
+        });
+
+        // Save DB lock BEFORE sending message to block concurrent runs
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ key: `alert_state_${item.alertKey}`, value: alertStateVal })
+          });
+        } catch (e) {}
+
         const alertMsg = item.qty === 0
           ? `🛑 *تنبيه نفاد المخزون بالكامل (سطوك المحل)* 🛑\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
           : `⚠️ *تنبيه مخزون منخفض (سطوك المحل)* ⚠️\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• الكمية المتبقية: ${item.qty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
         
         const resVal = await sendWhatsAppMessage(boutiquePhone, alertMsg, item.imageUrl);
+        global._activeSendingLocks.delete(item.alertKey);
+
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
           saveStockAlertRecord(newMsgId, boutiquePhone, item.productId, item.colorIdx, item.size).catch(() => {});
-
-          const alertStateVal = JSON.stringify({ 
-            qty: item.qty, 
-            timestamp: Date.now(), 
-            alertType: item.qty === 0 ? 'zero' : 'low',
-            isResolved: false 
-          });
-          fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${item.alertKey}`, {
-            method: 'PATCH',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ value: alertStateVal })
-          }).catch(() => {});
-          fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-            method: 'POST',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-            body: JSON.stringify({ key: `alert_state_${item.alertKey}`, value: alertStateVal })
-          }).catch(() => {});
-
           return true;
         }
         return false;
