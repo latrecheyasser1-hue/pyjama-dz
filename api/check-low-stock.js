@@ -344,8 +344,8 @@ export default async function handler(req, res) {
           for (const [size, qty] of Object.entries(variant.stock)) {
             const numQty = parseInt(qty);
             
-            // 🚀 AUTOMATIC RESTOCK NOTIFICATIONS TO WAITING CUSTOMERS WHEN SINGLE PRODUCT IS UPDATED AND QTY > 0
-            if (req.body?.product && !isNaN(numQty) && numQty > 0) {
+            // 🚀 AUTOMATIC RESTOCK NOTIFICATIONS TO WAITING CUSTOMERS ONLY ON EXPLICIT RESTOCK
+            if (req.body?.isRestock && !isNaN(numQty) && numQty > 0) {
               await notifyWaitingCustomers(product.id, cIdx, size, numQty, variant.name || variant.color);
             }
 
