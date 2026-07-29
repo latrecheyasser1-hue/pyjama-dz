@@ -299,7 +299,17 @@ export default async function handler(req, res) {
     const livraisonManagerPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456')) ? storeSettings.whatsappLivraisonManager : null;
 
     const products = Array.isArray(fetchedProducts) ? fetchedProducts : [];
-    const isExplicitSaleCheck = Boolean(bodyData && (Array.isArray(bodyData.productIds) || bodyData.productId));
+    const soldItemsList = (bodyData && Array.isArray(bodyData.soldItems)) ? bodyData.soldItems : null;
+    const soldKeySet = new Set();
+    if (soldItemsList) {
+      soldItemsList.forEach(i => {
+        if (i.productId && i.size) {
+          soldKeySet.add(`${String(i.productId).trim().toLowerCase()}_${String(i.size).trim().toLowerCase()}`);
+        } else if (i.size) {
+          soldKeySet.add(`size_${String(i.size).trim().toLowerCase()}`);
+        }
+      });
+    }
 
     let targetProductsList = products;
     if (bodyData && Array.isArray(bodyData.productIds) && bodyData.productIds.length > 0) {
@@ -330,6 +340,15 @@ export default async function handler(req, res) {
 
           for (const [size, qty] of Object.entries(variant.stock)) {
             const numQty = parseInt(qty);
+
+            // If explicit soldItems were provided, ONLY evaluate sizes that were actually sold in this order
+            if (soldKeySet.size > 0) {
+              const itemMatchKey1 = `${String(product.id).trim().toLowerCase()}_${String(size).trim().toLowerCase()}`;
+              const itemMatchKey2 = `size_${String(size).trim().toLowerCase()}`;
+              if (!soldKeySet.has(itemMatchKey1) && !soldKeySet.has(itemMatchKey2)) {
+                continue; // Skip unsold sizes!
+              }
+            }
             
             const isBoutiqueVariant = isBoutiqueProduct ||
                                       String(variant.name || variant.color || '').toLowerCase().includes('حانيت') || 
@@ -354,10 +373,7 @@ export default async function handler(req, res) {
               }
 
               let shouldSendAlert = false;
-              if (isExplicitSaleCheck) {
-                // Always force alert delivery for all low/zero sizes of explicitly sold products so no size is skipped
-                shouldSendAlert = true;
-              } else if (numQty === 0) {
+              if (numQty === 0) {
                 if (!lastAlertState || lastAlertState.alertType !== 'zero' || (lastAlertState.qty !== undefined && lastAlertState.qty > 0)) {
                   shouldSendAlert = true;
                 }

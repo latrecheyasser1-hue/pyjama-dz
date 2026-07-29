@@ -494,12 +494,19 @@ export default function App() {
         setProducts([...workingProducts]);
         try { localStorage.setItem('pyjama_products_cache', JSON.stringify(workingProducts)); } catch(e) {}
 
-        // Trigger single low stock check exclusively for sold product IDs in this order
+        // Trigger single low stock check exclusively for sold items/sizes in this specific order
         const soldProductIds = orderItems.map(i => i.productId).filter(Boolean);
+        const soldItemsData = orderItems.map(i => ({
+          productId: i.productId,
+          product: i.product,
+          color: i.color,
+          size: i.size
+        }));
+
         fetch('/api/check-low-stock', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productIds: soldProductIds })
+          body: JSON.stringify({ productIds: soldProductIds, soldItems: soldItemsData })
         }).catch(e => console.error("Low stock check error:", e));
       }
       return insertedOrder;
