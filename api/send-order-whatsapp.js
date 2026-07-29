@@ -82,8 +82,8 @@ export default async function handler(req, res) {
     let metaData = null;
 
     if (isWaitlist) {
-      // Waitlist notifications remain INSTANT (فَمْ فَمْ)
-      messageText = `أهلاً بك${nameGreeting}.\nعذراً، هذا الموديل أو المقاس (${cleanProduct}) غير متوفر حالياً.\nتم حفظ طلبك وسنخبرك عبر الواتساب فور توفره مجدداً إن شاء الله. شكراً لاهتمامك!`;
+      // Waitlist notifications are INSTANT (فَمْ فَمْ)
+      messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nعذراً، هذا الموديل أو المقاس (${cleanProduct}) غير متوفر حالياً.\nتم حفظ طلبك وسنخبرك عبر الواتساب فور توفره مجدداً إن شاء الله. شكراً لاهتمامك! 🌸`;
 
       const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
       const messageBody = {

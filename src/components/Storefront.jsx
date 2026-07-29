@@ -1054,6 +1054,18 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
         })
       });
 
+      // Send INSTANT (فَمْ فَمْ) WhatsApp notification to customer
+      fetch('/api/send-order-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isWaitlist: true,
+          clientName: waitlistName.trim(),
+          phone: formattedPhone,
+          product: `${waitlistModalItem.title || ''} (${waitlistModalItem.color || 'اللون الافتراضي'}) [المقاس: ${waitlistModalItem.size || ''}]`
+        })
+      }).catch(e => console.error('Error triggering waitlist WhatsApp notification:', e));
+
       setWaitlistSuccess(true);
       const itemToRemove = waitlistModalItem;
       setTimeout(() => {
@@ -1062,7 +1074,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
         setWaitlistSuccess(false);
         setWaitlistName('');
         setWaitlistPhone('');
-        showToast('✅ تم تسجيل رقمك بنجاح! سنخبرك فور توفر السلعة، وتمت إزالتها من السلة.');
+        showToast('✅ تم تسجيل رقمك بنجاح! تم إرسال رسالة تأكيد عبر الواتساب وسنخبرك فور توفر السلعة.');
       }, 1500);
     } catch (err) {
       setWaitlistError('حدث خطأ أثناء التسجيل. يرجى المحاولة مجدداً.');
