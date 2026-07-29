@@ -5,6 +5,15 @@ import { showToast } from '../../utils/toast';
 
 const ALL_SIZES = ["Standard", "S", "M", "L", "XL", "2XL", "3XL", "4XL"];
 
+const getParsedColorVariants = (prod) => {
+  if (!prod) return [];
+  let variants = prod.colorVariants;
+  if (typeof variants === 'string') {
+    try { variants = JSON.parse(variants); } catch (e) { variants = []; }
+  }
+  return Array.isArray(variants) ? variants : [];
+};
+
 const getProductCategoryGroupId = (prodCategory, categoriesList) => {
   if (!Array.isArray(categoriesList)) return prodCategory;
   
@@ -224,15 +233,6 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     setImages(p.images && p.images.length > 0 ? p.images : (p.image ? [p.image] : []));
     setBarcode(p.barcode || String(100000000000 + Math.floor(Math.random() * 900000000000)));
     setDescription(p.description || '');
-
-const getParsedColorVariants = (prod) => {
-  if (!prod) return [];
-  let variants = prod.colorVariants;
-  if (typeof variants === 'string') {
-    try { variants = JSON.parse(variants); } catch (e) { variants = []; }
-  }
-  return Array.isArray(variants) ? variants : [];
-};
 
     const colorVariantsArr = getParsedColorVariants(p);
     if (colorVariantsArr.length > 0) {
