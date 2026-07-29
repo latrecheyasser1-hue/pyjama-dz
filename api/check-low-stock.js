@@ -300,11 +300,20 @@ export default async function handler(req, res) {
 
     const products = Array.isArray(fetchedProducts) ? fetchedProducts : [];
 
+    let targetProductsList = products;
+    if (bodyData && Array.isArray(bodyData.productIds) && bodyData.productIds.length > 0) {
+      const targetIdSet = new Set(bodyData.productIds.map(id => String(id).trim().toLowerCase()));
+      targetProductsList = products.filter(p => p && p.id && targetIdSet.has(String(p.id).trim().toLowerCase()));
+    } else if (bodyData && bodyData.productId) {
+      const targetId = String(bodyData.productId).trim().toLowerCase();
+      targetProductsList = products.filter(p => p && p.id && String(p.id).trim().toLowerCase() === targetId);
+    }
+
     const livraisonLowItems = [];
     const hanoutLowItems = [];
 
-    if (Array.isArray(products)) {
-      for (const product of products) {
+    if (Array.isArray(targetProductsList)) {
+      for (const product of targetProductsList) {
         if (!product || !Array.isArray(product.colorVariants)) continue;
 
         const cat = String(product.category || '').trim();
