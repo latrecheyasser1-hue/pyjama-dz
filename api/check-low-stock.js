@@ -372,12 +372,12 @@ export default async function handler(req, res) {
     let alertsSent = 0;
     const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
-    const livraisonPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456'))
-      ? storeSettings.whatsappLivraisonManager
+    const livraisonPhone = (storeSettings.whatsappLivraisonManager && String(storeSettings.whatsappLivraisonManager).trim() && !storeSettings.whatsappLivraisonManager.includes('123456'))
+      ? String(storeSettings.whatsappLivraisonManager).trim()
       : null;
 
-    const boutiquePhone = (storeSettings.whatsappBoutiqueManager && !storeSettings.whatsappBoutiqueManager.includes('123456'))
-      ? storeSettings.whatsappBoutiqueManager
+    const boutiquePhone = (storeSettings.whatsappBoutiqueManager && String(storeSettings.whatsappBoutiqueManager).trim() && !storeSettings.whatsappBoutiqueManager.includes('123456'))
+      ? String(storeSettings.whatsappBoutiqueManager).trim()
       : null;
 
     // A. Send ONLY Stock Livraison items to Livraison Worker (if phone is set)
