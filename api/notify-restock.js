@@ -305,6 +305,16 @@ export default async function handler(req, res) {
         continue; // 🛑 ALREADY NOTIFIED IN THE PAST - SKIP FOREVER!
       }
 
+      if (entry.id) {
+        try {
+          const sRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_${entry.id}&select=value`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          const sRows = await sRes.json();
+          if (Array.isArray(sRows) && sRows.length > 0) continue; // 🛑 STRICT SINGLE NOTIFICATION GUARANTEE!
+        } catch (e) {}
+      }
+
       const entryPhone = entry.whatsapp_number || entry.phone;
       const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
       const waPhone = formatWhatsAppPhone(entryPhone);
@@ -329,6 +339,23 @@ export default async function handler(req, res) {
       if (sizeMatches && prodMatches && colorMatches) {
         notifiedPhones.add(waPhone);
         global._recentRestockMap.set(waPhone, now);
+
+        // Save persistent per-entry lock key in settings table
+        if (entry.id) {
+          try {
+            await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: 'true' })
+            });
+            await saveNotifiedWaitlistId(entry.id);
+          } catch (e) {}
+        }
 
         const cleanNum = (entry.whatsapp_number || entry.phone || '').replace(/\D/g, '');
         if (cleanNum && cleanNum.length >= 8) {
