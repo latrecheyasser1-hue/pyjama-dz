@@ -365,7 +365,11 @@ export default async function handler(req, res) {
 
             if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
               const prodImgs = product.images || [];
-              const firstImg = Array.isArray(prodImgs) && prodImgs[0] ? prodImgs[0] : (typeof prodImgs === 'string' ? prodImgs : null);
+              const rawImg = Array.isArray(prodImgs) && prodImgs[0] ? prodImgs[0] : (typeof prodImgs === 'string' ? prodImgs : null);
+              
+              const imageUrl = (rawImg && typeof rawImg === 'string' && rawImg.startsWith('http'))
+                ? rawImg
+                : `https://pyjama-dz.vercel.app/api/product-image?id=${product.id}.jpg`;
 
               const itemInfo = {
                 productId: product.id,
@@ -374,7 +378,7 @@ export default async function handler(req, res) {
                 color: variant.name || variant.color || 'الافتراضي',
                 size: size,
                 qty: numQty,
-                imageUrl: firstImg
+                imageUrl: imageUrl
               };
 
               if (isBoutiqueVariant) {
