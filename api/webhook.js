@@ -789,13 +789,17 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
         }
 
         const entrySize = entry.size || '';
+        const entryColor = entry.color || '';
         const entryProdId = entry.product_id || entry.productId;
         const entryProdText = entry.product_title || entry.product || '';
 
+        const targetColorName = (productTitle && colorIdx !== undefined) ? '' : '';
+
         const sizeMatches = isSzMatch(targetSize, entrySize);
         const prodMatches = isProdMatch(productId, productTitle, entryProdId, entryProdText);
+        const colorMatches = isColorMatch(targetColorName, entryColor);
 
-        if (sizeMatches && prodMatches) {
+        if (sizeMatches && prodMatches && colorMatches) {
           // Mark waitlist entry status as notified in Supabase table
           await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
             method: 'PATCH',
@@ -806,23 +810,6 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
             },
             body: JSON.stringify({ status: 'notified' })
           });
-
-          // Also mark ALL matching pending entries for this phone as notified
-          if (cleanPhone) {
-            const p1 = '0' + cleanPhone.slice(-9);
-            const p2 = '213' + cleanPhone.slice(-9);
-            const p3 = cleanPhone;
-            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=in.(${p1},${p2},${p3})`, {
-              method: 'PATCH',
-              headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ status: 'notified' })
-            });
-            await saveNotifiedPhone(cleanPhone);
-          }
 
           if (entry.id) {
             notifiedWaitlistIds.add(entry.id);
