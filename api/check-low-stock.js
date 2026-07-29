@@ -51,7 +51,7 @@ async function sendWhatsAppTemplate(toPhone, templateName = 'hello_world', langu
   }
 }
 
-async function sendWhatsAppMessage(toPhone, textBody) {
+async function sendWhatsAppMessage(toPhone, textBody, imageUrl = null) {
   const token = await getMetaAccessToken();
   if (!token || !toPhone) return;
   const cleanDigits = String(toPhone).replace(/\D/g, '');
@@ -59,6 +59,21 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   const waPhone = cleanDigits.startsWith('213') ? cleanDigits : (cleanDigits.startsWith('0') ? '213' + cleanDigits.substring(1) : '213' + cleanDigits);
 
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
+  
+  const payload = (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) ? {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: waPhone,
+    type: 'image',
+    image: { link: imageUrl, caption: textBody }
+  } : {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: waPhone,
+    type: 'text',
+    text: { preview_url: false, body: textBody }
+  };
+
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -66,13 +81,7 @@ async function sendWhatsAppMessage(toPhone, textBody) {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: waPhone,
-        type: 'text',
-        text: { preview_url: false, body: textBody }
-      })
+      body: JSON.stringify(payload)
     });
     return await res.json();
   } catch (err) {
@@ -355,13 +364,17 @@ export default async function handler(req, res) {
                                       String(variant.name || variant.color || '').toLowerCase().includes('محل');
 
             if (!isNaN(numQty) && numQty <= 5 && numQty >= 0) {
+              const prodImgs = product.images || [];
+              const firstImg = Array.isArray(prodImgs) && prodImgs[0] ? prodImgs[0] : (typeof prodImgs === 'string' ? prodImgs : null);
+
               const itemInfo = {
                 productId: product.id,
                 colorIdx: cIdx,
                 title: product.title || 'بيجامة',
                 color: variant.name || variant.color || 'الافتراضي',
                 size: size,
-                qty: numQty
+                qty: numQty,
+                imageUrl: firstImg
               };
 
               if (isBoutiqueVariant) {
@@ -393,7 +406,7 @@ export default async function handler(req, res) {
           ? `🛑 *تنبيه نفاد المخزون بالكامل (سطوك التوصيل)* 🛑\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
           : `⚠️ *تنبيه مخزون منخفض (سطوك التوصيل)* ⚠️\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• الكمية المتبقية: ${item.qty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
         
-        const resVal = await sendWhatsAppMessage(livraisonPhone, alertMsg);
+        const resVal = await sendWhatsAppMessage(livraisonPhone, alertMsg, item.imageUrl);
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
           saveStockAlertRecord(newMsgId, livraisonPhone, item.productId, item.colorIdx, item.size).catch(() => {});
@@ -413,7 +426,7 @@ export default async function handler(req, res) {
           ? `🛑 *تنبيه نفاد المخزون بالكامل (سطوك المحل)* 🛑\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
           : `⚠️ *تنبيه مخزون منخفض (سطوك المحل)* ⚠️\n\n• المنتج: ${item.title}\n• اللون: ${item.color}\n• المقاس: ${item.size}\n• الكمية المتبقية: ${item.qty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
         
-        const resVal = await sendWhatsAppMessage(boutiquePhone, alertMsg);
+        const resVal = await sendWhatsAppMessage(boutiquePhone, alertMsg, item.imageUrl);
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
           saveStockAlertRecord(newMsgId, boutiquePhone, item.productId, item.colorIdx, item.size).catch(() => {});
