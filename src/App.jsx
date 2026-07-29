@@ -320,12 +320,17 @@ export default function App() {
           qty: newOrder.qty || 1
         }] : []);
 
-        // Determine if order originated from Cashier POS / Physical Store vs Online Storefront Delivery
+        // Determine order type: POS Cashier vs Wholesale (Gros) vs Online Storefront Delivery
         const isPosOrder = Boolean(
           newOrder.isPos === true || 
           newOrder.orderType === 'hanoot' || 
           newOrder.deliveryMode === 'محل البيع المباشر' || 
           newOrder.deliveryMode === 'pos'
+        );
+        const isGrosOrder = Boolean(
+          newOrder.orderType === 'gros' || 
+          newOrder.orderType === 'super_gros' || 
+          newOrder.deliveryMode === 'gros'
         );
 
         let workingProducts = [...products];
@@ -333,13 +338,17 @@ export default function App() {
         for (const item of orderItems) {
           if (item.isDiscount) continue;
 
-          // Strictly separate Hanoot (boutique__) stock vs Delivery (non-boutique__) stock
+          // Strictly separate Hanoot (boutique__) vs Gros (gros__) vs Delivery (pure category) stocks
           let targetProducts = workingProducts.filter(p => {
             if (!p) return false;
 
-            const isBoutiqueProd = Boolean(p.category && (p.category.startsWith('boutique__') || p.category === '__boutique__'));
-            if (isPosOrder && !isBoutiqueProd) return false; // Cashier POS sales ONLY touch Hanoot stock
-            if (!isPosOrder && isBoutiqueProd) return false; // Storefront delivery orders ONLY touch Delivery stock
+            const cat = String(p.category || '').trim();
+            const isBoutiqueProd = cat.startsWith('boutique__') || cat === '__boutique__';
+            const isGrosProd = cat.startsWith('gros__') || cat.startsWith('super_gros__');
+
+            if (isPosOrder && !isBoutiqueProd) return false;
+            if (isGrosOrder && !isGrosProd) return false;
+            if (!isPosOrder && !isGrosOrder && (isBoutiqueProd || isGrosProd)) return false;
 
             if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
             if (item.barcode && p.barcode && String(p.barcode).trim() === String(item.barcode).trim()) return true;
@@ -354,9 +363,13 @@ export default function App() {
           if (targetProducts.length === 0) {
             const fallbackProd = workingProducts.find(p => {
               if (!p || !p.title || !item.product) return false;
-              const isBoutiqueProd = Boolean(p.category && (p.category.startsWith('boutique__') || p.category === '__boutique__'));
+              const cat = String(p.category || '').trim();
+              const isBoutiqueProd = cat.startsWith('boutique__') || cat === '__boutique__';
+              const isGrosProd = cat.startsWith('gros__') || cat.startsWith('super_gros__');
+
               if (isPosOrder && !isBoutiqueProd) return false;
-              if (!isPosOrder && isBoutiqueProd) return false;
+              if (isGrosOrder && !isGrosProd) return false;
+              if (!isPosOrder && !isGrosOrder && (isBoutiqueProd || isGrosProd)) return false;
 
               const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
               const cleanProdTitle = String(p.title).trim().toLowerCase();
@@ -468,6 +481,11 @@ export default function App() {
           orderToUpdate.deliveryMode === 'محل البيع المباشر' || 
           orderToUpdate.deliveryMode === 'pos'
         );
+        const isGrosOrder = Boolean(
+          orderToUpdate.orderType === 'gros' || 
+          orderToUpdate.orderType === 'super_gros' || 
+          orderToUpdate.deliveryMode === 'gros'
+        );
 
         const orderItems = orderToUpdate.items || (orderToUpdate.productId || orderToUpdate.product ? [{
           productId: orderToUpdate.productId,
@@ -485,9 +503,13 @@ export default function App() {
           let targetProducts = workingProducts.filter(p => {
             if (!p) return false;
 
-            const isBoutiqueProd = Boolean(p.category && (p.category.startsWith('boutique__') || p.category === '__boutique__'));
+            const cat = String(p.category || '').trim();
+            const isBoutiqueProd = cat.startsWith('boutique__') || cat === '__boutique__';
+            const isGrosProd = cat.startsWith('gros__') || cat.startsWith('super_gros__');
+
             if (isPosOrder && !isBoutiqueProd) return false;
-            if (!isPosOrder && isBoutiqueProd) return false;
+            if (isGrosOrder && !isGrosProd) return false;
+            if (!isPosOrder && !isGrosOrder && (isBoutiqueProd || isGrosProd)) return false;
 
             if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
             if (p.title && item.product) {
@@ -501,9 +523,13 @@ export default function App() {
           if (targetProducts.length === 0) {
             const fallbackProd = workingProducts.find(p => {
               if (!p || !p.title || !item.product) return false;
-              const isBoutiqueProd = Boolean(p.category && (p.category.startsWith('boutique__') || p.category === '__boutique__'));
+              const cat = String(p.category || '').trim();
+              const isBoutiqueProd = cat.startsWith('boutique__') || cat === '__boutique__';
+              const isGrosProd = cat.startsWith('gros__') || cat.startsWith('super_gros__');
+
               if (isPosOrder && !isBoutiqueProd) return false;
-              if (!isPosOrder && isBoutiqueProd) return false;
+              if (isGrosOrder && !isGrosProd) return false;
+              if (!isPosOrder && !isGrosOrder && (isBoutiqueProd || isGrosProd)) return false;
 
               const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
               const cleanProdTitle = String(p.title).trim().toLowerCase();
