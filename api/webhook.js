@@ -1326,11 +1326,19 @@ async function checkAndAlertLowStock(product, storeSettings) {
           }
         } catch (e) {}
 
-        const isQtyChanged = !lastAlertState || lastAlertState.qty !== numQty;
-        const is30MinElapsed = lastAlertState && (now - (lastAlertState.timestamp || 0) >= 30 * 60 * 1000);
+        // Send alert ONLY ONCE when entering <= 5 zone, or ONCE when hitting 0
+        let shouldSendAlert = false;
+        if (numQty === 0) {
+          if (!lastAlertState || lastAlertState.alertType !== 'zero') {
+            shouldSendAlert = true;
+          }
+        } else { // 1 <= numQty <= 5
+          if (!lastAlertState || (lastAlertState.alertType !== 'low' && lastAlertState.alertType !== 'zero')) {
+            shouldSendAlert = true;
+          }
+        }
 
-        // Send alert if quantity changed (5 -> 4 -> 3 -> 2 -> 1 -> 0) OR 30 minutes elapsed
-        if (isQtyChanged || is30MinElapsed) {
+        if (shouldSendAlert) {
           const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
           const alertMsg = numQty === 0 
             ? `🛑 *تنبيه نفاد المخزون بالكامل (${locationLabel})* 🛑\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
@@ -1343,6 +1351,7 @@ async function checkAndAlertLowStock(product, storeSettings) {
             const alertStateVal = JSON.stringify({ 
               qty: numQty, 
               timestamp: now, 
+              alertType: numQty === 0 ? 'zero' : 'low',
               isResolved: false 
             });
 
