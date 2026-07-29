@@ -300,7 +300,11 @@ export default async function handler(req, res) {
       for (const product of products) {
         if (!product || !Array.isArray(product.colorVariants)) continue;
 
-        const isBoutiqueProduct = (product.category && String(product.category).startsWith('boutique__')) ||
+        const cat = String(product.category || '').trim();
+        // Ignore wholesale products (gros__ / super_gros__) in low stock alert checks
+        if (cat.startsWith('gros__') || cat.startsWith('super_gros__')) continue;
+
+        const isBoutiqueProduct = cat.startsWith('boutique__') || cat === '__boutique__' ||
                                   (product.badge && String(product.badge).includes('Boutique'));
 
         for (let cIdx = 0; cIdx < product.colorVariants.length; cIdx++) {
