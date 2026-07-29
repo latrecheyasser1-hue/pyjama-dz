@@ -339,28 +339,37 @@ export default function App() {
           if (item.isDiscount) continue;
 
           // Strictly separate Hanoot (boutique__) vs Gros (gros__) vs Delivery (pure category) stocks
-          let targetProducts = workingProducts.filter(p => {
-            if (!p) return false;
+          let targetProducts = [];
 
-            const cat = String(p.category || '').trim();
-            const isBoutiqueProd = cat.startsWith('boutique__') || cat === '__boutique__';
-            const isGrosProd = cat.startsWith('gros__') || cat.startsWith('super_gros__');
+          // 1. If item.productId is provided, match THAT EXACT product exclusively
+          if (item.productId) {
+            const exactProd = workingProducts.find(p => String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase());
+            if (exactProd) targetProducts = [exactProd];
+          }
 
-            // Category check MUST come FIRST before any ID or Title check!
-            if (isPosOrder && !isBoutiqueProd) return false;
-            if (isGrosOrder && !isGrosProd) return false;
-            if (!isPosOrder && !isGrosOrder && (isBoutiqueProd || isGrosProd)) return false;
+          // 2. Otherwise match by barcode or title adhering strictly to order category
+          if (targetProducts.length === 0) {
+            targetProducts = workingProducts.filter(p => {
+              if (!p) return false;
 
-            if (item.productId && String(p.id).trim().toLowerCase() === String(item.productId).trim().toLowerCase()) return true;
-            if (item.barcode && p.barcode && String(p.barcode).trim() === String(item.barcode).trim()) return true;
+              const cat = String(p.category || '').trim();
+              const isBoutiqueProd = cat.startsWith('boutique__') || cat === '__boutique__';
+              const isGrosProd = cat.startsWith('gros__') || cat.startsWith('super_gros__');
 
-            if (p.title && item.product) {
-              const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
-              const cleanProdTitle = String(p.title).trim().toLowerCase();
-              if (cleanProdTitle === cleanItemTitle) return true;
-            }
-            return false;
-          });
+              if (isPosOrder && !isBoutiqueProd) return false;
+              if (isGrosOrder && !isGrosProd) return false;
+              if (!isPosOrder && !isGrosOrder && (isBoutiqueProd || isGrosProd)) return false;
+
+              if (item.barcode && p.barcode && String(p.barcode).trim() === String(item.barcode).trim()) return true;
+
+              if (p.title && item.product) {
+                const cleanItemTitle = String(item.product).replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+                const cleanProdTitle = String(p.title).trim().toLowerCase();
+                if (cleanProdTitle === cleanItemTitle) return true;
+              }
+              return false;
+            });
+          }
 
           if (targetProducts.length === 0) {
             const fallbackProd = workingProducts.find(p => {
