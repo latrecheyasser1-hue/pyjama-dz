@@ -372,8 +372,20 @@ export default async function handler(req, res) {
                 continue;
               }
 
+              let isExplicitSoldItem = false;
+              if (soldKeySet.size > 0) {
+                const itemMatchKey1 = `${String(product.id).trim().toLowerCase()}_${String(size).trim().toLowerCase()}`;
+                const itemMatchKey2 = `size_${String(size).trim().toLowerCase()}`;
+                if (soldKeySet.has(itemMatchKey1) || soldKeySet.has(itemMatchKey2)) {
+                  isExplicitSoldItem = true;
+                }
+              }
+
               let shouldSendAlert = false;
-              if (numQty === 0) {
+              if (isExplicitSoldItem) {
+                // If item was explicitly sold in this order and reached <= 5 or 0, ALWAYS send its individual alert
+                shouldSendAlert = true;
+              } else if (numQty === 0) {
                 if (!lastAlertState || lastAlertState.alertType !== 'zero' || (lastAlertState.qty !== undefined && lastAlertState.qty > 0)) {
                   shouldSendAlert = true;
                 }
