@@ -33,8 +33,10 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   const [cashierPinInput, setCashierPinInput] = useState(() => settings?.cashierPin ?? '123456');
   const [cashierSuccess, setCashierSuccess] = useState(false);
 
+  const [isInitialized, setIsInitialized] = useState(false);
+
   useEffect(() => {
-    if (settings) {
+    if (settings && !isInitialized) {
       if (settings.instagramUrl !== undefined) setInstaUrl(settings.instagramUrl ?? '');
       if (settings.whatsapp !== undefined) setWhatsapp(settings.whatsapp ?? '');
       if (settings.whatsappBoutiqueManager !== undefined) setWhatsappBoutiqueManager(settings.whatsappBoutiqueManager ?? '');
@@ -45,8 +47,9 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       if (settings.googleMapsUrl !== undefined) setGoogleMapsUrl(settings.googleMapsUrl ?? '');
       if (settings.storeName !== undefined) setStoreName((settings.storeName ?? '').replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
       if (settings.cashierPin !== undefined) setCashierPinInput(settings.cashierPin ?? '123456');
+      setIsInitialized(true);
     }
-  }, [settings]);
+  }, [settings, isInitialized]);
 
     const handlePinChangeSubmit = (e) => {
     e.preventDefault();
@@ -259,16 +262,16 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div className="form-group">
                 <label className="form-label">📱 رقم مسؤول سطوك المحل (Boutique Stock Manager)</label>
-                <input type="text" value={whatsappBoutiqueManager} onChange={(e) => setWhatsappBoutiqueManager(e.target.value)} className="form-input" placeholder="0555123456" />
+                <input type="text" value={whatsappBoutiqueManager} onChange={(e) => setWhatsappBoutiqueManager(e.target.value)} className="form-input" placeholder="اختياري - اتركه فارغاً لتعطيل التنبيهات" />
               </div>
               <div className="form-group">
                 <label className="form-label">📦 رقم مسؤول سطوك التوصيل (Livraison Stock Manager)</label>
-                <input type="text" value={whatsappLivraisonManager} onChange={(e) => setWhatsappLivraisonManager(e.target.value)} className="form-input" placeholder="0555654321" />
+                <input type="text" value={whatsappLivraisonManager} onChange={(e) => setWhatsappLivraisonManager(e.target.value)} className="form-input" placeholder="اختياري - اتركه فارغاً لتعطيل التنبيهات" />
               </div>
             </div>
             <div className="form-group">
               <label className="form-label">⚠️ رقم مسؤول التغليف لاستقبال تنبيهات الإلغاء (Emballage Alert Manager)</label>
-              <input type="text" value={whatsappEmballageManager} onChange={(e) => setWhatsappEmballageManager(e.target.value)} className="form-input" placeholder="0771335039" />
+              <input type="text" value={whatsappEmballageManager} onChange={(e) => setWhatsappEmballageManager(e.target.value)} className="form-input" placeholder="اختياري - اتركه فارغاً لتعطيل التنبيهات" />
             </div>
             <div className="form-group">
               <label className="form-label">العنوان والمناطق (Adresse & Localisation)</label>
