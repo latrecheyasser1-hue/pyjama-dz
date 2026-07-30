@@ -637,8 +637,8 @@ async function createChatOrderInSupabase(orderData) {
 }
 
 async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
-  try {
-    if (!size || newQty <= 0) return;
+  // Restock notifications are handled exclusively by api/notify-restock.js to prevent duplicate messages
+  return;
 
     let availableQty = Number(newQty);
     const targetSize = String(size).trim().toUpperCase();

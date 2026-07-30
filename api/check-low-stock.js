@@ -126,8 +126,8 @@ async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
 }
 
 async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variantColor) {
-  try {
-    if (!size || newQty <= 0) return;
+  // Restock notifications are handled exclusively by api/notify-restock.js to prevent duplicate messages
+  return;
     const targetSize = String(size).trim().toUpperCase();
 
     // 🚀 ULTRA-FAST PARALLEL FETCHING (100ms single roundtrip)
