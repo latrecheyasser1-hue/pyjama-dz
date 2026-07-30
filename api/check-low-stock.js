@@ -284,7 +284,6 @@ export default async function handler(req, res) {
               if (isExplicitSoldItem) {
                 // Item was explicitly sold in this checkout → ALWAYS send alert, no exceptions
                 shouldSendAlert = true;
-                // Clear any old alert state so it never blocks this sold item
                 try {
                   fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}`, {
                     method: 'DELETE',
@@ -292,14 +291,13 @@ export default async function handler(req, res) {
                   }).catch(() => {});
                 } catch (e) {}
               } else if (numQty === 0) {
-                // If stock reached 0, send zero stock alert unless a 0-alert was ALREADY sent in the last 2 minutes
-                const lastAlertTime = lastAlertState?.timestamp || 0;
-                const isRecentZeroAlert = lastAlertState?.alertType === 'zero' && (Date.now() - lastAlertTime < 120000);
-                if (!isRecentZeroAlert) {
+                // Send zero stock alert ONCE when reaching 0
+                if (!lastAlertState || lastAlertState.alertType !== 'zero') {
                   shouldSendAlert = true;
                 }
-              } else { // 1 <= numQty <= 5
-                if (!lastAlertState || lastAlertState.alertType !== 'low' || (lastAlertState.qty !== undefined && numQty < lastAlertState.qty)) {
+              } else if (numQty <= 5 && numQty > 0) {
+                // Send low stock alert ONCE when stock enters <= 5 range (does NOT re-trigger at 4, 3, 2, 1)
+                if (!lastAlertState || (lastAlertState.alertType !== 'low' && lastAlertState.alertType !== 'zero')) {
                   shouldSendAlert = true;
                 }
               }
