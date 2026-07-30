@@ -292,18 +292,8 @@ export default async function handler(req, res) {
 
     // Process Waitlist Entries (only process customers who explicitly signed up for waitlist)
     for (const entry of waitlistEntries) {
-      if (entry.id && notifiedWaitlistIds.has(entry.id)) {
-        continue; // 🛑 ALREADY NOTIFIED IN THE PAST - SKIP FOREVER!
-      }
-
-      if (entry.id) {
-        try {
-          const sRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_${entry.id}&select=value`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-          });
-          const sRows = await sRes.json();
-          if (Array.isArray(sRows) && sRows.length > 0) continue; // 🛑 STRICT SINGLE NOTIFICATION GUARANTEE!
-        } catch (e) {}
+      if (entry.status === 'notified') {
+        continue;
       }
 
       const entryPhone = entry.whatsapp_number || entry.phone;
