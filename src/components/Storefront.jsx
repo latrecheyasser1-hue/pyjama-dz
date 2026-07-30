@@ -1054,16 +1054,19 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
         })
       });
 
-      // Clear any previous restock lock for this phone in settings table so the new request receives a restock alert
+      // Record waitlist request timestamp lock in settings table so restock notify API handles multiple registrations cleanly
       const last8Digits = formattedPhone.replace(/\D/g, '').slice(-8);
       if (last8Digits) {
         try {
-          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_${last8Digits}`, {
-            method: 'DELETE',
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
             headers: {
               'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`
-            }
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({ key: `waitlist_req_${last8Digits}`, value: String(Date.now()) })
           });
         } catch (e) {}
       }

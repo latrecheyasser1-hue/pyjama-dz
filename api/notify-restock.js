@@ -169,16 +169,25 @@ export default async function handler(req, res) {
       orders = [];
     }
 
-    // 2. Fetch persistent notified locks from settings table
-    let notifiedWaitlistLocks = new Set();
+    // 2. Fetch persistent notified locks and waitlist request timestamps from settings table
+    let notifiedLocksMap = new Map();
+    let waitlistReqsMap = new Map();
     try {
-      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=like.notified_waitlist_%25&select=key`, {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=key,created_at,value`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       const rows = await setRes.json();
       if (Array.isArray(rows)) {
         rows.forEach(r => {
-          if (r.key) notifiedWaitlistLocks.add(r.key);
+          if (!r.key) return;
+          const createdTime = r.created_at ? new Date(r.created_at).getTime() : (Number(r.value) || 0);
+          if (r.key.startsWith('notified_waitlist_')) {
+            const kVal = r.key.replace('notified_waitlist_', '');
+            notifiedLocksMap.set(kVal, Math.max(notifiedLocksMap.get(kVal) || 0, createdTime));
+          } else if (r.key.startsWith('waitlist_req_')) {
+            const kVal = r.key.replace('waitlist_req_', '');
+            waitlistReqsMap.set(kVal, Math.max(waitlistReqsMap.get(kVal) || 0, createdTime));
+          }
         });
       }
     } catch (e) {}
@@ -243,15 +252,18 @@ export default async function handler(req, res) {
       const waPhone = formatWhatsAppPhone(entryPhone);
       const last8 = cleanPhone.slice(-8);
 
-      // Check if phone already notified in current run or waitlist entry already locked in settings table
+      // Check if phone already notified in current run
       if (!waPhone || notifiedPhones.has(waPhone) || (last8 && notifiedPhones.has(last8))) {
         continue;
       }
 
-      if (last8 && notifiedWaitlistLocks.has(`notified_waitlist_${last8}`)) {
-        continue;
-      }
-      if (entry.id && notifiedWaitlistLocks.has(`notified_waitlist_${entry.id}`)) {
+      const notifiedTime = (last8 ? notifiedLocksMap.get(last8) : 0) || (entry.id ? notifiedLocksMap.get(entry.id) : 0) || 0;
+      const entryTime = entry.created_at ? new Date(entry.created_at).getTime() : 0;
+      const reqTime = (last8 ? waitlistReqsMap.get(last8) : 0) || entryTime;
+      const latestReqTime = Math.max(reqTime, entryTime);
+
+      // If customer was already notified FOR OR AFTER their latest waitlist request, skip!
+      if (notifiedTime > 0 && notifiedTime >= latestReqTime) {
         continue;
       }
 
