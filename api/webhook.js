@@ -188,8 +188,9 @@ function extractCleanPhonesList(...sources) {
 }
 
 async function getSequentialOrderNum(targetOrder) {
+  if (!targetOrder || !targetOrder.created_at) return "313";
   try {
-    const url = `${SUPABASE_URL}/rest/v1/orders?select=id`;
+    const url = `${SUPABASE_URL}/rest/v1/orders?created_at=lte.${encodeURIComponent(targetOrder.created_at)}&select=id`;
     const res = await fetch(url, {
       headers: {
         'apikey': SUPABASE_KEY,
@@ -207,7 +208,7 @@ async function getSequentialOrderNum(targetOrder) {
   } catch (err) {
     console.error('Error computing order number:', err);
   }
-  return "81";
+  return "313";
 }
 
 function cleanProductText(prod) {
