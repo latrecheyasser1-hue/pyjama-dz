@@ -496,6 +496,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     }
 
     restockDebounceRef.current[key] = setTimeout(async () => {
+      delete restockDebounceRef.current[key];
       const payload = { productId, productTitle, size, color, newQty: Number(newQty) };
       try {
         const res = await fetch('/api/notify-restock', {
@@ -512,7 +513,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       } catch (err) {
         console.warn('Restock notify fetch failed:', err);
       }
-    }, 20);
+    }, 300);
   };
 
   const handleSubmit = (e) => {

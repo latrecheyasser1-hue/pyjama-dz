@@ -255,9 +255,13 @@ export default async function handler(req, res) {
       const waPhone = formatWhatsAppPhone(entryPhone);
       const last8 = cleanPhone.slice(-8);
 
-      // Check if phone already notified in current run
+      // Check if phone already notified in current run or within last 15 seconds
       if (!waPhone || notifiedPhones.has(waPhone) || (last8 && notifiedPhones.has(last8))) {
         continue;
+      }
+      const lastSentTime = global._recentRestockMap.get(waPhone) || (last8 ? global._recentRestockMap.get(last8) : 0) || 0;
+      if (lastSentTime > 0 && (now - lastSentTime < 15000)) {
+        continue; // 🛑 PREVENT CONCURRENT DUP MESSAGES ACROSS PARALLEL REQUESTS!
       }
 
       const notifiedTime = (last8 ? notifiedLocksMap.get(last8) : 0) || (entry.id ? notifiedLocksMap.get(entry.id) : 0) || 0;
@@ -282,6 +286,7 @@ export default async function handler(req, res) {
         notifiedPhones.add(waPhone);
         if (last8) notifiedPhones.add(last8);
         global._recentRestockMap.set(waPhone, now);
+        if (last8) global._recentRestockMap.set(last8, now);
 
         // Save persistent per-phone and per-entry lock keys with current numeric timestamp in value
         const nowMsStr = String(Date.now());
