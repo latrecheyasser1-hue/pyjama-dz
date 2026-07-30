@@ -1518,7 +1518,7 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         }).catch(() => {});
 
-                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || "الافتراضي"}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
+                    await sendWhatsAppMessage(fromPhone, `أهلاً بك! 🌸\nتم إغلاق طلب الإلغاء وتبقى طلبيتك قائمة ومؤكدة بنجاح.`);
         return true;
       }
     }
