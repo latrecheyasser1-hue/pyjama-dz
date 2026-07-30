@@ -1057,13 +1057,15 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
       // Clear any previous restock lock for this phone in settings table so the new request receives a restock alert
       const last8Digits = formattedPhone.replace(/\D/g, '').slice(-8);
       if (last8Digits) {
-        fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_${last8Digits}`, {
-          method: 'DELETE',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`
-          }
-        }).catch(() => {});
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_${last8Digits}`, {
+            method: 'DELETE',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`
+            }
+          });
+        } catch (e) {}
       }
 
       // Send INSTANT (فَمْ فَمْ) WhatsApp notification to customer
