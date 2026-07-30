@@ -2009,6 +2009,13 @@ ${settingsSummary}
 ${catalogSummary}
 ${salesModeRules}`;
 
+              // 1. Check for web order confirmation or cancellation reply from customer FIRST (Instant execution before AI)
+              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
+              if (handledOrderConfirm) continue;
+
+              const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText);
+              if (handledOrderCancel) continue;
+
               // 0. Check for 0-stock size query first
               const outOfStockReply = checkStockInquiry(messageText, products);
               if (outOfStockReply) {
