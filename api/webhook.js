@@ -1610,7 +1610,14 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
 
-    const pendingOrders = await orderCheckRes.json();
+    let pendingOrders = await orderCheckRes.json();
+    if (!Array.isArray(pendingOrders) || pendingOrders.length === 0) {
+      // Fallback: If phone didn't match directly (e.g. Meta Test Number), fetch latest overall unconfirmed order
+      const fallbackRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=in.(nouvelle,pending,attente,attente_confirmation,nouveau)&order=created_at.desc&limit=1`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      pendingOrders = await fallbackRes.json();
+    }
     if (!Array.isArray(pendingOrders) || pendingOrders.length === 0) {
       return false; // No pending order to confirm
     }
