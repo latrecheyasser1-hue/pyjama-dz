@@ -27,7 +27,7 @@ async function getMetaAccessToken() {
 async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
   try {
     const rawDigits = (phone || '').replace(/\D/g, '');
-    const cleanPhone = rawDigits.length >= 9 ? rawDigits.slice(-9) : rawDigits;
+    const last8 = rawDigits.slice(-8);
     const dataVal = JSON.stringify({ productId, colorIdx, size, timestamp: Date.now() });
     
     if (msgId) {
@@ -43,7 +43,7 @@ async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
       });
     }
 
-    if (cleanPhone) {
+    if (last8) {
       await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
         method: 'POST',
         headers: {
@@ -52,7 +52,7 @@ async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
           'Content-Type': 'application/json',
           'Prefer': 'resolution=merge-duplicates'
         },
-        body: JSON.stringify({ key: `last_alert_${cleanPhone}`, value: dataVal })
+        body: JSON.stringify({ key: `last_alert_${last8}`, value: dataVal })
       });
     }
   } catch (err) {

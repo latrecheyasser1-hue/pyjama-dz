@@ -353,22 +353,24 @@ export default async function handler(req, res) {
     let boutiquePhone = rawBoutiquePhone || mainStorePhone;
     let livraisonPhone = rawLivraisonPhone || mainStorePhone;
 
-    // Helper to send individual alerts with 150ms stagger to finish under Vercel 10s timeout
-    global._activeSendingLocks = global._activeSendingLocks || new Set();
+    // Helper to send individual alerts with 100ms stagger
+    // Use a TTL map (30s) instead of a permanent Set to prevent warm-function lockout
+    if (!global._alertSendTimes) global._alertSendTimes = {};
 
     async function sendIndividualAlerts(itemsList, targetPhone, stockTypeTitle) {
       if (!targetPhone || !Array.isArray(itemsList) || itemsList.length === 0) return 0;
 
+      const now = Date.now();
       const validItems = itemsList.filter(item => {
-        if (global._activeSendingLocks.has(item.alertKey)) return false;
-        global._activeSendingLocks.add(item.alertKey);
+        const lastSent = global._alertSendTimes[item.alertKey] || 0;
+        if (now - lastSent < 30000) return false; // Skip if sent within last 30s
+        global._alertSendTimes[item.alertKey] = now;
         return true;
       });
 
       if (validItems.length === 0) return 0;
 
       const sendPromises = validItems.map(async (item, idx) => {
-        // Stagger requests by 100ms so 30 messages finish in ~3s, well under Vercel 10s timeout
         await new Promise(resolve => setTimeout(resolve, idx * 100));
 
         const alertStateVal = JSON.stringify({ 
