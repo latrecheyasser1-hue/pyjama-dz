@@ -335,6 +335,8 @@ export default function App() {
 
         let workingProducts = [...products];
 
+        const soldItemsCollected = [];
+
         for (const item of orderItems) {
           if (item.isDiscount) continue;
 
@@ -487,6 +489,17 @@ export default function App() {
               });
 
               await supabase.from('products').update(safePayload).eq('id', product.id);
+
+              // Capture exact sold item with colorIdx for precise 1:1 alert matching
+              if (typeof targetVariantIdx === 'number' && targetVariantIdx >= 0) {
+                soldItemsCollected.push({
+                  productId: product.id,
+                  colorIdx: targetVariantIdx,
+                  color: item.color,
+                  size: item.size,
+                  isPos: isPosOrder
+                });
+              }
             }
           }
         }
@@ -496,18 +509,11 @@ export default function App() {
 
         // Trigger single low stock check exclusively for sold items/sizes in this specific order
         const soldProductIds = orderItems.map(i => i.productId).filter(Boolean);
-        const soldItemsData = orderItems.map(i => ({
-          productId: i.productId,
-          product: i.product,
-          color: i.color,
-          size: i.size,
-          isPos: isPosOrder
-        }));
 
         fetch('/api/check-low-stock', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isPos: isPosOrder, productIds: soldProductIds, soldItems: soldItemsData })
+          body: JSON.stringify({ isPos: isPosOrder, productIds: soldProductIds, soldItems: soldItemsCollected })
         }).catch(e => console.error("Low stock check error:", e));
       }
       return insertedOrder;

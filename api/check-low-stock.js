@@ -303,9 +303,9 @@ export default async function handler(req, res) {
     const soldKeySet = new Set();
     if (soldItemsList) {
       soldItemsList.forEach(i => {
-        if (i.productId && i.size && i.color) {
-          // 3-part key: productId_color_size — matches ONLY the exact color+size sold
-          soldKeySet.add(`${String(i.productId).trim().toLowerCase()}_${String(i.color).trim().toLowerCase()}_${String(i.size).trim().toLowerCase()}`);
+        if (i.productId && i.size && typeof i.colorIdx === 'number') {
+          // Exact key: productId_colorIdx_size — perfect 1:1 match with alertKey
+          soldKeySet.add(`${String(i.productId).trim().toLowerCase()}_${i.colorIdx}_${String(i.size).trim().toLowerCase()}`);
         } else if (i.productId && i.size) {
           soldKeySet.add(`${String(i.productId).trim().toLowerCase()}_${String(i.size).trim().toLowerCase()}`);
         } else if (i.size) {
@@ -346,12 +346,12 @@ export default async function handler(req, res) {
 
             // If explicit soldItems were provided, ONLY evaluate sizes that were actually sold in this order
             if (soldKeySet.size > 0) {
-              const variantColor = String(variant.name || variant.color || '').trim().toLowerCase();
-              const itemMatchKey3 = `${String(product.id).trim().toLowerCase()}_${variantColor}_${String(size).trim().toLowerCase()}`;
-              const itemMatchKey1 = `${String(product.id).trim().toLowerCase()}_${String(size).trim().toLowerCase()}`;
-              const itemMatchKey2 = `size_${String(size).trim().toLowerCase()}`;
-              if (!soldKeySet.has(itemMatchKey3) && !soldKeySet.has(itemMatchKey1) && !soldKeySet.has(itemMatchKey2)) {
-                continue; // Skip unsold color+sizes!
+              // Use alertKey format: productId_cIdx_size — perfect 1:1 match
+              const exactKey = `${String(product.id).trim().toLowerCase()}_${cIdx}_${String(size).trim().toLowerCase()}`;
+              const fallbackKey = `${String(product.id).trim().toLowerCase()}_${String(size).trim().toLowerCase()}`;
+              const sizeOnlyKey = `size_${String(size).trim().toLowerCase()}`;
+              if (!soldKeySet.has(exactKey) && !soldKeySet.has(fallbackKey) && !soldKeySet.has(sizeOnlyKey)) {
+                continue; // Skip — this exact color variant + size was NOT sold!
               }
             }
             
@@ -379,11 +379,11 @@ export default async function handler(req, res) {
 
               let isExplicitSoldItem = false;
               if (soldKeySet.size > 0) {
-                const variantColor = String(variant.name || variant.color || '').trim().toLowerCase();
-                const itemMatchKey3 = `${String(product.id).trim().toLowerCase()}_${variantColor}_${String(size).trim().toLowerCase()}`;
-                const itemMatchKey1 = `${String(product.id).trim().toLowerCase()}_${String(size).trim().toLowerCase()}`;
-                const itemMatchKey2 = `size_${String(size).trim().toLowerCase()}`;
-                if (soldKeySet.has(itemMatchKey3) || soldKeySet.has(itemMatchKey1) || soldKeySet.has(itemMatchKey2)) {
+                // Use alertKey format: productId_cIdx_size — perfect 1:1 match
+                const exactKey = `${String(product.id).trim().toLowerCase()}_${cIdx}_${String(size).trim().toLowerCase()}`;
+                const fallbackKey = `${String(product.id).trim().toLowerCase()}_${String(size).trim().toLowerCase()}`;
+                const sizeOnlyKey = `size_${String(size).trim().toLowerCase()}`;
+                if (soldKeySet.has(exactKey) || soldKeySet.has(fallbackKey) || soldKeySet.has(sizeOnlyKey)) {
                   isExplicitSoldItem = true;
                 }
               }
