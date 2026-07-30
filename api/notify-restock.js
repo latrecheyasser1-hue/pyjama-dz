@@ -172,7 +172,7 @@ export default async function handler(req, res) {
     // 2. Fetch persistent notified locks from settings table
     let notifiedWaitlistLocks = new Set();
     try {
-      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=like.notified_waitlist_%&select=key`, {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=like.notified_waitlist_%25&select=key`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       const rows = await setRes.json();
