@@ -429,20 +429,13 @@ export default async function handler(req, res) {
     const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const isPosSaleCheck = Boolean(bodyData && (bodyData.isPos || (Array.isArray(bodyData.soldItems) && bodyData.soldItems.some(i => i.isPos))));
 
-    const mainStorePhone = (storeSettings.whatsapp && String(storeSettings.whatsapp).trim() && !storeSettings.whatsapp.includes('123456'))
-      ? String(storeSettings.whatsapp).trim()
-      : null;
-
-    const rawLivraisonPhone = (storeSettings.whatsappLivraisonManager && String(storeSettings.whatsappLivraisonManager).trim() && !storeSettings.whatsappLivraisonManager.includes('123456'))
-      ? String(storeSettings.whatsappLivraisonManager).trim()
-      : null;
-
-    const rawBoutiquePhone = (storeSettings.whatsappBoutiqueManager && String(storeSettings.whatsappBoutiqueManager).trim() && !storeSettings.whatsappBoutiqueManager.includes('123456'))
+    const boutiquePhone = (storeSettings.whatsappBoutiqueManager && String(storeSettings.whatsappBoutiqueManager).trim() && !storeSettings.whatsappBoutiqueManager.includes('123456'))
       ? String(storeSettings.whatsappBoutiqueManager).trim()
       : null;
 
-    let boutiquePhone = rawBoutiquePhone || mainStorePhone;
-    let livraisonPhone = rawLivraisonPhone || mainStorePhone;
+    const livraisonPhone = (storeSettings.whatsappLivraisonManager && String(storeSettings.whatsappLivraisonManager).trim() && !storeSettings.whatsappLivraisonManager.includes('123456'))
+      ? String(storeSettings.whatsappLivraisonManager).trim()
+      : null;
 
     // Helper to send individual alerts with 150ms stagger to finish under Vercel 10s timeout
     global._activeSendingLocks = global._activeSendingLocks || new Set();
