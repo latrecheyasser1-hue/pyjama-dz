@@ -1074,8 +1074,8 @@ async function updateOrderStatusAndArchive(orderId, newStatus) {
 async function checkAndAlertLowStock(product, storeSettings) {
   if (!product || !Array.isArray(product.colorVariants)) return;
   
-  const livraisonManagerPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456')) ? storeSettings.whatsappLivraisonManager : (storeSettings.whatsapp || '0771335039');
-  const boutiqueManagerPhone = (storeSettings.whatsappBoutiqueManager && !storeSettings.whatsappBoutiqueManager.includes('123456')) ? storeSettings.whatsappBoutiqueManager : null;
+  const livraisonManagerPhone = (storeSettings.whatsappLivraisonManager && !storeSettings.whatsappLivraisonManager.includes('123456') && storeSettings.whatsappLivraisonManager.trim() !== '') ? storeSettings.whatsappLivraisonManager.trim() : null;
+  const boutiqueManagerPhone = (storeSettings.whatsappBoutiqueManager && !storeSettings.whatsappBoutiqueManager.includes('123456') && storeSettings.whatsappBoutiqueManager.trim() !== '') ? storeSettings.whatsappBoutiqueManager.trim() : null;
 
   const isBoutiqueProduct = (product.category && String(product.category).startsWith('boutique__')) ||
                             (product.badge && String(product.badge).includes('Boutique'));
@@ -1656,6 +1656,13 @@ async function processIncomingPayload(body) {
             const fromPhone = message.from;
             const messageType = message.type;
             let messageText = message.text?.body;
+
+            if (!messageText && message.type === 'interactive') {
+              messageText = message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || message.interactive?.button_reply?.id;
+            }
+            if (!messageText && message.type === 'button') {
+              messageText = message.button?.text || message.button?.payload;
+            }
 
             if (fromPhone) {
               const cleanPhone = fromPhone.replace(/^\+?213/, '0');
