@@ -1585,6 +1585,22 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
 async function processOrderConfirmationIntent(fromPhone, messageText) {
   try {
     if (!messageText) return false;
+    // Skip confirmation logic if customer is in active cancellation question session
+    let hasCancelSession = false;
+    try {
+      const rawDigits = fromPhone.replace(/\D/g, '');
+      const cleanPhoneKey = rawDigits.slice(-8);
+      const stateRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.cancel_state_${cleanPhoneKey}&select=value`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const stateRows = await stateRes.json();
+      if (Array.isArray(stateRows) && stateRows[0]?.value) {
+        hasCancelSession = true;
+      }
+    } catch (e) {}
+
+    if (hasCancelSession) return false;
+
     const rawLower = String(messageText).toLowerCase().trim();
     const normText = normalizeText(messageText);
 
@@ -2010,12 +2026,12 @@ ${settingsSummary}
 ${catalogSummary}
 ${salesModeRules}`;
 
-              // 1. Check for web order confirmation or cancellation reply from customer FIRST (Instant execution before AI)
-              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
-              if (handledOrderConfirm) continue;
-
+              // 1. Check for order cancellation or confirmation reply from customer FIRST
               const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText);
               if (handledOrderCancel) continue;
+
+              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
+              if (handledOrderConfirm) continue;
 
               // 0. Check for 0-stock size query first
               const outOfStockReply = checkStockInquiry(messageText, products);
