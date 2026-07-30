@@ -348,37 +348,43 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
 function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []) {
   const norm = normalizeText(userMessage);
   const pLower = (userMessage || "").toLowerCase();
-  const mapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "https://maps.app.goo.gl/algeria-pyjama-dz";
-  const address = storeSettings.address || "Ø§Ù„Ø´Ù„Ù (Chlef)";
+  const rawMaps = storeSettings.googleMapsUrl || storeSettings.googleMaps || "";
+  const mapsUrl = (rawMaps && !rawMaps.includes('algeria-pyjama-dz')) ? rawMaps.trim() : "";
+  const address = storeSettings.address || "الشلف (Chlef)";
 
   const phoneSources = storeSettings.phoneOrders 
     ? [storeSettings.phoneOrders, storeSettings.whatsapp]
     : [storeSettings.phones, storeSettings.whatsapp];
   const phonesArr = extractCleanPhonesList(...phoneSources);
-  const formattedPhonesBullets = phonesArr.length > 0 ? phonesArr.map(p => `- ${p}`).join('\n') : '- 0554128933';
+  const formattedPhonesBullets = phonesArr.length > 0 ? phonesArr.map(p => "- " + p).join("\n") : "- 0554128933";
 
   // 1. QUALITY & FABRIC INQUIRY
-  if (['qualite', 'qualitÃ©', 'chaba', 'chab', 'chbab', 'Ø¬ÙˆØ¯Ø©', 'Ù†ÙˆØ¹ÙŠØ©', 'Ù‚Ù…Ø§Ø´', 'Ù…Ù„ÙŠØ­Ø©', 'Ø´Ø¨Ø§Ø¨Ø©', 'Ø´Ø¨Ø§Ø¨', 'Ù…Ù„ÙŠØ­'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `Ø¬ÙˆØ¯Ø© Ø§Ù„Ø³Ù„Ø¹Ø© ÙˆØ§Ù„Ù‚Ù…Ø§Ø´ Ù…Ù…ØªØ§Ø²Ø© Ø¬Ø¯Ø§Ù‹ ÙˆØ±ÙÙŠØ¹Ø© ÙˆÙ…Ø±ÙŠØ­Ø© ÙÙŠ Ø§Ù„Ù„Ø¨Ø³ 100%.\nÙŠÙ…ÙƒÙ†Ùƒ ØªØµÙØ­ Ø¬Ù…ÙŠØ¹ Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„Ø§Øª ÙˆØ§Ù„ØªÙØ§ØµÙŠÙ„ Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ:\nhttps://pyjama-dz.vercel.app`;
+  if (['qualite', 'qualité', 'chaba', 'chab', 'chbab', 'جودة', 'نوعية', 'قماش', 'مليحة', 'شبابة', 'شباب', 'مليح'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return "جودة السلعة والقماش ممتازة جداً ورفيعة ومريحة في اللبس 100%\nيمكنك تصفح جميع الموديلات والتفاصيل عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app ✨🌸";
   }
 
   // 2. DELIVERY TIMING / SPEED INQUIRY
-  if (['winta', 'twsslni', 'twsslnii', 'ÙˆÙ‚ØªØ§Ø´', 'Ø´Ø­Ø§Ù„ ØªÙ‚Ø¹Ø¯', 'Ø´Ø­Ø§Ù„ ÙŠØ§Ø®Ø¯', 'Ø´Ø­Ø§Ù„ ØªØ§Ø®Ø¯', 'Ù…ØªÙ‰', 'ØªØªÙˆØµÙ„', 'ØªÙˆØµÙ„Ù†ÙŠ'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `Ø§Ù„ØªÙˆØµÙŠÙ„ Ø¹Ø§Ø¯Ø© ÙŠØ£Ø®Ø° Ø¨ÙŠÙ† 24 Ø­ØªÙ‰ 48 Ø³Ø§Ø¹Ø© Ø¨Ø§Ù„Ù†Ø³Ø¨Ø© Ù„ÙˆÙ„Ø§ÙŠØ© Ø§Ù„Ø´Ù„ÙØŒ ÙˆÙ…Ù† ÙŠÙˆÙ…ÙŠÙ† Ø¥Ù„Ù‰ 4 Ø£ÙŠØ§Ù… Ù„Ø¨Ø§Ù‚ÙŠ Ø§Ù„ÙˆÙ„Ø§ÙŠØ§Øª.\nÙÙˆØ± Ù…Ø§ ØªØ®Ø±Ø¬ Ø§Ù„Ø·Ù„Ø¨ÙŠØ© Ù…Ø¹ Ø§Ù„Ù…ÙˆØ²Ø¹ØŒ Ø±Ø§Ø­ ÙŠØªØµÙ„ Ø¨ÙŠÙƒ ÙÙŠ Ø§Ù„Ù‡Ø§ØªÙ Ø¨Ø§Ø´ ÙŠÙˆØµÙ„Ù‡Ø§Ù„Ùƒ.`;
+  if (['winta', 'twsslni', 'twsslnii', 'وقتاش', 'شحال تقعد', 'شحال ياخد', 'شحال تاخد', 'متى', 'تتوصل', 'توصلني'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return "التوصيل عادة يأخذ بين 24 حتى 48 ساعة بالنسبة لولاية الشلف، ومن يومين إلى 4 أيام لباقي الولايات.\nفور ما تخرج الطلبية مع الموزع، راح يتصل بيك في الهاتف باش يوصلهالك. 🚚✨";
   }
 
   // 3. PHONE NUMBERS QUERY
-  if (['numero', 'nomer', 'num', 'nomro', 'nomiro', 'Ù‡Ø§ØªÙ', 'Ø±Ù‚Ù…', 'Ø§Ø±Ù‚Ø§Ù…', 'Ù†Ù…ÙŠØ±Ùˆ', 'Ù†ÙˆÙ…Ø±Ùˆ', 'tel', 'phone'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `Ø£Ø±Ù‚Ø§Ù… Ø§Ù„ØªÙˆØ§ØµÙ„ ÙˆØ§Ù„ÙˆØ§ØªØ³Ø§Ø¨ Ø§Ù„Ø±Ø³Ù…ÙŠØ© Ù„Ù„Ù…ØªØ¬Ø±:\n${formattedPhonesBullets}\n\nÙ†Ø­Ù† ÙÙŠ Ø®Ø¯Ù…ØªÙƒ Ø¯Ø§Ø¦Ù…Ø§Ù‹.`;
+  if (['numero', 'nomer', 'num', 'nomro', 'nomiro', 'هاتف', 'رقم', 'ارقام', 'نميرو', 'نومرو', 'tel', 'phone'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return "أرقام التواصل والواتساب الرسمية للمتجر:\n" + formattedPhonesBullets + "\n\nنحن في خدمتك دائماً. 🌸";
   }
 
   // 4. LOCATION QUERY
-  if (['win jayiin', 'win jayin', 'Ù…Ù‚Ø±', 'Ø¹Ù†ÙˆØ§Ù†', 'Ù…ÙˆÙ‚Ø¹', 'Ø¨Ù„Ø§ØµØ©', 'Ù„ÙˆÙƒÙŠØ´Ù†', 'Ø§Ù„Ù„ÙˆÙƒÙŠØ´Ù†', 'chlef', 'Ø§Ù„Ø´Ù„Ù'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `Ø§Ù„Ù…Ù‚Ø± ÙˆØ§Ù„Ø¹Ù†ÙˆØ§Ù†: ${address}.\nØ±Ø§Ø¨Ø· Ø®Ø±Ø§Ø¦Ø· Ø¬ÙˆØ¬Ù„ (Google Maps):\n${mapsUrl}\n\nØ§Ù„ØªÙˆØµÙŠÙ„ Ù…ØªÙˆÙØ± Ù„Ø¬Ù…ÙŠØ¹ 58 ÙˆÙ„Ø§ÙŠØ© Ø­ØªÙ‰ Ø¨Ø§Ø¨ Ø§Ù„Ù…Ù†Ø²Ù„. ÙƒÙŠÙ ÙŠÙ…ÙƒÙ†Ù†Ø§ Ù…Ø³Ø§Ø¹Ø¯ØªÙƒ Ø§Ù„ÙŠÙˆÙ…ØŸ`;
+  if (['win jayiin', 'win jayin', 'مقر', 'عنوان', 'موقع', 'بلاصة', 'لوكيشن', 'اللوكيشن', 'chlef', 'الشلف'].some(k => norm.includes(k) || pLower.includes(k))) {
+    let mapsMsg = "المقر والعنوان: " + address + ".\n";
+    if (mapsUrl && mapsUrl.length > 8) {
+      mapsMsg += "رابط خريطة جوجل (Google Maps):\n" + mapsUrl + "\n\n";
+    }
+    mapsMsg += "التوصيل متوفر لجميع 58 ولاية حتى باب المنزل. كيف يمكننا مساعدتك اليوم؟ 🌸";
+    return mapsMsg;
   }
 
   // 5. REAL-TIME PRODUCT ITEM / COLOR / STOCK CHECKER
-  if (['ensemble', 'noir', 'rouge', 'rose', 'blanc', 'bleu', 'Ø¨ÙŠØ¬Ø§Ù…Ø©', 'Ø§Ù†Ø³Ø§Ù…Ø¨Ù„', 'Ø§Ù†ØµØ§Ù…Ø¨Ù„', 'Ø³Ø·ÙˆÙƒ', 'ÙƒØ§ÙŠÙ†', 'kaayn', 'kayn', 'dispo', 'disponibilite', 'couleur', 'taille', 'Ù…Ù‚Ø§Ø³', 'Ù„ÙˆÙ†'].some(k => norm.includes(k) || pLower.includes(k))) {
+  if (['ensemble', 'noir', 'rouge', 'rose', 'blanc', 'bleu', 'بيجامة', 'انسامبل', 'انصامبل', 'سطوك', 'كاين', 'kaayn', 'kayn', 'dispo', 'disponibilite', 'couleur', 'taille', 'مقاس', 'لون'].some(k => norm.includes(k) || pLower.includes(k))) {
     const availableColors = [];
     (products || []).forEach(p => {
       if (Array.isArray(p.colorVariants)) {
@@ -395,28 +401,23 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
     });
 
     if (hasColorMatch || hasTitleMatch) {
-      return `Ø¥ÙŠÙ‡ ÙƒØ§ÙŠÙ† Ù…ØªÙˆÙØ± ÙÙŠ Ø§Ù„Ø³Ø·ÙˆÙƒ. ØªÙØ¶Ù„ Ø¨ØªØµÙØ­ Ø§Ù„ØµÙˆØ± ÙˆØ§Ù„Ù…Ù‚Ø§Ø³Ø§Øª ÙˆØªØ£ÙƒÙŠØ¯ Ø·Ù„Ø¨Ùƒ Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ:\nhttps://pyjama-dz.vercel.app`;
+      return "إيه كاين متوفر في السطوك. تفضل بتصفح الصور والمقاسات وتأكيد طلبك عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app 🌸";
     } else {
-      return `Ù…Ø§ÙƒØ§Ø´ Ù…ØªÙˆÙØ± Ø­Ø§Ù„ÙŠØ§Ù‹ Ù‡Ø§Ø¯ Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø£Ùˆ Ø§Ù„Ù„ÙˆÙ†. ØªÙØ¶Ù„ Ø¨ØªØµÙØ­ Ø¬Ù…ÙŠØ¹ Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„Ø§Øª ÙˆØ§Ù„Ø£Ù„ÙˆØ§Ù† Ø§Ù„Ù…ØªÙˆÙØ±Ø© Ø­Ø§Ù„ÙŠØ§Ù‹ Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ:\nhttps://pyjama-dz.vercel.app`;
+      return "ماكاش متوفر حالياً هاد الموديل أو اللون. تفضل بتصفح جميع الموديلات والألوان المتوفرة حالياً عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app 🌸";
     }
   }
 
   // 6. PRICES / CATALOG
-  if (['prix', 'Ø³Ø¹Ø±', 'Ø§Ø³Ø¹Ø§Ø±', 'Ø³ÙˆÙ…Ø©', 'Ø´Ø­Ø§Ù„', 'Ø¨ÙƒÙ…', 'Ù…Ù†ØªØ¬Ø§Øª', 'Ù…ÙˆØ¯ÙŠÙ„Ø§Øª', 'Ø¨ÙŠØ¬Ø§Ù…Ø©', 'Ø¨ÙŠØ¬Ø§Ù…Ø§Øª', 'Ø³Ù„Ø¹Ø©'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `ØªÙØ¶Ù„ Ø¨ØªØµÙØ­ ÙƒØ§ÙØ© Ø§Ù„ØµÙˆØ±ØŒ Ø§Ù„Ù…Ù‚Ø§Ø³Ø§ØªØŒ Ø§Ù„Ø£Ù„ÙˆØ§Ù† ÙˆØ§Ù„Ø£Ø³Ø¹Ø§Ø± Ø§Ù„Ù…ØªÙˆÙØ±Ø© Ø­Ø§Ù„ÙŠØ§Ù‹ Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ:\nhttps://pyjama-dz.vercel.app\n\nØ£Ø³Ø¹Ø§Ø±Ù†Ø§ Ù…Ù†Ø§Ø³Ø¨Ø© Ø¬Ø¯Ø§Ù‹ ÙˆØ§Ù„ØªÙˆØµÙŠÙ„ Ù…ØªÙˆÙØ± Ù„Ø¬Ù…ÙŠØ¹ Ø§Ù„ÙˆÙ„Ø§ÙŠØ§Øª.`;
+  if (['prix', 'سعر', 'اسعار', 'سومة', 'شحال', 'بكم', 'منتجات', 'موديلات', 'بيجامة', 'بيجامات', 'سلعة'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return "تفضل بتصفح كافة الصور، المقاسات، الألوان والأسعار المتوفرة حالياً عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nأسعارنا مناسبة جداً والتوصيل متوفر لجميع الولايات. 🛍️✨";
   }
 
   // 7. DELIVERY GENERAL
-  if (['livraison', 'ØªÙˆØµÙŠÙ„', 'Ø´Ø­Ù†', 'Ù†ÙˆØµÙ„Ùˆ', 'ÙˆÙ„Ø§ÙŠØ©', 'Ø¯ÙŠÙƒØ³Ø¨Ø±ÙŠØ³', 'ÙŠØ§Ù„Ø§Ø¯ÙŠÙ†'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `Ø§Ù„ØªÙˆØµÙŠÙ„ Ù…ØªÙˆÙØ± Ù„Ø¬Ù…ÙŠØ¹ 58 ÙˆÙ„Ø§ÙŠØ© Ø­ØªÙ‰ Ø¨Ø§Ø¨ Ø§Ù„Ù…Ù†Ø²Ù„ Ø£Ùˆ Ø§Ù„Ù…ÙƒØªØ¨.\nØ§Ù„Ø¯ÙØ¹ ÙŠÙƒÙˆÙ† Ø¹Ù†Ø¯ Ø§Ù„Ø§Ø³ØªÙ„Ø§Ù… Ø¨Ø¹Ø¯ Ù…Ø¹Ø§ÙŠÙ†Ø© Ø·Ù„Ø¨Ùƒ.`;
+  if (['livraison', 'توصيل', 'شحن', 'نوصلو', 'ولاية', 'ديكسبريس', 'يالادين'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return "التوصيل متوفر لجميع 58 ولاية حتى باب المنزل أو المكتب.\nالدفع يكون عند الاستلام بعد معاينة طلبك. 📦✨";
   }
 
-  // 8. WHOLESALE
-  if (['gros', 'Ø¬Ù…Ù„Ø©', 'Ø¨Ø§Ù„Ø¬Ù…Ù„Ø©', 'Ø³ÙŠØ±ÙŠ', 'ØªØ¬Ø§Ø±Ø©'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `Ø§Ù„Ø¨ÙŠØ¹ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø© Ù…ØªÙˆÙØ± Ø¨Ø§Ù„Ø³ÙŠØ±ÙŠØ§Øª ÙˆØ§Ù„ÙƒÙ…ÙŠØ§Øª Ù„ØµØ­Ø§Ø¨ Ø§Ù„Ù…Ø­Ù„Ø§Øª ÙˆØ§Ù„ØªØ¬Ø§Ø±Ø©.\nÙŠÙ…ÙƒÙ†Ùƒ ØªØµÙØ­ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø£Ùˆ Ø§Ù„ØªÙˆØ§ØµÙ„ Ù…Ø¹Ù†Ø§ Ø¹Ø¨Ø± Ø§Ù„Ù‡Ø§ØªÙ Ù„Ù„Ù…Ø²ÙŠØ¯ Ù…Ù† Ø§Ù„ØªÙØ§ØµÙŠÙ„: https://pyjama-dz.vercel.app`;
-  }
-
-  return `Ø£Ù‡Ù„Ø§Ù‹ ÙˆØ³Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ. ØªÙØ¶Ù„ Ø¨Ø§Ù„Ø§Ø³ØªÙØ³Ø§Ø± Ø¹Ù† Ø£ÙŠ Ù…ÙˆØ¯ÙŠÙ„ Ø£Ùˆ Ù…Ù‚Ø§Ø³ Ø£Ùˆ Ø³Ø¹Ø±ØŒ Ù†Ø­Ù† ÙÙŠ Ø®Ø¯Ù…ØªÙƒ.\nØ±Ø§Ø¨Ø· Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø±Ø³Ù…ÙŠ: https://pyjama-dz.vercel.app`;
+  return "أهلاً وسهلاً بك. تفضل بالاستفسار عن أي موديل أو مقاس أو سعر، نحن في خدمتك.\nرابط الموقع الرسمي: https://pyjama-dz.vercel.app 🌸✨";
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}, userMessage = "", products = []) {
