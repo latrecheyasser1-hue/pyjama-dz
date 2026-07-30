@@ -1585,16 +1585,16 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
     const normText = normalizeText(messageText);
 
     // Skip immediately if customer is asking a question or saying no!
-    if (['anuler', 'annuler', 'anule', 'annule', 'Ø§Ù„ØºÙŠ', 'Ø£Ù„ØºÙŠ', 'Ø¥Ù„ØºØ§Ø¡', 'Ø§Ù„ØºØ§Ø¡', 'lala', 'Ù„Ø§ Ø§Ø±ÙŠØ¯', 'Ù„Ø§Ø±ÙŠØ¯'].some(k => rawLower.includes(k) || normText.includes(k))) {
+    if (['anuler', 'annuler', 'anule', 'annule', 'الغي', 'ألفي', 'إلغاء', 'الغال', 'lala', 'لا اريد', 'لاريد'].some(k => rawLower.includes(k) || normText.includes(k))) {
       return false;
     }
 
     const confirmKeywords = [
-      'Ø£ÙƒØ¯', 'Ø£ÙƒØ¯Ù„ÙŠ', 'ØªØ£ÙƒÙŠØ¯', 'Ù†Ø¤ÙƒØ¯', 'Ø£ÙƒØ¯Ù‡Ø§', 'Ù†Ø¹Ù… Ø£ÙƒØ¯', 'Ù†Ø¹Ù… Ø£ÙƒØ¯Ù„ÙŠ', 'Ù…Ø§Ù„Ø§ Ø£ÙƒØ¯Ù„ÙŠ', 'Ù…Ù„Ø§ Ø£ÙƒØ¯Ù„ÙŠ',
-      'Ø£ÙƒØ¯ Ø§Ù„Ø·Ù„Ø¨ÙŠØ©', 'ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø·Ù„Ø¨ÙŠØ©', 'ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø·Ù„Ø¨', 'Ø£ÙƒØ¯Ù„ÙŠ Ø§Ù„Ø·Ù„Ø¨ÙŠØ©', 'Ø£ÙƒØ¯Ù„ÙŠ Ø·Ù„Ø¨ÙŠØ©', 'Ø£ÙƒØ¯Ù„ÙŠ Ø§Ù„Ø·Ù„Ø¨',
+      'أكد', 'أكدلي', 'تأكيد', 'نؤكد', 'أكدها', 'نعم أكد', 'نعم أكدلي', 'مالا أكدلي', 'ملا أكدلي',
+      'أكد الطلبية', 'تأكيد الطلبية', 'تأكيد الطلب', 'أكدلي الطلبية', 'أكدلي طلبية', 'أكدلي الطلب',
       'akedha', 'akedhaa', 'aked', 'akedli', 'akedlii', 'confirme', 'confirmer', 'confirmation',
       'oui confirme', 'oui akedli', 'oui aked', 'daccord confirme', 'oui akedha',
-      'ih akedha', 'ih aked', 'ih', 'Ø¥ÙŠÙ‡', 'Ø§ÙŠÙ‡', 'Ù†Ø¹Ù…', 'Ù†Ø¹Ø§Ù…', 'ØµØ­', 'Ø§ÙˆÙƒÙŠ', 'ok', 'yes', 'oui', 'Ø«Ø¨ØªÙ‡Ø§', 'Ø«Ø¨ØªÙ„ÙŠ'
+      'ih akedha', 'ih aked', 'ih', 'إيه', 'ايه', 'نعم', 'نعام', 'صح', 'اوكي', 'ok', 'yes', 'oui', 'ثبتها', 'ثبتلي'
     ];
 
     const isConfirm = confirmKeywords.some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
@@ -1620,12 +1620,12 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
 
     const orderNumStr = await getSequentialOrderNum(orderToConfirm);
     const rawName = orderToConfirm.clientName || '';
-    const cleanName = (rawName && !rawName.includes('Ø²Ø¨ÙˆÙ† Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨') && !rawName.includes('Ø²Ø¨ÙˆÙ† Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©'))
-      ? rawName.replace(/\(ÙˆØ§ØªØ³Ø§Ø¨:[^\)]+\)/g, '').trim()
+    const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
+      ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
       : '';
     const clientNameStr = cleanName ? ` ${cleanName}` : '';
 
-    const confirmMsg = `Ø£Ù‡Ù„Ø§Ù‹ ÙˆØ³Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ${clientNameStr}! ðŸŒ¸\nØªÙ… ØªØ£ÙƒÙŠØ¯ Ø·Ù„Ø¨ÙŠØªÙƒ Ø±Ù‚Ù… #${orderNumStr} Ø¨Ù†Ø¬Ø§Ø­. ðŸ“¦âœ¨\nØ·Ù„Ø¨ÙŠØªÙƒ Ø§Ù„Ø¢Ù† Ù…Ø¤ÙƒØ¯Ø© ÙˆØ¬Ø§Ø±ÙŠ ØªØ¬Ù‡ÙŠØ²Ù‡Ø§ Ù„Ù„Ø´Ø­Ù† ÙˆØ§Ù„ØªÙˆØµÙŠÙ„. Ø´ÙƒØ±Ø§Ù‹ Ù„Ø«Ù‚ØªÙƒ Ø¨Ù…ØªØ¬Ø±Ù†Ø§! â ¤ï¸ `;
+    const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل. شكراً لثقتك بمتجرنا! ❤️`;
 
     await sendWhatsAppMessage(fromPhone, confirmMsg);
     return true;
