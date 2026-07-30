@@ -594,14 +594,10 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
     if (editingId) {
       onUpdateProduct(productData);
-      const prevProd = products.find(p => p.id === editingId);
-      const prevVariants = getParsedColorVariants(prevProd);
       (productData.colorVariants || []).forEach(cv => {
-        const prevCv = prevVariants.find(pv => (pv.color || pv.name) === (cv.color || cv.name));
         Object.entries(cv.stock || {}).forEach(([sz, qty]) => {
           const nextQ = Number(qty) || 0;
-          const prevQ = Number(prevCv?.stock?.[sz] || 0);
-          if (nextQ > prevQ && nextQ > 0) {
+          if (nextQ > 0) {
             triggerNotifyRestock(productData.id, productData.title, sz, nextQ, cv.color || cv.name);
           }
         });
@@ -665,7 +661,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
     onUpdateProduct(updatedProduct);
 
-    if (delta > 0 && nextQty > 0) {
+    if (nextQty > 0) {
       triggerNotifyRestock(product.id, product.title, size, nextQty, targetCv?.color || targetCv?.name);
     }
   };
@@ -674,7 +670,6 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
   const handleDirectStockChange = (product, colorIdx, size, newQtyVal) => {
     const colorVariantsArr = getParsedColorVariants(product);
     const targetCv = colorVariantsArr[colorIdx];
-    const currentQty = Number(targetCv?.stock?.[size] || 0);
     const nextQty = Math.max(0, Number(newQtyVal) || 0);
 
     const updatedVariants = colorVariantsArr.map((cv, i) => {
@@ -692,7 +687,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
     onUpdateProduct(updatedProduct);
 
-    if (nextQty > currentQty && nextQty > 0) {
+    if (nextQty > 0) {
       triggerNotifyRestock(product.id, product.title, size, nextQty, targetCv?.color || targetCv?.name);
     }
   };
