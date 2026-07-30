@@ -1713,6 +1713,8 @@ async function processIncomingPayload(body) {
               }
 
               if (!messageText) continue;
+              const normText = normalizeText(messageText);
+              const rawLower = String(messageText).toLowerCase().trim();
               console.log(`Received message from ${fromPhone}: ${messageText}`);
 
               // A. WORKER STOCK RESTOCK via DIRECT REPLY ONLY
@@ -1870,9 +1872,9 @@ async function processIncomingPayload(body) {
               const isCancelIntentWord = [
                 'anuler', 'annuler', 'anule', 'annule', 'nanuli', 'anuli', 'nanulii', 'anulii', 'nanoli', 'anoli',
                 'Ø§Ù„ØºÙŠ', 'Ø£Ù„ØºÙŠ', 'Ø¥Ù„ØºØ§Ø¡', 'Ø§Ù„ØºØ§Ø¡', 'Ù†Ù„ØºÙŠ', 'Ø§Ù†ÙˆÙ„ÙŠ', 'Ø£Ù†ÙˆÙ„ÙŠ'
-              ].some(k => rawLowerText.includes(k) || normText.includes(k));
+              ].some(k => rawLower.includes(k) || normText.includes(k));
 
-              const isComplaint = !isCancelIntentWord && complaintKeywords.some(k => normText.includes(k) || rawLowerText.includes(k));
+              const isComplaint = !isCancelIntentWord && complaintKeywords.some(k => normText.includes(k) || rawLower.includes(k));
 
               if (isComplaint) {
                 const rawContactName = order?.clientName || value?.contacts?.[0]?.profile?.name || '';
