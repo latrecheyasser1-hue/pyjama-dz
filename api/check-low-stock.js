@@ -92,7 +92,7 @@ async function sendWhatsAppMessage(toPhone, textBody, imageUrl = null) {
 async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
   try {
     const rawDigits = (phone || '').replace(/\D/g, '');
-    const cleanPhone = rawDigits.length >= 9 ? rawDigits.slice(-9) : rawDigits;
+    const last8 = rawDigits.slice(-8);
     const dataVal = JSON.stringify({ productId, colorIdx, size, timestamp: Date.now() });
     
     if (msgId) {
@@ -108,7 +108,7 @@ async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
       });
     }
 
-    if (cleanPhone) {
+    if (last8) {
       await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
         method: 'POST',
         headers: {
@@ -117,7 +117,7 @@ async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
           'Content-Type': 'application/json',
           'Prefer': 'resolution=merge-duplicates'
         },
-        body: JSON.stringify({ key: `last_alert_${cleanPhone}`, value: dataVal })
+        body: JSON.stringify({ key: `last_alert_${last8}`, value: dataVal })
       });
     }
   } catch (err) {
@@ -250,11 +250,20 @@ export default async function handler(req, res) {
               const lastAlertState = alertStatesMap.get(alertKey);
 
               if (numQty > 5) {
-                // If stock is replenished above 5, ALWAYS clear old alert state so fresh alert fires next time stock drops <= 5
+                // If stock is replenished above 5, ALWAYS overwrite old alert state so fresh alert fires next time stock drops <= 5
                 try {
-                  fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}`, {
-                    method: 'DELETE',
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                  fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+                    method: 'POST',
+                    headers: {
+                      'apikey': SUPABASE_KEY,
+                      'Authorization': `Bearer ${SUPABASE_KEY}`,
+                      'Content-Type': 'application/json',
+                      'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify({
+                      key: `alert_state_${alertKey}`,
+                      value: JSON.stringify({ qty: numQty, timestamp: 0, alertType: 'cleared', isResolved: true })
+                    })
                   }).catch(() => {});
                 } catch (e) {}
                 continue;

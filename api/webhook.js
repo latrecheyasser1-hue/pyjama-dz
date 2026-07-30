@@ -76,8 +76,9 @@ async function getStockAlertByMsgId(msgId) {
 async function getLatestStockAlertForPhone(phone) {
   try {
     const rawDigits = (phone || '').replace(/\D/g, '');
-    const cleanPhone = rawDigits.length >= 9 ? rawDigits.slice(-9) : rawDigits;
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.last_alert_${cleanPhone}`, {
+    const last8 = rawDigits.slice(-8);
+    if (!last8) return null;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.last_alert_${last8}`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const rows = await res.json();
