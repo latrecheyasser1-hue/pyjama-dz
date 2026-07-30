@@ -420,38 +420,39 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}, userMessage = "", products = []) {
-  const modelEndpoints = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
+  const modelEndpoints = ['gemini-2.5-flash', 'gemini-2.0-flash'];
   const keys = await getGeminiKeys();
-  for (const selectedKey of keys.slice(0, 3)) {
-    for (const model of modelEndpoints) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 7000);
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': selectedKey
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.3, maxOutputTokens: 1000 }
-          }),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+  if (keys.length === 0) return getSmartFallbackResponse(userMessage || prompt, storeSettings, products);
 
-        if (res.status === 200) {
-          const data = await res.json();
-          const parts = data.candidates?.[0]?.content?.parts || [];
-          const textParts = parts.filter(p => p.text && !p.thought).map(p => p.text).filter(Boolean);
-          const text = textParts.join('');
-          if (text) return removeEmojis(text.trim());
-        }
-      } catch (err) {}
-    }
+  const selectedKey = keys[0];
+  for (const model of modelEndpoints) {
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': selectedKey
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+          generationConfig: { temperature: 0.3, maxOutputTokens: 500 }
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (res.status === 200) {
+        const data = await res.json();
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        const textParts = parts.filter(p => p.text && !p.thought).map(p => p.text).filter(Boolean);
+        const text = textParts.join('');
+        if (text) return removeEmojis(text.trim());
+      }
+    } catch (err) {}
   }
 
   return getSmartFallbackResponse(userMessage || prompt, storeSettings, products);
@@ -2099,27 +2100,27 @@ export default async function handler(req, res) {
       try { body = JSON.parse(body); } catch(e) {}
     }
 
+    if (typeof res.status === 'function') {
+      try { res.status(200).send('EVENT_RECEIVED'); } catch (e) {}
+    }
+
     if (body) {
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+        fetch(SUPABASE_URL + "/rest/v1/settings", {
           method: 'POST',
           headers: {
             'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Authorization': "Bearer " + SUPABASE_KEY,
             'Content-Type': 'application/json',
             'Prefer': 'resolution=merge-duplicates'
           },
           body: JSON.stringify({ key: 'last_webhook_payload', value: JSON.stringify({ body, time: new Date().toISOString() }) })
-        });
+        }).catch(() => {});
       } catch (e) {}
 
       await processIncomingPayload(body);
     }
-
-    if (typeof res.status(200).send === 'function') {
-      return res.status(200).send('EVENT_RECEIVED');
-    }
-    return res.status(200).json({ status: 'EVENT_RECEIVED' });
+    return;
   }
 
   if (typeof res.status(405).send === 'function') {
