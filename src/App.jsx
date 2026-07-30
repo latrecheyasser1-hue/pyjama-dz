@@ -392,6 +392,8 @@ export default function App() {
             if (fallbackProd) targetProducts.push(fallbackProd);
           }
 
+          let alreadyCapturedForThisItem = false;
+
           for (const product of targetProducts) {
             let updatedPayload = {};
             const itemQty = Math.max(1, parseInt(item.qty) || 1);
@@ -490,8 +492,8 @@ export default function App() {
 
               await supabase.from('products').update(safePayload).eq('id', product.id);
 
-              // Capture exact sold item with colorIdx for precise 1:1 alert matching
-              if (typeof targetVariantIdx === 'number' && targetVariantIdx >= 0) {
+              // Capture exact sold item with colorIdx for precise 1:1 alert matching (once per order item)
+              if (!alreadyCapturedForThisItem && typeof targetVariantIdx === 'number' && targetVariantIdx >= 0) {
                 soldItemsCollected.push({
                   productId: product.id,
                   colorIdx: targetVariantIdx,
@@ -499,6 +501,7 @@ export default function App() {
                   size: item.size,
                   isPos: isPosOrder
                 });
+                alreadyCapturedForThisItem = true;
               }
             }
           }
