@@ -181,10 +181,7 @@ export default async function handler(req, res) {
           if (r.key) notifiedWaitlistLocks.add(r.key);
         });
       }
-      console.log('FETCHED LOCKS COUNT:', notifiedWaitlistLocks.size, Array.from(notifiedWaitlistLocks));
-    } catch (e) {
-      console.error('Error fetching settings locks:', e);
-    }
+    } catch (e) {}
 
     // Query Waitlist entries waiting for stock (LATEST FIRST so we use the most recent name)
     let waitlistEntries = [];
