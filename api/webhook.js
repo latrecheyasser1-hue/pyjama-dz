@@ -2031,8 +2031,20 @@ async function processIncomingPayload(body) {
                     
                     await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
 
-                    // Notify waiting customers about restock
-                    await notifyWaitingCustomers(productId, colorIdx, size, newQty);
+                    // Notify waiting customers about restock via single source endpoint
+                    try {
+                      await fetch('https://pyjama-dz.vercel.app/api/notify-restock', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          productId: product.id,
+                          productTitle: product.title,
+                          size: size,
+                          color: updatedVariants[colorIdx]?.name || updatedVariants[colorIdx]?.color || '',
+                          newQty: newQty
+                        })
+                      });
+                    } catch (e) {}
                     continue;
                   }
                 }
