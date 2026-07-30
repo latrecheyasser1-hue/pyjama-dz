@@ -269,34 +269,14 @@ export default async function handler(req, res) {
                 continue;
               }
 
-              let isExplicitSoldItem = false;
-              if (soldKeySet.size > 0) {
-                // Use alertKey format: productId_cIdx_size — perfect 1:1 match
-                const exactKey = `${String(product.id).trim().toLowerCase()}_${cIdx}_${String(size).trim().toLowerCase()}`;
-                const fallbackKey = `${String(product.id).trim().toLowerCase()}_${String(size).trim().toLowerCase()}`;
-                const sizeOnlyKey = `size_${String(size).trim().toLowerCase()}`;
-                if (soldKeySet.has(exactKey) || soldKeySet.has(fallbackKey) || soldKeySet.has(sizeOnlyKey)) {
-                  isExplicitSoldItem = true;
-                }
-              }
-
               let shouldSendAlert = false;
-              if (isExplicitSoldItem) {
-                // Item was explicitly sold in this checkout → ALWAYS send alert, no exceptions
-                shouldSendAlert = true;
-                try {
-                  fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}`, {
-                    method: 'DELETE',
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                  }).catch(() => {});
-                } catch (e) {}
-              } else if (numQty === 0) {
+              if (numQty === 0) {
                 // Send zero stock alert ONCE when reaching 0
                 if (!lastAlertState || lastAlertState.alertType !== 'zero') {
                   shouldSendAlert = true;
                 }
               } else if (numQty <= 5 && numQty > 0) {
-                // Send low stock alert ONCE when stock enters <= 5 range (does NOT re-trigger at 4, 3, 2, 1)
+                // Send low stock alert ONCE when stock is <= 5 (does NOT re-trigger at 4, 3, 2, 1)
                 if (!lastAlertState || (lastAlertState.alertType !== 'low' && lastAlertState.alertType !== 'zero')) {
                   shouldSendAlert = true;
                 }
