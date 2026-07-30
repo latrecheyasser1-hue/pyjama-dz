@@ -444,16 +444,23 @@ export default async function handler(req, res) {
     let boutiquePhone = rawBoutiquePhone || mainStorePhone;
     let livraisonPhone = rawLivraisonPhone || mainStorePhone;
 
-    // Helper to send individual alerts sequentially for a given list of items to a target phone
+    // Helper to send individual alerts with 150ms stagger to finish under Vercel 10s timeout
     global._activeSendingLocks = global._activeSendingLocks || new Set();
 
     async function sendIndividualAlerts(itemsList, targetPhone, stockTypeTitle) {
       if (!targetPhone || !Array.isArray(itemsList) || itemsList.length === 0) return 0;
 
-      let count = 0;
-      for (const item of itemsList) {
-        if (global._activeSendingLocks.has(item.alertKey)) continue;
+      const validItems = itemsList.filter(item => {
+        if (global._activeSendingLocks.has(item.alertKey)) return false;
         global._activeSendingLocks.add(item.alertKey);
+        return true;
+      });
+
+      if (validItems.length === 0) return 0;
+
+      const sendPromises = validItems.map(async (item, idx) => {
+        // Stagger requests by 150ms to finish all 6-10 messages well under 2 seconds
+        await new Promise(resolve => setTimeout(resolve, idx * 150));
 
         const alertStateVal = JSON.stringify({ 
           qty: item.qty, 
@@ -463,11 +470,11 @@ export default async function handler(req, res) {
         });
 
         try {
-          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+          fetch(`${SUPABASE_URL}/rest/v1/settings`, {
             method: 'POST',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
             body: JSON.stringify({ key: `alert_state_${item.alertKey}`, value: alertStateVal })
-          });
+          }).catch(() => {});
         } catch (e) {}
 
         const alertMsg = item.qty === 0
@@ -477,15 +484,15 @@ export default async function handler(req, res) {
         const resVal = await sendWhatsAppMessage(targetPhone, alertMsg, item.imageUrl);
 
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
-          count++;
           const newMsgId = resVal.messages[0].id;
           saveStockAlertRecord(newMsgId, targetPhone, item.productId, item.colorIdx, item.size).catch(() => {});
+          return 1;
         }
+        return 0;
+      });
 
-        // 850ms delay between sending individual messages to prevent WhatsApp API rate-limit drops
-        await new Promise(resolve => setTimeout(resolve, 850));
-      }
-      return count;
+      const results = await Promise.all(sendPromises);
+      return results.reduce((acc, curr) => acc + curr, 0);
     }
 
     // If check was triggered by a POS Cashier sale, send ALL sold low-stock items to boutiquePhone if set
