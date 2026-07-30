@@ -2100,27 +2100,18 @@ export default async function handler(req, res) {
       try { body = JSON.parse(body); } catch(e) {}
     }
 
-    if (typeof res.status === 'function') {
-      try { res.status(200).send('EVENT_RECEIVED'); } catch (e) {}
-    }
-
     if (body) {
       try {
-        fetch(SUPABASE_URL + "/rest/v1/settings", {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': "Bearer " + SUPABASE_KEY,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates'
-          },
-          body: JSON.stringify({ key: 'last_webhook_payload', value: JSON.stringify({ body, time: new Date().toISOString() }) })
-        }).catch(() => {});
-      } catch (e) {}
-
-      await processIncomingPayload(body);
+        await processIncomingPayload(body);
+      } catch (err) {
+        console.error('Error processing webhook payload:', err);
+      }
     }
-    return;
+
+    if (typeof res.status === 'function') {
+      return res.status(200).send('EVENT_RECEIVED');
+    }
+    return res.status(200).json({ status: 'EVENT_RECEIVED' });
   }
 
   if (typeof res.status(405).send === 'function') {
