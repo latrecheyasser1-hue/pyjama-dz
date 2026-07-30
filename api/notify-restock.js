@@ -302,7 +302,7 @@ export default async function handler(req, res) {
       const last8 = cleanPhone.slice(-8);
 
       // Check if phone already notified in current run or waitlist entry already notified
-      if (!waPhone || notifiedPhones.has(waPhone)) {
+      if (!waPhone || notifiedPhones.has(waPhone) || (last8 && notifiedPhones.has(last8))) {
         continue;
       }
 
@@ -316,6 +316,7 @@ export default async function handler(req, res) {
 
       if (sizeMatches && prodMatches && colorMatches) {
         notifiedPhones.add(waPhone);
+        if (last8) notifiedPhones.add(last8);
         global._recentRestockMap.set(waPhone, now);
 
         // Save persistent per-entry lock key in settings table
@@ -335,10 +336,10 @@ export default async function handler(req, res) {
           } catch (e) {}
         }
 
-        // Patch ALL pending waitlist entries for this phone to notified so NO duplicate messages are sent!
+        // Patch ALL pending waitlist entries for this phone (by last8 digits) to notified so NO duplicate messages are EVER sent!
         try {
-          if (entryPhone) {
-            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=eq.${entryPhone}`, {
+          if (last8) {
+            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.*${last8}*`, {
               method: 'PATCH',
               headers: {
                 'apikey': SUPABASE_KEY,
