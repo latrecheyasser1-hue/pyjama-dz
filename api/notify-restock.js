@@ -88,19 +88,24 @@ function cleanTitle(t) {
 }
 
 function isProductMatch(targetProductId, targetProductTitle, orderProdId, orderProdText) {
-  if (targetProductId && orderProdId && String(targetProductId) === String(orderProdId)) {
-    return true;
-  }
   const cleanTarget = cleanTitle(targetProductTitle);
   const cleanOrder = cleanTitle(orderProdText);
 
-  if (!cleanTarget || !cleanOrder) return true;
-  if (cleanTarget.includes(cleanOrder) || cleanOrder.includes(cleanTarget)) return true;
+  if (cleanTarget && cleanOrder) {
+    if (cleanTarget === cleanOrder || cleanTarget.includes(cleanOrder) || cleanOrder.includes(cleanTarget)) {
+      return true;
+    }
+    const targetWords = cleanTarget.split(/\s+/).filter(w => w.length >= 2);
+    const orderWords = cleanOrder.split(/\s+/).filter(w => w.length >= 2);
+    const sharedWords = targetWords.filter(w => orderWords.includes(w));
+    if (sharedWords.length >= 1) return true;
+  }
 
-  const targetWords = cleanTarget.split(/\s+/).filter(w => w.length >= 2);
-  const orderWords = cleanOrder.split(/\s+/).filter(w => w.length >= 2);
-  const sharedWords = targetWords.filter(w => orderWords.includes(w));
-  if (sharedWords.length >= 1) return true;
+  if (targetProductId && orderProdId && String(targetProductId) === String(orderProdId)) {
+    return true;
+  }
+
+  if (!cleanTarget || !cleanOrder) return true;
 
   return false;
 }
@@ -310,9 +315,6 @@ export default async function handler(req, res) {
       if (!waPhone || notifiedPhones.has(waPhone)) {
         continue;
       }
-
-      const lastSent = global._recentRestockMap.get(waPhone);
-      if (lastSent && (now - lastSent < 60000)) continue;
 
       const entrySize = entry.size || '';
       const entryProdId = entry.product_id || entry.productId;
