@@ -594,8 +594,28 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
     if (editingId) {
       onUpdateProduct(productData);
+      const prevProd = products.find(p => p.id === editingId);
+      const prevVariants = getParsedColorVariants(prevProd);
+      (productData.colorVariants || []).forEach(cv => {
+        const prevCv = prevVariants.find(pv => (pv.color || pv.name) === (cv.color || cv.name));
+        Object.entries(cv.stock || {}).forEach(([sz, qty]) => {
+          const nextQ = Number(qty) || 0;
+          const prevQ = Number(prevCv?.stock?.[sz] || 0);
+          if (nextQ > prevQ && nextQ > 0) {
+            triggerNotifyRestock(productData.id, productData.title, sz, nextQ, cv.color || cv.name);
+          }
+        });
+      });
     } else {
       onAddProduct(productData);
+      (productData.colorVariants || []).forEach(cv => {
+        Object.entries(cv.stock || {}).forEach(([sz, qty]) => {
+          const nextQ = Number(qty) || 0;
+          if (nextQ > 0) {
+            triggerNotifyRestock(productData.id, productData.title, sz, nextQ, cv.color || cv.name);
+          }
+        });
+      });
       if (stockMode === 'livraison') {
         const boutiqueProduct = {
           ...productData,
@@ -644,11 +664,17 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     };
 
     onUpdateProduct(updatedProduct);
+
+    if (delta > 0 && nextQty > 0) {
+      triggerNotifyRestock(product.id, product.title, size, nextQty, targetCv?.color || targetCv?.name);
+    }
   };
 
   // Direct stock quantity setter (number input box)
   const handleDirectStockChange = (product, colorIdx, size, newQtyVal) => {
     const colorVariantsArr = getParsedColorVariants(product);
+    const targetCv = colorVariantsArr[colorIdx];
+    const currentQty = Number(targetCv?.stock?.[size] || 0);
     const nextQty = Math.max(0, Number(newQtyVal) || 0);
 
     const updatedVariants = colorVariantsArr.map((cv, i) => {
@@ -665,6 +691,10 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     };
 
     onUpdateProduct(updatedProduct);
+
+    if (nextQty > currentQty && nextQty > 0) {
+      triggerNotifyRestock(product.id, product.title, size, nextQty, targetCv?.color || targetCv?.name);
+    }
   };
 
   // Selected supplier phone
