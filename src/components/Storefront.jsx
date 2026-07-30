@@ -383,7 +383,7 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                   className={`mazyoud-pdp-thumbnail-wrapper ${idx === activeImageIdx ? 'active' : ''}`}
                   onClick={() => setActiveImageIdx(idx)}
                 >
-                  <img src={img} alt={`${product.title} thumbnail ${idx}`} />
+                  <img loading="lazy" decoding="async" src={img} alt={`${product.title} thumbnail ${idx}`} />
                 </div>
               ))}
             </div>
@@ -471,7 +471,7 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                       onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
                       title={`اضغط لإضافة ${lp.title} إلى السلة`}
                     >
-                      <img src={firstImg} alt={lp.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img loading="lazy" decoding="async" src={firstImg} alt={lp.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                   );
                 })}
@@ -763,7 +763,7 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                 >
                   {firstImage && (
                     <div style={{ position: 'relative', width: '100%', height: '180px', overflow: 'hidden', borderRadius: '8px' }}>
-                      <img src={firstImage} alt={lp.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img loading="lazy" decoding="async" src={firstImage} alt={lp.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -1582,7 +1582,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
                         >
-                          <img src={(prod.images && prod.images[0]) || prod.image || ''} alt={prod.title} className="mazyoud-search-prod-img" />
+                          <img loading="lazy" decoding="async" src={(prod.images && prod.images[0]) || prod.image || ''} alt={prod.title} className="mazyoud-search-prod-img" />
                           <div className="mazyoud-search-prod-info">
                             <h4 className="mazyoud-search-prod-title">
                               {prod.title}
@@ -1999,7 +1999,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
 
                     return (
                       <div key={item.cartItemId} style={{ background: 'white', borderRadius: '16px', padding: '16px', display: 'flex', gap: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', position: 'relative' }}>
-                        <img src={itemDisplayImage} alt={item.product || ''} style={{ width: '85px', height: '110px', objectFit: 'cover', borderRadius: '10px' }} />
+                        <img loading="lazy" decoding="async" src={itemDisplayImage} alt={item.product || ''} style={{ width: '85px', height: '110px', objectFit: 'cover', borderRadius: '10px' }} />
                         <div style={{ flex: 1 }}>
                           <h4 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '4px', paddingRight: '24px' }}>{item.product || ''}</h4>
                            <p style={{ color: 'var(--burgundy)', fontWeight: 900, fontSize: '1.05rem', marginBottom: '12px' }}>

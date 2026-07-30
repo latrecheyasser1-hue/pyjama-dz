@@ -12,11 +12,11 @@ export default defineConfig({
         enabled: true
       },
       manifest: {
-        name: 'PyjamaDZ Admin',
+        name: 'PyjamaDZ Store',
         short_name: 'PyjamaDZ',
-        description: 'PyjamaDZ Admin Dashboard',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        description: 'متجر بيجامات الجزائر - ملابس نوم فاخرة',
+        theme_color: '#8B1818',
+        background_color: '#8B1818',
         display: 'standalone',
         icons: [
           {
@@ -34,6 +34,21 @@ export default defineConfig({
     })
   ],
   build: {
-    chunkSizeWarningLimit: 1600
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/lucide-react')) {
+            return 'lucide-icons';
+          }
+          if (id.includes('node_modules/xlsx') || id.includes('node_modules/canvas-confetti')) {
+            return 'vendor-admin-utils';
+          }
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'react-core';
+          }
+        }
+      }
+    }
   }
 })
