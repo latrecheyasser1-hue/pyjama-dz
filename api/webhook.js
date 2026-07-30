@@ -1702,17 +1702,24 @@ async function processIncomingPayload(body) {
 
               // A. WORKER STOCK RESTOCK via DIRECT REPLY ONLY
               let refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
-              
-              if (!refMatch) {
-                let alertObj = null;
-                if (message.context?.id) {
-                  alertObj = await getStockAlertByMsgId(message.context.id);
-                }
-                if (!alertObj) {
-                  alertObj = await getLatestStockAlertForPhone(fromPhone);
-                }
+              let alertContextId = message.context?.id || null;
+
+              if (!refMatch && alertContextId) {
+                const alertObj = await getStockAlertByMsgId(alertContextId);
                 if (alertObj && alertObj.productId && alertObj.size) {
                   refMatch = [null, alertObj.productId, String(alertObj.colorIdx || 0), alertObj.size];
+                }
+              }
+
+              // Fallback to latest alert ONLY IF message text is strictly a short numeric quantity (e.g. "10", "+5", "5")
+              if (!refMatch && !alertContextId) {
+                const cleanTrimmed = messageText.trim();
+                const isStrictNumber = /^(\+)?\d{1,4}$/.test(cleanTrimmed);
+                if (isStrictNumber) {
+                  const alertObj = await getLatestStockAlertForPhone(fromPhone);
+                  if (alertObj && alertObj.productId && alertObj.size) {
+                    refMatch = [null, alertObj.productId, String(alertObj.colorIdx || 0), alertObj.size];
+                  }
                 }
               }
 
@@ -1735,10 +1742,10 @@ async function processIncomingPayload(body) {
                   currentQty = product.colorVariants[colorIdx].stock?.[size] || 0;
                 }
 
-                // 1. Check message-level resolution
-                if (message.context?.id) {
+                // 1. Check message-level resolution to PREVENT DOUBLE RESTOCK
+                if (alertContextId) {
                   try {
-                    const msgRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_resolved_${message.context.id}&select=value`, {
+                    const msgRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_resolved_${alertContextId}&select=value`, {
                       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
                     });
                     const msgRows = await msgRes.json();
@@ -1755,10 +1762,10 @@ async function processIncomingPayload(body) {
                 }
 
                 let addedQty = 0;
-                const textWithoutTag = messageText.replace(/\[REF:[^\]]+\]/gi, '');
-                const qtyMatch = textWithoutTag.match(/(\d{1,4})/);
+                const textWithoutTag = messageText.replace(/\[REF:[^\]]+\]/gi, '').trim();
+                const qtyMatch = textWithoutTag.match(/^(\+)?(\d{1,4})$/);
                 if (qtyMatch) {
-                  addedQty = parseInt(qtyMatch[1]);
+                  addedQty = parseInt(qtyMatch[2]);
                 }
 
                 if (!isNaN(addedQty) && addedQty > 0) {
@@ -1772,7 +1779,7 @@ async function processIncomingPayload(body) {
                     };
 
                     // Mark THIS SPECIFIC WHATSAPP ALERT MESSAGE as RESOLVED
-                    if (message.context?.id) {
+                    if (alertContextId) {
                       await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
                         method: 'POST',
                         headers: {
@@ -1782,7 +1789,7 @@ async function processIncomingPayload(body) {
                           'Prefer': 'resolution=merge-duplicates'
                         },
                         body: JSON.stringify({
-                          key: `alert_resolved_${message.context.id}`,
+                          key: `alert_resolved_${alertContextId}`,
                           value: JSON.stringify({ resolvedAt: Date.now(), addedQty, newQty })
                         })
                       });
