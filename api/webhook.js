@@ -1905,15 +1905,16 @@ async function processIncomingPayload(body) {
               // A. WORKER STOCK RESTOCK via DIRECT REPLY ONLY
               let refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
               
-              if (!refMatch && message.context?.id) {
-                const contextAlert = await getStockAlertByMsgId(message.context.id);
-                if (contextAlert) {
-                  refMatch = [null, contextAlert.productId, String(contextAlert.colorIdx), contextAlert.size];
-                } else {
-                  const latestAlert = await getLatestStockAlertForPhone(fromPhone);
-                  if (latestAlert) {
-                    refMatch = [null, latestAlert.productId, String(latestAlert.colorIdx), latestAlert.size];
-                  }
+              if (!refMatch) {
+                let alertObj = null;
+                if (message.context?.id) {
+                  alertObj = await getStockAlertByMsgId(message.context.id);
+                }
+                if (!alertObj) {
+                  alertObj = await getLatestStockAlertForPhone(fromPhone);
+                }
+                if (alertObj && alertObj.productId && alertObj.size) {
+                  refMatch = [null, alertObj.productId, String(alertObj.colorIdx || 0), alertObj.size];
                 }
               }
 

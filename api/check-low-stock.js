@@ -385,7 +385,7 @@ export default async function handler(req, res) {
 
         if (resVal && Array.isArray(resVal.messages) && resVal.messages[0]) {
           const newMsgId = resVal.messages[0].id;
-          saveStockAlertRecord(newMsgId, targetPhone, item.productId, item.colorIdx, item.size).catch(() => {});
+          await saveStockAlertRecord(newMsgId, targetPhone, item.productId, item.colorIdx, item.size);
           return 1;
         }
         return 0;
