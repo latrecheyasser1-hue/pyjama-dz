@@ -509,6 +509,7 @@ export default function App() {
 
         setProducts([...workingProducts]);
         try { localStorage.setItem('pyjama_products_cache', JSON.stringify(workingProducts)); } catch(e) {}
+        fetchData('products', setProducts);
 
         // Trigger single low stock check exclusively for sold items/sizes in this specific order
         const soldProductIds = orderItems.map(i => i.productId).filter(Boolean);
@@ -720,6 +721,7 @@ export default function App() {
 
         setProducts([...workingProducts]);
         try { localStorage.setItem('pyjama_products_cache', JSON.stringify(workingProducts)); } catch(e) {}
+        fetchData('products', setProducts);
       }
 
       // Process delivery API if status is changed to confirmee and no tracking number exists
