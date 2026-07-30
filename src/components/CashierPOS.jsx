@@ -1627,7 +1627,29 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                   </div>
 
                   <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', borderTop: '1px solid #CBD5E1', paddingTop: '20px', flexWrap: 'wrap' }}>
-                    <button onClick={() => setShowReceiptModal({ ticketId: selectedHistoryOrder.ticketNumber || selectedHistoryOrder.id.toString().substring(0, 8), dateFormatted: selectedHistoryOrder.date, cart: selectedHistoryOrder.items || [] })} style={{ background: '#FFF', color: '#0F172A', border: '2px solid #E2E8F0', padding: '10px 20px', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}>
+                    <button onClick={() => {
+                      const rawItems = selectedHistoryOrder.items || [];
+                      const mainItems = rawItems.filter(i => !i.isDiscount).map((i, idx) => ({
+                        cartItemId: idx,
+                        title: i.product || i.title || 'منتج',
+                        selectedColor: i.color || i.selectedColor || '',
+                        selectedSize: i.size || i.selectedSize || '',
+                        qty: Number(i.qty) || 1,
+                        price: Number(i.price) || 0
+                      }));
+                      const discountItem = rawItems.find(i => i.isDiscount);
+                      const discountVal = discountItem ? Math.abs(Number(discountItem.price) || 0) : 0;
+                      const calculatedTotal = mainItems.reduce((acc, i) => acc + (i.price * i.qty), 0) - discountVal;
+                      const totalVal = Number(selectedHistoryOrder.price) || calculatedTotal;
+
+                      setShowReceiptModal({
+                        ticketId: selectedHistoryOrder.ticketNumber || String(selectedHistoryOrder.id).substring(0, 8),
+                        dateFormatted: selectedHistoryOrder.date ? new Date(selectedHistoryOrder.date).toLocaleDateString('fr-DZ') : new Date().toLocaleDateString('fr-DZ'),
+                        items: mainItems,
+                        discount: discountVal,
+                        total: totalVal
+                      });
+                    }} style={{ background: '#FFF', color: '#0F172A', border: '2px solid #E2E8F0', padding: '10px 20px', borderRadius: '10px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}>
                       <Printer size={20} /> طباعة التذكرة
                     </button>
                     {selectedHistoryOrder.status === 'livree' && (
