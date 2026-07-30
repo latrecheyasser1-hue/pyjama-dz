@@ -1518,7 +1518,7 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         }).catch(() => {});
 
-        await sendWhatsAppMessage(fromPhone, `*Ù…ØªØ¬Ø± Pyjama DZ*\n\nØªÙ… Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø§Ù„Ø¥Ù„ØºØ§Ø¡ ÙˆØªØ¨Ù‚Ù‰ Ø·Ù„Ø¨ÙŠØªÙƒ Ù…Ø¤ÙƒØ¯Ø© ÙˆØ³Ø§Ø±ÙŠØ©. Ø´ÙƒØ±Ø§Ù‹ Ù„ØªÙˆØ§ØµÙ„Ùƒ Ù…Ø¹Ù†Ø§! ðŸŒ¸`);
+                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || "الافتراضي"}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
         return true;
       }
     }
@@ -1625,7 +1625,7 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
       : '';
     const clientNameStr = cleanName ? ` ${cleanName}` : '';
 
-    const confirmMsg = `Ø£Ù‡Ù„Ø§Ù‹ ÙˆØ³Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ${clientNameStr}! ðŸŒ¸\nØªÙ… ØªØ£ÙƒÙŠØ¯ Ø·Ù„Ø¨ÙŠØªÙƒ Ø±Ù‚Ù… #${orderNumStr} Ø¨Ù†Ø¬Ø§Ø­. ðŸ“¦âœ¨\nØ·Ù„Ø¨ÙŠØªÙƒ Ø§Ù„Ø¢Ù† Ù…Ø¤ÙƒØ¯Ø© ÙˆØ¬Ø§Ø±ÙŠ ØªØ¬Ù‡ÙŠØ²Ù‡Ø§ Ù„Ù„Ø´Ø­Ù† ÙˆØ§Ù„ØªÙˆØµÙŠÙ„. Ø´ÙƒØ±Ø§Ù‹ Ù„Ø«Ù‚ØªÙƒ Ø¨Ù…ØªØ¬Ø±Ù†Ø§! â¤ï¸`;
+    const confirmMsg = `Ø£Ù‡Ù„Ø§Ù‹ ÙˆØ³Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ${clientNameStr}! ðŸŒ¸\nØªÙ… ØªØ£ÙƒÙŠØ¯ Ø·Ù„Ø¨ÙŠØªÙƒ Ø±Ù‚Ù… #${orderNumStr} Ø¨Ù†Ø¬Ø§Ø­. ðŸ“¦âœ¨\nØ·Ù„Ø¨ÙŠØªÙƒ Ø§Ù„Ø¢Ù† Ù…Ø¤ÙƒØ¯Ø© ÙˆØ¬Ø§Ø±ÙŠ ØªØ¬Ù‡ÙŠØ²Ù‡Ø§ Ù„Ù„Ø´Ø­Ù† ÙˆØ§Ù„ØªÙˆØµÙŠÙ„. Ø´ÙƒØ±Ø§Ù‹ Ù„Ø«Ù‚ØªÙƒ Ø¨Ù…ØªØ¬Ø±Ù†Ø§! â ¤ï¸ `;
 
     await sendWhatsAppMessage(fromPhone, confirmMsg);
     return true;
@@ -1730,8 +1730,8 @@ async function processIncomingPayload(body) {
                 const product = Array.isArray(prods) ? prods[0] : null;
 
                 let isAlreadyResolved = false;
-                let currentQty = 0;
-                if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
+                  const prodTitle = product ? product.title : "المنتج";
+                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || "الافتراضي"}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
                   currentQty = product.colorVariants[colorIdx].stock?.[size] || 0;
                 }
 
@@ -1744,13 +1744,13 @@ async function processIncomingPayload(body) {
                     const msgRows = await msgRes.json();
                     if (Array.isArray(msgRows) && msgRows[0]?.value) {
                       isAlreadyResolved = true;
-                    }
-                  } catch (e) {}
+                  const prodTitle = product ? product.title : "المنتج";
+                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || "الافتراضي"}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
                 }
 
                 if (isAlreadyResolved) {
-                  const prodTitle = product ? product.title : 'Ø§Ù„Ù…Ù†ØªØ¬';
-                  await sendWhatsAppMessage(fromPhone, `*Ù…ØªØ¬Ø± Pyjama DZ*\n\nâ„¹ï¸ *ØµØ§ÙŠÙŠØŒ ØªÙ… Ø¥Ø¹Ø§Ø¯Ø© ØªØ²ÙˆÙŠØ¯ Ù‡Ø°Ø§ Ø§Ù„ØªÙ†Ø¨ÙŠÙ‡ Ø§Ù„Ù…Ø­Ø¯Ø¯ Ø³Ø§Ø¨Ù‚Ø§Ù‹!*\nâ€¢ Ø§Ù„Ù…Ù†ØªØ¬: ${prodTitle}\nâ€¢ Ø§Ù„Ù…Ù‚Ø§Ø³: ${size}\nâ€¢ Ø§Ù„Ù…Ø®Ø²ÙˆÙ† Ø§Ù„Ø­Ø§Ù„ÙŠ Ø¨Ø§Ù„Ù…Ø­Ù„/Ø§Ù„ØªÙˆØµÙŠÙ„: *${currentQty} Ø­Ø¨Ø©*.\n\nÙ„Ù… ÙŠØªÙ… ØªÙƒØ±Ø§Ø± Ø§Ù„Ø¥Ø¶Ø§ÙØ© Ù„ØªÙØ§Ø¯ÙŠ Ø¯Ø¨Ù„Ø¬Ø© Ø§Ù„ÙƒÙ…ÙŠØ§Øª Ø¨Ø§Ù„Ø®Ø·Ø£. ðŸŒ¸`);
+                  const prodTitle = product ? product.title : "المنتج";
+                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || "الافتراضي"}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
                   continue;
                 }
 
@@ -1828,7 +1828,7 @@ async function processIncomingPayload(body) {
                       });
                     } catch (e) {}
                     
-                    await sendWhatsAppMessage(fromPhone, `*Ù…ØªØ¬Ø± Pyjama DZ*\n\nâœ… *ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„Ù…Ø®Ø²ÙˆÙ† Ø¨Ù†Ø¬Ø§Ø­!*\nâ€¢ Ø§Ù„Ù…Ù†ØªØ¬: ${product.title}\nâ€¢ Ø§Ù„Ù„ÙˆÙ†: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || 'Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ'}\nâ€¢ Ø§Ù„Ù…Ù‚Ø§Ø³: ${size}\nâ€¢ Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ù…Ø¶Ø§ÙØ©: +${addedQty}\nâ€¢ Ø§Ù„Ù…Ø®Ø²ÙˆÙ† Ø§Ù„Ø­Ø§Ù„ÙŠ Ø§Ù„Ø¬Ø¯ÙŠØ¯: ${newQty} Ø­Ø¨Ø©.`);
+                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || "الافتراضي"}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
 
                     // Notify waiting customers about restock via single source endpoint
                     try {
