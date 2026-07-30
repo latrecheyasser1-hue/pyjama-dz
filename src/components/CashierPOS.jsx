@@ -1497,23 +1497,27 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                     </tr>
                   </thead>
                   <tbody>
-                    {showReceiptModal.items.map(item => (
-                      <tr key={item.cartItemId} style={{ borderBottom: '1.5px dashed #aaa' }}>
-                        <td style={{ padding: '12px 4px', textAlign: 'right', fontWeight: 700 }}>{item.title}</td>
-                        <td style={{ padding: '12px 4px' }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{item.selectedColor || '—'}</span></td>
-                        <td style={{ padding: '12px 4px', fontWeight: 800 }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{item.selectedSize} {item.qty > 1 ? `(x${item.qty})` : ''}</span></td>
-                        <td style={{ padding: '12px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{(item.price * item.qty).toLocaleString('fr-DZ')} د.ج</td>
-                      </tr>
-                    ))}
+                    {(showReceiptModal.items || []).map((item, idx) => {
+                      const itemPrice = Number(item.price) || 0;
+                      const itemQty = Number(item.qty) || 1;
+                      return (
+                        <tr key={item.cartItemId || idx} style={{ borderBottom: '1.5px dashed #aaa' }}>
+                          <td style={{ padding: '12px 4px', textAlign: 'right', fontWeight: 700 }}>{item.title || item.product || 'منتج'}</td>
+                          <td style={{ padding: '12px 4px' }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{item.selectedColor || item.color || '—'}</span></td>
+                          <td style={{ padding: '12px 4px', fontWeight: 800 }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{item.selectedSize || item.size || '—'} {itemQty > 1 ? `(x${itemQty})` : ''}</span></td>
+                          <td style={{ padding: '12px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{(itemPrice * itemQty).toLocaleString('fr-DZ')} د.ج</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
               {/* Discount if exists */}
-              {showReceiptModal.discount > 0 && (
+              {(Number(showReceiptModal.discount) || 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem', fontWeight: 800, color: '#D32F2F', marginBottom: '12px', padding: '4px 0' }}>
                   <span>تخفيض للزبون (Remise):</span>
-                  <span style={{ direction: 'ltr' }}>- {showReceiptModal.discount.toLocaleString('fr-DZ')} د.ج</span>
+                  <span style={{ direction: 'ltr' }}>- {(Number(showReceiptModal.discount) || 0).toLocaleString('fr-DZ')} د.ج</span>
                 </div>
               )}
 
@@ -1522,7 +1526,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                 <tbody>
                   <tr>
                     <td style={{ paddingTop: '12px', border: 'none', textAlign: 'right' }}>المجموع الإجمالي:</td>
-                    <td style={{ paddingTop: '12px', border: 'none', textAlign: 'left', direction: 'ltr' }}>{showReceiptModal.total.toLocaleString('fr-DZ')} د.ج</td>
+                    <td style={{ paddingTop: '12px', border: 'none', textAlign: 'left', direction: 'ltr' }}>{(Number(showReceiptModal.total) || 0).toLocaleString('fr-DZ')} د.ج</td>
                   </tr>
                 </tbody>
               </table>
@@ -1619,7 +1623,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                           </div>
                         </div>
                         <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#0F172A' }}>{item.price.toLocaleString()} DA</div>
+                          <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#0F172A' }}>{(Number(item.price) || 0).toLocaleString()} DA</div>
                           <div style={{ fontSize: '0.9rem', color: '#64748B', fontWeight: 600, marginTop: '4px' }}>الكمية: {item.qty}</div>
                         </div>
                       </div>
