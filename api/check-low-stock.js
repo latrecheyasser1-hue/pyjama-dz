@@ -427,6 +427,7 @@ export default async function handler(req, res) {
     }
     let alertsSent = 0;
     const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const isPosSaleCheck = Boolean(bodyData && (bodyData.isPos || (Array.isArray(bodyData.soldItems) && bodyData.soldItems.some(i => i.isPos))));
 
     const mainStorePhone = (storeSettings.whatsapp && String(storeSettings.whatsapp).trim() && !storeSettings.whatsapp.includes('123456'))
       ? String(storeSettings.whatsapp).trim()
@@ -440,9 +441,8 @@ export default async function handler(req, res) {
       ? String(storeSettings.whatsappBoutiqueManager).trim()
       : null;
 
-    // Smart fallback: If user set only one manager phone, send all store low-stock alerts to that active phone
-    let boutiquePhone = rawBoutiquePhone || rawLivraisonPhone || mainStorePhone;
-    let livraisonPhone = rawLivraisonPhone || rawBoutiquePhone || mainStorePhone;
+    let boutiquePhone = rawBoutiquePhone || mainStorePhone;
+    let livraisonPhone = rawLivraisonPhone || mainStorePhone;
 
     // Helper to send individual alerts sequentially for a given list of items to a target phone
     global._activeSendingLocks = global._activeSendingLocks || new Set();
@@ -488,14 +488,22 @@ export default async function handler(req, res) {
       return count;
     }
 
-    // A. Send ONLY Stock Livraison items to Livraison Worker (if phone is set)
-    if (livraisonPhone && livraisonLowItems.length > 0) {
-      alertsSent += await sendIndividualAlerts(livraisonLowItems.slice(0, 15), livraisonPhone, 'سطوك التوصيل');
-    }
+    // If check was triggered by a POS Cashier sale, send ALL sold low-stock items to boutiquePhone if set
+    if (isPosSaleCheck && boutiquePhone) {
+      const allPosLowItems = [...hanoutLowItems, ...livraisonLowItems];
+      if (allPosLowItems.length > 0) {
+        alertsSent += await sendIndividualAlerts(allPosLowItems.slice(0, 15), boutiquePhone, 'سطوك المحل');
+      }
+    } else {
+      // A. Send ONLY Stock Livraison items to Livraison Worker (if phone is set)
+      if (livraisonPhone && livraisonLowItems.length > 0) {
+        alertsSent += await sendIndividualAlerts(livraisonLowItems.slice(0, 15), livraisonPhone, 'سطوك التوصيل');
+      }
 
-    // B. Send ONLY Stock Hanout (Boutique) items to Boutique Worker (if phone is set)
-    if (boutiquePhone && hanoutLowItems.length > 0) {
-      alertsSent += await sendIndividualAlerts(hanoutLowItems.slice(0, 15), boutiquePhone, 'سطوك المحل');
+      // B. Send ONLY Stock Hanout (Boutique) items to Boutique Worker (if phone is set)
+      if (boutiquePhone && hanoutLowItems.length > 0) {
+        alertsSent += await sendIndividualAlerts(hanoutLowItems.slice(0, 15), boutiquePhone, 'سطوك المحل');
+      }
     }
 
     return res.status(200).json({ success: true, alertsSent, totalLivraisonLow: livraisonLowItems.length, totalHanoutLow: hanoutLowItems.length });

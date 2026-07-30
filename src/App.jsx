@@ -500,13 +500,14 @@ export default function App() {
           productId: i.productId,
           product: i.product,
           color: i.color,
-          size: i.size
+          size: i.size,
+          isPos: isPosOrder
         }));
 
         fetch('/api/check-low-stock', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productIds: soldProductIds, soldItems: soldItemsData })
+          body: JSON.stringify({ isPos: isPosOrder, productIds: soldProductIds, soldItems: soldItemsData })
         }).catch(e => console.error("Low stock check error:", e));
       }
       return insertedOrder;
