@@ -250,15 +250,13 @@ export default async function handler(req, res) {
               const lastAlertState = alertStatesMap.get(alertKey);
 
               if (numQty > 5) {
-                // If stock is replenished above 5, clear old alert state so fresh alert fires next time stock drops <= 5
-                if (lastAlertState && !lastAlertState.isResolved) {
-                  try {
-                    fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}`, {
-                      method: 'DELETE',
-                      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                    }).catch(() => {});
-                  } catch (e) {}
-                }
+                // If stock is replenished above 5, ALWAYS clear old alert state so fresh alert fires next time stock drops <= 5
+                try {
+                  fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}`, {
+                    method: 'DELETE',
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                  }).catch(() => {});
+                } catch (e) {}
                 continue;
               }
 
@@ -285,7 +283,10 @@ export default async function handler(req, res) {
                   }).catch(() => {});
                 } catch (e) {}
               } else if (numQty === 0) {
-                if (!lastAlertState || lastAlertState.alertType !== 'zero' || (lastAlertState.qty !== undefined && lastAlertState.qty > 0)) {
+                // If stock reached 0, send zero stock alert unless a 0-alert was ALREADY sent in the last 2 minutes
+                const lastAlertTime = lastAlertState?.timestamp || 0;
+                const isRecentZeroAlert = lastAlertState?.alertType === 'zero' && (Date.now() - lastAlertTime < 120000);
+                if (!isRecentZeroAlert) {
                   shouldSendAlert = true;
                 }
               } else { // 1 <= numQty <= 5
