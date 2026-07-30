@@ -156,9 +156,9 @@ function removeEmojis(str) {
 function normalizeText(text) {
   if (!text) return "";
   return text.toLowerCase()
-    .replace(/[Ø£Ø¥Ø¢Ø§Ù‹ÙŒÙÙŽÙÙÙ‘Ù’]/g, "Ø§")
-    .replace(/Ø©/g, "Ù‡")
-    .replace(/Ù‰/g, "ÙŠ")
+    .replace(/[أإآاأًٌٍَُِّْ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
     .replace(/3/g, "e")
     .replace(/7/g, "h")
     .trim();
