@@ -1537,24 +1537,16 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
 
     if (!isCancelRequest) return false;
 
-    // Fetch STRICTLY the LATEST active order for this customer
-    let orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&status=in.(nouvelle,confirmee,pending,attente,attente_confirmation,nouveau)&order=created_at.desc&limit=1`, {
+    // Fetch STRICTLY the LATEST active order ONLY for THIS CUSTOMER'S PHONE
+    const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&status=in.(nouvelle,confirmee,pending,attente,attente_confirmation,nouveau)&order=created_at.desc&limit=1`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
 
-    let activeOrders = await orderCheckRes.json();
+    const activeOrders = await orderCheckRes.json();
     if (!Array.isArray(activeOrders) || activeOrders.length === 0) {
-      // Fallback: If test phone didn't match directly, fetch overall latest uncancelled order
-      const fallbackRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=in.(nouvelle,confirmee,pending,attente,attente_confirmation,nouveau)&order=created_at.desc&limit=1`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      activeOrders = await fallbackRes.json();
+      await sendWhatsAppMessage(fromPhone, `أهلاً بك! 🌸\nلم نجد أي طلبية قائمة أو معلقة مسجلة برقم هاتفك هذا حالياً للإلغاء.`);
+      return true;
     }
-
-    if (!Array.isArray(activeOrders) || activeOrders.length === 0) {
-      return false;
-    }
-
     const latestOrder = activeOrders[0];
     const orderNumStr = await getSequentialOrderNum(latestOrder);
     const rawName = latestOrder.clientName || '';
@@ -1623,16 +1615,9 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
 
     let pendingOrders = await orderCheckRes.json();
     if (!Array.isArray(pendingOrders) || pendingOrders.length === 0) {
-      // Fallback: If phone didn't match directly (e.g. Meta Test Number), fetch latest overall unconfirmed order
-      const fallbackRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=in.(nouvelle,pending,attente,attente_confirmation,nouveau)&order=created_at.desc&limit=1`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      pendingOrders = await fallbackRes.json();
+      await sendWhatsAppMessage(fromPhone, `أهلاً بك! 🌸\nلم نجد أي طلبية معلقة مسجلة برقم هاتفك هذا حالياً لتأكيدها.`);
+      return true;
     }
-    if (!Array.isArray(pendingOrders) || pendingOrders.length === 0) {
-      return false; // No pending order to confirm
-    }
-
     const orderToConfirm = pendingOrders[0];
     await updateOrderStatusAndArchive(orderToConfirm.id, 'confirmee');
 
