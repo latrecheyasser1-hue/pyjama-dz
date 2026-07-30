@@ -169,77 +169,19 @@ export default async function handler(req, res) {
       orders = [];
     }
 
-    // 2. Fetch persistent notified waitlist IDs and notified phones from settings table
-    let notifiedWaitlistIds = new Set();
-    let notifiedPhonesSet = new Set();
-    let settingsRow = null;
+    // 2. Fetch persistent notified locks from settings table
+    let notifiedWaitlistLocks = new Set();
     try {
-      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(notified_waitlist_ids,notified_phones_list)&select=*`, {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=like.notified_waitlist_%&select=key`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       const rows = await setRes.json();
       if (Array.isArray(rows)) {
         rows.forEach(r => {
-          if (r.key === 'notified_waitlist_ids' && r.value) {
-            if (r.key === 'notified_waitlist_ids') settingsRow = r;
-            const parsed = JSON.parse(r.value || '[]');
-            if (Array.isArray(parsed)) parsed.forEach(id => notifiedWaitlistIds.add(id));
-          } else if (r.key === 'notified_phones_list' && r.value) {
-            const parsed = JSON.parse(r.value || '[]');
-            if (Array.isArray(parsed)) parsed.forEach(p => notifiedPhonesSet.add(p));
-          }
+          if (r.key) notifiedWaitlistLocks.add(r.key);
         });
       }
     } catch (e) {}
-
-    const saveNotifiedWaitlistId = async (id) => {
-      if (!id) return;
-      notifiedWaitlistIds.add(id);
-      const arr = Array.from(notifiedWaitlistIds);
-      try {
-        if (settingsRow) {
-          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.notified_waitlist_ids`, {
-            method: 'PATCH',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ value: JSON.stringify(arr) })
-          });
-        } else {
-          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-            method: 'POST',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ key: 'notified_waitlist_ids', value: JSON.stringify(arr) })
-          });
-          settingsRow = { key: 'notified_waitlist_ids' };
-        }
-      } catch (e) {}
-    };
-
-    const saveNotifiedPhone = async (phoneStr) => {
-      if (!phoneStr) return;
-      notifiedPhonesSet.add(phoneStr);
-      const last8 = phoneStr.slice(-8);
-      if (last8) notifiedPhonesSet.add(last8);
-      try {
-        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates'
-          },
-          body: JSON.stringify({ key: 'notified_phones_list', value: JSON.stringify(Array.from(notifiedPhonesSet)) })
-        });
-      } catch (e) {}
-    };
 
     // Query Waitlist entries waiting for stock (LATEST FIRST so we use the most recent name)
     let waitlistEntries = [];
@@ -301,8 +243,15 @@ export default async function handler(req, res) {
       const waPhone = formatWhatsAppPhone(entryPhone);
       const last8 = cleanPhone.slice(-8);
 
-      // Check if phone already notified in current run or waitlist entry already notified
+      // Check if phone already notified in current run or waitlist entry already locked in settings table
       if (!waPhone || notifiedPhones.has(waPhone) || (last8 && notifiedPhones.has(last8))) {
+        continue;
+      }
+
+      if (last8 && notifiedWaitlistLocks.has(`notified_waitlist_${last8}`)) {
+        continue;
+      }
+      if (entry.id && notifiedWaitlistLocks.has(`notified_waitlist_${entry.id}`)) {
         continue;
       }
 
@@ -319,9 +268,21 @@ export default async function handler(req, res) {
         if (last8) notifiedPhones.add(last8);
         global._recentRestockMap.set(waPhone, now);
 
-        // Save persistent per-entry lock key in settings table
-        if (entry.id) {
-          try {
+        // Save persistent per-phone and per-entry lock keys in settings table
+        try {
+          if (last8) {
+            await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({ key: `notified_waitlist_${last8}`, value: 'true' })
+            });
+          }
+          if (entry.id) {
             await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
               method: 'POST',
               headers: {
@@ -332,9 +293,8 @@ export default async function handler(req, res) {
               },
               body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: 'true' })
             });
-            await saveNotifiedWaitlistId(entry.id);
-          } catch (e) {}
-        }
+          }
+        } catch (e) {}
 
         // Patch ALL pending waitlist entries for this phone (by last8 digits) to notified so NO duplicate messages are EVER sent!
         try {
