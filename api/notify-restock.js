@@ -241,10 +241,10 @@ export default async function handler(req, res) {
       } catch (e) {}
     };
 
-    // Query Waitlist entries waiting for stock
+    // Query Waitlist entries waiting for stock (LATEST FIRST so we use the most recent name)
     let waitlistEntries = [];
     try {
-      const waitlistRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?status=in.(pending,en_attente)&order=created_at.asc`, {
+      const waitlistRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?status=in.(pending,en_attente)&order=created_at.desc`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       waitlistEntries = await waitlistRes.json();
@@ -335,17 +335,30 @@ export default async function handler(req, res) {
           } catch (e) {}
         }
 
-        // Patch status of ONLY THIS SPECIFIC waitlist entry to notified
+        // Patch ALL pending waitlist entries for this phone to notified so NO duplicate messages are sent!
         try {
-          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
-            method: 'PATCH',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ status: 'notified' })
-          });
+          if (entryPhone) {
+            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=eq.${entryPhone}`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ status: 'notified' })
+            });
+          }
+          if (entry.id) {
+            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ status: 'notified' })
+            });
+          }
         } catch (e) {}
 
         const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب' && entry.client_name !== 'زبون المحادثة')
