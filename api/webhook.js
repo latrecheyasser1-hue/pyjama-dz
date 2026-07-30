@@ -1711,18 +1711,6 @@ async function processIncomingPayload(body) {
                 }
               }
 
-              // Fallback to latest alert ONLY IF message text is strictly a short numeric quantity (e.g. "10", "+5", "5")
-              if (!refMatch && !alertContextId) {
-                const cleanTrimmed = messageText.trim();
-                const isStrictNumber = /^(\+)?\d{1,4}$/.test(cleanTrimmed);
-                if (isStrictNumber) {
-                  const alertObj = await getLatestStockAlertForPhone(fromPhone);
-                  if (alertObj && alertObj.productId && alertObj.size) {
-                    refMatch = [null, alertObj.productId, String(alertObj.colorIdx || 0), alertObj.size];
-                  }
-                }
-              }
-
               if (refMatch) {
                 const productId = refMatch[1];
                 const colorIdx = parseInt(refMatch[2]);
