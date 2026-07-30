@@ -180,13 +180,16 @@ export default async function handler(req, res) {
       if (Array.isArray(rows)) {
         rows.forEach(r => {
           if (!r.key) return;
-          const createdTime = r.created_at ? new Date(r.created_at).getTime() : (Number(r.value) || 0);
+          const createdTime = r.created_at ? new Date(r.created_at).getTime() : 0;
+          const valTime = Number(r.value) || 0;
+          const lockTime = Math.max(createdTime, valTime);
+
           if (r.key.startsWith('notified_waitlist_')) {
             const kVal = r.key.replace('notified_waitlist_', '');
-            notifiedLocksMap.set(kVal, Math.max(notifiedLocksMap.get(kVal) || 0, createdTime));
+            notifiedLocksMap.set(kVal, Math.max(notifiedLocksMap.get(kVal) || 0, lockTime));
           } else if (r.key.startsWith('waitlist_req_')) {
             const kVal = r.key.replace('waitlist_req_', '');
-            waitlistReqsMap.set(kVal, Math.max(waitlistReqsMap.get(kVal) || 0, createdTime));
+            waitlistReqsMap.set(kVal, Math.max(waitlistReqsMap.get(kVal) || 0, lockTime));
           }
         });
       }
@@ -280,7 +283,8 @@ export default async function handler(req, res) {
         if (last8) notifiedPhones.add(last8);
         global._recentRestockMap.set(waPhone, now);
 
-        // Save persistent per-phone and per-entry lock keys in settings table
+        // Save persistent per-phone and per-entry lock keys with current numeric timestamp in value
+        const nowMsStr = String(Date.now());
         try {
           if (last8) {
             await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
@@ -291,7 +295,7 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/json',
                 'Prefer': 'resolution=merge-duplicates'
               },
-              body: JSON.stringify({ key: `notified_waitlist_${last8}`, value: 'true' })
+              body: JSON.stringify({ key: `notified_waitlist_${last8}`, value: nowMsStr })
             });
           }
           if (entry.id) {
@@ -303,7 +307,7 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/json',
                 'Prefer': 'resolution=merge-duplicates'
               },
-              body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: 'true' })
+              body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: nowMsStr })
             });
           }
         } catch (e) {}
