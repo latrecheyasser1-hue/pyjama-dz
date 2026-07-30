@@ -1730,8 +1730,8 @@ async function processIncomingPayload(body) {
                 const product = Array.isArray(prods) ? prods[0] : null;
 
                 let isAlreadyResolved = false;
-                  const prodTitle = product ? product.title : "المنتج";
-                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || "الافتراضي"}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
+                let currentQty = 0;
+                if (product && Array.isArray(product.colorVariants) && product.colorVariants[colorIdx]) {
                   currentQty = product.colorVariants[colorIdx].stock?.[size] || 0;
                 }
 
@@ -1744,13 +1744,13 @@ async function processIncomingPayload(body) {
                     const msgRows = await msgRes.json();
                     if (Array.isArray(msgRows) && msgRows[0]?.value) {
                       isAlreadyResolved = true;
-                  const prodTitle = product ? product.title : "المنتج";
-                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || "الافتراضي"}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
+                    }
+                  } catch (e) {}
                 }
 
                 if (isAlreadyResolved) {
-                  const prodTitle = product ? product.title : "المنتج";
-                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || "الافتراضي"}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
+                  const prodTitle = product ? product.title : 'المنتج';
+                  await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nℹ️ *صايي، تم إعادة تزويد هذا التنبيه المحدد سابقاً!*\n• المنتج: ${prodTitle}\n• المقاس: ${size}\n• المخزون الحالي بالمحل/التوصيل: *${currentQty} حبة*.\n\nلم يتم تكرار الإضافة لتفادي دبلجة الكميات بالخطأ. 🌸`);
                   continue;
                 }
 
@@ -1828,7 +1828,7 @@ async function processIncomingPayload(body) {
                       });
                     } catch (e) {}
                     
-                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || "الافتراضي"}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
+                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
 
                     // Notify waiting customers about restock via single source endpoint
                     try {
@@ -1848,16 +1848,6 @@ async function processIncomingPayload(body) {
                   }
                 }
               }
-
-              const normText = normalizeText(messageText);
-              const rawLowerText = String(messageText).toLowerCase();
-
-              // 1. Check for web order confirmation or cancellation reply from customer FIRST
-              const handledOrderConfirm = await processOrderConfirmationIntent(fromPhone, messageText);
-              if (handledOrderConfirm) continue;
-
-              const handledOrderCancel = await processOrderCancellationIntent(fromPhone, messageText);
-              if (handledOrderCancel) continue;
 
               // 2. RECLAMATION HANDLER (Only for explicit complaints/reclamations)
               const complaintKeywords = [
