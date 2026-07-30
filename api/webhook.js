@@ -156,9 +156,9 @@ function removeEmojis(str) {
 function normalizeText(text) {
   if (!text) return "";
   return text.toLowerCase()
-    .replace(/[أإآاًٌٍَُِّْ]/g, "ا")
-    .replace(/ة/g, "ه")
-    .replace(/ى/g, "ي")
+    .replace(/[Ø£Ø¥Ø¢Ø§Ù‹ÙŒÙÙŽÙÙÙ‘Ù’]/g, "Ø§")
+    .replace(/Ø©/g, "Ù‡")
+    .replace(/Ù‰/g, "ÙŠ")
     .replace(/3/g, "e")
     .replace(/7/g, "h")
     .trim();
@@ -211,7 +211,7 @@ async function getSequentialOrderNum(targetOrder) {
 }
 
 function cleanProductText(prod) {
-  if (!prod) return "بيجامات فاخرة";
+  if (!prod) return "Ø¨ÙŠØ¬Ø§Ù…Ø§Øª ÙØ§Ø®Ø±Ø©";
   return String(prod).replace(/\(\(/g, '').replace(/\)\)/g, '');
 }
 
@@ -323,7 +323,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
                   }
                 },
                 {
-                  text: promptText || "استمع لهذا التسجيل الصوتي للزبون، وافهم طلبه بدقة دون كتابة إيموجي."
+                  text: promptText || "Ø§Ø³ØªÙ…Ø¹ Ù„Ù‡Ø°Ø§ Ø§Ù„ØªØ³Ø¬ÙŠÙ„ Ø§Ù„ØµÙˆØªÙŠ Ù„Ù„Ø²Ø¨ÙˆÙ†ØŒ ÙˆØ§ÙÙ‡Ù… Ø·Ù„Ø¨Ù‡ Ø¨Ø¯Ù‚Ø© Ø¯ÙˆÙ† ÙƒØªØ§Ø¨Ø© Ø¥ÙŠÙ…ÙˆØ¬ÙŠ."
                 }
               ]
             }],
@@ -349,7 +349,7 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
   const norm = normalizeText(userMessage);
   const pLower = (userMessage || "").toLowerCase();
   const mapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "https://maps.app.goo.gl/algeria-pyjama-dz";
-  const address = storeSettings.address || "الشلف (Chlef)";
+  const address = storeSettings.address || "Ø§Ù„Ø´Ù„Ù (Chlef)";
 
   const phoneSources = storeSettings.phoneOrders 
     ? [storeSettings.phoneOrders, storeSettings.whatsapp]
@@ -358,27 +358,27 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
   const formattedPhonesBullets = phonesArr.length > 0 ? phonesArr.map(p => `- ${p}`).join('\n') : '- 0554128933';
 
   // 1. QUALITY & FABRIC INQUIRY
-  if (['qualite', 'qualité', 'chaba', 'chab', 'chbab', 'جودة', 'نوعية', 'قماش', 'مليحة', 'شبابة', 'شباب', 'مليح'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `جودة السلعة والقماش ممتازة جداً ورفيعة ومريحة في اللبس 100%.\nيمكنك تصفح جميع الموديلات والتفاصيل عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+  if (['qualite', 'qualitÃ©', 'chaba', 'chab', 'chbab', 'Ø¬ÙˆØ¯Ø©', 'Ù†ÙˆØ¹ÙŠØ©', 'Ù‚Ù…Ø§Ø´', 'Ù…Ù„ÙŠØ­Ø©', 'Ø´Ø¨Ø§Ø¨Ø©', 'Ø´Ø¨Ø§Ø¨', 'Ù…Ù„ÙŠØ­'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `Ø¬ÙˆØ¯Ø© Ø§Ù„Ø³Ù„Ø¹Ø© ÙˆØ§Ù„Ù‚Ù…Ø§Ø´ Ù…Ù…ØªØ§Ø²Ø© Ø¬Ø¯Ø§Ù‹ ÙˆØ±ÙÙŠØ¹Ø© ÙˆÙ…Ø±ÙŠØ­Ø© ÙÙŠ Ø§Ù„Ù„Ø¨Ø³ 100%.\nÙŠÙ…ÙƒÙ†Ùƒ ØªØµÙØ­ Ø¬Ù…ÙŠØ¹ Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„Ø§Øª ÙˆØ§Ù„ØªÙØ§ØµÙŠÙ„ Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ:\nhttps://pyjama-dz.vercel.app`;
   }
 
   // 2. DELIVERY TIMING / SPEED INQUIRY
-  if (['winta', 'twsslni', 'twsslnii', 'وقتاش', 'شحال تقعد', 'شحال ياخد', 'شحال تاخد', 'متى', 'تتوصل', 'توصلني'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `التوصيل عادة يأخذ بين 24 حتى 48 ساعة بالنسبة لولاية الشلف، ومن يومين إلى 4 أيام لباقي الولايات.\nفور ما تخرج الطلبية مع الموزع، راح يتصل بيك في الهاتف باش يوصلهالك.`;
+  if (['winta', 'twsslni', 'twsslnii', 'ÙˆÙ‚ØªØ§Ø´', 'Ø´Ø­Ø§Ù„ ØªÙ‚Ø¹Ø¯', 'Ø´Ø­Ø§Ù„ ÙŠØ§Ø®Ø¯', 'Ø´Ø­Ø§Ù„ ØªØ§Ø®Ø¯', 'Ù…ØªÙ‰', 'ØªØªÙˆØµÙ„', 'ØªÙˆØµÙ„Ù†ÙŠ'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `Ø§Ù„ØªÙˆØµÙŠÙ„ Ø¹Ø§Ø¯Ø© ÙŠØ£Ø®Ø° Ø¨ÙŠÙ† 24 Ø­ØªÙ‰ 48 Ø³Ø§Ø¹Ø© Ø¨Ø§Ù„Ù†Ø³Ø¨Ø© Ù„ÙˆÙ„Ø§ÙŠØ© Ø§Ù„Ø´Ù„ÙØŒ ÙˆÙ…Ù† ÙŠÙˆÙ…ÙŠÙ† Ø¥Ù„Ù‰ 4 Ø£ÙŠØ§Ù… Ù„Ø¨Ø§Ù‚ÙŠ Ø§Ù„ÙˆÙ„Ø§ÙŠØ§Øª.\nÙÙˆØ± Ù…Ø§ ØªØ®Ø±Ø¬ Ø§Ù„Ø·Ù„Ø¨ÙŠØ© Ù…Ø¹ Ø§Ù„Ù…ÙˆØ²Ø¹ØŒ Ø±Ø§Ø­ ÙŠØªØµÙ„ Ø¨ÙŠÙƒ ÙÙŠ Ø§Ù„Ù‡Ø§ØªÙ Ø¨Ø§Ø´ ÙŠÙˆØµÙ„Ù‡Ø§Ù„Ùƒ.`;
   }
 
   // 3. PHONE NUMBERS QUERY
-  if (['numero', 'nomer', 'num', 'nomro', 'nomiro', 'هاتف', 'رقم', 'ارقام', 'نميرو', 'نومرو', 'tel', 'phone'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `أرقام التواصل والواتساب الرسمية للمتجر:\n${formattedPhonesBullets}\n\nنحن في خدمتك دائماً.`;
+  if (['numero', 'nomer', 'num', 'nomro', 'nomiro', 'Ù‡Ø§ØªÙ', 'Ø±Ù‚Ù…', 'Ø§Ø±Ù‚Ø§Ù…', 'Ù†Ù…ÙŠØ±Ùˆ', 'Ù†ÙˆÙ…Ø±Ùˆ', 'tel', 'phone'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `Ø£Ø±Ù‚Ø§Ù… Ø§Ù„ØªÙˆØ§ØµÙ„ ÙˆØ§Ù„ÙˆØ§ØªØ³Ø§Ø¨ Ø§Ù„Ø±Ø³Ù…ÙŠØ© Ù„Ù„Ù…ØªØ¬Ø±:\n${formattedPhonesBullets}\n\nÙ†Ø­Ù† ÙÙŠ Ø®Ø¯Ù…ØªÙƒ Ø¯Ø§Ø¦Ù…Ø§Ù‹.`;
   }
 
   // 4. LOCATION QUERY
-  if (['win jayiin', 'win jayin', 'مقر', 'عنوان', 'موقع', 'بلاصة', 'لوكيشن', 'اللوكيشن', 'chlef', 'الشلف'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `المقر والعنوان: ${address}.\nرابط خرائط جوجل (Google Maps):\n${mapsUrl}\n\nالتوصيل متوفر لجميع 58 ولاية حتى باب المنزل. كيف يمكننا مساعدتك اليوم؟`;
+  if (['win jayiin', 'win jayin', 'Ù…Ù‚Ø±', 'Ø¹Ù†ÙˆØ§Ù†', 'Ù…ÙˆÙ‚Ø¹', 'Ø¨Ù„Ø§ØµØ©', 'Ù„ÙˆÙƒÙŠØ´Ù†', 'Ø§Ù„Ù„ÙˆÙƒÙŠØ´Ù†', 'chlef', 'Ø§Ù„Ø´Ù„Ù'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `Ø§Ù„Ù…Ù‚Ø± ÙˆØ§Ù„Ø¹Ù†ÙˆØ§Ù†: ${address}.\nØ±Ø§Ø¨Ø· Ø®Ø±Ø§Ø¦Ø· Ø¬ÙˆØ¬Ù„ (Google Maps):\n${mapsUrl}\n\nØ§Ù„ØªÙˆØµÙŠÙ„ Ù…ØªÙˆÙØ± Ù„Ø¬Ù…ÙŠØ¹ 58 ÙˆÙ„Ø§ÙŠØ© Ø­ØªÙ‰ Ø¨Ø§Ø¨ Ø§Ù„Ù…Ù†Ø²Ù„. ÙƒÙŠÙ ÙŠÙ…ÙƒÙ†Ù†Ø§ Ù…Ø³Ø§Ø¹Ø¯ØªÙƒ Ø§Ù„ÙŠÙˆÙ…ØŸ`;
   }
 
   // 5. REAL-TIME PRODUCT ITEM / COLOR / STOCK CHECKER
-  if (['ensemble', 'noir', 'rouge', 'rose', 'blanc', 'bleu', 'بيجامة', 'انسامبل', 'انصامبل', 'سطوك', 'كاين', 'kaayn', 'kayn', 'dispo', 'disponibilite', 'couleur', 'taille', 'مقاس', 'لون'].some(k => norm.includes(k) || pLower.includes(k))) {
+  if (['ensemble', 'noir', 'rouge', 'rose', 'blanc', 'bleu', 'Ø¨ÙŠØ¬Ø§Ù…Ø©', 'Ø§Ù†Ø³Ø§Ù…Ø¨Ù„', 'Ø§Ù†ØµØ§Ù…Ø¨Ù„', 'Ø³Ø·ÙˆÙƒ', 'ÙƒØ§ÙŠÙ†', 'kaayn', 'kayn', 'dispo', 'disponibilite', 'couleur', 'taille', 'Ù…Ù‚Ø§Ø³', 'Ù„ÙˆÙ†'].some(k => norm.includes(k) || pLower.includes(k))) {
     const availableColors = [];
     (products || []).forEach(p => {
       if (Array.isArray(p.colorVariants)) {
@@ -395,28 +395,28 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
     });
 
     if (hasColorMatch || hasTitleMatch) {
-      return `إيه كاين متوفر في السطوك. تفضل بتصفح الصور والمقاسات وتأكيد طلبك عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+      return `Ø¥ÙŠÙ‡ ÙƒØ§ÙŠÙ† Ù…ØªÙˆÙØ± ÙÙŠ Ø§Ù„Ø³Ø·ÙˆÙƒ. ØªÙØ¶Ù„ Ø¨ØªØµÙØ­ Ø§Ù„ØµÙˆØ± ÙˆØ§Ù„Ù…Ù‚Ø§Ø³Ø§Øª ÙˆØªØ£ÙƒÙŠØ¯ Ø·Ù„Ø¨Ùƒ Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ:\nhttps://pyjama-dz.vercel.app`;
     } else {
-      return `ماكاش متوفر حالياً هاد الموديل أو اللون. تفضل بتصفح جميع الموديلات والألوان المتوفرة حالياً عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+      return `Ù…Ø§ÙƒØ§Ø´ Ù…ØªÙˆÙØ± Ø­Ø§Ù„ÙŠØ§Ù‹ Ù‡Ø§Ø¯ Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø£Ùˆ Ø§Ù„Ù„ÙˆÙ†. ØªÙØ¶Ù„ Ø¨ØªØµÙØ­ Ø¬Ù…ÙŠØ¹ Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„Ø§Øª ÙˆØ§Ù„Ø£Ù„ÙˆØ§Ù† Ø§Ù„Ù…ØªÙˆÙØ±Ø© Ø­Ø§Ù„ÙŠØ§Ù‹ Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ:\nhttps://pyjama-dz.vercel.app`;
     }
   }
 
   // 6. PRICES / CATALOG
-  if (['prix', 'سعر', 'اسعار', 'سومة', 'شحال', 'بكم', 'منتجات', 'موديلات', 'بيجامة', 'بيجامات', 'سلعة'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `تفضل بتصفح كافة الصور، المقاسات، الألوان والأسعار المتوفرة حالياً عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nأسعارنا مناسبة جداً والتوصيل متوفر لجميع الولايات.`;
+  if (['prix', 'Ø³Ø¹Ø±', 'Ø§Ø³Ø¹Ø§Ø±', 'Ø³ÙˆÙ…Ø©', 'Ø´Ø­Ø§Ù„', 'Ø¨ÙƒÙ…', 'Ù…Ù†ØªØ¬Ø§Øª', 'Ù…ÙˆØ¯ÙŠÙ„Ø§Øª', 'Ø¨ÙŠØ¬Ø§Ù…Ø©', 'Ø¨ÙŠØ¬Ø§Ù…Ø§Øª', 'Ø³Ù„Ø¹Ø©'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `ØªÙØ¶Ù„ Ø¨ØªØµÙØ­ ÙƒØ§ÙØ© Ø§Ù„ØµÙˆØ±ØŒ Ø§Ù„Ù…Ù‚Ø§Ø³Ø§ØªØŒ Ø§Ù„Ø£Ù„ÙˆØ§Ù† ÙˆØ§Ù„Ø£Ø³Ø¹Ø§Ø± Ø§Ù„Ù…ØªÙˆÙØ±Ø© Ø­Ø§Ù„ÙŠØ§Ù‹ Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ:\nhttps://pyjama-dz.vercel.app\n\nØ£Ø³Ø¹Ø§Ø±Ù†Ø§ Ù…Ù†Ø§Ø³Ø¨Ø© Ø¬Ø¯Ø§Ù‹ ÙˆØ§Ù„ØªÙˆØµÙŠÙ„ Ù…ØªÙˆÙØ± Ù„Ø¬Ù…ÙŠØ¹ Ø§Ù„ÙˆÙ„Ø§ÙŠØ§Øª.`;
   }
 
   // 7. DELIVERY GENERAL
-  if (['livraison', 'توصيل', 'شحن', 'نوصلو', 'ولاية', 'ديكسبريس', 'يالادين'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `التوصيل متوفر لجميع 58 ولاية حتى باب المنزل أو المكتب.\nالدفع يكون عند الاستلام بعد معاينة طلبك.`;
+  if (['livraison', 'ØªÙˆØµÙŠÙ„', 'Ø´Ø­Ù†', 'Ù†ÙˆØµÙ„Ùˆ', 'ÙˆÙ„Ø§ÙŠØ©', 'Ø¯ÙŠÙƒØ³Ø¨Ø±ÙŠØ³', 'ÙŠØ§Ù„Ø§Ø¯ÙŠÙ†'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `Ø§Ù„ØªÙˆØµÙŠÙ„ Ù…ØªÙˆÙØ± Ù„Ø¬Ù…ÙŠØ¹ 58 ÙˆÙ„Ø§ÙŠØ© Ø­ØªÙ‰ Ø¨Ø§Ø¨ Ø§Ù„Ù…Ù†Ø²Ù„ Ø£Ùˆ Ø§Ù„Ù…ÙƒØªØ¨.\nØ§Ù„Ø¯ÙØ¹ ÙŠÙƒÙˆÙ† Ø¹Ù†Ø¯ Ø§Ù„Ø§Ø³ØªÙ„Ø§Ù… Ø¨Ø¹Ø¯ Ù…Ø¹Ø§ÙŠÙ†Ø© Ø·Ù„Ø¨Ùƒ.`;
   }
 
   // 8. WHOLESALE
-  if (['gros', 'جملة', 'بالجملة', 'سيري', 'تجارة'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return `البيع بالجملة متوفر بالسيريات والكميات لصحاب المحلات والتجارة.\nيمكنك تصفح الموقع أو التواصل معنا عبر الهاتف للمزيد من التفاصيل: https://pyjama-dz.vercel.app`;
+  if (['gros', 'Ø¬Ù…Ù„Ø©', 'Ø¨Ø§Ù„Ø¬Ù…Ù„Ø©', 'Ø³ÙŠØ±ÙŠ', 'ØªØ¬Ø§Ø±Ø©'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return `Ø§Ù„Ø¨ÙŠØ¹ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø© Ù…ØªÙˆÙØ± Ø¨Ø§Ù„Ø³ÙŠØ±ÙŠØ§Øª ÙˆØ§Ù„ÙƒÙ…ÙŠØ§Øª Ù„ØµØ­Ø§Ø¨ Ø§Ù„Ù…Ø­Ù„Ø§Øª ÙˆØ§Ù„ØªØ¬Ø§Ø±Ø©.\nÙŠÙ…ÙƒÙ†Ùƒ ØªØµÙØ­ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø£Ùˆ Ø§Ù„ØªÙˆØ§ØµÙ„ Ù…Ø¹Ù†Ø§ Ø¹Ø¨Ø± Ø§Ù„Ù‡Ø§ØªÙ Ù„Ù„Ù…Ø²ÙŠØ¯ Ù…Ù† Ø§Ù„ØªÙØ§ØµÙŠÙ„: https://pyjama-dz.vercel.app`;
   }
 
-  return `أهلاً وسهلاً بك. تفضل بالاستفسار عن أي موديل أو مقاس أو سعر، نحن في خدمتك.\nرابط الموقع الرسمي: https://pyjama-dz.vercel.app`;
+  return `Ø£Ù‡Ù„Ø§Ù‹ ÙˆØ³Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ. ØªÙØ¶Ù„ Ø¨Ø§Ù„Ø§Ø³ØªÙØ³Ø§Ø± Ø¹Ù† Ø£ÙŠ Ù…ÙˆØ¯ÙŠÙ„ Ø£Ùˆ Ù…Ù‚Ø§Ø³ Ø£Ùˆ Ø³Ø¹Ø±ØŒ Ù†Ø­Ù† ÙÙŠ Ø®Ø¯Ù…ØªÙƒ.\nØ±Ø§Ø¨Ø· Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø±Ø³Ù…ÙŠ: https://pyjama-dz.vercel.app`;
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}, userMessage = "", products = []) {
@@ -597,7 +597,7 @@ async function createChatOrderInSupabase(orderData) {
     const url = `${SUPABASE_URL}/rest/v1/orders`;
     const itemObj = {
       productId: orderData.productId || orderData.items?.[0]?.productId || null,
-      product: orderData.product || 'بيجامات فاخرة',
+      product: orderData.product || 'Ø¨ÙŠØ¬Ø§Ù…Ø§Øª ÙØ§Ø®Ø±Ø©',
       color: orderData.color || '',
       size: orderData.size || '',
       qty: Number(orderData.quantity || 1),
@@ -605,11 +605,11 @@ async function createChatOrderInSupabase(orderData) {
     };
 
     const payload = {
-      clientName: orderData.clientName || 'زبون المحادثة',
+      clientName: orderData.clientName || 'Ø²Ø¨ÙˆÙ† Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©',
       phone: orderData.phone,
-      wilaya: orderData.wilaya || 'الشلف',
-      commune: orderData.commune || 'المركز',
-      product: orderData.product || 'بيجامات فاخرة',
+      wilaya: orderData.wilaya || 'Ø§Ù„Ø´Ù„Ù',
+      commune: orderData.commune || 'Ø§Ù„Ù…Ø±ÙƒØ²',
+      product: orderData.product || 'Ø¨ÙŠØ¬Ø§Ù…Ø§Øª ÙØ§Ø®Ø±Ø©',
       price: Number(orderData.price || orderData.totalPrice || 0),
       quantity: Number(orderData.quantity || 1),
       deliveryCompany: orderData.deliveryCompany || 'Livraison Domicile',
@@ -640,215 +640,12 @@ async function createChatOrderInSupabase(orderData) {
 async function notifyWaitingCustomers(productId, colorIdx, size, newQty) {
   // Restock notifications are handled exclusively by api/notify-restock.js to prevent duplicate messages
   return;
-
-    let availableQty = Number(newQty);
-    const targetSize = String(size).trim().toUpperCase();
-
-    let productTitle = '';
-    if (productId) {
-      try {
-        const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        const prods = await prodRes.json();
-        if (Array.isArray(prods) && prods[0]) {
-          productTitle = prods[0].title || '';
-        }
-      } catch (e) {}
-    }
-
-    let orders = [];
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=in.(en_attente_stock,pending_stock,rupture_stock,attente_stock,out_of_stock)&order=created_at.asc`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      orders = await res.json();
-      if (!Array.isArray(orders)) orders = [];
-    } catch (e) {
-      orders = [];
-    }
-
-    let waitlistEntries = [];
-    try {
-      const waitlistRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?status=in.(pending,en_attente)&order=created_at.asc`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      waitlistEntries = await waitlistRes.json();
-      if (!Array.isArray(waitlistEntries)) waitlistEntries = [];
-    } catch (e) {
-      waitlistEntries = [];
-    }
-
-    const notifiedPhones = new Set();
-
-    // Load persistent notified waitlist IDs and notified phones to ensure NO duplicate notifications
-    const notifiedWaitlistIds = new Set();
-    const notifiedPhonesSet = new Set();
-    try {
-      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(notified_waitlist_ids,notified_phones_list)&select=*`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      const rows = await setRes.json();
-      if (Array.isArray(rows)) {
-        rows.forEach(r => {
-          if (r.key === 'notified_waitlist_ids' && r.value) {
-            const arr = JSON.parse(r.value);
-            if (Array.isArray(arr)) arr.forEach(id => notifiedWaitlistIds.add(id));
-          } else if (r.key === 'notified_phones_list' && r.value) {
-            const arr = JSON.parse(r.value);
-            if (Array.isArray(arr)) arr.forEach(p => notifiedPhonesSet.add(p));
-          }
-        });
-      }
-    } catch (e) {}
-
-    const saveNotifiedPhone = async (phoneStr) => {
-      if (!phoneStr) return;
-      notifiedPhonesSet.add(phoneStr);
-      const last8 = phoneStr.slice(-8);
-      if (last8) notifiedPhonesSet.add(last8);
-      try {
-        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates'
-          },
-          body: JSON.stringify({ key: 'notified_phones_list', value: JSON.stringify(Array.from(notifiedPhonesSet)) })
-        });
-      } catch (e) {}
-    };
-
-    const isProdMatch = (targetId, targetTitle, orderId, orderText) => {
-      if (targetId && orderId && String(targetId).trim() === String(orderId).trim()) return true;
-      const nTarget = normalizeText(targetTitle);
-      const nOrder = normalizeText(orderText);
-      if (nTarget && nOrder) {
-        if (nOrder.includes(nTarget) || nTarget.includes(nOrder)) return true;
-        const tw = nTarget.split(/\s+/).filter(w => w.length >= 3);
-        const ow = nOrder.split(/\s+/).filter(w => w.length >= 3);
-        if (tw.some(w => ow.includes(w))) return true;
-      }
-      return false;
-    };
-
-    const isSzMatch = (targetSz, orderSz) => {
-      if (!targetSz || !orderSz) return false;
-      const nTarget = String(targetSz).trim().toUpperCase();
-      const nOrder = String(orderSz).trim().toUpperCase();
-      return nOrder === nTarget || nOrder === 'STANDARD' || nTarget === 'STANDARD' || nOrder === 'ALL';
-    };
-
-    // Fetch store settings to identify and exclude manager phone numbers
-    const managerPhones = new Set(['0771335039', '213771335039', '0554128933', '213554128933']);
-    try {
-      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=*`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      const settingsRows = await setRes.json();
-      if (Array.isArray(settingsRows)) {
-        settingsRows.forEach(r => {
-          if (r.value && (r.key === 'whatsappLivraisonManager' || r.key === 'whatsappBoutiqueManager' || r.key === 'whatsappAdmin' || r.key === 'whatsapp')) {
-            const rawDigits = String(r.value).replace(/\D/g, '');
-            if (rawDigits) {
-              managerPhones.add(rawDigits);
-              managerPhones.add(rawDigits.replace(/^0/, '213'));
-              managerPhones.add('0' + rawDigits.slice(-9));
-            }
-          }
-        });
-      }
-    } catch (e) {}
-
-    const isManagerPhone = (phoneStr) => {
-      if (!phoneStr) return false;
-      const clean = String(phoneStr).replace(/\D/g, '');
-      if (!clean) return false;
-      const last8 = clean.slice(-8);
-      for (const mPhone of managerPhones) {
-        if (mPhone.endsWith(last8)) return true;
-      }
-      return false;
-    };
-
-    // Only process waitlist entries (customers who explicitly asked to be notified on restock)
-    if (availableQty > 0) {
-      for (const entry of waitlistEntries) {
-        if (availableQty <= 0) break;
-        if (entry.id && notifiedWaitlistIds.has(entry.id)) continue;
-
-        const entryPhone = entry.whatsapp_number || entry.phone;
-        const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
-        const waPhone = cleanPhone.startsWith('213') ? cleanPhone : cleanPhone.replace(/^0/, '213');
-        const last8 = cleanPhone.slice(-8);
-
-        // Check if phone already notified in current run
-        if (!waPhone || notifiedPhones.has(waPhone)) {
-          continue;
-        }
-
-        const entrySize = entry.size || '';
-        const entryColor = entry.color || '';
-        const entryProdId = entry.product_id || entry.productId;
-        const entryProdText = entry.product_title || entry.product || '';
-
-        const targetColorName = (productTitle && colorIdx !== undefined) ? '' : '';
-
-        const sizeMatches = isSzMatch(targetSize, entrySize);
-        const prodMatches = isProdMatch(productId, productTitle, entryProdId, entryProdText);
-        const colorMatches = isColorMatch(targetColorName, entryColor);
-
-        if (sizeMatches && prodMatches && colorMatches) {
-          // Mark waitlist entry status as notified in Supabase table
-          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
-            method: 'PATCH',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ status: 'notified' })
-          });
-
-          if (entry.id) {
-            notifiedWaitlistIds.add(entry.id);
-            try {
-              await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-                method: 'POST',
-                headers: {
-                  'apikey': SUPABASE_KEY,
-                  'Authorization': `Bearer ${SUPABASE_KEY}`,
-                  'Content-Type': 'application/json',
-                  'Prefer': 'resolution=merge-duplicates'
-                },
-                body: JSON.stringify({ key: 'notified_waitlist_ids', value: JSON.stringify(Array.from(notifiedWaitlistIds)) })
-              });
-            } catch (e) {}
-          }
-
-          const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب') ? entry.client_name : '';
-          const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-          const prodDesc = productTitle || entryProdText ? ` في موديل ${productTitle || entryProdText}` : '';
-
-          const restockMsg = `أهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك (${targetSize}) مجدداً${prodDesc}.\nيمكنك الآن إتمام طلبك عبر موقعنا الرسمي: https://pyjama-dz.vercel.app أو بالرد على هذه الرسالة. شكراً لانتظارك.`;
-
-          await sendWhatsAppMessage(waPhone, restockMsg);
-          notifiedPhones.add(waPhone);
-
-          availableQty = Math.max(0, availableQty - 1);
-        }
-      }
-    }
-  } catch (err) {
-    console.error('Error notifying waiting customers:', err);
-  }
 }
+
 
 async function recordOutOfStockInquiry(fromPhone, messageText, products) {
   try {
-    const sizeMatch = messageText.match(/(?:pointure|مقاس|حجم|قياس|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL|5XL)/i) 
+    const sizeMatch = messageText.match(/(?:pointure|Ù…Ù‚Ø§Ø³|Ø­Ø¬Ù…|Ù‚ÙŠØ§Ø³|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL|5XL)/i) 
       || messageText.match(/\b(3[5-9]|4[0-8]|S|M|L|XL|2XL|3XL|4XL|5XL)\b/i);
     const requestedSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
     if (!Array.isArray(products) || products.length === 0) return;
@@ -879,7 +676,7 @@ async function recordOutOfStockInquiry(fromPhone, messageText, products) {
     if (currentStock === 0 || (requestedSize && currentStock <= 0)) {
       const cleanPhone = fromPhone.replace(/^\+?213/, '0');
       const sizeStr = requestedSize || '';
-      const prodTitle = matchedProduct?.title || 'بيجامات فاخرة';
+      const prodTitle = matchedProduct?.title || 'Ø¨ÙŠØ¬Ø§Ù…Ø§Øª ÙØ§Ø®Ø±Ø©';
 
       // Insert ONLY into waitlist table with status 'pending' (DO NOT insert into orders table)
       try {
@@ -891,7 +688,7 @@ async function recordOutOfStockInquiry(fromPhone, messageText, products) {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            client_name: 'زبون الواتساب',
+            client_name: 'Ø²Ø¨ÙˆÙ† Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨',
             whatsapp_number: cleanPhone,
             product_id: matchedProduct?.id,
             product_title: prodTitle,
@@ -924,8 +721,8 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
     const pLower = (messageText || '').toLowerCase();
 
     // Inquiry / Question check: If message asks a question or includes inquiry keywords, it is NOT an order placement
-    const isQuestion = messageText.includes('?') || messageText.includes('؟') ||
-      ['وينتا', 'وقتاش', 'متى', 'كيفاه', 'كيفاش', 'شحال', 'qualité', 'كاليتي', 'نوعية', 'وصلت', 'تصلني', 'وين راهي', 'مكان', 'وصلتني'].some(k => normText.includes(k) || pLower.includes(k));
+    const isQuestion = messageText.includes('?') || messageText.includes('ØŸ') ||
+      ['ÙˆÙŠÙ†ØªØ§', 'ÙˆÙ‚ØªØ§Ø´', 'Ù…ØªÙ‰', 'ÙƒÙŠÙØ§Ù‡', 'ÙƒÙŠÙØ§Ø´', 'Ø´Ø­Ø§Ù„', 'qualitÃ©', 'ÙƒØ§Ù„ÙŠØªÙŠ', 'Ù†ÙˆØ¹ÙŠØ©', 'ÙˆØµÙ„Øª', 'ØªØµÙ„Ù†ÙŠ', 'ÙˆÙŠÙ† Ø±Ø§Ù‡ÙŠ', 'Ù…ÙƒØ§Ù†', 'ÙˆØµÙ„ØªÙ†ÙŠ'].some(k => normText.includes(k) || pLower.includes(k));
 
     if (isQuestion) return false;
 
@@ -933,23 +730,23 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
     if (phoneMatch) {
       const extractedPhone = phoneMatch[1];
       if (!isValidAlgerianPhone(extractedPhone)) {
-        const invalidMsg = `⚠️ *رقم الهاتف غير صحيح*\nيرجى كتابة رقم هاتف جزائري يتكون من 10 أرقام ويبدأ بـ 05 أو 06 أو 07 (مثال: 0771335039) لتتمكن من التسجيل وتأكيد طلبك.`;
+        const invalidMsg = `âš ï¸ *Ø±Ù‚Ù… Ø§Ù„Ù‡Ø§ØªÙ ØºÙŠØ± ØµØ­ÙŠØ­*\nÙŠØ±Ø¬Ù‰ ÙƒØªØ§Ø¨Ø© Ø±Ù‚Ù… Ù‡Ø§ØªÙ Ø¬Ø²Ø§Ø¦Ø±ÙŠ ÙŠØªÙƒÙˆÙ† Ù…Ù† 10 Ø£Ø±Ù‚Ø§Ù… ÙˆÙŠØ¨Ø¯Ø£ Ø¨Ù€ 05 Ø£Ùˆ 06 Ø£Ùˆ 07 (Ù…Ø«Ø§Ù„: 0771335039) Ù„ØªØªÙ…ÙƒÙ† Ù…Ù† Ø§Ù„ØªØ³Ø¬ÙŠÙ„ ÙˆØªØ£ÙƒÙŠØ¯ Ø·Ù„Ø¨Ùƒ.`;
         await sendWhatsAppMessage(fromPhone, invalidMsg);
         return true;
       }
     }
 
-    const wilayas = ["ادرار", "الشلف", "الأغواط", "أم البواقي", "باتنة", "بجاية", "بسكرة", "بشار", "بليدة", "بويرة", "تمنراست", "تبسة", "تلمسان", "تيارت", "تيزي وزو", "الجزائر", "الجلفة", "جيجل", "سطيف", "سعيدة", "سكيكدة", "سيدي بلعباس", "عنابة", "قالمة", "قسنطينة", "مدية", "مستغانم", "مسيلة", "معسكر", "ورقلة", "وهران", "بيض", "إليزي", "برج بوعريريج", "بومرداس", "الطارف", "تندوف", "تيسمسيلت", "الوادي", "خنشلة", "سوق أهراس", "تيبازة", "ميلة", "عين الدفلى", "نعامة", "عين تموشنت", "غرداية", "غليزان", "المغير", "المنيعة", "أولاد جلال", "برج باجي مختار", "بني عباس", "تيميمون", "تقرت", "جانت", "إن صالح", "إن قزام", "alger", "oran", "blida", "chlef", "setif", "constantine"];
+    const wilayas = ["Ø§Ø¯Ø±Ø§Ø±", "Ø§Ù„Ø´Ù„Ù", "Ø§Ù„Ø£ØºÙˆØ§Ø·", "Ø£Ù… Ø§Ù„Ø¨ÙˆØ§Ù‚ÙŠ", "Ø¨Ø§ØªÙ†Ø©", "Ø¨Ø¬Ø§ÙŠØ©", "Ø¨Ø³ÙƒØ±Ø©", "Ø¨Ø´Ø§Ø±", "Ø¨Ù„ÙŠØ¯Ø©", "Ø¨ÙˆÙŠØ±Ø©", "ØªÙ…Ù†Ø±Ø§Ø³Øª", "ØªØ¨Ø³Ø©", "ØªÙ„Ù…Ø³Ø§Ù†", "ØªÙŠØ§Ø±Øª", "ØªÙŠØ²ÙŠ ÙˆØ²Ùˆ", "Ø§Ù„Ø¬Ø²Ø§Ø¦Ø±", "Ø§Ù„Ø¬Ù„ÙØ©", "Ø¬ÙŠØ¬Ù„", "Ø³Ø·ÙŠÙ", "Ø³Ø¹ÙŠØ¯Ø©", "Ø³ÙƒÙŠÙƒØ¯Ø©", "Ø³ÙŠØ¯ÙŠ Ø¨Ù„Ø¹Ø¨Ø§Ø³", "Ø¹Ù†Ø§Ø¨Ø©", "Ù‚Ø§Ù„Ù…Ø©", "Ù‚Ø³Ù†Ø·ÙŠÙ†Ø©", "Ù…Ø¯ÙŠØ©", "Ù…Ø³ØªØºØ§Ù†Ù…", "Ù…Ø³ÙŠÙ„Ø©", "Ù…Ø¹Ø³ÙƒØ±", "ÙˆØ±Ù‚Ù„Ø©", "ÙˆÙ‡Ø±Ø§Ù†", "Ø¨ÙŠØ¶", "Ø¥Ù„ÙŠØ²ÙŠ", "Ø¨Ø±Ø¬ Ø¨ÙˆØ¹Ø±ÙŠØ±ÙŠØ¬", "Ø¨ÙˆÙ…Ø±Ø¯Ø§Ø³", "Ø§Ù„Ø·Ø§Ø±Ù", "ØªÙ†Ø¯ÙˆÙ", "ØªÙŠØ³Ù…Ø³ÙŠÙ„Øª", "Ø§Ù„ÙˆØ§Ø¯ÙŠ", "Ø®Ù†Ø´Ù„Ø©", "Ø³ÙˆÙ‚ Ø£Ù‡Ø±Ø§Ø³", "ØªÙŠØ¨Ø§Ø²Ø©", "Ù…ÙŠÙ„Ø©", "Ø¹ÙŠÙ† Ø§Ù„Ø¯ÙÙ„Ù‰", "Ù†Ø¹Ø§Ù…Ø©", "Ø¹ÙŠÙ† ØªÙ…ÙˆØ´Ù†Øª", "ØºØ±Ø¯Ø§ÙŠØ©", "ØºÙ„ÙŠØ²Ø§Ù†", "Ø§Ù„Ù…ØºÙŠØ±", "Ø§Ù„Ù…Ù†ÙŠØ¹Ø©", "Ø£ÙˆÙ„Ø§Ø¯ Ø¬Ù„Ø§Ù„", "Ø¨Ø±Ø¬ Ø¨Ø§Ø¬ÙŠ Ù…Ø®ØªØ§Ø±", "Ø¨Ù†ÙŠ Ø¹Ø¨Ø§Ø³", "ØªÙŠÙ…ÙŠÙ…ÙˆÙ†", "ØªÙ‚Ø±Øª", "Ø¬Ø§Ù†Øª", "Ø¥Ù† ØµØ§Ù„Ø­", "Ø¥Ù† Ù‚Ø²Ø§Ù…", "alger", "oran", "blida", "chlef", "setif", "constantine"];
     const wilayaMatch = wilayas.find(w => normText.includes(w.toLowerCase()) || pLower.includes(w.toLowerCase()));
 
     // Explicit order intent keywords (MUST express intention to place/register an order)
     const explicitOrderKeywords = [
-      'سجللي كوموند', 'سجل طلبية', 'ندير كوموند', 'نطلب بيجامة',
-      'ارسللي', 'ابعثلي كوموند', 'passer commande', 'commander', 'نطلبها'
+      'Ø³Ø¬Ù„Ù„ÙŠ ÙƒÙˆÙ…ÙˆÙ†Ø¯', 'Ø³Ø¬Ù„ Ø·Ù„Ø¨ÙŠØ©', 'Ù†Ø¯ÙŠØ± ÙƒÙˆÙ…ÙˆÙ†Ø¯', 'Ù†Ø·Ù„Ø¨ Ø¨ÙŠØ¬Ø§Ù…Ø©',
+      'Ø§Ø±Ø³Ù„Ù„ÙŠ', 'Ø§Ø¨Ø¹Ø«Ù„ÙŠ ÙƒÙˆÙ…ÙˆÙ†Ø¯', 'passer commande', 'commander', 'Ù†Ø·Ù„Ø¨Ù‡Ø§'
     ];
 
     const hasExplicitOrderIntent = explicitOrderKeywords.some(k => normText.includes(k) || pLower.includes(k));
-    const sizeMatchForCheck = messageText.match(/(?:pointure|مقاس|حجم|قياس|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL)/i) || messageText.match(/\b(3[5-9]|4[0-8]|S|M|L|XL|2XL|3XL|4XL)\b/i);
+    const sizeMatchForCheck = messageText.match(/(?:pointure|Ù…Ù‚Ø§Ø³|Ø­Ø¬Ù…|Ù‚ÙŠØ§Ø³|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL)/i) || messageText.match(/\b(3[5-9]|4[0-8]|S|M|L|XL|2XL|3XL|4XL)\b/i);
     
     // Strict Full Details Requirement: Phone + Wilaya + Size MUST all be present to create an order
     const hasValidPhone = phoneMatch && isValidAlgerianPhone(phoneMatch[1]);
@@ -959,8 +756,8 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
 
     // Extract lines and name
     const lines = messageText.split('\n').map(l => l.trim()).filter(Boolean);
-    let clientName = 'الزبون الكريم';
-    const nameRegex = /(?:اسمي|اسم|الاسم|nom|client)\s*[:=]?\s*([أ-يa-zA-Z\s]{3,25})/i;
+    let clientName = 'Ø§Ù„Ø²Ø¨ÙˆÙ† Ø§Ù„ÙƒØ±ÙŠÙ…';
+    const nameRegex = /(?:Ø§Ø³Ù…ÙŠ|Ø§Ø³Ù…|Ø§Ù„Ø§Ø³Ù…|nom|client)\s*[:=]?\s*([Ø£-ÙŠa-zA-Z\s]{3,25})/i;
     const matchN = messageText.match(nameRegex);
     if (matchN) {
       clientName = matchN[1].trim();
@@ -969,21 +766,21 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
     }
 
     const orderPhone = phoneMatch ? phoneMatch[1] : fromPhone.replace(/^\+?213/, '0');
-    const wilaya = wilayaMatch ? wilayaMatch : 'الشلف';
+    const wilaya = wilayaMatch ? wilayaMatch : 'Ø§Ù„Ø´Ù„Ù';
 
     let deliveryCompany = 'Livraison Domicile';
-    if (pLower.includes('yalidine') || normText.includes('يالادين')) {
+    if (pLower.includes('yalidine') || normText.includes('ÙŠØ§Ù„Ø§Ø¯ÙŠÙ†')) {
       deliveryCompany = 'Yalidine Express';
-    } else if (pLower.includes('zrexpress') || pLower.includes('zr') || normText.includes('زد ار') || normText.includes('زد آر')) {
+    } else if (pLower.includes('zrexpress') || pLower.includes('zr') || normText.includes('Ø²Ø¯ Ø§Ø±') || normText.includes('Ø²Ø¯ Ø¢Ø±')) {
       deliveryCompany = 'ZR Express';
-    } else if (pLower.includes('bureau') || pLower.includes('stop desk') || normText.includes('مكتب') || normText.includes('دستك')) {
+    } else if (pLower.includes('bureau') || pLower.includes('stop desk') || normText.includes('Ù…ÙƒØªØ¨') || normText.includes('Ø¯Ø³ØªÙƒ')) {
       deliveryCompany = 'Livraison Bureau';
-    } else if (pLower.includes('domicile') || normText.includes('منزل') || normText.includes('دار')) {
+    } else if (pLower.includes('domicile') || normText.includes('Ù…Ù†Ø²Ù„') || normText.includes('Ø¯Ø§Ø±')) {
       deliveryCompany = 'Livraison Domicile';
     }
 
     // Size / Pointure extraction
-    const sizeMatch = messageText.match(/(?:pointure|مقاس|حجم|قياس|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL)/i) || messageText.match(/\b(3[5-9]|4[0-8]|S|M|L|XL|2XL|3XL|4XL)\b/i);
+    const sizeMatch = messageText.match(/(?:pointure|Ù…Ù‚Ø§Ø³|Ø­Ø¬Ù…|Ù‚ÙŠØ§Ø³|taille|size)\s*[:=]?\s*(\d{2}|S|M|L|XL|2XL|3XL|4XL)/i) || messageText.match(/\b(3[5-9]|4[0-8]|S|M|L|XL|2XL|3XL|4XL)\b/i);
     const requestedSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
 
     // Product and Color matching
@@ -1033,7 +830,7 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
 
     console.log(`Direct Order Check: Client="${clientName}", Phone="${orderPhone}", Wilaya="${wilaya}", Product="${matchedProduct?.title}", Color="${colorLabel}", Size="${requestedSize}", Stock=${currentStock}`);
 
-    // ❌ OUT OF STOCK CASE (Stock is 0) -> Save to Waitlist ONLY (Do NOT insert into orders table)
+    // âŒ OUT OF STOCK CASE (Stock is 0) -> Save to Waitlist ONLY (Do NOT insert into orders table)
     if (requestedSize && currentStock === 0) {
       await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
         method: 'POST',
@@ -1046,7 +843,7 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
           client_name: clientName,
           whatsapp_number: orderPhone,
           product_id: matchedProduct?.id || null,
-          product_title: matchedProduct?.title || 'بيجامات فاخرة',
+          product_title: matchedProduct?.title || 'Ø¨ÙŠØ¬Ø§Ù…Ø§Øª ÙØ§Ø®Ø±Ø©',
           color: colorLabel,
           size: requestedSize,
           status: 'pending',
@@ -1054,25 +851,25 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
         })
       });
 
-      const outMsg = `أهلاً بك ${clientName}.\nعذراً، المقاس (${requestedSize}) غير متوفر حالياً في موديل ${matchedProduct?.title || ''} (${colorLabel}).\nتم حفظ طلبك وسنخبرك عبر الواتساب فور توفره مجدداً إن شاء الله. شكراً لك.`;
+      const outMsg = `Ø£Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ ${clientName}.\nØ¹Ø°Ø±Ø§Ù‹ØŒ Ø§Ù„Ù…Ù‚Ø§Ø³ (${requestedSize}) ØºÙŠØ± Ù…ØªÙˆÙØ± Ø­Ø§Ù„ÙŠØ§Ù‹ ÙÙŠ Ù…ÙˆØ¯ÙŠÙ„ ${matchedProduct?.title || ''} (${colorLabel}).\nØªÙ… Ø­ÙØ¸ Ø·Ù„Ø¨Ùƒ ÙˆØ³Ù†Ø®Ø¨Ø±Ùƒ Ø¹Ø¨Ø± Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨ ÙÙˆØ± ØªÙˆÙØ±Ù‡ Ù…Ø¬Ø¯Ø¯Ø§Ù‹ Ø¥Ù† Ø´Ø§Ø¡ Ø§Ù„Ù„Ù‡. Ø´ÙƒØ±Ø§Ù‹ Ù„Ùƒ.`;
       await sendWhatsAppMessage(fromPhone, outMsg);
       return true;
     }
 
-    // ✅ AVAILABLE IN STOCK (> 0) -> Save Order & Deduct Stock Immediately
+    // âœ… AVAILABLE IN STOCK (> 0) -> Save Order & Deduct Stock Immediately
     const newOrder = await createChatOrderInSupabase({
       clientName,
       phone: orderPhone,
       wilaya,
-      commune: 'المركز',
-      product: `${matchedProduct?.title || 'بيجامات فاخرة'} (${colorLabel}${colorLabel ? ' - ' : ''}${requestedSize || ''})`.trim(),
+      commune: 'Ø§Ù„Ù…Ø±ÙƒØ²',
+      product: `${matchedProduct?.title || 'Ø¨ÙŠØ¬Ø§Ù…Ø§Øª ÙØ§Ø®Ø±Ø©'} (${colorLabel}${colorLabel ? ' - ' : ''}${requestedSize || ''})`.trim(),
       price: Number(matchedProduct?.price || 0),
       quantity: 1,
       deliveryCompany,
       status: 'confirmee',
       items: [{
         productId: matchedProduct?.id || null,
-        product: matchedProduct?.title || 'بيجامات فاخرة',
+        product: matchedProduct?.title || 'Ø¨ÙŠØ¬Ø§Ù…Ø§Øª ÙØ§Ø®Ø±Ø©',
         color: colorLabel,
         size: requestedSize || '',
         qty: 1,
@@ -1121,7 +918,7 @@ async function processDirectOrderFromMessage(fromPhone, messageText, products) {
       }
 
       const orderNumStr = await getSequentialOrderNum(newOrder);
-      const confirmMsg = `*متجر Pyjama DZ*\n\nأهلاً بك ${clientName}.\nتم تسجيل وتأكيد طلبيتك رقم #${orderNumStr} بنجاح! 📦\n\n- المنتج: ${matchedProduct?.title || 'بيجامات فاخرة'} (${colorLabel}${colorLabel ? ' - ' : ''}${requestedSize || ''})\n- الولاية: ${wilaya}\n- التوصيل: ${deliveryCompany}\n- السعر: ${matchedProduct?.price || ''} دج\n\nجاري تجهيز طلبك وشحنه في أقرب وقت. شكراً لثقتك بنا!`;
+      const confirmMsg = `*Ù…ØªØ¬Ø± Pyjama DZ*\n\nØ£Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ ${clientName}.\nØªÙ… ØªØ³Ø¬ÙŠÙ„ ÙˆØªØ£ÙƒÙŠØ¯ Ø·Ù„Ø¨ÙŠØªÙƒ Ø±Ù‚Ù… #${orderNumStr} Ø¨Ù†Ø¬Ø§Ø­! ðŸ“¦\n\n- Ø§Ù„Ù…Ù†ØªØ¬: ${matchedProduct?.title || 'Ø¨ÙŠØ¬Ø§Ù…Ø§Øª ÙØ§Ø®Ø±Ø©'} (${colorLabel}${colorLabel ? ' - ' : ''}${requestedSize || ''})\n- Ø§Ù„ÙˆÙ„Ø§ÙŠØ©: ${wilaya}\n- Ø§Ù„ØªÙˆØµÙŠÙ„: ${deliveryCompany}\n- Ø§Ù„Ø³Ø¹Ø±: ${matchedProduct?.price || ''} Ø¯Ø¬\n\nØ¬Ø§Ø±ÙŠ ØªØ¬Ù‡ÙŠØ² Ø·Ù„Ø¨Ùƒ ÙˆØ´Ø­Ù†Ù‡ ÙÙŠ Ø£Ù‚Ø±Ø¨ ÙˆÙ‚Øª. Ø´ÙƒØ±Ø§Ù‹ Ù„Ø«Ù‚ØªÙƒ Ø¨Ù†Ø§!`;
       await sendWhatsAppMessage(fromPhone, confirmMsg);
       return true;
     }
@@ -1139,31 +936,31 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
 
   // Photo Intent Regex (Matches all Franco, Arabic & Typo variations e.g. tsswwiira, tsswira, sbat, photo, etc.)
   const isPhotoIntent = [
-    /صورة|صور|تصويرة|تصويره|تصاوير|تصاور|تصويرات|تصويرتها|صوره/i,
+    /ØµÙˆØ±Ø©|ØµÙˆØ±|ØªØµÙˆÙŠØ±Ø©|ØªØµÙˆÙŠØ±Ù‡|ØªØµØ§ÙˆÙŠØ±|ØªØµØ§ÙˆØ±|ØªØµÙˆÙŠØ±Ø§Øª|ØªØµÙˆÙŠØ±ØªÙ‡Ø§|ØµÙˆØ±Ù‡/i,
     /photo|photos|image|images|pic|pics|picture|pictures/i,
-    /شوف|نشوف|وريني|وريلي|بعثلي|ابعثلي|ابعث|بعث|تأبعثلي|تبعتلي|تبيعتلي|tbeat|tbeath|tb3ath|beath|versili|varsili|vrsi/i,
+    /Ø´ÙˆÙ|Ù†Ø´ÙˆÙ|ÙˆØ±ÙŠÙ†ÙŠ|ÙˆØ±ÙŠÙ„ÙŠ|Ø¨Ø¹Ø«Ù„ÙŠ|Ø§Ø¨Ø¹Ø«Ù„ÙŠ|Ø§Ø¨Ø¹Ø«|Ø¨Ø¹Ø«|ØªØ£Ø¨Ø¹Ø«Ù„ÙŠ|ØªØ¨Ø¹ØªÙ„ÙŠ|ØªØ¨ÙŠØ¹ØªÙ„ÙŠ|tbeat|tbeath|tb3ath|beath|versili|varsili|vrsi/i,
     /t+s+a*w+i*r*a*/i, // Matches tswira, tsswira, tsswwiira, taswira, tasawir, tsawir, etc.
-    /صورة ال|تصاوير ال|تصويرة ال/i
+    /ØµÙˆØ±Ø© Ø§Ù„|ØªØµØ§ÙˆÙŠØ± Ø§Ù„|ØªØµÙˆÙŠØ±Ø© Ø§Ù„/i
   ].some(rgx => rgx.test(rawText) || rgx.test(norm));
 
   if (!isPhotoIntent) return false;
 
-  // Detect specific product category/title requested (e.g. sbat / sabot / سباط / صلاط / pyjama / بيجامة)
-  const isShoesRequested = /sbat|sabot|سباط|صلاط|حذاء|نعالة|pantoufle/i.test(rawText) || /sbat|sabot|سباط|صلاط|حذاء|نعالة|pantoufle/i.test(norm);
-  const isPyjamaRequested = /pyjama|بيجامة|بيجامات|بيجامة/i.test(rawText) || /pyjama|بيجامة|بيجامات|بيجامة/i.test(norm);
+  // Detect specific product category/title requested (e.g. sbat / sabot / Ø³Ø¨Ø§Ø· / ØµÙ„Ø§Ø· / pyjama / Ø¨ÙŠØ¬Ø§Ù…Ø©)
+  const isShoesRequested = /sbat|sabot|Ø³Ø¨Ø§Ø·|ØµÙ„Ø§Ø·|Ø­Ø°Ø§Ø¡|Ù†Ø¹Ø§Ù„Ø©|pantoufle/i.test(rawText) || /sbat|sabot|Ø³Ø¨Ø§Ø·|ØµÙ„Ø§Ø·|Ø­Ø°Ø§Ø¡|Ù†Ø¹Ø§Ù„Ø©|pantoufle/i.test(norm);
+  const isPyjamaRequested = /pyjama|Ø¨ÙŠØ¬Ø§Ù…Ø©|Ø¨ÙŠØ¬Ø§Ù…Ø§Øª|Ø¨ÙŠØ¬Ø§Ù…Ø©/i.test(rawText) || /pyjama|Ø¨ÙŠØ¬Ø§Ù…Ø©|Ø¨ÙŠØ¬Ø§Ù…Ø§Øª|Ø¨ÙŠØ¬Ø§Ù…Ø©/i.test(norm);
 
   let targetProducts = products;
   
   if (isShoesRequested) {
     const shoesMatches = products.filter(p => {
       const t = `${p.title || ''} ${p.category || ''} ${p.badge || ''} ${p.description || ''}`.toLowerCase();
-      return /sbat|sabot|سباط|صلاط|حذاء|نعالة|pantoufle/i.test(t);
+      return /sbat|sabot|Ø³Ø¨Ø§Ø·|ØµÙ„Ø§Ø·|Ø­Ø°Ø§Ø¡|Ù†Ø¹Ø§Ù„Ø©|pantoufle/i.test(t);
     });
     if (shoesMatches.length > 0) targetProducts = shoesMatches;
   } else if (isPyjamaRequested) {
     const pyjMatches = products.filter(p => {
       const t = `${p.title || ''} ${p.category || ''} ${p.badge || ''} ${p.description || ''}`.toLowerCase();
-      return /pyjama|بيجامة|بيجامات|بيجامة/i.test(t);
+      return /pyjama|Ø¨ÙŠØ¬Ø§Ù…Ø©|Ø¨ÙŠØ¬Ø§Ù…Ø§Øª|Ø¨ÙŠØ¬Ø§Ù…Ø©/i.test(t);
     });
     if (pyjMatches.length > 0) targetProducts = pyjMatches;
   } else {
@@ -1199,9 +996,9 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
 
     // 1. Direct image/images
     if (Array.isArray(p.images)) {
-      p.images.forEach(img => addImageObj(img, `${p.title || 'منتج'} - السعر: ${p.price || 3200} دج`));
+      p.images.forEach(img => addImageObj(img, `${p.title || 'Ù…Ù†ØªØ¬'} - Ø§Ù„Ø³Ø¹Ø±: ${p.price || 3200} Ø¯Ø¬`));
     } else if (p.image) {
-      addImageObj(p.image, `${p.title || 'منتج'} - السعر: ${p.price || 3200} دج`);
+      addImageObj(p.image, `${p.title || 'Ù…Ù†ØªØ¬'} - Ø§Ù„Ø³Ø¹Ø±: ${p.price || 3200} Ø¯Ø¬`);
     }
 
     // 2. Color variants images
@@ -1210,7 +1007,7 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
       variants.forEach(cv => {
         const cvImg = cv.image || cv.imageUrl || cv.img;
         if (cvImg) {
-          addImageObj(cvImg, `${p.title || 'منتج'} (${cv.name || cv.color || 'اللون'}) - السعر: ${p.price || 3200} دج`);
+          addImageObj(cvImg, `${p.title || 'Ù…Ù†ØªØ¬'} (${cv.name || cv.color || 'Ø§Ù„Ù„ÙˆÙ†'}) - Ø§Ù„Ø³Ø¹Ø±: ${p.price || 3200} Ø¯Ø¬`);
         }
       });
     }
@@ -1221,7 +1018,7 @@ async function checkAndSendProductPhotos(toPhone, messageText, products) {
     const p = products[0];
     matchedImages.push({
       url: "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&w=800&q=80",
-      caption: `${p.title || 'بيجامات فاخرة'} - السعر: ${p.price || 3200} دج`
+      caption: `${p.title || 'Ø¨ÙŠØ¬Ø§Ù…Ø§Øª ÙØ§Ø®Ø±Ø©'} - Ø§Ù„Ø³Ø¹Ø±: ${p.price || 3200} Ø¯Ø¬`
     });
   }
 
@@ -1288,13 +1085,13 @@ async function checkAndAlertLowStock(product, storeSettings) {
     if (!variant || !variant.stock) continue;
 
     const isBoutiqueVariant = isBoutiqueProduct ||
-                              String(variant.name || variant.color || '').toLowerCase().includes('حانيت') || 
+                              String(variant.name || variant.color || '').toLowerCase().includes('Ø­Ø§Ù†ÙŠØª') || 
                               String(variant.name || variant.color || '').toLowerCase().includes('boutique') ||
-                              String(variant.name || variant.color || '').toLowerCase().includes('محل');
+                              String(variant.name || variant.color || '').toLowerCase().includes('Ù…Ø­Ù„');
     
     // Website orders strictly target whatsappLivraisonManager (0771335039)
     const targetPhone = (isBoutiqueVariant && boutiqueManagerPhone) ? boutiqueManagerPhone : livraisonManagerPhone;
-    const locationLabel = (isBoutiqueVariant && boutiqueManagerPhone) ? "سطوك المحل (Boutique)" : "سطوك التوصيل (Livraison)";
+    const locationLabel = (isBoutiqueVariant && boutiqueManagerPhone) ? "Ø³Ø·ÙˆÙƒ Ø§Ù„Ù…Ø­Ù„ (Boutique)" : "Ø³Ø·ÙˆÙƒ Ø§Ù„ØªÙˆØµÙŠÙ„ (Livraison)";
 
     // Skip if no manager phone is registered for this specific stock type
     if (!targetPhone) continue;
@@ -1342,8 +1139,8 @@ async function checkAndAlertLowStock(product, storeSettings) {
         if (shouldSendAlert) {
           const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
           const alertMsg = numQty === 0 
-            ? `🛑 *تنبيه نفاد المخزون بالكامل (${locationLabel})* 🛑\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• حالة الستوك: نافذ تماماً (0 حبة متبقية).\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`
-            : `⚠️ *تنبيه مخزون منخفض (${locationLabel})* ⚠️\n\n• المنتج: ${product.title}\n• اللون: ${variant.name || variant.color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المتبقية: ${numQty} حبات فقط.\n\n🕒 التوقيت: ${timeStr}\n👉 يمكنك الرد على هذه الرسالة مباشرة عند تزويد المخزون.`;
+            ? `ðŸ›‘ *ØªÙ†Ø¨ÙŠÙ‡ Ù†ÙØ§Ø¯ Ø§Ù„Ù…Ø®Ø²ÙˆÙ† Ø¨Ø§Ù„ÙƒØ§Ù…Ù„ (${locationLabel})* ðŸ›‘\n\nâ€¢ Ø§Ù„Ù…Ù†ØªØ¬: ${product.title}\nâ€¢ Ø§Ù„Ù„ÙˆÙ†: ${variant.name || variant.color || 'Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ'}\nâ€¢ Ø§Ù„Ù…Ù‚Ø§Ø³: ${size}\nâ€¢ Ø­Ø§Ù„Ø© Ø§Ù„Ø³ØªÙˆÙƒ: Ù†Ø§ÙØ° ØªÙ…Ø§Ù…Ø§Ù‹ (0 Ø­Ø¨Ø© Ù…ØªØ¨Ù‚ÙŠØ©).\n\nðŸ•’ Ø§Ù„ØªÙˆÙ‚ÙŠØª: ${timeStr}\nðŸ‘‰ ÙŠÙ…ÙƒÙ†Ùƒ Ø§Ù„Ø±Ø¯ Ø¹Ù„Ù‰ Ù‡Ø°Ù‡ Ø§Ù„Ø±Ø³Ø§Ù„Ø© Ù…Ø¨Ø§Ø´Ø±Ø© Ø¹Ù†Ø¯ ØªØ²ÙˆÙŠØ¯ Ø§Ù„Ù…Ø®Ø²ÙˆÙ†.`
+            : `âš ï¸ *ØªÙ†Ø¨ÙŠÙ‡ Ù…Ø®Ø²ÙˆÙ† Ù…Ù†Ø®ÙØ¶ (${locationLabel})* âš ï¸\n\nâ€¢ Ø§Ù„Ù…Ù†ØªØ¬: ${product.title}\nâ€¢ Ø§Ù„Ù„ÙˆÙ†: ${variant.name || variant.color || 'Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ'}\nâ€¢ Ø§Ù„Ù…Ù‚Ø§Ø³: ${size}\nâ€¢ Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ù…ØªØ¨Ù‚ÙŠØ©: ${numQty} Ø­Ø¨Ø§Øª ÙÙ‚Ø·.\n\nðŸ•’ Ø§Ù„ØªÙˆÙ‚ÙŠØª: ${timeStr}\nðŸ‘‰ ÙŠÙ…ÙƒÙ†Ùƒ Ø§Ù„Ø±Ø¯ Ø¹Ù„Ù‰ Ù‡Ø°Ù‡ Ø§Ù„Ø±Ø³Ø§Ù„Ø© Ù…Ø¨Ø§Ø´Ø±Ø© Ø¹Ù†Ø¯ ØªØ²ÙˆÙŠØ¯ Ø§Ù„Ù…Ø®Ø²ÙˆÙ†.`;
           
           const alertRes = await sendWhatsAppMessage(targetPhone, alertMsg);
           if (alertRes && Array.isArray(alertRes.messages) && alertRes.messages[0]) {
@@ -1391,22 +1188,22 @@ function parseOrderDetails(text) {
     const lNorm = normalizeText(line);
     const lLower = line.toLowerCase();
 
-    if (['yalidine', 'مكتب', 'maktab', 'stop desk', 'stopdesk', 'agence'].some(k => lLower.includes(k) || lNorm.includes(k))) {
+    if (['yalidine', 'Ù…ÙƒØªØ¨', 'maktab', 'stop desk', 'stopdesk', 'agence'].some(k => lLower.includes(k) || lNorm.includes(k))) {
       deliveryCompany = 'Yalidine Stop Desk';
       deliveryMode = 'desk';
-    } else if (['domicile', 'منزل', 'دار', 'دارنا', 'home'].some(k => lLower.includes(k) || lNorm.includes(k))) {
+    } else if (['domicile', 'Ù…Ù†Ø²Ù„', 'Ø¯Ø§Ø±', 'Ø¯Ø§Ø±Ù†Ø§', 'home'].some(k => lLower.includes(k) || lNorm.includes(k))) {
       deliveryCompany = 'Livraison Domicile';
       deliveryMode = 'home';
     }
 
-    if (['chlef', 'الشلف', 'alger', 'الجزائر', 'oran', 'وهران', 'blida', 'البليدة', 'setif', 'سطيف', 'annaba', 'عنابة', 'constantine', 'قسنطينة', 'tlemcen', 'تلمسان', 'batna', 'باتنة', 'bjaya', 'bejaia', 'بجاية', 'biskra', 'بسكرة', 'tizi', 'تيزي', 'mostaganem', 'مستغانم', 'tiaret', 'تيارت', 'djelfa', 'الجلفة', 'skikda', 'سكيكدة', 'medea', 'المدية', 'mascara', 'معسكر', 'ouargla', 'ورقلة', 'bba', 'برج', 'boumerdes', 'بومرداس', 'el oued', 'الوادي', 'khenchela', 'خنشلة', 'souk ahras', 'سوق اهراس', 'tipaza', 'تيبازة', 'milla', 'ميلة', 'ain temouchent', 'عين تموشنت', 'ghardaia', 'غرداية', 'relizane', 'غليزان'].some(k => lLower.includes(k) || lNorm.includes(k))) {
+    if (['chlef', 'Ø§Ù„Ø´Ù„Ù', 'alger', 'Ø§Ù„Ø¬Ø²Ø§Ø¦Ø±', 'oran', 'ÙˆÙ‡Ø±Ø§Ù†', 'blida', 'Ø§Ù„Ø¨Ù„ÙŠØ¯Ø©', 'setif', 'Ø³Ø·ÙŠÙ', 'annaba', 'Ø¹Ù†Ø§Ø¨Ø©', 'constantine', 'Ù‚Ø³Ù†Ø·ÙŠÙ†Ø©', 'tlemcen', 'ØªÙ„Ù…Ø³Ø§Ù†', 'batna', 'Ø¨Ø§ØªÙ†Ø©', 'bjaya', 'bejaia', 'Ø¨Ø¬Ø§ÙŠØ©', 'biskra', 'Ø¨Ø³ÙƒØ±Ø©', 'tizi', 'ØªÙŠØ²ÙŠ', 'mostaganem', 'Ù…Ø³ØªØºØ§Ù†Ù…', 'tiaret', 'ØªÙŠØ§Ø±Øª', 'djelfa', 'Ø§Ù„Ø¬Ù„ÙØ©', 'skikda', 'Ø³ÙƒÙŠÙƒØ¯Ø©', 'medea', 'Ø§Ù„Ù…Ø¯ÙŠØ©', 'mascara', 'Ù…Ø¹Ø³ÙƒØ±', 'ouargla', 'ÙˆØ±Ù‚Ù„Ø©', 'bba', 'Ø¨Ø±Ø¬', 'boumerdes', 'Ø¨ÙˆÙ…Ø±Ø¯Ø§Ø³', 'el oued', 'Ø§Ù„ÙˆØ§Ø¯ÙŠ', 'khenchela', 'Ø®Ù†Ø´Ù„Ø©', 'souk ahras', 'Ø³ÙˆÙ‚ Ø§Ù‡Ø±Ø§Ø³', 'tipaza', 'ØªÙŠØ¨Ø§Ø²Ø©', 'milla', 'Ù…ÙŠÙ„Ø©', 'ain temouchent', 'Ø¹ÙŠÙ† ØªÙ…ÙˆØ´Ù†Øª', 'ghardaia', 'ØºØ±Ø¯Ø§ÙŠØ©', 'relizane', 'ØºÙ„ÙŠØ²Ø§Ù†'].some(k => lLower.includes(k) || lNorm.includes(k))) {
       const parts = line.split(/[-,\/\s]+/);
-      wilaya = parts[0] ? parts[0].trim() : 'الشلف';
-      commune = parts[1] ? parts[1].trim() : (parts[0] || 'المركز');
+      wilaya = parts[0] ? parts[0].trim() : 'Ø§Ù„Ø´Ù„Ù';
+      commune = parts[1] ? parts[1].trim() : (parts[0] || 'Ø§Ù„Ù…Ø±ÙƒØ²');
     }
 
-    if (!name && /[a-zA-Zأ-ي]/.test(line) && !line.match(/0[567]\d{8}/) && !['yalidine', 'livraison', 'مكتب', 'منزل', 'stop desk', 'llmaktab'].some(k => lLower.includes(k))) {
-      if (!['chlef', 'alger', 'oran', 'blida', 'setif', 'الشلف', 'الجزائر'].some(k => lLower.includes(k))) {
+    if (!name && /[a-zA-ZØ£-ÙŠ]/.test(line) && !line.match(/0[567]\d{8}/) && !['yalidine', 'livraison', 'Ù…ÙƒØªØ¨', 'Ù…Ù†Ø²Ù„', 'stop desk', 'llmaktab'].some(k => lLower.includes(k))) {
+      if (!['chlef', 'alger', 'oran', 'blida', 'setif', 'Ø§Ù„Ø´Ù„Ù', 'Ø§Ù„Ø¬Ø²Ø§Ø¦Ø±'].some(k => lLower.includes(k))) {
         name = line.trim();
       }
     }
@@ -1488,11 +1285,11 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
 
     // 1. STRICT GUARD: If message is asking for photos or asking a general question (location, price, availability, address), SKIP confirmation completely!
     const isPhotoOrQuestion = [
-      'tsswiira', 'tsswira', 'tssawir', 'tsawir', 'photo', 'photos', 'صور', 'تصاوير', 'صورة', 'وريلنا', 'وريني',
-      'شحال', 'بكم', 'prix', 'وقتاش', 'وين', 'عندكم', 'كاين', 'كاينين', 'استفسار', 'سؤال', 'سعر', 'سومة', 'قماش',
-      'نوعية', 'جودة', 'مكان', 'مقر', 'عنوان', 'كيفاش',
+      'tsswiira', 'tsswira', 'tssawir', 'tsawir', 'photo', 'photos', 'ØµÙˆØ±', 'ØªØµØ§ÙˆÙŠØ±', 'ØµÙˆØ±Ø©', 'ÙˆØ±ÙŠÙ„Ù†Ø§', 'ÙˆØ±ÙŠÙ†ÙŠ',
+      'Ø´Ø­Ø§Ù„', 'Ø¨ÙƒÙ…', 'prix', 'ÙˆÙ‚ØªØ§Ø´', 'ÙˆÙŠÙ†', 'Ø¹Ù†Ø¯ÙƒÙ…', 'ÙƒØ§ÙŠÙ†', 'ÙƒØ§ÙŠÙ†ÙŠÙ†', 'Ø§Ø³ØªÙØ³Ø§Ø±', 'Ø³Ø¤Ø§Ù„', 'Ø³Ø¹Ø±', 'Ø³ÙˆÙ…Ø©', 'Ù‚Ù…Ø§Ø´',
+      'Ù†ÙˆØ¹ÙŠØ©', 'Ø¬ÙˆØ¯Ø©', 'Ù…ÙƒØ§Ù†', 'Ù…Ù‚Ø±', 'Ø¹Ù†ÙˆØ§Ù†', 'ÙƒÙŠÙØ§Ø´',
       'win', 'wayn', 'fayen', 'fayn', 'plassa', 'blassa', 'plasa', 'blasa', 'adresse', 'lieu', 'local', 'boutique', 'magasin',
-      'اين', 'أين', 'فين', 'بلاصة', 'محل', 'عنوانكم', 'مقركم', 'مكانكم'
+      'Ø§ÙŠÙ†', 'Ø£ÙŠÙ†', 'ÙÙŠÙ†', 'Ø¨Ù„Ø§ØµØ©', 'Ù…Ø­Ù„', 'Ø¹Ù†ÙˆØ§Ù†ÙƒÙ…', 'Ù…Ù‚Ø±ÙƒÙ…', 'Ù…ÙƒØ§Ù†ÙƒÙ…'
     ].some(k => normText.includes(k) || pLower.includes(k));
 
     if (isPhotoOrQuestion) {
@@ -1504,11 +1301,11 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
 
     // Word boundary check for short words like 'wi' to avoid matching 'win'!
     const isConfirmIntent = [
-      'نعم', 'نعك', 'إيه', 'ايه', 'تأكيد', 'أكد', 'تاكيد', 'حاب نشري', 'نعم حاب', 'حاب ندير كوماند', 'حاب نطلب',
-      'ديها', 'بعثهالي', 'ابعثهالي', 'yes', 'ok', 'oui', 'مشري', 'حاب نديها', 'نديها', 'daccord', 'd\'accord', 'ouais',
+      'Ù†Ø¹Ù…', 'Ù†Ø¹Ùƒ', 'Ø¥ÙŠÙ‡', 'Ø§ÙŠÙ‡', 'ØªØ£ÙƒÙŠØ¯', 'Ø£ÙƒØ¯', 'ØªØ§ÙƒÙŠØ¯', 'Ø­Ø§Ø¨ Ù†Ø´Ø±ÙŠ', 'Ù†Ø¹Ù… Ø­Ø§Ø¨', 'Ø­Ø§Ø¨ Ù†Ø¯ÙŠØ± ÙƒÙˆÙ…Ø§Ù†Ø¯', 'Ø­Ø§Ø¨ Ù†Ø·Ù„Ø¨',
+      'Ø¯ÙŠÙ‡Ø§', 'Ø¨Ø¹Ø«Ù‡Ø§Ù„ÙŠ', 'Ø§Ø¨Ø¹Ø«Ù‡Ø§Ù„ÙŠ', 'yes', 'ok', 'oui', 'Ù…Ø´Ø±ÙŠ', 'Ø­Ø§Ø¨ Ù†Ø¯ÙŠÙ‡Ø§', 'Ù†Ø¯ÙŠÙ‡Ø§', 'daccord', 'd\'accord', 'ouais',
       'aked', 'akedli', 'akedha', 'akedhali', 'akidli', 'akid', 'akedna', 'confirmi', 'waye', 'wayh',
-      'confirm', 'confirmer', 'akedlih', 'اكدلي', 'أكدلي', 'اكدها', 'أكدها', 'ثبتها',
-      'ثبتلي', 'ملا', 'مالا', 'صح', 'اوكي', 'ماذا بيك'
+      'confirm', 'confirmer', 'akedlih', 'Ø§ÙƒØ¯Ù„ÙŠ', 'Ø£ÙƒØ¯Ù„ÙŠ', 'Ø§ÙƒØ¯Ù‡Ø§', 'Ø£ÙƒØ¯Ù‡Ø§', 'Ø«Ø¨ØªÙ‡Ø§',
+      'Ø«Ø¨ØªÙ„ÙŠ', 'Ù…Ù„Ø§', 'Ù…Ø§Ù„Ø§', 'ØµØ­', 'Ø§ÙˆÙƒÙŠ', 'Ù…Ø§Ø°Ø§ Ø¨ÙŠÙƒ'
     ].some(k => normText === k || pLower === k || normText.startsWith(k + ' ') || normText.includes(k) || pLower.includes(k)) || /\bwi\b/i.test(pLower);
 
     // Parse any details supplied in current message
@@ -1533,7 +1330,7 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
     } catch (e) {}
 
     if (waitlistEntry && isConfirmIntent) {
-      const entryTitle = waitlistEntry.product_title || waitlistEntry.product || 'الموديل المطلوب';
+      const entryTitle = waitlistEntry.product_title || waitlistEntry.product || 'Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ Ø§Ù„Ù…Ø·Ù„ÙˆØ¨';
       const entrySize = waitlistEntry.size || '';
       const entryColor = waitlistEntry.color || '';
 
@@ -1548,7 +1345,7 @@ async function processRestockConfirmationIntent(fromPhone, messageText, products
         body: JSON.stringify({ status: 'notified_sent' })
       });
 
-      const redirectWebsiteMsg = `أهلاً وسهلاً بك! 🌸\nبشرى سارة! توفر هاد الموديل (${entryTitle} ${entryColor ? entryColor + ' ' : ''}${entrySize ? '(' + entrySize + ')' : ''}) مجدداً في الستوك!\n\nلتأكيد واختيار الطلبية فوراً قبل نفاد الكمية، يرجى الدخول والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\n\nتفضل بالدخول واختيار المقاس واللون وسنعمل على شحنها لك فوراً! ✨`;
+      const redirectWebsiteMsg = `Ø£Ù‡Ù„Ø§Ù‹ ÙˆØ³Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ! ðŸŒ¸\nØ¨Ø´Ø±Ù‰ Ø³Ø§Ø±Ø©! ØªÙˆÙØ± Ù‡Ø§Ø¯ Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„ (${entryTitle} ${entryColor ? entryColor + ' ' : ''}${entrySize ? '(' + entrySize + ')' : ''}) Ù…Ø¬Ø¯Ø¯Ø§Ù‹ ÙÙŠ Ø§Ù„Ø³ØªÙˆÙƒ!\n\nÙ„ØªØ£ÙƒÙŠØ¯ ÙˆØ§Ø®ØªÙŠØ§Ø± Ø§Ù„Ø·Ù„Ø¨ÙŠØ© ÙÙˆØ±Ø§Ù‹ Ù‚Ø¨Ù„ Ù†ÙØ§Ø¯ Ø§Ù„ÙƒÙ…ÙŠØ©ØŒ ÙŠØ±Ø¬Ù‰ Ø§Ù„Ø¯Ø®ÙˆÙ„ ÙˆØ§Ù„Ø·Ù„Ø¨ Ù…Ø¨Ø§Ø´Ø±Ø© Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ:\nhttps://pyjama-dz.vercel.app\n\nØªÙØ¶Ù„ Ø¨Ø§Ù„Ø¯Ø®ÙˆÙ„ ÙˆØ§Ø®ØªÙŠØ§Ø± Ø§Ù„Ù…Ù‚Ø§Ø³ ÙˆØ§Ù„Ù„ÙˆÙ† ÙˆØ³Ù†Ø¹Ù…Ù„ Ø¹Ù„Ù‰ Ø´Ø­Ù†Ù‡Ø§ Ù„Ùƒ ÙÙˆØ±Ø§Ù‹! âœ¨`;
       await sendWhatsAppMessage(fromPhone, redirectWebsiteMsg);
       return true;
     }
@@ -1659,12 +1456,12 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
     // Check if customer is responding to an existing cancellation confirmation prompt
     if (activeState && activeState.orderId) {
       const isConfirmYes = [
-        'تأكيد الإلغاء', 'تأكيد الغاء', 'تاكيد الغاء', 'تاكيد', 'تأكيد', 'نعم', '1', 'إلغاء الطلب', 'الغيها',
-        'انوليها', 'انولي', 'ألغيها', 'الغها', 'annuler', 'anuler', 'yes', 'oui', 'ih', 'إيه', 'ايه'
+        'ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø¥Ù„ØºØ§Ø¡', 'ØªØ£ÙƒÙŠØ¯ Ø§Ù„ØºØ§Ø¡', 'ØªØ§ÙƒÙŠØ¯ Ø§Ù„ØºØ§Ø¡', 'ØªØ§ÙƒÙŠØ¯', 'ØªØ£ÙƒÙŠØ¯', 'Ù†Ø¹Ù…', '1', 'Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ø·Ù„Ø¨', 'Ø§Ù„ØºÙŠÙ‡Ø§',
+        'Ø§Ù†ÙˆÙ„ÙŠÙ‡Ø§', 'Ø§Ù†ÙˆÙ„ÙŠ', 'Ø£Ù„ØºÙŠÙ‡Ø§', 'Ø§Ù„ØºÙ‡Ø§', 'annuler', 'anuler', 'yes', 'oui', 'ih', 'Ø¥ÙŠÙ‡', 'Ø§ÙŠÙ‡'
       ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
 
       const isDeclineNo = [
-        'لا', '2', 'تراجع', 'لا تلغي', 'لا تلغيها', 'تراجع عن الإلغاء', 'تراجع عن الغاء', 'تراجع عن الالغاء',
+        'Ù„Ø§', '2', 'ØªØ±Ø§Ø¬Ø¹', 'Ù„Ø§ ØªÙ„ØºÙŠ', 'Ù„Ø§ ØªÙ„ØºÙŠÙ‡Ø§', 'ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø§Ù„Ø¥Ù„ØºØ§Ø¡', 'ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø§Ù„ØºØ§Ø¡', 'ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø§Ù„Ø§Ù„ØºØ§Ø¡',
         'lala', 'no', 'non', 'pas'
       ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
 
@@ -1684,8 +1481,8 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
 
           const orderNumStr = await getSequentialOrderNum(targetOrder);
           const rawName = targetOrder.clientName || '';
-          const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
-            ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
+          const cleanName = (rawName && !rawName.includes('Ø²Ø¨ÙˆÙ† Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨') && !rawName.includes('Ø²Ø¨ÙˆÙ† Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©'))
+            ? rawName.replace(/\(ÙˆØ§ØªØ³Ø§Ø¨:[^\)]+\)/g, '').trim()
             : '';
           const clientNameStr = cleanName ? ` ${cleanName}` : '';
 
@@ -1695,7 +1492,7 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
           }).catch(() => {});
 
-          const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}.\n\n✅ *تم إلغاء طلبك رقم #${orderNumStr} بنجاح وإرجاع المنتجات إلى المخزن.*\nنتمنى أن نخدمك مجدداً في المرات القادمة إن شاء الله! 🌸`;
+          const confirmMsg = `Ø£Ù‡Ù„Ø§Ù‹ ÙˆØ³Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ${clientNameStr}.\n\nâœ… *ØªÙ… Ø¥Ù„ØºØ§Ø¡ Ø·Ù„Ø¨Ùƒ Ø±Ù‚Ù… #${orderNumStr} Ø¨Ù†Ø¬Ø§Ø­ ÙˆØ¥Ø±Ø¬Ø§Ø¹ Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª Ø¥Ù„Ù‰ Ø§Ù„Ù…Ø®Ø²Ù†.*\nÙ†ØªÙ…Ù†Ù‰ Ø£Ù† Ù†Ø®Ø¯Ù…Ùƒ Ù…Ø¬Ø¯Ø¯Ø§Ù‹ ÙÙŠ Ø§Ù„Ù…Ø±Ø§Øª Ø§Ù„Ù‚Ø§Ø¯Ù…Ø© Ø¥Ù† Ø´Ø§Ø¡ Ø§Ù„Ù„Ù‡! ðŸŒ¸`;
           await sendWhatsAppMessage(fromPhone, confirmMsg);
 
           // IF THE ORDER WAS CONFIRMED PRIOR TO CANCELLATION -> Notify Packaging Manager immediately!
@@ -1704,7 +1501,7 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
               const storeSettings = await getStoreSettings();
               const emballagePhone = storeSettings.whatsappEmballageManager || storeSettings.whatsappLivraisonManager || storeSettings.whatsapp || '0771335039';
 
-              const managerAlertMsg = `متجر Pyjama DZ - تنبيه عاجل للتغليف ⚠️\nالطلبية رقم: #${orderNumStr}${cleanName ? ' (باسم ' + cleanName + ')' : ''}\nتم إلغاؤها من الزبون للتو بعد أن كانت مؤكدة!\n\n🚨 يرجى عدم إرسالها أو تجهيز شحنتها`;
+              const managerAlertMsg = `Ù…ØªØ¬Ø± Pyjama DZ - ØªÙ†Ø¨ÙŠÙ‡ Ø¹Ø§Ø¬Ù„ Ù„Ù„ØªØºÙ„ÙŠÙ âš ï¸\nØ§Ù„Ø·Ù„Ø¨ÙŠØ© Ø±Ù‚Ù…: #${orderNumStr}${cleanName ? ' (Ø¨Ø§Ø³Ù… ' + cleanName + ')' : ''}\nØªÙ… Ø¥Ù„ØºØ§Ø¤Ù‡Ø§ Ù…Ù† Ø§Ù„Ø²Ø¨ÙˆÙ† Ù„Ù„ØªÙˆ Ø¨Ø¹Ø¯ Ø£Ù† ÙƒØ§Ù†Øª Ù…Ø¤ÙƒØ¯Ø©!\n\nðŸš¨ ÙŠØ±Ø¬Ù‰ Ø¹Ø¯Ù… Ø¥Ø±Ø³Ø§Ù„Ù‡Ø§ Ø£Ùˆ ØªØ¬Ù‡ÙŠØ² Ø´Ø­Ù†ØªÙ‡Ø§`;
 
               await sendWhatsAppMessage(emballagePhone, managerAlertMsg);
             } catch (e) {
@@ -1721,15 +1518,15 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         }).catch(() => {});
 
-        await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nتم التراجع عن الإلغاء وتبقى طلبيتك مؤكدة وسارية. شكراً لتواصلك معنا! 🌸`);
+        await sendWhatsAppMessage(fromPhone, `*Ù…ØªØ¬Ø± Pyjama DZ*\n\nØªÙ… Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù† Ø§Ù„Ø¥Ù„ØºØ§Ø¡ ÙˆØªØ¨Ù‚Ù‰ Ø·Ù„Ø¨ÙŠØªÙƒ Ù…Ø¤ÙƒØ¯Ø© ÙˆØ³Ø§Ø±ÙŠØ©. Ø´ÙƒØ±Ø§Ù‹ Ù„ØªÙˆØ§ØµÙ„Ùƒ Ù…Ø¹Ù†Ø§! ðŸŒ¸`);
         return true;
       }
     }
 
     // Check if customer initiates a NEW cancellation request
     const isCancelRequest = [
-      'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'انولي', 'أنولي', 'نلغي', 'حبيت نلغي', 'حاب نلغي', 'حابة نلغي',
-      'انولي الطلب', 'إلغاء الطلب', 'الغاء الطلب', 'ألغي الطلب', 'الغي الطلب', 'نلغي الطلب', 'انولي لاكومند', 'انولي لا كومند',
+      'Ø¥Ù„ØºØ§Ø¡', 'Ø§Ù„ØºØ§Ø¡', 'Ø£Ù„ØºÙŠ', 'Ø§Ù„ØºÙŠ', 'Ø¥Ù„ØºÙŠ', 'Ø§Ù†ÙˆÙ„ÙŠ', 'Ø£Ù†ÙˆÙ„ÙŠ', 'Ù†Ù„ØºÙŠ', 'Ø­Ø¨ÙŠØª Ù†Ù„ØºÙŠ', 'Ø­Ø§Ø¨ Ù†Ù„ØºÙŠ', 'Ø­Ø§Ø¨Ø© Ù†Ù„ØºÙŠ',
+      'Ø§Ù†ÙˆÙ„ÙŠ Ø§Ù„Ø·Ù„Ø¨', 'Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ø·Ù„Ø¨', 'Ø§Ù„ØºØ§Ø¡ Ø§Ù„Ø·Ù„Ø¨', 'Ø£Ù„ØºÙŠ Ø§Ù„Ø·Ù„Ø¨', 'Ø§Ù„ØºÙŠ Ø§Ù„Ø·Ù„Ø¨', 'Ù†Ù„ØºÙŠ Ø§Ù„Ø·Ù„Ø¨', 'Ø§Ù†ÙˆÙ„ÙŠ Ù„Ø§ÙƒÙˆÙ…Ù†Ø¯', 'Ø§Ù†ÙˆÙ„ÙŠ Ù„Ø§ ÙƒÙˆÙ…Ù†Ø¯',
       'nanuli', 'anuli', 'nanulii', 'anulii', 'nanoli', 'anoli', 'nanolii', 'anoli', 'noli', 'nanuli la commande', 'anuli la commande',
       'annuler', 'anuler', 'annule', 'anule', 'canceller', 'cancel', 'annulez', 'annulation', 'annuler commande', 'anuler commande',
       'nanuli la commande taa3i', 'anuler la commande', 'slm anuler la commande', 'slm ni haab nanuli'
@@ -1750,11 +1547,11 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
     const latestOrder = activeOrders[0];
     const orderNumStr = await getSequentialOrderNum(latestOrder);
     const rawName = latestOrder.clientName || '';
-    const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
-      ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
+    const cleanName = (rawName && !rawName.includes('Ø²Ø¨ÙˆÙ† Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨') && !rawName.includes('Ø²Ø¨ÙˆÙ† Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©'))
+      ? rawName.replace(/\(ÙˆØ§ØªØ³Ø§Ø¨:[^\)]+\)/g, '').trim()
       : '';
     const clientNameStr = cleanName ? ` ${cleanName}` : '';
-    const cleanProd = (latestOrder.product || '').replace(/\(واتساب:[^\)]+\)/g, '').trim();
+    const cleanProd = (latestOrder.product || '').replace(/\(ÙˆØ§ØªØ³Ø§Ø¨:[^\)]+\)/g, '').trim();
 
     // Save cancellation session state
     await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
@@ -1771,7 +1568,7 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
       })
     });
 
-    const promptMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${clientNameStr}.\nتلقينا طلبك لإلغاء الطلبية:\n\n• أحدث طلبية مسجلة باسمك هي رقم: #${orderNumStr}\n• المنتجات: ${cleanProd}\n• الولاية: ${latestOrder.wilaya || ''}\n\nهل أنت متأكد أنك تريد إلغاء هذه الطلبية؟\n\n👉 رد بـ *تأكيد الإلغاء* (أو *نعم*) لإلغاء هذه الطلبية.`;
+    const promptMsg = `*Ù…ØªØ¬Ø± Pyjama DZ*\n\nØ£Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ${clientNameStr}.\nØªÙ„Ù‚ÙŠÙ†Ø§ Ø·Ù„Ø¨Ùƒ Ù„Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ø·Ù„Ø¨ÙŠØ©:\n\nâ€¢ Ø£Ø­Ø¯Ø« Ø·Ù„Ø¨ÙŠØ© Ù…Ø³Ø¬Ù„Ø© Ø¨Ø§Ø³Ù…Ùƒ Ù‡ÙŠ Ø±Ù‚Ù…: #${orderNumStr}\nâ€¢ Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª: ${cleanProd}\nâ€¢ Ø§Ù„ÙˆÙ„Ø§ÙŠØ©: ${latestOrder.wilaya || ''}\n\nÙ‡Ù„ Ø£Ù†Øª Ù…ØªØ£ÙƒØ¯ Ø£Ù†Ùƒ ØªØ±ÙŠØ¯ Ø¥Ù„ØºØ§Ø¡ Ù‡Ø°Ù‡ Ø§Ù„Ø·Ù„Ø¨ÙŠØ©ØŸ\n\nðŸ‘‰ Ø±Ø¯ Ø¨Ù€ *ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø¥Ù„ØºØ§Ø¡* (Ø£Ùˆ *Ù†Ø¹Ù…*) Ù„Ø¥Ù„ØºØ§Ø¡ Ù‡Ø°Ù‡ Ø§Ù„Ø·Ù„Ø¨ÙŠØ©.`;
 
     await sendWhatsAppMessage(fromPhone, promptMsg);
     return true;
@@ -1788,16 +1585,16 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
     const normText = normalizeText(messageText);
 
     // Skip immediately if customer is asking a question or saying no!
-    if (['anuler', 'annuler', 'anule', 'annule', 'الغي', 'ألغي', 'إلغاء', 'الغاء', 'lala', 'لا اريد', 'لاريد'].some(k => rawLower.includes(k) || normText.includes(k))) {
+    if (['anuler', 'annuler', 'anule', 'annule', 'Ø§Ù„ØºÙŠ', 'Ø£Ù„ØºÙŠ', 'Ø¥Ù„ØºØ§Ø¡', 'Ø§Ù„ØºØ§Ø¡', 'lala', 'Ù„Ø§ Ø§Ø±ÙŠØ¯', 'Ù„Ø§Ø±ÙŠØ¯'].some(k => rawLower.includes(k) || normText.includes(k))) {
       return false;
     }
 
     const confirmKeywords = [
-      'أكد', 'أكدلي', 'تأكيد', 'نؤكد', 'أكدها', 'نعم أكد', 'نعم أكدلي', 'مالا أكدلي', 'ملا أكدلي',
-      'أكد الطلبية', 'تأكيد الطلبية', 'تأكيد الطلب', 'أكدلي الطلبية', 'أكدلي طلبية', 'أكدلي الطلب',
+      'Ø£ÙƒØ¯', 'Ø£ÙƒØ¯Ù„ÙŠ', 'ØªØ£ÙƒÙŠØ¯', 'Ù†Ø¤ÙƒØ¯', 'Ø£ÙƒØ¯Ù‡Ø§', 'Ù†Ø¹Ù… Ø£ÙƒØ¯', 'Ù†Ø¹Ù… Ø£ÙƒØ¯Ù„ÙŠ', 'Ù…Ø§Ù„Ø§ Ø£ÙƒØ¯Ù„ÙŠ', 'Ù…Ù„Ø§ Ø£ÙƒØ¯Ù„ÙŠ',
+      'Ø£ÙƒØ¯ Ø§Ù„Ø·Ù„Ø¨ÙŠØ©', 'ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø·Ù„Ø¨ÙŠØ©', 'ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø·Ù„Ø¨', 'Ø£ÙƒØ¯Ù„ÙŠ Ø§Ù„Ø·Ù„Ø¨ÙŠØ©', 'Ø£ÙƒØ¯Ù„ÙŠ Ø·Ù„Ø¨ÙŠØ©', 'Ø£ÙƒØ¯Ù„ÙŠ Ø§Ù„Ø·Ù„Ø¨',
       'akedha', 'akedhaa', 'aked', 'akedli', 'akedlii', 'confirme', 'confirmer', 'confirmation',
       'oui confirme', 'oui akedli', 'oui aked', 'daccord confirme', 'oui akedha',
-      'ih akedha', 'ih aked', 'ih', 'إيه', 'ايه', 'نعم', 'نعام', 'صح', 'اوكي', 'ok', 'yes', 'oui', 'ثبتها', 'ثبتلي'
+      'ih akedha', 'ih aked', 'ih', 'Ø¥ÙŠÙ‡', 'Ø§ÙŠÙ‡', 'Ù†Ø¹Ù…', 'Ù†Ø¹Ø§Ù…', 'ØµØ­', 'Ø§ÙˆÙƒÙŠ', 'ok', 'yes', 'oui', 'Ø«Ø¨ØªÙ‡Ø§', 'Ø«Ø¨ØªÙ„ÙŠ'
     ];
 
     const isConfirm = confirmKeywords.some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
@@ -1823,12 +1620,12 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
 
     const orderNumStr = await getSequentialOrderNum(orderToConfirm);
     const rawName = orderToConfirm.clientName || '';
-    const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
-      ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
+    const cleanName = (rawName && !rawName.includes('Ø²Ø¨ÙˆÙ† Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨') && !rawName.includes('Ø²Ø¨ÙˆÙ† Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©'))
+      ? rawName.replace(/\(ÙˆØ§ØªØ³Ø§Ø¨:[^\)]+\)/g, '').trim()
       : '';
     const clientNameStr = cleanName ? ` ${cleanName}` : '';
 
-    const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل. شكراً لثقتك بمتجرنا! ❤️`;
+    const confirmMsg = `Ø£Ù‡Ù„Ø§Ù‹ ÙˆØ³Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ${clientNameStr}! ðŸŒ¸\nØªÙ… ØªØ£ÙƒÙŠØ¯ Ø·Ù„Ø¨ÙŠØªÙƒ Ø±Ù‚Ù… #${orderNumStr} Ø¨Ù†Ø¬Ø§Ø­. ðŸ“¦âœ¨\nØ·Ù„Ø¨ÙŠØªÙƒ Ø§Ù„Ø¢Ù† Ù…Ø¤ÙƒØ¯Ø© ÙˆØ¬Ø§Ø±ÙŠ ØªØ¬Ù‡ÙŠØ²Ù‡Ø§ Ù„Ù„Ø´Ø­Ù† ÙˆØ§Ù„ØªÙˆØµÙŠÙ„. Ø´ÙƒØ±Ø§Ù‹ Ù„Ø«Ù‚ØªÙƒ Ø¨Ù…ØªØ¬Ø±Ù†Ø§! â¤ï¸`;
 
     await sendWhatsAppMessage(fromPhone, confirmMsg);
     return true;
@@ -1869,12 +1666,12 @@ async function processIncomingPayload(body) {
                 ? phonesArr.map(p => `- ${p}`).join('\n')
                 : '- 0554128933';
 
-              const storeAddressDisplay = storeSettings.address || "ولاية الشلف (Chlef)";
+              const storeAddressDisplay = storeSettings.address || "ÙˆÙ„Ø§ÙŠØ© Ø§Ù„Ø´Ù„Ù (Chlef)";
               const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "https://maps.app.goo.gl/algeria-pyjama-dz";
               const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "https://www.instagram.com/pyjama_dz";
               const storeName = storeSettings.storeName || "Pyjama DZ";
 
-              // 🎙️ VOICE NOTE / AUDIO HANDLER
+              // ðŸŽ™ï¸ VOICE NOTE / AUDIO HANDLER
               if (messageType === 'audio' || messageType === 'voice') {
                 const audioId = message.audio?.id || message.voice?.id;
                 console.log(`Received Audio Note / Vocal (${audioId}) from ${fromPhone}`);
@@ -1882,13 +1679,13 @@ async function processIncomingPayload(body) {
                 if (audioId) {
                   const media = await downloadMetaMedia(audioId);
                   if (media && media.base64) {
-                    let audioPrompt = `أنت أداة تفريغ صوتي. فرغ الكلمات المسموعة بالدارجة الجزائرية بدون اختراع وبدون إيموجي.`;
-                    const systemInstruction = "أنت أداة تفريغ صوتي بالدارجة الجزائرية. أخرج النص المسموع فقط وبدون إيموجي كلياً.";
+                    let audioPrompt = `Ø£Ù†Øª Ø£Ø¯Ø§Ø© ØªÙØ±ÙŠØº ØµÙˆØªÙŠ. ÙØ±Øº Ø§Ù„ÙƒÙ„Ù…Ø§Øª Ø§Ù„Ù…Ø³Ù…ÙˆØ¹Ø© Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø© Ø§Ù„Ø¬Ø²Ø§Ø¦Ø±ÙŠØ© Ø¨Ø¯ÙˆÙ† Ø§Ø®ØªØ±Ø§Ø¹ ÙˆØ¨Ø¯ÙˆÙ† Ø¥ÙŠÙ…ÙˆØ¬ÙŠ.`;
+                    const systemInstruction = "Ø£Ù†Øª Ø£Ø¯Ø§Ø© ØªÙØ±ÙŠØº ØµÙˆØªÙŠ Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø© Ø§Ù„Ø¬Ø²Ø§Ø¦Ø±ÙŠØ©. Ø£Ø®Ø±Ø¬ Ø§Ù„Ù†Øµ Ø§Ù„Ù…Ø³Ù…ÙˆØ¹ ÙÙ‚Ø· ÙˆØ¨Ø¯ÙˆÙ† Ø¥ÙŠÙ…ÙˆØ¬ÙŠ ÙƒÙ„ÙŠØ§Ù‹.";
                     
                     let transcript = await generateGeminiAudio(media.base64, media.mimeType, audioPrompt, systemInstruction);
                     if (transcript) {
                       console.log(`Vocal Transcription for ${fromPhone}: ${transcript}`);
-                      if (!transcript.includes("غير_مفهوم") && !transcript.includes("غير مفهوم")) {
+                      if (!transcript.includes("ØºÙŠØ±_Ù…ÙÙ‡ÙˆÙ…") && !transcript.includes("ØºÙŠØ± Ù…ÙÙ‡ÙˆÙ…")) {
                         messageText = transcript;
                       }
                     }
@@ -1896,7 +1693,7 @@ async function processIncomingPayload(body) {
                 }
 
                 if (!messageText) {
-                  messageText = "مرحباً، أرسلت رسالة صوتية واستفساراً عن المنتجات والطلبيات والأسعار.";
+                  messageText = "Ù…Ø±Ø­Ø¨Ø§Ù‹ØŒ Ø£Ø±Ø³Ù„Øª Ø±Ø³Ø§Ù„Ø© ØµÙˆØªÙŠØ© ÙˆØ§Ø³ØªÙØ³Ø§Ø±Ø§Ù‹ Ø¹Ù† Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª ÙˆØ§Ù„Ø·Ù„Ø¨ÙŠØ§Øª ÙˆØ§Ù„Ø£Ø³Ø¹Ø§Ø±.";
                 }
               }
 
@@ -1952,8 +1749,8 @@ async function processIncomingPayload(body) {
                 }
 
                 if (isAlreadyResolved) {
-                  const prodTitle = product ? product.title : 'المنتج';
-                  await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nℹ️ *صايي، تم إعادة تزويد هذا التنبيه المحدد سابقاً!*\n• المنتج: ${prodTitle}\n• المقاس: ${size}\n• المخزون الحالي بالمحل/التوصيل: *${currentQty} حبة*.\n\nلم يتم تكرار الإضافة لتفادي دبلجة الكميات بالخطأ. 🌸`);
+                  const prodTitle = product ? product.title : 'Ø§Ù„Ù…Ù†ØªØ¬';
+                  await sendWhatsAppMessage(fromPhone, `*Ù…ØªØ¬Ø± Pyjama DZ*\n\nâ„¹ï¸ *ØµØ§ÙŠÙŠØŒ ØªÙ… Ø¥Ø¹Ø§Ø¯Ø© ØªØ²ÙˆÙŠØ¯ Ù‡Ø°Ø§ Ø§Ù„ØªÙ†Ø¨ÙŠÙ‡ Ø§Ù„Ù…Ø­Ø¯Ø¯ Ø³Ø§Ø¨Ù‚Ø§Ù‹!*\nâ€¢ Ø§Ù„Ù…Ù†ØªØ¬: ${prodTitle}\nâ€¢ Ø§Ù„Ù…Ù‚Ø§Ø³: ${size}\nâ€¢ Ø§Ù„Ù…Ø®Ø²ÙˆÙ† Ø§Ù„Ø­Ø§Ù„ÙŠ Ø¨Ø§Ù„Ù…Ø­Ù„/Ø§Ù„ØªÙˆØµÙŠÙ„: *${currentQty} Ø­Ø¨Ø©*.\n\nÙ„Ù… ÙŠØªÙ… ØªÙƒØ±Ø§Ø± Ø§Ù„Ø¥Ø¶Ø§ÙØ© Ù„ØªÙØ§Ø¯ÙŠ Ø¯Ø¨Ù„Ø¬Ø© Ø§Ù„ÙƒÙ…ÙŠØ§Øª Ø¨Ø§Ù„Ø®Ø·Ø£. ðŸŒ¸`);
                   continue;
                 }
 
@@ -2031,7 +1828,7 @@ async function processIncomingPayload(body) {
                       });
                     } catch (e) {}
                     
-                    await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n✅ *تم تحديث المخزون بنجاح!*\n• المنتج: ${product.title}\n• اللون: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || 'الافتراضي'}\n• المقاس: ${size}\n• الكمية المضافة: +${addedQty}\n• المخزون الحالي الجديد: ${newQty} حبة.`);
+                    await sendWhatsAppMessage(fromPhone, `*Ù…ØªØ¬Ø± Pyjama DZ*\n\nâœ… *ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„Ù…Ø®Ø²ÙˆÙ† Ø¨Ù†Ø¬Ø§Ø­!*\nâ€¢ Ø§Ù„Ù…Ù†ØªØ¬: ${product.title}\nâ€¢ Ø§Ù„Ù„ÙˆÙ†: ${updatedVariants[colorIdx].name || updatedVariants[colorIdx].color || 'Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ'}\nâ€¢ Ø§Ù„Ù…Ù‚Ø§Ø³: ${size}\nâ€¢ Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ù…Ø¶Ø§ÙØ©: +${addedQty}\nâ€¢ Ø§Ù„Ù…Ø®Ø²ÙˆÙ† Ø§Ù„Ø­Ø§Ù„ÙŠ Ø§Ù„Ø¬Ø¯ÙŠØ¯: ${newQty} Ø­Ø¨Ø©.`);
 
                     // Notify waiting customers about restock via single source endpoint
                     try {
@@ -2064,26 +1861,26 @@ async function processIncomingPayload(body) {
 
               // 2. RECLAMATION HANDLER (Only for explicit complaints/reclamations)
               const complaintKeywords = [
-                'شكوى', 'عتاب', 'ناقص', 'مكسور', 'رادي', 'ما وصلنيش', 'خاسر', 'تأخرت', 'مغشوش',
-                'مقطوع', 'فسد', 'وصلت ناقصة', 'وصلت خاسرة', 'سلعة خاسرة', 'خدمة سيئة',
-                'reclamation', 'réclamation', 'مغشوشة', 'زبل', 'probleme', 'problème', 'cassé', 'casse',
+                'Ø´ÙƒÙˆÙ‰', 'Ø¹ØªØ§Ø¨', 'Ù†Ø§Ù‚Øµ', 'Ù…ÙƒØ³ÙˆØ±', 'Ø±Ø§Ø¯ÙŠ', 'Ù…Ø§ ÙˆØµÙ„Ù†ÙŠØ´', 'Ø®Ø§Ø³Ø±', 'ØªØ£Ø®Ø±Øª', 'Ù…ØºØ´ÙˆØ´',
+                'Ù…Ù‚Ø·ÙˆØ¹', 'ÙØ³Ø¯', 'ÙˆØµÙ„Øª Ù†Ø§Ù‚ØµØ©', 'ÙˆØµÙ„Øª Ø®Ø§Ø³Ø±Ø©', 'Ø³Ù„Ø¹Ø© Ø®Ø§Ø³Ø±Ø©', 'Ø®Ø¯Ù…Ø© Ø³ÙŠØ¦Ø©',
+                'reclamation', 'rÃ©clamation', 'Ù…ØºØ´ÙˆØ´Ø©', 'Ø²Ø¨Ù„', 'probleme', 'problÃ¨me', 'cassÃ©', 'casse',
                 'retard', 'retarde', 'degueulasse', 'nul', 'nulle', 'zbel', 'khaser', 'khasra'
               ];
 
               const isCancelIntentWord = [
                 'anuler', 'annuler', 'anule', 'annule', 'nanuli', 'anuli', 'nanulii', 'anulii', 'nanoli', 'anoli',
-                'الغي', 'ألغي', 'إلغاء', 'الغاء', 'نلغي', 'انولي', 'أنولي'
+                'Ø§Ù„ØºÙŠ', 'Ø£Ù„ØºÙŠ', 'Ø¥Ù„ØºØ§Ø¡', 'Ø§Ù„ØºØ§Ø¡', 'Ù†Ù„ØºÙŠ', 'Ø§Ù†ÙˆÙ„ÙŠ', 'Ø£Ù†ÙˆÙ„ÙŠ'
               ].some(k => rawLowerText.includes(k) || normText.includes(k));
 
               const isComplaint = !isCancelIntentWord && complaintKeywords.some(k => normText.includes(k) || rawLowerText.includes(k));
 
               if (isComplaint) {
                 const rawContactName = order?.clientName || value?.contacts?.[0]?.profile?.name || '';
-                const greetingName = (rawContactName && rawContactName.trim() !== '' && rawContactName !== 'زبون المحادثة' && rawContactName !== 'زبون الواتساب')
+                const greetingName = (rawContactName && rawContactName.trim() !== '' && rawContactName !== 'Ø²Ø¨ÙˆÙ† Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©' && rawContactName !== 'Ø²Ø¨ÙˆÙ† Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨')
                   ? ` ${rawContactName.trim()}`
                   : '';
 
-                const complaintMsg = `أهلاً وسهلاً بك${greetingName}.\nتم تسجيل شكواك وملاحظتك بنجاح لدى فريق خدمة العملاء وسيتم التواصل معك ومتابعة الأمر فوراً. شكراً لصبرك معنا. 🌸`;
+                const complaintMsg = `Ø£Ù‡Ù„Ø§Ù‹ ÙˆØ³Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ${greetingName}.\nØªÙ… ØªØ³Ø¬ÙŠÙ„ Ø´ÙƒÙˆØ§Ùƒ ÙˆÙ…Ù„Ø§Ø­Ø¸ØªÙƒ Ø¨Ù†Ø¬Ø§Ø­ Ù„Ø¯Ù‰ ÙØ±ÙŠÙ‚ Ø®Ø¯Ù…Ø© Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ ÙˆØ³ÙŠØªÙ… Ø§Ù„ØªÙˆØ§ØµÙ„ Ù…Ø¹Ùƒ ÙˆÙ…ØªØ§Ø¨Ø¹Ø© Ø§Ù„Ø£Ù…Ø± ÙÙˆØ±Ø§Ù‹. Ø´ÙƒØ±Ø§Ù‹ Ù„ØµØ¨Ø±Ùƒ Ù…Ø¹Ù†Ø§. ðŸŒ¸`;
                 await sendWhatsAppMessage(fromPhone, complaintMsg);
 
                 // Save reclamation to Supabase settings table
@@ -2091,7 +1888,7 @@ async function processIncomingPayload(body) {
                   const existingRecl = Array.isArray(storeSettings.reclamations) ? storeSettings.reclamations : [];
                   const newRecl = {
                     id: 'REC-WA-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-                    clientName: rawContactName || 'زبون الواتساب',
+                    clientName: rawContactName || 'Ø²Ø¨ÙˆÙ† Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨',
                     whatsappNumber: fromPhone,
                     message: messageText.trim(),
                     status: 'nouvelle',
@@ -2113,14 +1910,14 @@ async function processIncomingPayload(body) {
               }
 
               // STRICT AI SALES INSTRUCTIONS (ZERO EMOJIS)
-              const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات", "grosiste", "grossiste", "بيع بالجملة", "شراء بالجملة"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+              const isWholesale = ["gros", "Ø¬Ù…Ù„Ø©", "Ø¨Ø§Ù„Ø¬Ù…Ù„Ø©", "ÙƒØ§Ø¨Ø©", "ØªØ¬Ø§Ø±Ø©", "Ø³ÙŠØ±ÙŠ", "serie", "Ø³ÙŠØ±ÙŠØ§Øª", "ÙƒÙ…ÙŠØ©", "ÙƒÙ…ÙŠØ§Øª", "grosiste", "grossiste", "Ø¨ÙŠØ¹ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø©", "Ø´Ø±Ø§Ø¡ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø©"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
               let salesModeRules = isWholesale
-                ? "تنبيه حتمي: الزبون يسأل عن البيع بالجملة (Gros). يجب حتماً إعطاؤه وتوجيهه لرابط صفحة الجملة المخصص للشراء بالجملة مباشرة وهو: https://pyjama-dz.vercel.app/gros وإخباره بأنه إذا أراد الشراء بالجملة يجب أن يدخل ويطلب مباشرة من هذا الموقع المخصص للجملة."
-                : "الزبون زبون عادي بالقطعة. أجب عن سؤاله من بيانات النظام فقط.";
+                ? "ØªÙ†Ø¨ÙŠÙ‡ Ø­ØªÙ…ÙŠ: Ø§Ù„Ø²Ø¨ÙˆÙ† ÙŠØ³Ø£Ù„ Ø¹Ù† Ø§Ù„Ø¨ÙŠØ¹ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø© (Gros). ÙŠØ¬Ø¨ Ø­ØªÙ…Ø§Ù‹ Ø¥Ø¹Ø·Ø§Ø¤Ù‡ ÙˆØªÙˆØ¬ÙŠÙ‡Ù‡ Ù„Ø±Ø§Ø¨Ø· ØµÙØ­Ø© Ø§Ù„Ø¬Ù…Ù„Ø© Ø§Ù„Ù…Ø®ØµØµ Ù„Ù„Ø´Ø±Ø§Ø¡ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø© Ù…Ø¨Ø§Ø´Ø±Ø© ÙˆÙ‡Ùˆ: https://pyjama-dz.vercel.app/gros ÙˆØ¥Ø®Ø¨Ø§Ø±Ù‡ Ø¨Ø£Ù†Ù‡ Ø¥Ø°Ø§ Ø£Ø±Ø§Ø¯ Ø§Ù„Ø´Ø±Ø§Ø¡ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø© ÙŠØ¬Ø¨ Ø£Ù† ÙŠØ¯Ø®Ù„ ÙˆÙŠØ·Ù„Ø¨ Ù…Ø¨Ø§Ø´Ø±Ø© Ù…Ù† Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ù…Ø®ØµØµ Ù„Ù„Ø¬Ù…Ù„Ø©."
+                : "Ø§Ù„Ø²Ø¨ÙˆÙ† Ø²Ø¨ÙˆÙ† Ø¹Ø§Ø¯ÙŠ Ø¨Ø§Ù„Ù‚Ø·Ø¹Ø©. Ø£Ø¬Ø¨ Ø¹Ù† Ø³Ø¤Ø§Ù„Ù‡ Ù…Ù† Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù†Ø¸Ø§Ù… ÙÙ‚Ø·.";
 
-              let prompt = `رسالة الزبون: "${messageText}"`;
+              let prompt = `Ø±Ø³Ø§Ù„Ø© Ø§Ù„Ø²Ø¨ÙˆÙ†: "${messageText}"`;
               if (isWholesale) {
-                prompt += `\n(تذكير صارم: الزبون يسأل عن الجملة Gros، أعطه رابط صفحة الجملة المخصص مباشرة: https://pyjama-dz.vercel.app/gros ووجهه للطلب منها).`;
+                prompt += `\n(ØªØ°ÙƒÙŠØ± ØµØ§Ø±Ù…: Ø§Ù„Ø²Ø¨ÙˆÙ† ÙŠØ³Ø£Ù„ Ø¹Ù† Ø§Ù„Ø¬Ù…Ù„Ø© GrosØŒ Ø£Ø¹Ø·Ù‡ Ø±Ø§Ø¨Ø· ØµÙØ­Ø© Ø§Ù„Ø¬Ù…Ù„Ø© Ø§Ù„Ù…Ø®ØµØµ Ù…Ø¨Ø§Ø´Ø±Ø©: https://pyjama-dz.vercel.app/gros ÙˆÙˆØ¬Ù‡Ù‡ Ù„Ù„Ø·Ù„Ø¨ Ù…Ù†Ù‡Ø§).`;
               }
 
               const localPhone = fromPhone.replace(/^\+?213/, '0');
@@ -2133,30 +1930,30 @@ async function processIncomingPayload(body) {
                 if (Array.isArray(existingOrders) && existingOrders.length > 0) {
                   const exOrder = existingOrders[0];
                   const exOrderNum = await getSequentialOrderNum(exOrder);
-                  prompt += `\n\nمعلومات طلب الزبون الحالي من الداتابيز:\n- الاسم: ${exOrder.clientName || ''}\n- رقم الطلب: #${exOrderNum}\n- المنتج: ${exOrder.product}\n- الولاية: ${exOrder.wilaya}\n- الحالة الحالية: ${exOrder.status}\nإذا طلب الزبون تأكيد هاد الطلبية أو قال (أكدلي/akedli/مالا/ملا)، أجب بأن الطلبية رقم #${exOrderNum} مسجلة ومؤكدة وجاري شحنها، ولا تطلب منه البيانات من جديد إطلاقاً.`;
+                  prompt += `\n\nÙ…Ø¹Ù„ÙˆÙ…Ø§Øª Ø·Ù„Ø¨ Ø§Ù„Ø²Ø¨ÙˆÙ† Ø§Ù„Ø­Ø§Ù„ÙŠ Ù…Ù† Ø§Ù„Ø¯Ø§ØªØ§Ø¨ÙŠØ²:\n- Ø§Ù„Ø§Ø³Ù…: ${exOrder.clientName || ''}\n- Ø±Ù‚Ù… Ø§Ù„Ø·Ù„Ø¨: #${exOrderNum}\n- Ø§Ù„Ù…Ù†ØªØ¬: ${exOrder.product}\n- Ø§Ù„ÙˆÙ„Ø§ÙŠØ©: ${exOrder.wilaya}\n- Ø§Ù„Ø­Ø§Ù„Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©: ${exOrder.status}\nØ¥Ø°Ø§ Ø·Ù„Ø¨ Ø§Ù„Ø²Ø¨ÙˆÙ† ØªØ£ÙƒÙŠØ¯ Ù‡Ø§Ø¯ Ø§Ù„Ø·Ù„Ø¨ÙŠØ© Ø£Ùˆ Ù‚Ø§Ù„ (Ø£ÙƒØ¯Ù„ÙŠ/akedli/Ù…Ø§Ù„Ø§/Ù…Ù„Ø§)ØŒ Ø£Ø¬Ø¨ Ø¨Ø£Ù† Ø§Ù„Ø·Ù„Ø¨ÙŠØ© Ø±Ù‚Ù… #${exOrderNum} Ù…Ø³Ø¬Ù„Ø© ÙˆÙ…Ø¤ÙƒØ¯Ø© ÙˆØ¬Ø§Ø±ÙŠ Ø´Ø­Ù†Ù‡Ø§ØŒ ÙˆÙ„Ø§ ØªØ·Ù„Ø¨ Ù…Ù†Ù‡ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ù…Ù† Ø¬Ø¯ÙŠØ¯ Ø¥Ø·Ù„Ø§Ù‚Ø§Ù‹.`;
                 }
               } catch (e) {
                 console.error("Error fetching order context for AI:", e);
               }
 
               const catalogSummary = products.map(p => {
-                let colorsStr = "متوفر";
+                let colorsStr = "Ù…ØªÙˆÙØ±";
                 if (Array.isArray(p.colorVariants) && p.colorVariants.length > 0) {
                   colorsStr = p.colorVariants.map(cv => {
-                    const colorName = cv.name || cv.color || 'rouge (أحمر)';
+                    const colorName = cv.name || cv.color || 'rouge (Ø£Ø­Ù…Ø±)';
                     if (typeof cv.stock === 'object' && cv.stock !== null) {
                       const sizesStr = Object.entries(cv.stock).map(([sz, qty]) => {
                         const numQ = Number(qty || 0);
-                        return `${sz}: ${numQ > 0 ? numQ + ' حبة (متوفر)' : '0 حبة (غير متوفر/نافذ)'}`;
+                        return `${sz}: ${numQ > 0 ? numQ + ' Ø­Ø¨Ø© (Ù…ØªÙˆÙØ±)' : '0 Ø­Ø¨Ø© (ØºÙŠØ± Ù…ØªÙˆÙØ±/Ù†Ø§ÙØ°)'}`;
                       }).join(', ');
-                      return `اللون (${colorName}): [${sizesStr}]`;
+                      return `Ø§Ù„Ù„ÙˆÙ† (${colorName}): [${sizesStr}]`;
                     } else {
                       const numQ = Number(cv.stock || 0);
-                      return `اللون (${colorName}): ${numQ > 0 ? numQ + ' حبة (متوفر)' : '0 حبة (غير متوفر/نافذ)'}`;
+                      return `Ø§Ù„Ù„ÙˆÙ† (${colorName}): ${numQ > 0 ? numQ + ' Ø­Ø¨Ø© (Ù…ØªÙˆÙØ±)' : '0 Ø­Ø¨Ø© (ØºÙŠØ± Ù…ØªÙˆÙØ±/Ù†Ø§ÙØ°)'}`;
                     }
                   }).join(' | ');
                 }
-                return `- ${p.title}: السعر ${p.price} دج | السطوك الحقيقي حسب المقاسات والألوان: ${colorsStr}`;
+                return `- ${p.title}: Ø§Ù„Ø³Ø¹Ø± ${p.price} Ø¯Ø¬ | Ø§Ù„Ø³Ø·ÙˆÙƒ Ø§Ù„Ø­Ù‚ÙŠÙ‚ÙŠ Ø­Ø³Ø¨ Ø§Ù„Ù…Ù‚Ø§Ø³Ø§Øª ÙˆØ§Ù„Ø£Ù„ÙˆØ§Ù†: ${colorsStr}`;
               }).join('\n');
               const settingsSummary = Object.entries(storeSettings).map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
 
@@ -2165,7 +1962,7 @@ function checkStockInquiry(messageText, products) {
   const norm = normalizeText(messageText);
   const rawLower = String(messageText).toLowerCase();
 
-  const sizeMatch = rawLower.match(/(?:taille|مقاس|تراي|تياي|مكاس|تراس)?\s*\b(3xl|xxxl|2xl|xxl|xl|l|m|s)\b/i);
+  const sizeMatch = rawLower.match(/(?:taille|Ù…Ù‚Ø§Ø³|ØªØ±Ø§ÙŠ|ØªÙŠØ§ÙŠ|Ù…ÙƒØ§Ø³|ØªØ±Ø§Ø³)?\s*\b(3xl|xxxl|2xl|xxl|xl|l|m|s)\b/i);
   if (!sizeMatch) return null;
 
   let reqSize = sizeMatch[1].toUpperCase();
@@ -2181,7 +1978,7 @@ function checkStockInquiry(messageText, products) {
           if (typeof cv.stock === 'object' && cv.stock !== null) {
             const qty = Number(cv.stock[reqSize] || 0);
             if (qty === 0) {
-              return `للأسف المقاس (${reqSize}) في اللون (${cv.name || cv.color}) غير متوفر حالياً في السطوك.\nلقد قمنا بتسجيل طلبك وسنحيطك علماً فوراً عبر الواتساب بمجرد توفره مجدداً. شكراً لانتظارك 🌸`;
+              return `Ù„Ù„Ø£Ø³Ù Ø§Ù„Ù…Ù‚Ø§Ø³ (${reqSize}) ÙÙŠ Ø§Ù„Ù„ÙˆÙ† (${cv.name || cv.color}) ØºÙŠØ± Ù…ØªÙˆÙØ± Ø­Ø§Ù„ÙŠØ§Ù‹ ÙÙŠ Ø§Ù„Ø³Ø·ÙˆÙƒ.\nÙ„Ù‚Ø¯ Ù‚Ù…Ù†Ø§ Ø¨ØªØ³Ø¬ÙŠÙ„ Ø·Ù„Ø¨Ùƒ ÙˆØ³Ù†Ø­ÙŠØ·Ùƒ Ø¹Ù„Ù…Ø§Ù‹ ÙÙˆØ±Ø§Ù‹ Ø¹Ø¨Ø± Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨ Ø¨Ù…Ø¬Ø±Ø¯ ØªÙˆÙØ±Ù‡ Ù…Ø¬Ø¯Ø¯Ø§Ù‹. Ø´ÙƒØ±Ø§Ù‹ Ù„Ø§Ù†ØªØ¸Ø§Ø±Ùƒ ðŸŒ¸`;
             }
           }
         }
@@ -2191,27 +1988,27 @@ function checkStockInquiry(messageText, products) {
   return null;
 }
 
-const systemInstruction = `أنت مساعد ومسؤول خدمة العملاء المحترف لمتجر (${storeName}).
-تتحدث بالدارجة الجزائرية الفصيحة والمحترمة وتدردش مع الزبون بذكاء ولباقة كأنك إنسان حقيقي يشتغل في المتجر.
-افهم كل أسئلة الزبون بذكاء ومرونة وبأسلوب بشري طبيعي ولبق (سواء كتب بالدارجة، الفرنسية، الفرانكو "Franco-Arabic"، أو العربية).
+const systemInstruction = `Ø£Ù†Øª Ù…Ø³Ø§Ø¹Ø¯ ÙˆÙ…Ø³Ø¤ÙˆÙ„ Ø®Ø¯Ù…Ø© Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªØ±Ù Ù„Ù…ØªØ¬Ø± (${storeName}).
+ØªØªØ­Ø¯Ø« Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø© Ø§Ù„Ø¬Ø²Ø§Ø¦Ø±ÙŠØ© Ø§Ù„ÙØµÙŠØ­Ø© ÙˆØ§Ù„Ù…Ø­ØªØ±Ù…Ø© ÙˆØªØ¯Ø±Ø¯Ø´ Ù…Ø¹ Ø§Ù„Ø²Ø¨ÙˆÙ† Ø¨Ø°ÙƒØ§Ø¡ ÙˆÙ„Ø¨Ø§Ù‚Ø© ÙƒØ£Ù†Ùƒ Ø¥Ù†Ø³Ø§Ù† Ø­Ù‚ÙŠÙ‚ÙŠ ÙŠØ´ØªØºÙ„ ÙÙŠ Ø§Ù„Ù…ØªØ¬Ø±.
+Ø§ÙÙ‡Ù… ÙƒÙ„ Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ø²Ø¨ÙˆÙ† Ø¨Ø°ÙƒØ§Ø¡ ÙˆÙ…Ø±ÙˆÙ†Ø© ÙˆØ¨Ø£Ø³Ù„ÙˆØ¨ Ø¨Ø´Ø±ÙŠ Ø·Ø¨ÙŠØ¹ÙŠ ÙˆÙ„Ø¨Ù‚ (Ø³ÙˆØ§Ø¡ ÙƒØªØ¨ Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø©ØŒ Ø§Ù„ÙØ±Ù†Ø³ÙŠØ©ØŒ Ø§Ù„ÙØ±Ø§Ù†ÙƒÙˆ "Franco-Arabic"ØŒ Ø£Ùˆ Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©).
 
-قواعد الاستجابة وتوجيه الزبون:
-1. قانون صارم وحتمي: الطلبيات تتم حصرياً ومباشرة عبر موقعنا الرسمي (https://pyjama-dz.vercel.app). يمنع منعاً باتاً إنشاء أو تسجيل أي طلبية جديدة داخل الشات. إذا أراد الزبون الشراء أو الطلب (مثل: نطلب، ندير كوماند، حاب نشري، commande، oui، نعم): وجهه مباشرة لرابط الموقع الرسمي للشراء واختيار المقاس واللون منه مباشرة: https://pyjama-dz.vercel.app
-2. إذا كان للزبون طلبية سابقة مسجلة في الداتابيز من الموقع ويريد تأكيدها (مثل: أكدلي، aked, confirme): أخرج الكود: [ACTION:CONFIRM_ORDER] ثم اكتب رد التأكيد بالدارجة.
-3. إذا أراد الزبون إلغاء طلبيته المسجلة من الموقع (مثل: الغي، anuler, annuler): أخرج الكود: [ACTION:CANCEL_ORDER] ثم اكتب رد الإلغاء بالدارجة.
-4. إذا طلب الزبون صور المنتجات (صور، تصاوير، photo، tsswira): أخرج الكود: [ACTION:SEND_PHOTOS] ووجهه للموقع لرؤية كافة الصور والموديلات المتوفرة.
-5. استفسارات المكان والمقر والعنوان: أعطه العنوان ورابط خرائط جوجل من بيانات النظام.
-6. استفسارات أرقام الهاتف: أعطه أرقام الهاتف الرسمية المكتوبة في بيانات النظام.
-7. استفسارات الأسعار والمقاسات والألوان والجودة: أجب بأسلوب لطيف بالدارجة الجزائرية ووجهه للموقع الرسمي لتصفح كافة الصور والأسعار والطلب مباشرة: https://pyjama-dz.vercel.app
+Ù‚ÙˆØ§Ø¹Ø¯ Ø§Ù„Ø§Ø³ØªØ¬Ø§Ø¨Ø© ÙˆØªÙˆØ¬ÙŠÙ‡ Ø§Ù„Ø²Ø¨ÙˆÙ†:
+1. Ù‚Ø§Ù†ÙˆÙ† ØµØ§Ø±Ù… ÙˆØ­ØªÙ…ÙŠ: Ø§Ù„Ø·Ù„Ø¨ÙŠØ§Øª ØªØªÙ… Ø­ØµØ±ÙŠØ§Ù‹ ÙˆÙ…Ø¨Ø§Ø´Ø±Ø© Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ (https://pyjama-dz.vercel.app). ÙŠÙ…Ù†Ø¹ Ù…Ù†Ø¹Ø§Ù‹ Ø¨Ø§ØªØ§Ù‹ Ø¥Ù†Ø´Ø§Ø¡ Ø£Ùˆ ØªØ³Ø¬ÙŠÙ„ Ø£ÙŠ Ø·Ù„Ø¨ÙŠØ© Ø¬Ø¯ÙŠØ¯Ø© Ø¯Ø§Ø®Ù„ Ø§Ù„Ø´Ø§Øª. Ø¥Ø°Ø§ Ø£Ø±Ø§Ø¯ Ø§Ù„Ø²Ø¨ÙˆÙ† Ø§Ù„Ø´Ø±Ø§Ø¡ Ø£Ùˆ Ø§Ù„Ø·Ù„Ø¨ (Ù…Ø«Ù„: Ù†Ø·Ù„Ø¨ØŒ Ù†Ø¯ÙŠØ± ÙƒÙˆÙ…Ø§Ù†Ø¯ØŒ Ø­Ø§Ø¨ Ù†Ø´Ø±ÙŠØŒ commandeØŒ ouiØŒ Ù†Ø¹Ù…): ÙˆØ¬Ù‡Ù‡ Ù…Ø¨Ø§Ø´Ø±Ø© Ù„Ø±Ø§Ø¨Ø· Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø±Ø³Ù…ÙŠ Ù„Ù„Ø´Ø±Ø§Ø¡ ÙˆØ§Ø®ØªÙŠØ§Ø± Ø§Ù„Ù…Ù‚Ø§Ø³ ÙˆØ§Ù„Ù„ÙˆÙ† Ù…Ù†Ù‡ Ù…Ø¨Ø§Ø´Ø±Ø©: https://pyjama-dz.vercel.app
+2. Ø¥Ø°Ø§ ÙƒØ§Ù† Ù„Ù„Ø²Ø¨ÙˆÙ† Ø·Ù„Ø¨ÙŠØ© Ø³Ø§Ø¨Ù‚Ø© Ù…Ø³Ø¬Ù„Ø© ÙÙŠ Ø§Ù„Ø¯Ø§ØªØ§Ø¨ÙŠØ² Ù…Ù† Ø§Ù„Ù…ÙˆÙ‚Ø¹ ÙˆÙŠØ±ÙŠØ¯ ØªØ£ÙƒÙŠØ¯Ù‡Ø§ (Ù…Ø«Ù„: Ø£ÙƒØ¯Ù„ÙŠØŒ aked, confirme): Ø£Ø®Ø±Ø¬ Ø§Ù„ÙƒÙˆØ¯: [ACTION:CONFIRM_ORDER] Ø«Ù… Ø§ÙƒØªØ¨ Ø±Ø¯ Ø§Ù„ØªØ£ÙƒÙŠØ¯ Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø©.
+3. Ø¥Ø°Ø§ Ø£Ø±Ø§Ø¯ Ø§Ù„Ø²Ø¨ÙˆÙ† Ø¥Ù„ØºØ§Ø¡ Ø·Ù„Ø¨ÙŠØªÙ‡ Ø§Ù„Ù…Ø³Ø¬Ù„Ø© Ù…Ù† Ø§Ù„Ù…ÙˆÙ‚Ø¹ (Ù…Ø«Ù„: Ø§Ù„ØºÙŠØŒ anuler, annuler): Ø£Ø®Ø±Ø¬ Ø§Ù„ÙƒÙˆØ¯: [ACTION:CANCEL_ORDER] Ø«Ù… Ø§ÙƒØªØ¨ Ø±Ø¯ Ø§Ù„Ø¥Ù„ØºØ§Ø¡ Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø©.
+4. Ø¥Ø°Ø§ Ø·Ù„Ø¨ Ø§Ù„Ø²Ø¨ÙˆÙ† ØµÙˆØ± Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª (ØµÙˆØ±ØŒ ØªØµØ§ÙˆÙŠØ±ØŒ photoØŒ tsswira): Ø£Ø®Ø±Ø¬ Ø§Ù„ÙƒÙˆØ¯: [ACTION:SEND_PHOTOS] ÙˆÙˆØ¬Ù‡Ù‡ Ù„Ù„Ù…ÙˆÙ‚Ø¹ Ù„Ø±Ø¤ÙŠØ© ÙƒØ§ÙØ© Ø§Ù„ØµÙˆØ± ÙˆØ§Ù„Ù…ÙˆØ¯ÙŠÙ„Ø§Øª Ø§Ù„Ù…ØªÙˆÙØ±Ø©.
+5. Ø§Ø³ØªÙØ³Ø§Ø±Ø§Øª Ø§Ù„Ù…ÙƒØ§Ù† ÙˆØ§Ù„Ù…Ù‚Ø± ÙˆØ§Ù„Ø¹Ù†ÙˆØ§Ù†: Ø£Ø¹Ø·Ù‡ Ø§Ù„Ø¹Ù†ÙˆØ§Ù† ÙˆØ±Ø§Ø¨Ø· Ø®Ø±Ø§Ø¦Ø· Ø¬ÙˆØ¬Ù„ Ù…Ù† Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù†Ø¸Ø§Ù….
+6. Ø§Ø³ØªÙØ³Ø§Ø±Ø§Øª Ø£Ø±Ù‚Ø§Ù… Ø§Ù„Ù‡Ø§ØªÙ: Ø£Ø¹Ø·Ù‡ Ø£Ø±Ù‚Ø§Ù… Ø§Ù„Ù‡Ø§ØªÙ Ø§Ù„Ø±Ø³Ù…ÙŠØ© Ø§Ù„Ù…ÙƒØªÙˆØ¨Ø© ÙÙŠ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù†Ø¸Ø§Ù….
+7. Ø§Ø³ØªÙØ³Ø§Ø±Ø§Øª Ø§Ù„Ø£Ø³Ø¹Ø§Ø± ÙˆØ§Ù„Ù…Ù‚Ø§Ø³Ø§Øª ÙˆØ§Ù„Ø£Ù„ÙˆØ§Ù† ÙˆØ§Ù„Ø¬ÙˆØ¯Ø©: Ø£Ø¬Ø¨ Ø¨Ø£Ø³Ù„ÙˆØ¨ Ù„Ø·ÙŠÙ Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø© Ø§Ù„Ø¬Ø²Ø§Ø¦Ø±ÙŠØ© ÙˆÙˆØ¬Ù‡Ù‡ Ù„Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø±Ø³Ù…ÙŠ Ù„ØªØµÙØ­ ÙƒØ§ÙØ© Ø§Ù„ØµÙˆØ± ÙˆØ§Ù„Ø£Ø³Ø¹Ø§Ø± ÙˆØ§Ù„Ø·Ù„Ø¨ Ù…Ø¨Ø§Ø´Ø±Ø©: https://pyjama-dz.vercel.app
 
-بيانات المتجر:
-- العنوان والمقر: ${storeAddressDisplay}
-- رابط خرائط جوجل: ${storeMapsUrl}
-- رابط الموقع الرسمي: https://pyjama-dz.vercel.app
-- رابط صفحة الجملة (Gros): https://pyjama-dz.vercel.app/gros
+Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…ØªØ¬Ø±:
+- Ø§Ù„Ø¹Ù†ÙˆØ§Ù† ÙˆØ§Ù„Ù…Ù‚Ø±: ${storeAddressDisplay}
+- Ø±Ø§Ø¨Ø· Ø®Ø±Ø§Ø¦Ø· Ø¬ÙˆØ¬Ù„: ${storeMapsUrl}
+- Ø±Ø§Ø¨Ø· Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø±Ø³Ù…ÙŠ: https://pyjama-dz.vercel.app
+- Ø±Ø§Ø¨Ø· ØµÙØ­Ø© Ø§Ù„Ø¬Ù…Ù„Ø© (Gros): https://pyjama-dz.vercel.app/gros
 ${settingsSummary}
 
-قائمة المنتجات والأسعار والسطوك الحالية من الداتابيز:
+Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª ÙˆØ§Ù„Ø£Ø³Ø¹Ø§Ø± ÙˆØ§Ù„Ø³Ø·ÙˆÙƒ Ø§Ù„Ø­Ø§Ù„ÙŠØ© Ù…Ù† Ø§Ù„Ø¯Ø§ØªØ§Ø¨ÙŠØ²:
 ${catalogSummary}
 ${salesModeRules}`;
 
@@ -2248,7 +2045,7 @@ ${salesModeRules}`;
               // Fallback handlers if AI unreachable
               const sentPhotos = await checkAndSendProductPhotos(fromPhone, messageText, products);
               if (sentPhotos) {
-                await sendWhatsAppMessage(fromPhone, "تفضل خويا، تم إرسال صور الموديلات المتوفرة أعلاه في المحادثة. يمكنك تصفح باقي المنتجات والألوان عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app");
+                await sendWhatsAppMessage(fromPhone, "ØªÙØ¶Ù„ Ø®ÙˆÙŠØ§ØŒ ØªÙ… Ø¥Ø±Ø³Ø§Ù„ ØµÙˆØ± Ø§Ù„Ù…ÙˆØ¯ÙŠÙ„Ø§Øª Ø§Ù„Ù…ØªÙˆÙØ±Ø© Ø£Ø¹Ù„Ø§Ù‡ ÙÙŠ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©. ÙŠÙ…ÙƒÙ†Ùƒ ØªØµÙØ­ Ø¨Ø§Ù‚ÙŠ Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª ÙˆØ§Ù„Ø£Ù„ÙˆØ§Ù† Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ:\nhttps://pyjama-dz.vercel.app");
                 continue;
               }
 
