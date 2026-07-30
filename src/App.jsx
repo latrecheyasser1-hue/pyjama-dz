@@ -166,7 +166,7 @@ export default function App() {
         setter(prev => {
           return data.map(dbProd => {
             const pending = pendingUpdatesRef.current[dbProd.id];
-            if (pending && (now - pending.timestamp < 4000)) {
+            if (pending && (now - pending.timestamp < 1000)) {
               return pending.product;
             }
             return dbProd;
