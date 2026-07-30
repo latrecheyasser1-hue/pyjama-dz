@@ -130,32 +130,6 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
   const storeName = (settings?.storeName || 'Pyjama DZ - المحل الرئيسي').replace(/\s*-\s*Luxury\s*Homewear/i, '').trim();
 
   const handleConfirmRetour = (order) => {
-    if (order.items && order.items.length > 0) {
-      order.items.forEach(item => {
-        const prodToUpdate = products.find(p => p.id === item.productId || p.title === item.product);
-        if (prodToUpdate && prodToUpdate.colorVariants) {
-          const updatedVariants = prodToUpdate.colorVariants.map(cv => {
-            if (cv.color === item.color && cv.stock && cv.stock[item.size] !== undefined) {
-              return {
-                ...cv,
-                stock: {
-                  ...cv.stock,
-                  [item.size]: cv.stock[item.size] + (Number(item.qty) || 1)
-                }
-              };
-            }
-            return cv;
-          });
-          if (onUpdateProduct) {
-            onUpdateProduct({
-              ...prodToUpdate,
-              colorVariants: updatedVariants
-            });
-          }
-        }
-      });
-    }
-
     if (onUpdateStatus) {
       onUpdateStatus(order.id, 'retour', true);
       setReturnConfirmationId(null);
