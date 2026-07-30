@@ -18,40 +18,37 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   };
 
   // General settings state
-  const [instaUrl, setInstaUrl] = useState(settings?.instagramUrl || 'https://www.instagram.com/pyjama_dz');
-  const [whatsapp, setWhatsapp] = useState(settings?.whatsapp || '0555123456');
-  const [whatsappBoutiqueManager, setWhatsappBoutiqueManager] = useState(settings?.whatsappBoutiqueManager || '0555123456');
-  const [whatsappLivraisonManager, setWhatsappLivraisonManager] = useState(settings?.whatsappLivraisonManager || '0555123456');
-  const [whatsappEmballageManager, setWhatsappEmballageManager] = useState(settings?.whatsappEmballageManager || '0771335039');
+  const [instaUrl, setInstaUrl] = useState(settings?.instagramUrl ?? 'https://www.instagram.com/pyjama_dz');
+  const [whatsapp, setWhatsapp] = useState(settings?.whatsapp ?? '');
+  const [whatsappBoutiqueManager, setWhatsappBoutiqueManager] = useState(settings?.whatsappBoutiqueManager ?? '');
+  const [whatsappLivraisonManager, setWhatsappLivraisonManager] = useState(settings?.whatsappLivraisonManager ?? '');
+  const [whatsappEmballageManager, setWhatsappEmballageManager] = useState(settings?.whatsappEmballageManager ?? '');
   const [phoneList, setPhoneList] = useState(() => parsePhones(settings?.phoneOrders));
-  const [address, setAddress] = useState(settings?.address || 'Bab Ezzouar & Hydra, Alger');
-  const [googleMapsUrl, setGoogleMapsUrl] = useState(settings?.googleMapsUrl || 'https://maps.google.com/?q=Bab+Ezzouar+Alger');
-  const [storeName, setStoreName] = useState((settings?.storeName || 'Pyjama DZ').replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
+  const [address, setAddress] = useState(settings?.address ?? 'Chlef, Algérie');
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(settings?.googleMapsUrl ?? 'https://maps.google.com');
+  const [storeName, setStoreName] = useState((settings?.storeName ?? 'Pyjama DZ').replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   // Cashier PIN state
-  const [cashierPinInput, setCashierPinInput] = useState(() => settings?.cashierPin || '123456');
+  const [cashierPinInput, setCashierPinInput] = useState(() => settings?.cashierPin ?? '123456');
   const [cashierSuccess, setCashierSuccess] = useState(false);
 
-  const [isInitialized, setIsInitialized] = useState(false);
-
   useEffect(() => {
-    if (settings && !isInitialized) {
-      if (settings.instagramUrl !== undefined) setInstaUrl(settings.instagramUrl);
-      if (settings.whatsapp !== undefined) setWhatsapp(settings.whatsapp);
-      if (settings.whatsappBoutiqueManager !== undefined) setWhatsappBoutiqueManager(settings.whatsappBoutiqueManager);
-      if (settings.whatsappLivraisonManager !== undefined) setWhatsappLivraisonManager(settings.whatsappLivraisonManager);
-      if (settings.whatsappEmballageManager !== undefined) setWhatsappEmballageManager(settings.whatsappEmballageManager);
+    if (settings) {
+      if (settings.instagramUrl !== undefined) setInstaUrl(settings.instagramUrl ?? '');
+      if (settings.whatsapp !== undefined) setWhatsapp(settings.whatsapp ?? '');
+      if (settings.whatsappBoutiqueManager !== undefined) setWhatsappBoutiqueManager(settings.whatsappBoutiqueManager ?? '');
+      if (settings.whatsappLivraisonManager !== undefined) setWhatsappLivraisonManager(settings.whatsappLivraisonManager ?? '');
+      if (settings.whatsappEmballageManager !== undefined) setWhatsappEmballageManager(settings.whatsappEmballageManager ?? '');
       if (settings.phoneOrders !== undefined) setPhoneList(parsePhones(settings.phoneOrders));
-      if (settings.address !== undefined) setAddress(settings.address);
-      if (settings.googleMapsUrl !== undefined) setGoogleMapsUrl(settings.googleMapsUrl);
-      if (settings.storeName !== undefined) setStoreName(settings.storeName.replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
-      if (settings.cashierPin !== undefined) setCashierPinInput(settings.cashierPin);
-      setIsInitialized(true);
+      if (settings.address !== undefined) setAddress(settings.address ?? '');
+      if (settings.googleMapsUrl !== undefined) setGoogleMapsUrl(settings.googleMapsUrl ?? '');
+      if (settings.storeName !== undefined) setStoreName((settings.storeName ?? '').replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
+      if (settings.cashierPin !== undefined) setCashierPinInput(settings.cashierPin ?? '123456');
     }
-  }, [settings, isInitialized]);
+  }, [settings]);
 
-  const handlePinChangeSubmit = (e) => {
+    const handlePinChangeSubmit = (e) => {
     e.preventDefault();
     setPinMessage(null);
 
