@@ -383,8 +383,15 @@ export default async function handler(req, res) {
 
               let shouldSendAlert = false;
               if (isExplicitSoldItem) {
-                // If item was explicitly sold in this order and reached <= 5 or 0, ALWAYS send its individual alert
+                // Item was explicitly sold in this checkout → ALWAYS send alert, no exceptions
                 shouldSendAlert = true;
+                // Clear any old alert state so it never blocks this sold item
+                try {
+                  fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_state_${alertKey}`, {
+                    method: 'DELETE',
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                  }).catch(() => {});
+                } catch (e) {}
               } else if (numQty === 0) {
                 if (!lastAlertState || lastAlertState.alertType !== 'zero' || (lastAlertState.qty !== undefined && lastAlertState.qty > 0)) {
                   shouldSendAlert = true;
@@ -459,8 +466,8 @@ export default async function handler(req, res) {
       if (validItems.length === 0) return 0;
 
       const sendPromises = validItems.map(async (item, idx) => {
-        // Stagger requests by 150ms to finish all 6-10 messages well under 2 seconds
-        await new Promise(resolve => setTimeout(resolve, idx * 150));
+        // Stagger requests by 100ms so 30 messages finish in ~3s, well under Vercel 10s timeout
+        await new Promise(resolve => setTimeout(resolve, idx * 100));
 
         const alertStateVal = JSON.stringify({ 
           qty: item.qty, 
@@ -499,17 +506,17 @@ export default async function handler(req, res) {
     if (isPosSaleCheck && boutiquePhone) {
       const allPosLowItems = [...hanoutLowItems, ...livraisonLowItems];
       if (allPosLowItems.length > 0) {
-        alertsSent += await sendIndividualAlerts(allPosLowItems.slice(0, 15), boutiquePhone, 'سطوك المحل');
+        alertsSent += await sendIndividualAlerts(allPosLowItems, boutiquePhone, 'سطوك المحل');
       }
     } else {
       // A. Send ONLY Stock Livraison items to Livraison Worker (if phone is set)
       if (livraisonPhone && livraisonLowItems.length > 0) {
-        alertsSent += await sendIndividualAlerts(livraisonLowItems.slice(0, 15), livraisonPhone, 'سطوك التوصيل');
+        alertsSent += await sendIndividualAlerts(livraisonLowItems, livraisonPhone, 'سطوك التوصيل');
       }
 
       // B. Send ONLY Stock Hanout (Boutique) items to Boutique Worker (if phone is set)
       if (boutiquePhone && hanoutLowItems.length > 0) {
-        alertsSent += await sendIndividualAlerts(hanoutLowItems.slice(0, 15), boutiquePhone, 'سطوك المحل');
+        alertsSent += await sendIndividualAlerts(hanoutLowItems, boutiquePhone, 'سطوك المحل');
       }
     }
 
