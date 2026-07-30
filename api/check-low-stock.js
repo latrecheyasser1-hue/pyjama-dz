@@ -362,9 +362,10 @@ export default async function handler(req, res) {
 
       const now = Date.now();
       const validItems = itemsList.filter(item => {
-        const lastSent = global._alertSendTimes[item.alertKey] || 0;
-        if (now - lastSent < 30000) return false; // Skip if sent within last 30s
-        global._alertSendTimes[item.alertKey] = now;
+        const lockKey = `${item.alertKey}_q${item.qty}`;
+        const lastSent = global._alertSendTimes[lockKey] || 0;
+        if (now - lastSent < 5000) return false; // Skip if exact same alert sent within last 5s
+        global._alertSendTimes[lockKey] = now;
         return true;
       });
 
