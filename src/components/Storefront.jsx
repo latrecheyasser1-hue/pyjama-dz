@@ -855,8 +855,13 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
         }
       } catch(e) {}
     };
+
     fetchFreshCategories();
-    return () => { isMounted = false; };
+    const interval = setInterval(fetchFreshCategories, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const categoriesList = useMemo(() => {
