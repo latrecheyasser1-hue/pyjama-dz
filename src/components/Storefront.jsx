@@ -1187,12 +1187,19 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         }
       });
 
-      const sortedProductIds = Object.keys(salesMap).sort((a, b) => salesMap[b] - salesMap[a]);
-      const top10 = sortedProductIds.slice(0, 10);
+      const retailProducts = (Array.isArray(products) ? products : []).filter(p => {
+        if (!p) return false;
+        if (p.isGrosOnly || p.category === 'gros' || (p.category && String(p.category).startsWith('gros__'))) return false;
+        return true;
+      });
 
-      if (top10.length > 0) {
-        return top10;
-      }
+      const sortedRetailProducts = [...retailProducts].sort((a, b) => {
+        const salesA = salesMap[String(a.id)] || 0;
+        const salesB = salesMap[String(b.id)] || 0;
+        return salesB - salesA;
+      });
+
+      return sortedRetailProducts.slice(0, 10).map(p => String(p.id));
     } catch(e) {}
 
     return (Array.isArray(products) ? products : []).slice(0, 10).map(p => String(p.id));
