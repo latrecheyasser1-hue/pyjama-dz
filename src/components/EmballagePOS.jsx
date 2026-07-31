@@ -211,17 +211,6 @@ export default function EmballagePOS({ settings = {}, products = [], orders = []
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          {isInstallable && (
-            <button 
-              onClick={promptInstall}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', background: 'var(--burgundy)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-            >
-              تثبيت التطبيق 📱
-            </button>
-          )}
-          <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', background: '#FEF2F2', color: '#EF4444', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer' }}>
-            <LogOut size={18} /> خروج
-          </button>
         </div>
       </header>
 
