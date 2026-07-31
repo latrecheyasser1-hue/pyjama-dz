@@ -189,7 +189,7 @@ export default function AdminDashboard({
 
   // Main Dashboard Content when Unlocked
   return (
-    <div style={{ display: 'flex', flexDirection: 'row-reverse', minHeight: '100vh', background: '#F4F1EA', fontFamily: 'var(--font-primary)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#F4F1EA', fontFamily: 'var(--font-primary)' }}>
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
