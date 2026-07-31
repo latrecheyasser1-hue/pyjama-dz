@@ -15,7 +15,11 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     return Array.isArray(parsed) ? parsed : DEFAULT_CATEGORIES;
   };
 
-  const categoriesList = React.useMemo(() => parseCategories(settings?.categories), [settings?.categories]);
+  const [categoriesList, setCategoriesList] = useState(() => parseCategories(settings?.categories));
+
+  useEffect(() => {
+    setCategoriesList(parseCategories(settings?.categories));
+  }, [settings?.categories]);
 
   // New Category State
   const [newTitle, setNewTitle] = useState('');
@@ -109,6 +113,7 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     if (deleteModal.targetIndex === null) return;
     const targetTitle = deleteModal.targetTitle;
     const updatedList = categoriesList.filter((_, i) => i !== deleteModal.targetIndex);
+    setCategoriesList(updatedList);
     onUpdateSettings({ ...settings, categories: updatedList });
     setDeleteModal({ isOpen: false, targetIndex: null, targetTitle: '' });
     showToast(`✅ تم حذف القسم "${targetTitle}" بنجاح!`, 'success');
@@ -131,6 +136,7 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
       icon: editIcon || '✨',
       image: editImage || presetImages[0].url
     };
+    setCategoriesList(updatedList);
     onUpdateSettings({ ...settings, categories: updatedList });
     setEditingIndex(null);
   };
