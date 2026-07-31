@@ -829,35 +829,8 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
 }
 
 export default function Storefront({ products, settings, onPlaceOrder, onUpdateSettings, onGoToGros }) {
-  const [liveCategories, setLiveCategories] = useState(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    const fetchFreshCategories = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('settings')
-          .select('*')
-          .eq('key', 'categories');
-          
-        if (!error && data && data.length > 0 && data[0].value && isMounted) {
-          let parsed = data[0].value;
-          if (typeof parsed === 'string') {
-            try { parsed = JSON.parse(parsed); } catch(e) {}
-          }
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setLiveCategories(parsed);
-          }
-        }
-      } catch(e) {}
-    };
-
-    fetchFreshCategories();
-    return () => { isMounted = false; };
-  }, []);
-
   const categoriesList = useMemo(() => {
-    let raw = liveCategories || settings?.categories;
+    let raw = settings?.categories;
     if (typeof raw === 'string') {
       try { raw = JSON.parse(raw); } catch (e) { raw = null; }
     }
@@ -875,7 +848,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
       list.push({ id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' });
     }
     return list;
-  }, [liveCategories, settings?.categories]);
+  }, [settings?.categories]);
 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
