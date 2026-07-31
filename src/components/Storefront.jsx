@@ -828,7 +828,7 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
   );
 }
 
-export default function Storefront({ products, settings, onPlaceOrder, onUpdateSettings, onGoToGros }) {
+export default function Storefront({ products, orders = [], settings, onPlaceOrder, onUpdateSettings, onGoToGros }) {
   const [realtimeCategories, setRealtimeCategories] = useState(() => {
     try {
       const cached = localStorage.getItem('pyjama_dz_categories_cache');
@@ -1169,6 +1169,42 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
       setWaitlistLoading(false);
     }
   };
+
+  const top10HotSaleProductIds = useMemo(() => {
+    try {
+      const salesMap = {};
+      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      
+      const recentOrders = Array.isArray(orders) ? orders.filter(o => {
+        if (!o) return false;
+        const oTime = new Date(o.createdAt || o.created_at || o.date || 0).getTime();
+        return oTime >= sevenDaysAgo;
+      }) : [];
+
+      const targetOrders = recentOrders.length > 0 ? recentOrders : (Array.isArray(orders) ? orders : []);
+
+      targetOrders.forEach(ord => {
+        if (ord && Array.isArray(ord.items)) {
+          ord.items.forEach(item => {
+            const pId = String(item.productId || item.id || '');
+            if (pId) {
+              const qty = Number(item.qty || item.quantity || 1);
+              salesMap[pId] = (salesMap[pId] || 0) + qty;
+            }
+          });
+        }
+      });
+
+      const sortedProductIds = Object.keys(salesMap).sort((a, b) => salesMap[b] - salesMap[a]);
+      const top10 = sortedProductIds.slice(0, 10);
+
+      if (top10.length > 0) {
+        return top10;
+      }
+    } catch(e) {}
+
+    return (Array.isArray(products) ? products : []).slice(0, 10).map(p => String(p.id));
+  }, [orders, products]);
 
   // Form fields
   const [clientName, setClientName] = useState('');

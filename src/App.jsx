@@ -964,8 +964,11 @@ export default function App() {
         ) : (
           <Storefront 
             products={products}
+            orders={orders}
             settings={settings}
             onPlaceOrder={handlePlaceOrder}
+            onUpdateSettings={handleUpdateSettings}
+            onGoToGros={() => navigateTo('/gros')}
           />
         )}
       </Suspense>
