@@ -1173,17 +1173,9 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const top10HotSaleProductIds = useMemo(() => {
     try {
       const salesMap = {};
-      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-      
-      const recentOrders = Array.isArray(orders) ? orders.filter(o => {
-        if (!o) return false;
-        const oTime = new Date(o.createdAt || o.created_at || o.date || 0).getTime();
-        return oTime >= sevenDaysAgo;
-      }) : [];
+      const validOrders = Array.isArray(orders) ? orders.filter(o => o && o.status !== 'annulee') : [];
 
-      const targetOrders = recentOrders.length > 0 ? recentOrders : (Array.isArray(orders) ? orders : []);
-
-      targetOrders.forEach(ord => {
+      validOrders.forEach(ord => {
         if (ord && Array.isArray(ord.items)) {
           ord.items.forEach(item => {
             const pId = String(item.productId || item.id || '');
