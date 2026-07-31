@@ -1741,10 +1741,33 @@ async function processIncomingPayload(body) {
               }
 
               if (refMatch) {
-                const productId = refMatch[1];
-                const colorIdx = parseInt(refMatch[2]);
-                const size = refMatch[3];
-                const alertKey = `${productId}_${colorIdx}_${size}`;
+                // SECURITY GUARD: Strictly verify that sender phone is an AUTHORIZED STORE MANAGER in Settings!
+                const storeSettings = await getStoreSettings();
+                const mgrPhones = extractCleanPhonesList(
+                  storeSettings.whatsappBoutiqueManager,
+                  storeSettings.whatsappLivraisonManager,
+                  storeSettings.whatsapp,
+                  storeSettings.phoneOrders
+                );
+
+                const fromDigits = fromPhone.replace(/\D/g, '').slice(-8);
+                const isManager = mgrPhones.some(p => {
+                  const pDigits = p.replace(/\D/g, '').slice(-8);
+                  return pDigits === fromDigits;
+                });
+
+                // Require explicit plus (+) or "إضافة/اضافة" or pure numbers ONLY from manager to trigger restock
+                const textWithoutTag = messageText.replace(/\[REF:[^\]]+\]/gi, '').trim();
+                const isExplicitQty = /^(\+)?\d{1,4}$/.test(textWithoutTag) || /(اضافة|إضافة|تزويد|زِد|زيد|ستوك)\s*(\+)?\d+/i.test(textWithoutTag);
+
+                if (!isManager || !isExplicitQty) {
+                  // Ignore restock attempt if sender is NOT an authorized manager or message is not an explicit quantity!
+                  console.log(`Blocked non-manager or non-explicit restock attempt from ${fromPhone}`);
+                } else {
+                  const productId = refMatch[1];
+                  const colorIdx = parseInt(refMatch[2]);
+                  const size = refMatch[3];
+                  const alertKey = `${productId}_${colorIdx}_${size}`;
 
                 // Fetch current product stock and check if this item was ALREADY restocked
                 const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
@@ -1872,6 +1895,7 @@ async function processIncomingPayload(body) {
                   }
                 }
               }
+            }
 
               // 2. RECLAMATION HANDLER (Only for explicit complaints/reclamations)
               const complaintKeywords = [
