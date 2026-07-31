@@ -16,14 +16,6 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
   };
 
   const [categoriesList, setCategoriesList] = useState(() => parseCategories(settings?.categories));
-  const prevSettingsCatsRef = useRef(settings?.categories);
-
-  useEffect(() => {
-    if (settings?.categories && settings.categories !== prevSettingsCatsRef.current) {
-      prevSettingsCatsRef.current = settings.categories;
-      setCategoriesList(parseCategories(settings.categories));
-    }
-  }, [settings?.categories]);
 
   // New Category State
   const [newTitle, setNewTitle] = useState('');
@@ -85,7 +77,6 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     }
 
     setCategoriesList(updatedList);
-    prevSettingsCatsRef.current = updatedList;
     onUpdateSettings({ ...settings, categories: updatedList });
 
     // Reset Form
@@ -119,7 +110,6 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     const targetTitle = deleteModal.targetTitle;
     const updatedList = categoriesList.filter((_, i) => i !== deleteModal.targetIndex);
     setCategoriesList(updatedList);
-    prevSettingsCatsRef.current = updatedList;
     onUpdateSettings({ ...settings, categories: updatedList });
     setDeleteModal({ isOpen: false, targetIndex: null, targetTitle: '' });
     showToast(`✅ تم حذف القسم "${targetTitle}" بنجاح!`, 'success');
@@ -143,7 +133,6 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
       image: editImage || presetImages[0].url
     };
     setCategoriesList(updatedList);
-    prevSettingsCatsRef.current = updatedList;
     onUpdateSettings({ ...settings, categories: updatedList });
     setEditingIndex(null);
   };
