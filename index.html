@@ -27,8 +27,17 @@
     <meta property="og:image" content="/luxury_pyjama_store_hero_1783543440843.png">
     
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
-    <link rel="apple-touch-icon" href="/favicon.svg?v=3">
     <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          for (var i = 0; i < regs.length; i++) { regs[i].unregister(); }
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(keys) {
+          for (var i = 0; i < keys.length; i++) { caches.delete(keys[i]); }
+        });
+      }
       window.addEventListener('error', function(e) {
         var root = document.getElementById('root');
         var errDiv = document.createElement('div');
