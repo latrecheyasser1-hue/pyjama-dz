@@ -1561,7 +1561,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
                         {badgeText}
                       </span>
                     )}
-                    <span>{cat.title}</span>
+                    <span>{cat.icon ? `${cat.icon} ` : ''}{cat.title || cat.name}</span>
                   </button>
                 );
               })}

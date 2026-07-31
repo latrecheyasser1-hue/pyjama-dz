@@ -815,14 +815,7 @@ export default function App() {
       if (value === undefined || value === null) continue;
       const valStr = (key === 'categories' || typeof value === 'object') ? JSON.stringify(value) : (Array.isArray(value) ? value.join(' - ') : String(value));
       try {
-        const { data: updated } = await supabase
-          .from('settings')
-          .update({ value: valStr })
-          .eq('key', key)
-          .select();
-        if (!updated || updated.length === 0) {
-          await supabase.from('settings').upsert({ key, value: valStr }, { onConflict: 'key' });
-        }
+        await supabase.from('settings').upsert({ key, value: valStr });
       } catch (err) {
         console.error(`Error updating settings key ${key}:`, err);
       }
