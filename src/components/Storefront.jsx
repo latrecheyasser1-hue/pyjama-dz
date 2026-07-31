@@ -835,33 +835,25 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
     let isMounted = true;
     const fetchFreshCategories = async () => {
       try {
-        const res = await fetch('https://qnbwyblbxtwubmuejwtp.supabase.co/rest/v1/settings?key=eq.categories&select=*', {
-          headers: {
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo'
-          },
-          cache: 'no-store'
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.length > 0 && data[0].value && isMounted) {
-            let parsed = data[0].value;
-            if (typeof parsed === 'string') {
-              try { parsed = JSON.parse(parsed); } catch(e) {}
-            }
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setLiveCategories(parsed);
-            }
+        const { data, error } = await supabase
+          .from('settings')
+          .select('*')
+          .eq('key', 'categories');
+          
+        if (!error && data && data.length > 0 && data[0].value && isMounted) {
+          let parsed = data[0].value;
+          if (typeof parsed === 'string') {
+            try { parsed = JSON.parse(parsed); } catch(e) {}
+          }
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLiveCategories(parsed);
           }
         }
       } catch(e) {}
     };
 
     fetchFreshCategories();
-    const interval = setInterval(fetchFreshCategories, 3000);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const categoriesList = useMemo(() => {
