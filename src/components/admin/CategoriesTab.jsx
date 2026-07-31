@@ -6,35 +6,20 @@ import { showToast } from '../../utils/toast';
 
 export default function CategoriesTab({ settings, onUpdateSettings, products = [], setActiveTab }) {
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, targetIndex: null, targetTitle: '' });
-  const [categoriesList, setCategoriesList] = useState(() => {
-    return (settings?.categories && Array.isArray(settings.categories) && settings.categories.length > 0)
-      ? settings.categories
-      : DEFAULT_CATEGORIES;
-  });
+  const parseCategories = (catData) => {
+    if (!catData) return DEFAULT_CATEGORIES;
+    let parsed = catData;
+    if (typeof catData === 'string') {
+      try { parsed = JSON.parse(catData); } catch (e) { parsed = DEFAULT_CATEGORIES; }
+    }
+    return (Array.isArray(parsed) && parsed.length > 0) ? parsed : DEFAULT_CATEGORIES;
+  };
 
-  // Ensure 'all' and 'promo' exist right away
+  const [categoriesList, setCategoriesList] = useState(() => parseCategories(settings?.categories));
+
   useEffect(() => {
-    let current = (settings?.categories && Array.isArray(settings.categories) && settings.categories.length > 0)
-      ? settings.categories
-      : DEFAULT_CATEGORIES;
-
-    let modified = false;
-    if (!current.some(c => c.id === 'all')) {
-      current = [{ id: 'all', title: 'TOUT VOIR', icon: '✨', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' }, ...current];
-      modified = true;
-    }
-    if (!current.some(c => c.id === 'promo')) {
-      current = [...current, { id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' }];
-      modified = true;
-    }
-    if (modified) {
-      setCategoriesList(current);
-      if (onUpdateSettings) {
-        onUpdateSettings({ ...settings, categories: current });
-      }
-    } else {
-      setCategoriesList(current);
-    }
+    const parsed = parseCategories(settings?.categories);
+    setCategoriesList(parsed);
   }, [settings?.categories]);
 
   // New Category State

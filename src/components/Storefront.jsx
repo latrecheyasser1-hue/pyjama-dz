@@ -830,8 +830,12 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
 
 export default function Storefront({ products, settings, onPlaceOrder, onUpdateSettings, onGoToGros }) {
   const categoriesList = useMemo(() => {
-    let list = settings?.categories && Array.isArray(settings.categories) && settings.categories.length > 0
-      ? [...settings.categories]
+    let raw = settings?.categories;
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch (e) { raw = null; }
+    }
+    let list = Array.isArray(raw) && raw.length > 0
+      ? [...raw]
       : [...DEFAULT_CATEGORIES];
 
     if (!list.some(c => c.id === 'all')) {

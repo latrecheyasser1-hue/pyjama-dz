@@ -1,12 +1,9 @@
 export const DEFAULT_CATEGORIES = [
   { id: 'all', title: 'TOUT VOIR', icon: '✨', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' },
-  { id: 'satin', title: 'SATIN DE SOIE', icon: '👗', image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&q=80' },
-  { id: 'coton', title: 'COTON CONFORT', icon: '🧸', image: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=300&q=80' },
-  { id: 'mariee', title: 'ROBES & MARIÉE', icon: '👰', image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=300&q=80' },
-  { id: 'ensembles', title: 'ENSEMBLES 2P', icon: '👘', image: 'https://images.unsplash.com/photo-1502716119720-b23a93e5fc1b?w=300&q=80' },
-  { id: 'abayas', title: 'ABAYAS & ROUPAS', icon: '🧕', image: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=300&q=80' },
-  { id: 'chaussures', title: 'PANTOUFLES & SOULIERS', icon: '🥿', image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=300&q=80' },
-  { id: 'accessoires', title: 'ACCESSOIRES VIP', icon: '👑', image: 'https://images.unsplash.com/photo-1611591471441-615f64d26214?w=300&q=80' },
+  { id: 'pyjamas-95', title: 'pyjamas', icon: '🌸', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' },
+  { id: 'robes-91', title: 'robes', icon: '👗', image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=300&q=80' },
+  { id: 'shoes-3', title: 'shoes', icon: '🥿', image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=300&q=80' },
+  { id: 'lengerie-97', title: 'lengerie', icon: '🔥', image: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&q=80' },
   { id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' }
 ];
 
