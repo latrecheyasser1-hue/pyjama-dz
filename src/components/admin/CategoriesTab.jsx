@@ -18,8 +18,12 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
   const [categoriesList, setCategoriesList] = useState(() => parseCategories(settings?.categories));
 
   useEffect(() => {
-    const parsed = parseCategories(settings?.categories);
-    setCategoriesList(parsed);
+    if (settings?.categories) {
+      const parsed = parseCategories(settings?.categories);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setCategoriesList(parsed);
+      }
+    }
   }, [settings?.categories]);
 
   // New Category State
