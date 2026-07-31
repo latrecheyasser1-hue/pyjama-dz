@@ -843,6 +843,12 @@ export default function App() {
   };
 
   const handleUpdateSettings = async (newSettings) => {
+    if (newSettings.categories) {
+      try {
+        localStorage.setItem('pyjama_dz_categories_cache', JSON.stringify(newSettings.categories));
+      } catch(e) {}
+    }
+
     setSettings(prev => {
       const nextSettings = { ...prev, ...newSettings };
       try { localStorage.setItem('pyjama_settings_cache', JSON.stringify(nextSettings)); } catch(e) {}

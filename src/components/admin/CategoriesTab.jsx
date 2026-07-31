@@ -58,8 +58,8 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     e.preventDefault();
     if (!newTitle.trim()) return;
 
-    const baseSlug = newId.trim() ? generateSlug(newId) : generateSlug(newTitle);
-    const finalId = baseSlug + '-' + Math.floor(Math.random() * 100);
+    const baseSlug = generateSlug(newTitle.trim());
+    const finalId = baseSlug + '-' + Date.now().toString(36);
     const newCategory = {
       id: finalId,
       title: newTitle.trim(),
