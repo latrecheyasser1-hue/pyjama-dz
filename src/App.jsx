@@ -6,9 +6,26 @@ import { supabase } from './lib/supabaseClient';
 import { processOrderDelivery } from './services/deliveryApi';
 
 import CashierPOS from './components/CashierPOS';
-const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
-const GrosStorefront = lazy(() => import('./components/GrosStorefront'));
-const EmballagePOS = lazy(() => import('./components/EmballagePOS'));
+const lazyWithRetry = (componentImport) =>
+  lazy(async () => {
+    const pageReloaded = sessionStorage.getItem('chunk_reload_flag');
+    try {
+      const component = await componentImport();
+      sessionStorage.removeItem('chunk_reload_flag');
+      return component;
+    } catch (error) {
+      if (!pageReloaded) {
+        sessionStorage.setItem('chunk_reload_flag', 'true');
+        window.location.reload();
+        return new Promise(() => {});
+      }
+      throw error;
+    }
+  });
+
+const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard'));
+const GrosStorefront = lazyWithRetry(() => import('./components/GrosStorefront'));
+const EmballagePOS = lazyWithRetry(() => import('./components/EmballagePOS'));
 
 
 const playNotificationSound = () => {
