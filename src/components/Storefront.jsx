@@ -882,8 +882,21 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
     };
   }, []);
 
+  useEffect(() => {
+    if (settings?.categories) {
+      let parsed = settings.categories;
+      if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch(e) {}
+      }
+      if (Array.isArray(parsed)) {
+        setRealtimeCategories(parsed);
+        try { localStorage.setItem('pyjama_dz_categories_cache', JSON.stringify(parsed)); } catch(e) {}
+      }
+    }
+  }, [settings?.categories]);
+
   const categoriesList = useMemo(() => {
-    let raw = realtimeCategories || settings?.categories;
+    let raw = settings?.categories || realtimeCategories;
     if (typeof raw === 'string') {
       try { raw = JSON.parse(raw); } catch (e) { raw = null; }
     }
@@ -901,7 +914,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
       list.push({ id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' });
     }
     return list;
-  }, [realtimeCategories, settings?.categories]);
+  }, [settings?.categories, realtimeCategories]);
 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
