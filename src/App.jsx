@@ -167,9 +167,29 @@ export default function App() {
       fetchData('expenses', setExpenses)
     ]).then(() => setLoading(false)).catch(err => {
       console.error('Initial data fetch error:', err);
-      setLoading(false);
     });
   };
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('settings_realtime_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
+        if (payload.new && payload.new.key === 'categories') {
+          let val = payload.new.value;
+          if (typeof val === 'string') {
+            try { val = JSON.parse(val); } catch(e) {}
+          }
+          if (Array.isArray(val)) {
+            setSettings(prev => ({ ...prev, categories: val }));
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const pendingUpdatesRef = useRef({});
   const updateDebounceRef = useRef({});
