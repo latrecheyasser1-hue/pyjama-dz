@@ -112,9 +112,12 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
 
   const confirmDeleteCategory = () => {
     if (deleteModal.targetIndex === null) return;
+    const targetTitle = deleteModal.targetTitle;
     const updatedList = categoriesList.filter((_, i) => i !== deleteModal.targetIndex);
     setCategoriesList(updatedList);
     onUpdateSettings({ ...settings, categories: updatedList });
+    setDeleteModal({ isOpen: false, targetIndex: null, targetTitle: '' });
+    showToast(`✅ تم حذف القسم "${targetTitle}" بنجاح!`, 'success');
   };
 
   const startEditing = (index) => {
