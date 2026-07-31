@@ -12,7 +12,7 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     if (typeof catData === 'string') {
       try { parsed = JSON.parse(catData); } catch (e) { parsed = DEFAULT_CATEGORIES; }
     }
-    return (Array.isArray(parsed) && parsed.length > 0) ? parsed : DEFAULT_CATEGORIES;
+    return Array.isArray(parsed) ? parsed : DEFAULT_CATEGORIES;
   };
 
   const [categoriesList, setCategoriesList] = useState(() => parseCategories(settings?.categories));
@@ -20,9 +20,7 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
   useEffect(() => {
     if (settings?.categories) {
       const parsed = parseCategories(settings?.categories);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setCategoriesList(parsed);
-      }
+      setCategoriesList(parsed);
     }
   }, [settings?.categories]);
 

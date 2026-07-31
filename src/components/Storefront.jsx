@@ -861,7 +861,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
     if (typeof raw === 'string') {
       try { raw = JSON.parse(raw); } catch (e) { raw = null; }
     }
-    let list = Array.isArray(raw) && raw.length > 0
+    let list = Array.isArray(raw)
       ? [...raw]
       : [...DEFAULT_CATEGORIES];
 
