@@ -829,8 +829,38 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
 }
 
 export default function Storefront({ products, settings, onPlaceOrder, onUpdateSettings, onGoToGros }) {
+  const [liveCategories, setLiveCategories] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFreshCategories = async () => {
+      try {
+        const res = await fetch('https://qnbwyblbxtwubmuejwtp.supabase.co/rest/v1/settings?key=eq.categories&select=*', {
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo'
+          },
+          cache: 'no-store'
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0 && data[0].value && isMounted) {
+            let parsed = data[0].value;
+            if (typeof parsed === 'string') {
+              try { parsed = JSON.parse(parsed); } catch(e) {}
+            }
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setLiveCategories(parsed);
+            }
+          }
+        }
+      } catch(e) {}
+    };
+    fetchFreshCategories();
+    return () => { isMounted = false; };
+  }, []);
+
   const categoriesList = useMemo(() => {
-    let raw = settings?.categories;
+    let raw = liveCategories || settings?.categories;
     if (typeof raw === 'string') {
       try { raw = JSON.parse(raw); } catch (e) { raw = null; }
     }
@@ -848,7 +878,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
       list.push({ id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' });
     }
     return list;
-  }, [settings?.categories]);
+  }, [liveCategories, settings?.categories]);
 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
