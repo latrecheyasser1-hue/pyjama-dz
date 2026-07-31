@@ -13,6 +13,15 @@ export default function EmballagePOS({ settings = {}, products = [], orders = []
   
   const [activeTab, setActiveTab] = useState('livraison'); // livraison, gros, history
   const [searchQuery, setSearchQuery] = useState('');
+  const [confirmedGrosCallMap, setConfirmedGrosCallMap] = useState({});
+
+  const toggleGrosCallConfirm = (orderId) => {
+    setConfirmedGrosCallMap(prev => ({
+      ...prev,
+      [orderId]: !prev[orderId]
+    }));
+    showToast('📞 تم تحديث حالة تأكيد المكالمة لطلبية الجملة', 'info');
+  };
 
   const validPin = settings?.cashierPin || '0000';
 
@@ -348,8 +357,8 @@ export default function EmballagePOS({ settings = {}, products = [], orders = []
                   </div>
                 </div>
 
-                <div style={{ padding: '15px 20px', background: '#F9FAFB', borderTop: '1px solid #E5E7EB', display: 'flex', gap: '10px' }}>
-                  {(activeTab === 'livraison' || activeTab === 'gros') ? (
+                <div style={{ padding: '15px 20px', background: '#F9FAFB', borderTop: '1px solid #E5E7EB', display: 'flex', flexDirection: activeTab === 'gros' ? 'column' : 'row', gap: '10px' }}>
+                  {activeTab === 'livraison' && (
                     <button 
                       onClick={() => handleEmballer(order.id)}
                       style={{ flex: 1, padding: '14px', background: 'var(--burgundy)', color: '#FFF', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'opacity 0.2s' }}
@@ -358,7 +367,59 @@ export default function EmballagePOS({ settings = {}, products = [], orders = []
                     >
                       <CheckCircle2 size={20} /> تمت التعبئة (Emballer)
                     </button>
-                  ) : (
+                  )}
+
+                  {activeTab === 'gros' && (
+                    <>
+                      <button 
+                        onClick={() => toggleGrosCallConfirm(order.id)}
+                        style={{ 
+                          width: '100%', 
+                          padding: '12px 15px', 
+                          background: confirmedGrosCallMap[order.id] ? '#ECFDF5' : '#FFF7ED', 
+                          color: confirmedGrosCallMap[order.id] ? '#047857' : '#C2410C', 
+                          border: `2px solid ${confirmedGrosCallMap[order.id] ? '#10B981' : '#F97316'}`, 
+                          borderRadius: '10px', 
+                          fontSize: '15px', 
+                          fontWeight: 800, 
+                          cursor: 'pointer', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justify: 'center', 
+                          gap: '8px', 
+                          transition: 'all 0.2s' 
+                        }}
+                      >
+                        {confirmedGrosCallMap[order.id] ? '✅ تم إعادة التأكيد مع زبون الجملة هاتفيًا' : '📞 أعد الاتصال والتأكيد مع زبون الجملة أولاً'}
+                      </button>
+
+                      <button 
+                        onClick={() => handleEmballer(order.id)}
+                        disabled={!confirmedGrosCallMap[order.id]}
+                        style={{ 
+                          width: '100%', 
+                          padding: '14px', 
+                          background: confirmedGrosCallMap[order.id] ? 'var(--burgundy)' : '#9CA3AF', 
+                          color: '#FFF', 
+                          border: 'none', 
+                          borderRadius: '10px', 
+                          fontSize: '16px', 
+                          fontWeight: 'bold', 
+                          cursor: confirmedGrosCallMap[order.id] ? 'pointer' : 'not-allowed', 
+                          opacity: confirmedGrosCallMap[order.id] ? 1 : 0.6,
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          gap: '8px', 
+                          transition: 'all 0.2s' 
+                        }}
+                      >
+                        <CheckCircle2 size={20} /> تمت التعبئة (Emballer)
+                      </button>
+                    </>
+                  )}
+
+                  {activeTab === 'history' && (
                     <>
                       <div style={{ flex: 1, padding: '14px', background: '#E5E7EB', color: '#4B5563', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: 'bold', textAlign: 'center' }}>
                         {order.status === 'emballee' && '📦 مغلفة'}
