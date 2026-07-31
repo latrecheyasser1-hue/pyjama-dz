@@ -843,19 +843,29 @@ export default function App() {
   };
 
   const handleUpdateSettings = async (newSettings) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
+    setSettings(prev => {
+      const nextSettings = { ...prev, ...newSettings };
+      try { localStorage.setItem('pyjama_settings_cache', JSON.stringify(nextSettings)); } catch(e) {}
+      return nextSettings;
+    });
+
     for (const [key, value] of Object.entries(newSettings)) {
       if (value === undefined || value === null) continue;
       const valStr = (key === 'categories' || typeof value === 'object') ? JSON.stringify(value) : (Array.isArray(value) ? value.join(' - ') : String(value));
       try {
-        const { data: updated } = await supabase
-          .from('settings')
-          .update({ value: valStr })
-          .eq('key', key)
-          .select();
-          
-        if (!updated || updated.length === 0) {
-          await supabase.from('settings').upsert({ key, value: valStr }, { onConflict: 'key' });
+        if (key === 'categories') {
+          await supabase.from('settings').delete().eq('key', 'categories');
+          await supabase.from('settings').insert({ key: 'categories', value: valStr });
+        } else {
+          const { data: updated } = await supabase
+            .from('settings')
+            .update({ value: valStr })
+            .eq('key', key)
+            .select();
+            
+          if (!updated || updated.length === 0) {
+            await supabase.from('settings').upsert({ key, value: valStr }, { onConflict: 'key' });
+          }
         }
       } catch (err) {
         console.error(`Error updating settings key ${key}:`, err);
