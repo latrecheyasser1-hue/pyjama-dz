@@ -265,7 +265,20 @@ export default function App() {
   };
 
   const fetchSettings = async () => {
-    const { data, error } = await supabase.from('settings').select('*');
+    try {
+      const { data: catData } = await supabase.from('settings').select('*').eq('key', 'categories');
+      if (catData && catData.length > 0 && catData[0].value) {
+        let val = catData[0].value;
+        if (typeof val === 'string') {
+          try { val = JSON.parse(val); } catch(e) {}
+        }
+        if (Array.isArray(val)) {
+          setSettings(prev => ({ ...prev, categories: val }));
+        }
+      }
+    } catch (e) {}
+
+    const { data, error } = await supabase.from('settings').select('*').limit(500);
     if (!error && data) {
       const obj = {};
       data.forEach(item => {
