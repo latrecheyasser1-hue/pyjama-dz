@@ -829,8 +829,61 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
 }
 
 export default function Storefront({ products, settings, onPlaceOrder, onUpdateSettings, onGoToGros }) {
+  const [realtimeCategories, setRealtimeCategories] = useState(() => {
+    try {
+      const cached = localStorage.getItem('pyjama_dz_categories_cache');
+      if (cached) return JSON.parse(cached);
+    } catch(e) {}
+    return null;
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const syncFreshCategories = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('*')
+          .eq('key', 'categories');
+        if (!error && data && data.length > 0 && data[0].value && isMounted) {
+          let parsed = data[0].value;
+          if (typeof parsed === 'string') {
+            try { parsed = JSON.parse(parsed); } catch(e) {}
+          }
+          if (Array.isArray(parsed)) {
+            setRealtimeCategories(parsed);
+            try { localStorage.setItem('pyjama_dz_categories_cache', JSON.stringify(parsed)); } catch(e) {}
+          }
+        }
+      } catch(e) {}
+    };
+
+    syncFreshCategories();
+
+    const channel = supabase
+      .channel('storefront_categories_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
+        if (payload.new && payload.new.key === 'categories') {
+          let val = payload.new.value;
+          if (typeof val === 'string') {
+            try { val = JSON.parse(val); } catch(e) {}
+          }
+          if (Array.isArray(val) && isMounted) {
+            setRealtimeCategories(val);
+            try { localStorage.setItem('pyjama_dz_categories_cache', JSON.stringify(val)); } catch(e) {}
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const categoriesList = useMemo(() => {
-    let raw = settings?.categories;
+    let raw = realtimeCategories || settings?.categories;
     if (typeof raw === 'string') {
       try { raw = JSON.parse(raw); } catch (e) { raw = null; }
     }
@@ -848,7 +901,7 @@ export default function Storefront({ products, settings, onPlaceOrder, onUpdateS
       list.push({ id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' });
     }
     return list;
-  }, [settings?.categories]);
+  }, [realtimeCategories, settings?.categories]);
 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
