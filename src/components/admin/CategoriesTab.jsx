@@ -77,7 +77,7 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     }
 
     setCategoriesList(updatedList);
-    onUpdateSettings({ ...settings, categories: updatedList });
+    onUpdateSettings({ categories: updatedList });
 
     // Reset Form
     setNewTitle('');
@@ -110,7 +110,7 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     const targetTitle = deleteModal.targetTitle;
     const updatedList = categoriesList.filter((_, i) => i !== deleteModal.targetIndex);
     setCategoriesList(updatedList);
-    onUpdateSettings({ ...settings, categories: updatedList });
+    onUpdateSettings({ categories: updatedList });
     setDeleteModal({ isOpen: false, targetIndex: null, targetTitle: '' });
     showToast(`✅ تم حذف القسم "${targetTitle}" بنجاح!`, 'success');
   };
@@ -133,7 +133,7 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
       image: editImage || presetImages[0].url
     };
     setCategoriesList(updatedList);
-    onUpdateSettings({ ...settings, categories: updatedList });
+    onUpdateSettings({ categories: updatedList });
     setEditingIndex(null);
   };
 
