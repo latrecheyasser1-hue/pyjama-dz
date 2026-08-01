@@ -1844,10 +1844,21 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
           <div className="whb-footer-col">
             <h4>Catégories Populaires</h4>
             <ul>
-              <li onClick={() => { setSelectedCategory('satin'); scrollToProductsGrid(120); }}>✨ Collection Satin de Soie</li>
-              <li onClick={() => { setSelectedCategory('coton'); scrollToProductsGrid(120); }}>🧸 100% Coton Confort</li>
-              <li onClick={() => { setSelectedCategory('mariee'); scrollToProductsGrid(120); }}>👰 Trousseau Mariée VIP</li>
-              <li onClick={() => { setSelectedCategory('promo'); scrollToProductsGrid(120); }}>🔥 Promotions et Soldes</li>
+              {categoriesList.map((cat) => (
+                <li 
+                  key={cat.id} 
+                  onClick={() => { 
+                    setSelectedCategory(cat.id); 
+                    setSearchQuery('');
+                    setTempSearchQuery('');
+                    setActiveDetailProduct(null);
+                    scrollToProductsGrid(120); 
+                  }}
+                  style={{ cursor: 'pointer', transition: 'color 0.2s' }}
+                >
+                  {cat.icon ? `${cat.icon} ` : ''}{cat.title || cat.name}
+                </li>
+              ))}
             </ul>
           </div>
 
