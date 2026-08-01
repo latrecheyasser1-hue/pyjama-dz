@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ALGERIA_WILAYAS, DEFAULT_CATEGORIES } from '../data/mockData';
-import { ALGERIA_WILAYAS_COMMUNES } from '../data/algeriaCities';
+import { ALGERIA_WILAYAS_COMMUNES, getCommunesForWilaya } from '../data/algeriaCities';
 import { showToast } from '../utils/toast';
 import { sanitizeAlgerianPhone, isValidAlgerianPhone } from '../utils/phoneUtils';
 import { supabase } from '../lib/supabaseClient';
@@ -1214,12 +1214,11 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const [deliveryCompany, setDeliveryCompany] = useState('');
 
   const availableCommunes = useMemo(() => {
-    if (!wilaya) return [];
-    return ALGERIA_WILAYAS_COMMUNES[wilaya] || [];
+    return getCommunesForWilaya(wilaya);
   }, [wilaya]);
 
   const [commune, setCommune] = useState(() => {
-    const defaultCommunes = ALGERIA_WILAYAS_COMMUNES[ALGERIA_WILAYAS[15]];
+    const defaultCommunes = getCommunesForWilaya(ALGERIA_WILAYAS[15]);
     return defaultCommunes && defaultCommunes.length > 0 ? defaultCommunes[0] : '';
   });
 

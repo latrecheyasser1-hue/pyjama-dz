@@ -16,6 +16,9 @@ export const ALGERIA_WILAYAS_COMMUNES = {
   "14 - Tiaret": ["Tiaret", "Medroussa", "Ain Bouchekif", "Sidi Ali Mellal", "Ain Zarit", "Ain Deheb", "Naima", "Guertoufa", "Frenda", "Ain El Hadid", "Djebilet Rosfa", "Mahdia", "Sebt", "Mellakou", "Dahmouni", "Rahouia", "Mahdia", "Sougueur", "Sidi Abdelghani"],
   "15 - Tizi Ouzou": ["Tizi Ouzou", "Ain El Hammam", "Akbil", "Freha", "Souamaa", "Mechtras", "Irdjen", "Timizart", "Makouda", "Draa El Mizan", "Tizi Gheniff", "Bounouh", "Ait Chaffaa", "Akerrou", "Souk El Tenine", "Ait Yenni", "Aghribs", "Iflissen", "Beni Aissi", "Beni Zmenzer"],
   "16 - Alger": ["Alger Centre", "Sidi M'Hamed", "El Madania", "Belouizdad", "Bab El Oued", "Bologhine", "Casbah", "Oued Koriche", "Rais Hamidou", "El Biar", "Bouzareah", "Dey", "Hydra", "Ben Aknoun", "El Mouradia", "Birtouta", "Tessala El Merdja", "Ouled Chebel", "Sidi Moussa", "Ain Taya", "Bordj El Kiffan", "El Marsa", "Dar El Beida", "Bab Ezzouar", "Bordj El Bahri", "Rouiba", "Reghaia", "Ain Benian", "Staoueli", "Zeralda", "Mahelma", "Rahmania", "Souidania", "Cheraga", "Ouled Fayet", "El Achour", "Draria", "Baba Hassen", "Douera", "Khraicia", "Birmandreis", "El Magharia", "Kouba", "Dely Ibrahim", "Saoula", "Hussein Dey", "Mohammadia", "Bordj El Kiffan", "Hassan Badi", "Bachdjerrah"],
+  "16 - Alger (العاصمة)": ["Alger Centre", "Sidi M'Hamed", "El Madania", "Belouizdad", "Bab El Oued", "Bologhine", "Casbah", "Oued Koriche", "Rais Hamidou", "El Biar", "Bouzareah", "Dey", "Hydra", "Ben Aknoun", "El Mouradia", "Birtouta", "Tessala El Merdja", "Ouled Chebel", "Sidi Moussa", "Ain Taya", "Bordj El Kiffan", "El Marsa", "Dar El Beida", "Bab Ezzouar", "Bordj El Bahri", "Rouiba", "Reghaia", "Ain Benian", "Staoueli", "Zeralda", "Mahelma", "Rahmania", "Souidania", "Cheraga", "Ouled Fayet", "El Achour", "Draria", "Baba Hassen", "Douera", "Khraicia", "Birmandreis", "El Magharia", "Kouba", "Dely Ibrahim", "Saoula", "Hussein Dey", "Mohammadia", "Bordj El Kiffan", "Hassan Badi", "Bachdjerrah"],
+  "31 - Oran": ["Oran", "Gdyel", "Bir El Djir", "Hassi Bounif", "Es Senia", "Arzew", "Bethioua", "Marsat El Hadjadj", "Ain Turk", "El Ancor", "Mers El Kebir", "Boufatis", "El Kerma", "El Braya", "Hassi Ben Okba", "Boutlelis", "Ain El Kerma", "Miserghin"],
+  "31 - Oran (وهران)": ["Oran", "Gdyel", "Bir El Djir", "Hassi Bounif", "Es Senia", "Arzew", "Bethioua", "Marsat El Hadjadj", "Ain Turk", "El Ancor", "Mers El Kebir", "Boufatis", "El Kerma", "El Braya", "Hassi Ben Okba", "Boutlelis", "Ain El Kerma", "Miserghin"],
   "17 - Djelfa": ["Djelfa", "Moudjebara", "Tadmit", "Hassi Bahbah", "Ain Maabed", "Sed Rahal", "Feidh El Botma", "Birine", "Ain Oussera", "Bouira Lahdab", "Ain El Ibel", "M'Liliha", "El Idrissia", "Douis", "Hassi El Ghezzeil", "Charef", "Guernini", "Dar Chioukh", "Zaccar", "El Khemis"],
   "18 - Jijel": ["Jijel", "Eraguene", "El Aouana", "Ziama Mansouriah", "Taher", "Emir Abdelkader", "Chekfa", "Chahna", "El Milia", "Sattara", "El Ancer", "Sidi Abdelaziz", "Kaous", "Ghebala", "Bouraoui Belhadef", "Djimla", "Selma Benziada", "Boussif Ouled Askeur", "El Kenar N'Oumouche", "Boudriaa Ben Yadjis"],
   "19 - Sétif": ["Sétif", "Ain El Kebira", "Beni Aziz", "Ouled Addouane", "Ain Abessa", "Ain Arnat", "Amoucha", "Ain Oulmene", "Beidha Bordj", "Bouandas", "Bazer Sakra", "Hammam Essokhna", "Meghres", "Guidjel", "Bordj El Arba", "Beni Oussine", "El Eulma", "Belaa", "Tachouda", "Hammam Guergour", "Ain Azel"],
@@ -58,4 +61,17 @@ export const ALGERIA_WILAYAS_COMMUNES = {
   "56 - Djanet": ["Djanet", "Bordj El Haouas"],
   "57 - In Salah": ["In Salah", "In Ghar", "Foggaret Azzaouia"],
   "58 - In Guezzam": ["In Guezzam", "Tin Zaouatine"]
+};
+
+export const getCommunesForWilaya = (wilayaStr) => {
+  if (!wilayaStr) return [];
+  if (ALGERIA_WILAYAS_COMMUNES[wilayaStr]) return ALGERIA_WILAYAS_COMMUNES[wilayaStr];
+  
+  const wilayaCode = String(wilayaStr).trim().split(' ')[0];
+  if (wilayaCode) {
+    const foundKey = Object.keys(ALGERIA_WILAYAS_COMMUNES).find(k => k.startsWith(wilayaCode + ' '));
+    if (foundKey) return ALGERIA_WILAYAS_COMMUNES[foundKey];
+  }
+  
+  return [];
 };

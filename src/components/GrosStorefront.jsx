@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ALGERIA_WILAYAS } from '../data/mockData';
-import { ALGERIA_WILAYAS_COMMUNES } from '../data/algeriaCities';
+import { ALGERIA_WILAYAS_COMMUNES, getCommunesForWilaya } from '../data/algeriaCities';
 import { showToast } from '../utils/toast';
 import { sanitizeAlgerianPhone, isValidAlgerianPhone } from '../utils/phoneUtils';
 import { ShoppingBag, ArrowRight, MapPin, Trash2, Check, Search, Phone, ShoppingCart } from 'lucide-react';
@@ -41,8 +41,7 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
   const [orderSuccess, setOrderSuccess] = useState(false);
 
   const availableGrosCommunes = useMemo(() => {
-    if (!checkoutWilaya) return [];
-    return ALGERIA_WILAYAS_COMMUNES[checkoutWilaya] || [];
+    return getCommunesForWilaya(checkoutWilaya);
   }, [checkoutWilaya]);
 
   const [checkoutCommune, setCheckoutCommune] = useState('');
