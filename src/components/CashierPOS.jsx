@@ -649,14 +649,6 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
             سجل المحل
           </button>
 
-          {isInstallable && (
-            <button 
-              onClick={promptInstall}
-              style={{ background: '#EF4444', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '12px', fontWeight: 'bold', display: 'flex', gap: '6px', alignItems: 'center', cursor: 'pointer' }}
-            >
-              تثبيت التطبيق 📱
-            </button>
-          )}
         </div>
       </header>
 
