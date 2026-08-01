@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ALGERIA_WILAYAS, DEFAULT_CATEGORIES } from '../data/mockData';
+import { ALGERIA_WILAYAS_COMMUNES } from '../data/algeriaCities';
 import { showToast } from '../utils/toast';
 import { sanitizeAlgerianPhone, isValidAlgerianPhone } from '../utils/phoneUtils';
 import { supabase } from '../lib/supabaseClient';
@@ -1209,9 +1210,26 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const [clientName, setClientName] = useState('');
   const [phone, setPhone] = useState('');
   const [wilaya, setWilaya] = useState(ALGERIA_WILAYAS[15]); // Default Alger
-  const [commune, setCommune] = useState('');
   const [deliveryMode, setDeliveryMode] = useState('Livraison Domicile (توصيل للمنزل)');
   const [deliveryCompany, setDeliveryCompany] = useState('');
+
+  const availableCommunes = useMemo(() => {
+    if (!wilaya) return [];
+    return ALGERIA_WILAYAS_COMMUNES[wilaya] || [];
+  }, [wilaya]);
+
+  const [commune, setCommune] = useState(() => {
+    const defaultCommunes = ALGERIA_WILAYAS_COMMUNES[ALGERIA_WILAYAS[15]];
+    return defaultCommunes && defaultCommunes.length > 0 ? defaultCommunes[0] : '';
+  });
+
+  useEffect(() => {
+    if (availableCommunes && availableCommunes.length > 0) {
+      if (!availableCommunes.includes(commune)) {
+        setCommune(availableCommunes[0]);
+      }
+    }
+  }, [wilaya, availableCommunes]);
 
   // Prevent body scroll when cart is open
   useEffect(() => {
@@ -2059,11 +2077,19 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
                     <div className="form-group" style={{ marginBottom: '18px' }}>
                       <label className="form-label" style={{ fontWeight: 700 }}>البلدية (Commune) *</label>
-                      <input 
-                        type="text" required placeholder="Ex: Bab Ezzouar..." 
-                        className="form-input" style={{ padding: '12px 16px', fontSize: '1rem' }}
+                      <select 
+                        className="form-select" style={{ padding: '12px 16px', fontSize: '1rem' }}
                         value={commune} onChange={(e) => setCommune(e.target.value)}
-                      />
+                        required
+                      >
+                        {availableCommunes.length > 0 ? (
+                          availableCommunes.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))
+                        ) : (
+                          <option value={commune}>{commune || '-- اختر البلدية --'}</option>
+                        )}
+                      </select>
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '18px' }}>

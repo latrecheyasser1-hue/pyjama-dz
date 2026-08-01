@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ALGERIA_WILAYAS } from '../data/mockData';
+import { ALGERIA_WILAYAS_COMMUNES } from '../data/algeriaCities';
 import { showToast } from '../utils/toast';
 import { sanitizeAlgerianPhone, isValidAlgerianPhone } from '../utils/phoneUtils';
 import { ShoppingBag, ArrowRight, MapPin, Trash2, Check, Search, Phone, ShoppingCart } from 'lucide-react';
@@ -35,10 +36,24 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
   const [checkoutPhone, setCheckoutPhone] = useState('');
   const [checkoutWhatsapp, setCheckoutWhatsapp] = useState('');
   const [checkoutWilaya, setCheckoutWilaya] = useState('');
-  const [checkoutCommune, setCheckoutCommune] = useState('');
   const [checkoutDeliveryMode, setCheckoutDeliveryMode] = useState('Livraison Domicile (توصيل للمنزل)');
   const [checkoutDeliveryCompany, setCheckoutDeliveryCompany] = useState('');
   const [orderSuccess, setOrderSuccess] = useState(false);
+
+  const availableGrosCommunes = useMemo(() => {
+    if (!checkoutWilaya) return [];
+    return ALGERIA_WILAYAS_COMMUNES[checkoutWilaya] || [];
+  }, [checkoutWilaya]);
+
+  const [checkoutCommune, setCheckoutCommune] = useState('');
+
+  React.useEffect(() => {
+    if (availableGrosCommunes && availableGrosCommunes.length > 0) {
+      if (!availableGrosCommunes.includes(checkoutCommune)) {
+        setCheckoutCommune(availableGrosCommunes[0]);
+      }
+    }
+  }, [checkoutWilaya, availableGrosCommunes]);
 
   // Per-product inputs state: { [productId]: { qty: number, selectedColors: { [color]: boolean } } }
   const [productConfigs, setProductConfigs] = useState({});
@@ -757,14 +772,20 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#475569' }}>البلدية *</label>
-                        <input 
-                          type="text" 
+                        <select 
                           required
-                          placeholder="اسم البلدية" 
                           className="form-input-gros"
                           value={checkoutCommune}
                           onChange={(e) => setCheckoutCommune(e.target.value)}
-                        />
+                        >
+                          {availableGrosCommunes.length > 0 ? (
+                            availableGrosCommunes.map(c => (
+                              <option key={c} value={c}>{c}</option>
+                            ))
+                          ) : (
+                            <option value={checkoutCommune}>{checkoutCommune || 'اختر البلدية'}</option>
+                          )}
+                        </select>
                       </div>
                     </div>
 
