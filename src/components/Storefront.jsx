@@ -906,15 +906,24 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       : [...DEFAULT_CATEGORIES];
 
     if (!list.some(c => c.id === 'all')) {
-      list.unshift({ id: 'all', title: 'TOUT VOIR', icon: '✨', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' });
+      list.unshift({ id: 'all', title: 'TOUT VOIR', icon: '', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' });
     }
     if (!list.some(c => c.id === 'hot_sale')) {
-      list.splice(1, 0, { id: 'hot_sale', title: '🔥 الأكثر مبيعاً (HOT SALE)', icon: '🔥', badge: '🔥 Tendance' });
+      list.splice(1, 0, { id: 'hot_sale', title: 'الأكثر مبيعاً (HOT SALE)', icon: '', badge: '🔥 Tendance' });
     }
     if (!list.some(c => c.id === 'promo')) {
       list.push({ id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' });
     }
-    return list;
+
+    return list.map(c => {
+      if (c.id === 'all') {
+        return { ...c, title: 'TOUT VOIR', icon: '' };
+      }
+      if (c.id === 'hot_sale') {
+        return { ...c, title: 'الأكثر مبيعاً (HOT SALE)', icon: '' };
+      }
+      return c;
+    });
   }, [settings?.categories, realtimeCategories]);
 
   const [selectedCategory, setSelectedCategory] = useState('all');
