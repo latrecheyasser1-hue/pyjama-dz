@@ -1917,54 +1917,6 @@ async function processIncomingPayload(body) {
               }
             }
 
-              // 2. RECLAMATION HANDLER (Only for explicit complaints/reclamations)
-              const complaintKeywords = [
-                'Ø´ÙƒÙˆÙ‰', 'Ø¹ØªØ§Ø¨', 'Ù†Ø§Ù‚Øµ', 'Ù…ÙƒØ³ÙˆØ±', 'Ø±Ø§Ø¯ÙŠ', 'Ù…Ø§ ÙˆØµÙ„Ù†ÙŠØ´', 'Ø®Ø§Ø³Ø±', 'ØªØ£Ø®Ø±Øª', 'Ù…ØºØ´ÙˆØ´',
-                'Ù…Ù‚Ø·ÙˆØ¹', 'ÙØ³Ø¯', 'ÙˆØµÙ„Øª Ù†Ø§Ù‚ØµØ©', 'ÙˆØµÙ„Øª Ø®Ø§Ø³Ø±Ø©', 'Ø³Ù„Ø¹Ø© Ø®Ø§Ø³Ø±Ø©', 'Ø®Ø¯Ù…Ø© Ø³ÙŠØ¦Ø©',
-                'reclamation', 'rÃ©clamation', 'Ù…ØºØ´ÙˆØ´Ø©', 'Ø²Ø¨Ù„', 'probleme', 'problÃ¨me', 'cassÃ©', 'casse',
-                'retard', 'retarde', 'degueulasse', 'nul', 'nulle', 'zbel', 'khaser', 'khasra'
-              ];
-
-              const isCancelIntentWord = [
-                'anuler', 'annuler', 'anule', 'annule', 'nanuli', 'anuli', 'nanulii', 'anulii', 'nanoli', 'anoli',
-                'Ø§Ù„ØºÙŠ', 'Ø£Ù„ØºÙŠ', 'Ø¥Ù„ØºØ§Ø¡', 'Ø§Ù„ØºØ§Ø¡', 'Ù†Ù„ØºÙŠ', 'Ø§Ù†ÙˆÙ„ÙŠ', 'Ø£Ù†ÙˆÙ„ÙŠ'
-              ].some(k => rawLower.includes(k) || normText.includes(k));
-
-              const isComplaint = !isCancelIntentWord && complaintKeywords.some(k => normText.includes(k) || rawLower.includes(k));
-
-              if (isComplaint) {
-                const rawContactName = order?.clientName || value?.contacts?.[0]?.profile?.name || '';
-                const greetingName = (rawContactName && rawContactName.trim() !== '' && rawContactName !== 'Ø²Ø¨ÙˆÙ† Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©' && rawContactName !== 'Ø²Ø¨ÙˆÙ† Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨')
-                  ? ` ${rawContactName.trim()}`
-                  : '';
-
-                const complaintMsg = `Ø£Ù‡Ù„Ø§Ù‹ ÙˆØ³Ù‡Ù„Ø§Ù‹ Ø¨Ùƒ${greetingName}.\nØªÙ… ØªØ³Ø¬ÙŠÙ„ Ø´ÙƒÙˆØ§Ùƒ ÙˆÙ…Ù„Ø§Ø­Ø¸ØªÙƒ Ø¨Ù†Ø¬Ø§Ø­ Ù„Ø¯Ù‰ ÙØ±ÙŠÙ‚ Ø®Ø¯Ù…Ø© Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ ÙˆØ³ÙŠØªÙ… Ø§Ù„ØªÙˆØ§ØµÙ„ Ù…Ø¹Ùƒ ÙˆÙ…ØªØ§Ø¨Ø¹Ø© Ø§Ù„Ø£Ù…Ø± ÙÙˆØ±Ø§Ù‹. Ø´ÙƒØ±Ø§Ù‹ Ù„ØµØ¨Ø±Ùƒ Ù…Ø¹Ù†Ø§. ðŸŒ¸`;
-                await sendWhatsAppMessage(fromPhone, complaintMsg);
-
-                // Save reclamation to Supabase settings table
-                try {
-                  const existingRecl = Array.isArray(storeSettings.reclamations) ? storeSettings.reclamations : [];
-                  const newRecl = {
-                    id: 'REC-WA-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-                    clientName: rawContactName || 'Ø²Ø¨ÙˆÙ† Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨',
-                    whatsappNumber: fromPhone,
-                    message: messageText.trim(),
-                    status: 'nouvelle',
-                    createdAt: new Date().toISOString()
-                  };
-                  await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations`, {
-                    method: 'PATCH',
-                    headers: {
-                      'apikey': SUPABASE_KEY,
-                      'Authorization': `Bearer ${SUPABASE_KEY}`,
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ value: JSON.stringify([newRecl, ...existingRecl]) })
-                  });
-                } catch (e) {
-                  console.error("Error saving WhatsApp reclamation to Supabase:", e);
-                }
-                continue;
               }
 
               // STRICT AI SALES INSTRUCTIONS (ZERO EMOJIS)
