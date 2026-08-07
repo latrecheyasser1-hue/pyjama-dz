@@ -359,6 +359,11 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
   const phonesArr = extractCleanPhonesList(...phoneSources);
   const formattedPhonesBullets = phonesArr.length > 0 ? phonesArr.map(p => "- " + p).join("\n") : "- 0554128933";
 
+  // 0. GREETINGS & SALUTATIONS
+  if (['slm', 'سلام', 'وعليكم', 'سلام عليكم', 'مرحبا', 'أهلا', 'اهلين', 'bonjour', 'coucou', 'salut'].some(k => norm === k || pLower === k || norm.startsWith(k))) {
+    return "وعليكم السلام ورحمة الله وبركاته! 🌸\nأهلاً وسهلاً بك في متجر Pyjama DZ.\nكيف يمكننا مساعدتك اليوم؟ تفضل بالاستفسار عن أي موديل أو مقاس أو توصيل. ✨";
+  }
+
   // 1. QUALITY & FABRIC INQUIRY
   if (['qualite', 'qualité', 'chaba', 'chab', 'chbab', 'جودة', 'نوعية', 'قماش', 'مليحة', 'شبابة', 'شباب', 'مليح'].some(k => norm.includes(k) || pLower.includes(k))) {
     return "جودة السلعة والقماش ممتازة جداً ورفيعة ومريحة في اللبس 100%\nيمكنك تصفح جميع الموديلات والتفاصيل عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app ✨🌸";
