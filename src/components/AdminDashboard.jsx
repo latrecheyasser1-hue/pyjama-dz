@@ -173,8 +173,13 @@ export default function AdminDashboard({
     prevOrdersCountRef.current = orders.length;
   }, [orders, session]);
 
-  // Active new orders count
-  const newOrdersCount = orders.filter(o => o.status === 'nouvelle').length;
+  // Pure real orders list (filtering out reclamations)
+  const realOrders = React.useMemo(() => {
+    return (orders || []).filter(o => o.deliveryMode !== 'reclamation' && o.deliveryCompany !== 'RECLAMATION' && o.orderType !== 'reclamation');
+  }, [orders]);
+
+  // Active new orders count (real orders only)
+  const newOrdersCount = realOrders.filter(o => o.status === 'nouvelle').length;
 
   const reclamationsCount = React.useMemo(() => {
     const list = settings?.reclamations && Array.isArray(settings.reclamations) ? settings.reclamations : [];
@@ -209,7 +214,7 @@ export default function AdminDashboard({
 
         {activeTab === 'orders' && (
           <OrdersTab
-            orders={orders}
+            orders={realOrders}
             products={products}
             settings={settings}
             onPlaceOrder={onPlaceOrder}
