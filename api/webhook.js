@@ -1926,8 +1926,6 @@ async function processIncomingPayload(body) {
               }
             }
 
-              }
-
               // STRICT AI SALES INSTRUCTIONS (ZERO EMOJIS)
               const isWholesale = ["gros", "Ø¬Ù…Ù„Ø©", "Ø¨Ø§Ù„Ø¬Ù…Ù„Ø©", "ÙƒØ§Ø¨Ø©", "ØªØ¬Ø§Ø±Ø©", "Ø³ÙŠØ±ÙŠ", "serie", "Ø³ÙŠØ±ÙŠØ§Øª", "ÙƒÙ…ÙŠØ©", "ÙƒÙ…ÙŠØ§Øª", "grosiste", "grossiste", "Ø¨ÙŠØ¹ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø©", "Ø´Ø±Ø§Ø¡ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø©"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
               let salesModeRules = isWholesale
