@@ -422,39 +422,42 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}, userMessage = "", products = []) {
-  const modelEndpoints = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+  const modelEndpoints = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
   const keys = await getGeminiKeys();
-  if (keys.length === 0) return getSmartFallbackResponse(userMessage || prompt, storeSettings, products);
+  if (!keys || keys.length === 0) return getSmartFallbackResponse(userMessage || prompt, storeSettings, products);
 
-  const selectedKey = keys[0];
-  for (const model of modelEndpoints) {
-    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': selectedKey
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-          generationConfig: { temperature: 0.3, maxOutputTokens: 500 }
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
+  for (const selectedKey of keys) {
+    for (const model of modelEndpoints) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': selectedKey
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+            generationConfig: { temperature: 0.3, maxOutputTokens: 500 }
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
-      if (res.status === 200) {
-        const data = await res.json();
-        const parts = data.candidates?.[0]?.content?.parts || [];
-        const textParts = parts.filter(p => p.text && !p.thought).map(p => p.text).filter(Boolean);
-        const text = textParts.join('');
-        if (text) return removeEmojis(text.trim());
+        if (res.status === 200) {
+          const data = await res.json();
+          const parts = data.candidates?.[0]?.content?.parts || [];
+          const textParts = parts.filter(p => p.text && !p.thought).map(p => p.text).filter(Boolean);
+          const text = textParts.join('');
+          if (text && text.trim().length > 0) return removeEmojis(text.trim());
+        }
+      } catch (err) {
+        console.error(`Gemini AI fetch notice for model ${model}:`, err);
       }
-    } catch (err) {}
+    }
   }
 
   return getSmartFallbackResponse(userMessage || prompt, storeSettings, products);
