@@ -2117,16 +2117,18 @@ export default async function handler(req, res) {
       try { body = JSON.parse(body); } catch(e) {}
     }
 
-    // Return 200 OK instantly to Meta Graph API to prevent Meta webhook timeout (3s limit)
-    res.status(200).send('EVENT_RECEIVED');
-
     if (body) {
-      processIncomingPayload(body).catch(err => {
-        console.error('Error in async background webhook processing:', err);
-      });
+      try {
+        await processIncomingPayload(body);
+      } catch (err) {
+        console.error('Error processing webhook payload:', err);
+      }
     }
 
-    return;
+    if (typeof res.status === 'function') {
+      return res.status(200).send('EVENT_RECEIVED');
+    }
+    return res.status(200).json({ status: 'EVENT_RECEIVED' });
   }
 
   if (typeof res.status(405).send === 'function') {
