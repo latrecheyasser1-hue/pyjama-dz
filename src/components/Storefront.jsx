@@ -1501,7 +1501,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
   const instaUrl = formatUrl(settings?.instagramUrl || settings?.instagram, "https://www.instagram.com/pyjama_dz");
   const rawMaps = (settings?.googleMapsUrl || settings?.googleMaps || settings?.mapsUrl || "").trim();
-  const mapsUrl = formatUrl(rawMaps, "https://maps.google.com/?q=" + encodeURIComponent(settings?.address || "Chlef, Algeria"));
+  const validMaps = (rawMaps && !rawMaps.includes('algeria-pyjama-dz')) ? rawMaps : "https://maps.google.com/?q=" + encodeURIComponent(settings?.address || "Chlef, Algeria");
+  const mapsUrl = formatUrl(validMaps, "https://maps.google.com/?q=" + encodeURIComponent(settings?.address || "Chlef, Algeria"));
   
   const getPhoneList = () => {
     if (Array.isArray(settings?.phoneOrders) && settings.phoneOrders.length > 0) {
