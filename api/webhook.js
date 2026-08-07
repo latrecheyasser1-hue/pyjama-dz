@@ -1457,17 +1457,18 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
     } catch (e) {}
 
     if (activeState && activeState.orderId) {
-      // Require EXPLICIT cancellation intent to confirm CANCELLATION (e.g., 'نعم إلغاء', 'تأكيد الإلغاء', 'نعم انولي')
+      // Affirmative responses to "Are you sure you want to cancel?" mean CONFIRM CANCELLATION!
       const isExplicitCancelConfirm = [
+        'نعم', 'نعام', 'إيه', 'ايه', 'إي', 'اي', 'أكيد', 'اكيد', 'صح', 'oui', 'yes', 'ih', '1',
         'تأكيد الإلغاء', 'تأكيد الغاء', 'تاكيد الغاء', 'تاكيد إلغاء', 'نعم الغيها', 'نعم انولي',
         'نعم انوليها', 'نعم إلغاء', 'نعم الغاء', 'الغيتها', 'انوليها', 'الغي الطلب', 'الغاء الطلب',
-        'annuler la commande', 'oui annuler', 'oui anuler'
+        'annuler la commande', 'oui annuler', 'oui anuler', 'إلغاء', 'الغاء', 'الغي', 'ألغي'
       ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
 
-      // General affirmative responses like 'oui', 'ih', 'confirme', 'أكدلي' mean KEEP ORDER ACTIVE & CONFIRM DELIVERY!
+      // Negative responses mean KEEP ORDER ACTIVE & DO NOT CANCEL!
       const isDeclineNo = !isExplicitCancelConfirm && [
         'لا', '2', 'تراجع', 'لا تلغي', 'لا تلغيها', 'تراجع عن الإلغاء', 'تراجع عن الغاء', 'تراجع عن الالغاء',
-        'lala', 'no', 'non', 'pas', 'oui', 'ih', 'نعم', 'إيه', 'ايه', 'أكيد', 'اكيد', 'confirme', 'confirmer', 'akedli', 'أكدلي'
+        'lala', 'no', 'non', 'pas'
       ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
 
       if (isExplicitCancelConfirm) {
