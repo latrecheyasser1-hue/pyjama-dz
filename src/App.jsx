@@ -311,7 +311,7 @@ export default function App() {
         }));
       }
 
-      const { data: recsFromOrders } = await supabase.from('orders').select('*').or('orderType.eq.reclamation,deliveryMode.eq.reclamation').order('created_at', { ascending: false });
+      const { data: recsFromOrders } = await supabase.from('orders').select('*').or('deliveryMode.eq.reclamation,deliveryCompany.eq.RECLAMATION').order('created_at', { ascending: false });
       let mappedOrderRecs = [];
       if (recsFromOrders && recsFromOrders.length > 0) {
         mappedOrderRecs = recsFromOrders.map(o => ({

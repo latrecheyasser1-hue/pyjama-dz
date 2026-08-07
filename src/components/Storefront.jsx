@@ -955,20 +955,19 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         created_at: new Date().toISOString()
       };
 
-      // 1. Guaranteed RLS-free insert into 'orders' table (Works 100% on all mobile devices without auth)
+      // 1. Guaranteed RLS-free insert into 'orders' table using valid DB columns (Works 100% on all mobile devices without auth)
       const orderRecPayload = {
         clientName: reclamationName.trim(),
         phone: reclamationWhatsapp.trim(),
         wilaya: 'الجزائر العاصمة',
-        commune: 'قسم الشكاوى',
+        commune: 'قسم الشكاوى والملاحظات',
         deliveryMode: 'reclamation',
-        deliveryCompany: '',
+        deliveryCompany: 'RECLAMATION',
         product: reclamationMessage.trim(),
         price: 0,
         quantity: 1,
         status: 'nouvelle',
         archived: false,
-        orderType: 'reclamation',
         date: new Date().toISOString().split('T')[0]
       };
 
