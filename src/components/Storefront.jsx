@@ -1499,8 +1499,9 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     return `https://${trimmed}`;
   };
 
-  const instaUrl = formatUrl(settings?.instagramUrl, "https://www.instagram.com/pyjama_dz");
-  const mapsUrl = formatUrl(settings?.googleMapsUrl, "https://maps.google.com/?q=" + encodeURIComponent(settings?.address || "Bab Ezzouar & Hydra, Alger"));
+  const instaUrl = formatUrl(settings?.instagramUrl || settings?.instagram, "https://www.instagram.com/pyjama_dz");
+  const rawMaps = (settings?.googleMapsUrl || settings?.googleMaps || settings?.mapsUrl || "").trim();
+  const mapsUrl = formatUrl(rawMaps, "https://maps.google.com/?q=" + encodeURIComponent(settings?.address || "Chlef, Algeria"));
   
   const getPhoneList = () => {
     if (Array.isArray(settings?.phoneOrders) && settings.phoneOrders.length > 0) {
@@ -1914,7 +1915,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               >
                 📞 Téléphone : {phoneList.join(' - ')}
               </li>
-              <li>📍 {settings?.address || "Bab Ezzouar & Hydra, Alger"}</li>
+              <li>📍 {settings?.address || "الشلف (Chlef)"}</li>
             </ul>
           </div>
 

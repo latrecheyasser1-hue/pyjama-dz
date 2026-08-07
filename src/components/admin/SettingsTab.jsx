@@ -83,6 +83,7 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       ...settings,
       instagramUrl: instaUrl,
       googleMapsUrl,
+      googleMaps: googleMapsUrl,
       whatsapp,
       whatsappBoutiqueManager,
       whatsappLivraisonManager,
