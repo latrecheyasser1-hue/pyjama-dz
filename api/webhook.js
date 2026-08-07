@@ -1655,8 +1655,14 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
 
     let pendingOrders = await orderCheckRes.json();
     if (!Array.isArray(pendingOrders) || pendingOrders.length === 0) {
-      await sendWhatsAppMessage(fromPhone, `أهلاً بك! 🌸\nلم نجد أي طلبية معلقة مسجلة برقم هاتفك هذا حالياً لتأكيدها.`);
-      return true;
+      // If customer strictly typed explicit order confirm phrase like 'أكدلي الطلبية' or 'confirme la commande'
+      const explicitOrderConfirm = ['أكد الطلبية', 'تأكيد الطلبية', 'تأكيد الطلب', 'أكدلي الطلبية', 'أكدلي طلبية', 'أكدلي الطلب', 'confirme la commande', 'akedli la commande'].some(kw => normText.includes(kw) || rawLower.includes(kw));
+      if (explicitOrderConfirm) {
+        await sendWhatsAppMessage(fromPhone, `أهلاً بك! 🌸\nلم نجد أي طلبية معلقة مسجلة برقم هاتفك هذا حالياً لتأكيدها.`);
+        return true;
+      }
+      // General affirmative words (oui, ok, صح, نعم) continue to Gemini AI for natural conversation
+      return false;
     }
     const orderToConfirm = pendingOrders[0];
     await updateOrderStatusAndArchive(orderToConfirm.id, 'confirmee');
