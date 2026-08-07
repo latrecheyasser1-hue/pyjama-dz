@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Phone, Trash2, CheckCircle2, Clock, AlertCircle, MessageSquare, ExternalLink, Search } from 'lucide-react';
 import { showToast } from '../../utils/toast';
+import { supabase } from '../../lib/supabaseClient';
 
 export default function ReclamationsTab({ settings, onUpdateSettings }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -53,6 +54,17 @@ export default function ReclamationsTab({ settings, onUpdateSettings }) {
       }
       return r;
     });
+
+    // Instantly update status in Supabase orders and reclamations tables
+    try {
+      if (id) {
+        await supabase.from('orders').update({ status: newStatus }).eq('id', id);
+        await supabase.from('reclamations').update({ status: newStatus }).eq('id', id);
+      }
+    } catch (err) {
+      console.error('Error updating reclamation status in Supabase DB:', err);
+    }
+
     await onUpdateSettings({ reclamations: updated });
     showToast('تم تحديث حالة الشكوى بنجاح', 'success');
   };
@@ -61,6 +73,17 @@ export default function ReclamationsTab({ settings, onUpdateSettings }) {
   const handleDelete = async (id) => {
     if (!window.confirm('هل أنت متأكد من حذف هذه الشكوى نهائياً؟')) return;
     const updated = reclamations.filter(r => r.id !== id);
+
+    // Delete record permanently from Supabase orders and reclamations tables
+    try {
+      if (id) {
+        await supabase.from('orders').delete().eq('id', id);
+        await supabase.from('reclamations').delete().eq('id', id);
+      }
+    } catch (err) {
+      console.error('Error deleting reclamation from Supabase DB:', err);
+    }
+
     await onUpdateSettings({ reclamations: updated });
     showToast('تم حذف الشكوى بنجاح', 'success');
   };

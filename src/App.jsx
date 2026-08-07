@@ -298,7 +298,7 @@ export default function App() {
 
     // Also fetch dedicated 'reclamations' table and RLS-free 'orders' reclamations from Supabase DB to ensure instant mobile delivery
     try {
-      const { data: recsDb } = await supabase.from('reclamations').select('*').order('created_at', { ascending: false });
+      const { data: recsDb } = await supabase.from('reclamations').select('*').neq('status', 'resolue').order('created_at', { ascending: false });
       let mapped = [];
       if (recsDb && recsDb.length > 0) {
         mapped = recsDb.map(r => ({
@@ -311,7 +311,7 @@ export default function App() {
         }));
       }
 
-      const { data: recsFromOrders } = await supabase.from('orders').select('*').or('deliveryMode.eq.reclamation,deliveryCompany.eq.RECLAMATION').order('created_at', { ascending: false });
+      const { data: recsFromOrders } = await supabase.from('orders').select('*').or('deliveryMode.eq.reclamation,deliveryCompany.eq.RECLAMATION').neq('status', 'resolue').order('created_at', { ascending: false });
       let mappedOrderRecs = [];
       if (recsFromOrders && recsFromOrders.length > 0) {
         mappedOrderRecs = recsFromOrders.map(o => ({
