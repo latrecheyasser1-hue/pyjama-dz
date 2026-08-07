@@ -279,8 +279,8 @@ export default function App() {
     } catch (e) {}
 
     const { data, error } = await supabase.from('settings').select('*').limit(500);
+    const obj = {};
     if (!error && data) {
-      const obj = {};
       data.forEach(item => {
         if (item && item.key) {
           if (typeof item.value === 'string' && (item.value.trim().startsWith('[') || item.value.trim().startsWith('{'))) {
@@ -294,17 +294,39 @@ export default function App() {
           }
         }
       });
-      setSettings(prev => {
-        const newSettings = { ...prev, ...obj };
-        try { localStorage.setItem('pyjama_settings_cache', JSON.stringify(newSettings)); } catch(e) {}
-        const prevRecs = Array.isArray(prev?.reclamations) ? prev.reclamations : [];
-        const newRecs = Array.isArray(obj?.reclamations) ? obj.reclamations : [];
-        if (prevRecs.length > 0 && newRecs.length > prevRecs.length) {
-          try { playNotificationSound(); } catch(e) {}
-        }
-        return newSettings;
-      });
     }
+
+    // Also fetch dedicated 'reclamations' table from Supabase DB to ensure mobile submissions load instantly
+    try {
+      const { data: recsDb } = await supabase.from('reclamations').select('*').order('created_at', { ascending: false });
+      if (recsDb && recsDb.length > 0) {
+        const mapped = recsDb.map(r => ({
+          id: r.id || 'REC-' + (r.created_at ? new Date(r.created_at).getTime() : Date.now()),
+          clientName: r.clientName || r.client_name || 'زائر المتجر',
+          whatsappNumber: r.whatsappNumber || r.whatsapp_number || r.phone || '',
+          message: r.message || '',
+          status: r.status || 'nouvelle',
+          createdAt: r.created_at || r.createdAt || new Date().toISOString()
+        }));
+        const existingRecs = Array.isArray(obj.reclamations) ? obj.reclamations : [];
+        const merged = [...mapped, ...existingRecs];
+        const uniqueRecs = Array.from(new Map(merged.map(item => [String(item.id || item.createdAt), item])).values());
+        obj.reclamations = uniqueRecs;
+      }
+    } catch (e) {
+      console.warn('Dedicated reclamations table query notice:', e);
+    }
+
+    setSettings(prev => {
+      const newSettings = { ...prev, ...obj };
+      try { localStorage.setItem('pyjama_settings_cache', JSON.stringify(newSettings)); } catch(e) {}
+      const prevRecs = Array.isArray(prev?.reclamations) ? prev.reclamations : [];
+      const newRecs = Array.isArray(obj?.reclamations) ? obj.reclamations : [];
+      if (prevRecs.length > 0 && newRecs.length > prevRecs.length) {
+        try { playNotificationSound(); } catch(e) {}
+      }
+      return newSettings;
+    });
   };
 
   const sanitizeProductForDb = (prodObj) => {

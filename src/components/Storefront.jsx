@@ -947,41 +947,40 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     }
     setIsSubmittingReclamation(true);
     try {
-      const newRecl = {
-        id: 'REC-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      const recPayload = {
         clientName: reclamationName.trim(),
         whatsappNumber: reclamationWhatsapp.trim(),
         message: reclamationMessage.trim(),
         status: 'nouvelle',
-        createdAt: new Date().toISOString()
+        created_at: new Date().toISOString()
       };
-      
-      // Fetch fresh reclamations directly from Supabase DB to avoid stale local state on mobile
-      let freshReclamations = [];
-      try {
-        const { data: recData } = await supabase.from('settings').select('value').eq('key', 'reclamations').single();
-        if (recData && recData.value) {
-          if (typeof recData.value === 'string') {
-            try { freshReclamations = JSON.parse(recData.value); } catch(e) { freshReclamations = []; }
-          } else if (Array.isArray(recData.value)) {
-            freshReclamations = recData.value;
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to fetch fresh reclamations, fallback to local settings:', e);
-        let existing = settings?.reclamations;
-        if (typeof existing === 'string') {
-          try { existing = JSON.parse(existing); } catch(e) { existing = []; }
-        }
-        if (Array.isArray(existing)) freshReclamations = existing;
-      }
 
-      const updatedReclamations = [newRecl, ...(Array.isArray(freshReclamations) ? freshReclamations : [])];
+      // Direct insert into dedicated 'reclamations' table in Supabase (No RLS blockers for anon users on mobile)
+      const { data: insertedRec, error: recInsertErr } = await supabase.from('reclamations').insert([recPayload]).select();
       
-      try {
+      if (recInsertErr) {
+        console.warn('Dedicated reclamations table insert notice:', recInsertErr);
+        // Fallback to settings table upsert if dedicated table is not present
+        let freshReclamations = [];
+        try {
+          const { data: recData } = await supabase.from('settings').select('value').eq('key', 'reclamations').single();
+          if (recData && recData.value) {
+            if (typeof recData.value === 'string') {
+              try { freshReclamations = JSON.parse(recData.value); } catch(e) { freshReclamations = []; }
+            } else if (Array.isArray(recData.value)) {
+              freshReclamations = recData.value;
+            }
+          }
+        } catch (e) {
+          let existing = settings?.reclamations;
+          if (typeof existing === 'string') {
+            try { existing = JSON.parse(existing); } catch(e) { existing = []; }
+          }
+          if (Array.isArray(existing)) freshReclamations = existing;
+        }
+
+        const updatedReclamations = [{ id: 'REC-' + Date.now(), ...recPayload }, ...(Array.isArray(freshReclamations) ? freshReclamations : [])];
         await onUpdateSettings({ reclamations: updatedReclamations });
-      } catch (e) {
-        console.warn('onUpdateSettings warning:', e);
       }
 
       // Trigger WhatsApp bot response asynchronously
