@@ -1791,9 +1791,9 @@ async function processIncomingPayload(body) {
                   return pDigits === fromDigits;
                 });
 
-                // Require explicit plus (+) or "إضافة/اضافة" or pure numbers ONLY from manager to trigger restock
+                // Require explicit plus restock keyword like "تزويد +10" or "إضافة +10" or "restock +10" ONLY
                 const textWithoutTag = messageText.replace(/\[REF:[^\]]+\]/gi, '').trim();
-                const isExplicitQty = /^(\+)?\d{1,4}$/.test(textWithoutTag) || /(اضافة|إضافة|تزويد|زِد|زيد|ستوك)\s*(\+)?\d+/i.test(textWithoutTag);
+                const isExplicitQty = /(اضافة|إضافة|تزويد|زِد|زيد|ستوك|restock)\s*(\+)?\s*\d+/i.test(textWithoutTag);
 
                 if (!isManager || !isExplicitQty) {
                   // Ignore restock attempt if sender is NOT an authorized manager or message is not an explicit quantity!
