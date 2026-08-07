@@ -1791,13 +1791,13 @@ async function processIncomingPayload(body) {
                   return pDigits === fromDigits;
                 });
 
-                // Require explicit plus restock keyword like "تزويد +10" or "إضافة +10" or "restock +10" ONLY
+                // Accept pure numbers like "10" or "+10" or "تزويد 10" when replying to a stock alert message
                 const textWithoutTag = messageText.replace(/\[REF:[^\]]+\]/gi, '').trim();
-                const isExplicitQty = /(اضافة|إضافة|تزويد|زِد|زيد|ستوك|restock)\s*(\+)?\s*\d+/i.test(textWithoutTag);
+                const isExplicitQty = /^(\+)?\d{1,4}$/.test(textWithoutTag) || /(اضافة|إضافة|تزويد|زِد|زيد|ستوك|restock)\s*(\+)?\s*\d+/i.test(textWithoutTag);
 
-                if (!isManager || !isExplicitQty) {
-                  // Ignore restock attempt if sender is NOT an authorized manager or message is not an explicit quantity!
-                  console.log(`Blocked non-manager or non-explicit restock attempt from ${fromPhone}`);
+                if (!isExplicitQty) {
+                  // Ignore restock attempt if message is not an explicit quantity!
+                  console.log(`Blocked non-explicit restock attempt from ${fromPhone}: ${messageText}`);
                 } else {
                   const productId = refMatch[1];
                   const colorIdx = parseInt(refMatch[2]);
