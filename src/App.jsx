@@ -128,7 +128,7 @@ export default function App() {
         fetchSettings();
       }).subscribe();
 
-    // Fallback Polling (Every 3 seconds) to ensure orders, stock, and reclamations arrive instantly in real-time
+    // Fallback Polling (Every 2 seconds) to ensure orders, stock, and reclamations arrive instantly in real-time
     const pollInterval = setInterval(async () => {
       fetchData('products', setProducts);
       fetchSettings();
@@ -142,7 +142,7 @@ export default function App() {
           return data;
         });
       }
-    }, 3000);
+    }, 2000);
 
     return () => {
       supabase.removeChannel(productsSub);

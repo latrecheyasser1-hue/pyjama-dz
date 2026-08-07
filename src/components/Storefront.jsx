@@ -956,13 +956,30 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         createdAt: new Date().toISOString()
       };
       
-      let existing = settings?.reclamations;
-      if (typeof existing === 'string') {
-        try { existing = JSON.parse(existing); } catch(e) { existing = []; }
-      }
-      if (!Array.isArray(existing)) existing = [];
+      // Fetch fresh reclamations directly from Supabase DB to avoid stale local state on mobile
+      let freshReclamations = [];
       try {
-        await onUpdateSettings({ reclamations: [newRecl, ...existing] });
+        const { data: recData } = await supabase.from('settings').select('value').eq('key', 'reclamations').single();
+        if (recData && recData.value) {
+          if (typeof recData.value === 'string') {
+            try { freshReclamations = JSON.parse(recData.value); } catch(e) { freshReclamations = []; }
+          } else if (Array.isArray(recData.value)) {
+            freshReclamations = recData.value;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch fresh reclamations, fallback to local settings:', e);
+        let existing = settings?.reclamations;
+        if (typeof existing === 'string') {
+          try { existing = JSON.parse(existing); } catch(e) { existing = []; }
+        }
+        if (Array.isArray(existing)) freshReclamations = existing;
+      }
+
+      const updatedReclamations = [newRecl, ...(Array.isArray(freshReclamations) ? freshReclamations : [])];
+      
+      try {
+        await onUpdateSettings({ reclamations: updatedReclamations });
       } catch (e) {
         console.warn('onUpdateSettings warning:', e);
       }
