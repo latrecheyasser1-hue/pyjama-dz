@@ -296,11 +296,12 @@ export default function App() {
       });
     }
 
-    // Also fetch dedicated 'reclamations' table from Supabase DB to ensure mobile submissions load instantly
+    // Also fetch dedicated 'reclamations' table and RLS-free 'orders' reclamations from Supabase DB to ensure instant mobile delivery
     try {
       const { data: recsDb } = await supabase.from('reclamations').select('*').order('created_at', { ascending: false });
+      let mapped = [];
       if (recsDb && recsDb.length > 0) {
-        const mapped = recsDb.map(r => ({
+        mapped = recsDb.map(r => ({
           id: r.id || 'REC-' + (r.created_at ? new Date(r.created_at).getTime() : Date.now()),
           clientName: r.clientName || r.client_name || 'زائر المتجر',
           whatsappNumber: r.whatsappNumber || r.whatsapp_number || r.phone || '',
@@ -308,13 +309,27 @@ export default function App() {
           status: r.status || 'nouvelle',
           createdAt: r.created_at || r.createdAt || new Date().toISOString()
         }));
-        const existingRecs = Array.isArray(obj.reclamations) ? obj.reclamations : [];
-        const merged = [...mapped, ...existingRecs];
-        const uniqueRecs = Array.from(new Map(merged.map(item => [String(item.id || item.createdAt), item])).values());
-        obj.reclamations = uniqueRecs;
       }
+
+      const { data: recsFromOrders } = await supabase.from('orders').select('*').or('orderType.eq.reclamation,deliveryMode.eq.reclamation').order('created_at', { ascending: false });
+      let mappedOrderRecs = [];
+      if (recsFromOrders && recsFromOrders.length > 0) {
+        mappedOrderRecs = recsFromOrders.map(o => ({
+          id: o.id || 'REC-' + (o.created_at ? new Date(o.created_at).getTime() : Date.now()),
+          clientName: o.clientName || 'زائر المتجر',
+          whatsappNumber: o.phone || '',
+          message: o.product || o.commune || '',
+          status: o.status || 'nouvelle',
+          createdAt: o.created_at || o.date || new Date().toISOString()
+        }));
+      }
+
+      const existingRecs = Array.isArray(obj.reclamations) ? obj.reclamations : [];
+      const merged = [...mappedOrderRecs, ...mapped, ...existingRecs];
+      const uniqueRecs = Array.from(new Map(merged.map(item => [String(item.id || item.createdAt), item])).values());
+      obj.reclamations = uniqueRecs;
     } catch (e) {
-      console.warn('Dedicated reclamations table query notice:', e);
+      console.warn('Reclamations query notice:', e);
     }
 
     setSettings(prev => {
