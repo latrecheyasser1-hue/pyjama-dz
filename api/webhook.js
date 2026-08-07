@@ -1454,17 +1454,20 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
     } catch (e) {}
 
     if (activeState && activeState.orderId) {
-      const isConfirmYes = [
-        'تأكيد الإلغاء', 'تأكيد الغاء', 'تاكيد الغاء', 'تاكيد', 'تأكيد', 'نعم', '1', 'إلغاء الطلب', 'الغيتها',
-        'انوليها', 'انولي', 'ألقيها', 'الگها', 'annuler', 'anuler', 'annule', 'anule', 'yes', 'oui', 'ih', 'إيه', 'ايه', 'أكيد', 'اكيد'
+      // Require EXPLICIT cancellation intent to confirm CANCELLATION (e.g., 'نعم إلغاء', 'تأكيد الإلغاء', 'نعم انولي')
+      const isExplicitCancelConfirm = [
+        'تأكيد الإلغاء', 'تأكيد الغاء', 'تاكيد الغاء', 'تاكيد إلغاء', 'نعم الغيها', 'نعم انولي',
+        'نعم انوليها', 'نعم إلغاء', 'نعم الغاء', 'الغيتها', 'انوليها', 'الغي الطلب', 'الغاء الطلب',
+        'annuler la commande', 'oui annuler', 'oui anuler'
       ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
 
-      const isDeclineNo = [
+      // General affirmative responses like 'oui', 'ih', 'confirme', 'أكدلي' mean KEEP ORDER ACTIVE & CONFIRM DELIVERY!
+      const isDeclineNo = !isExplicitCancelConfirm && [
         'لا', '2', 'تراجع', 'لا تلغي', 'لا تلغيها', 'تراجع عن الإلغاء', 'تراجع عن الغاء', 'تراجع عن الالغاء',
-        'lala', 'no', 'non', 'pas'
+        'lala', 'no', 'non', 'pas', 'oui', 'ih', 'نعم', 'إيه', 'ايه', 'أكيد', 'اكيد', 'confirme', 'confirmer', 'akedli', 'أكدلي'
       ].some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
 
-      if (isConfirmYes) {
+      if (isExplicitCancelConfirm) {
         // Fetch order details
         const orderRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${activeState.orderId}&select=*`, {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -1513,13 +1516,30 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
           return true;
         }
       } else if (isDeclineNo) {
-        // Delete session state and cancel cancellation action
+        // Delete session state and confirm order delivery
         await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.cancel_state_${cleanPhoneKey}`, {
           method: 'DELETE',
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         }).catch(() => {});
 
-        await sendWhatsAppMessage(fromPhone, `أهلاً بك! 🌸\nتم إغلاق طلب الإلغاء وتبقى طلبيتك قائمة ومؤكدة بنجاح.`);
+        const orderCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?phone=in.(${localPhone},${fromPhone},${fullPhone},${cleanPhoneNo0},213${cleanPhoneNo0})&status=in.(nouvelle,pending,attente,attente_confirmation,nouveau)&order=created_at.desc&limit=1`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const activeOrders = await orderCheckRes.json();
+        if (Array.isArray(activeOrders) && activeOrders[0]) {
+          const targetOrder = activeOrders[0];
+          await updateOrderStatusAndArchive(targetOrder.id, 'confirmee');
+          const orderNumStr = await getSequentialOrderNum(targetOrder);
+          const rawName = targetOrder.clientName || '';
+          const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
+            ? rawName.replace(/\(واتساب:[^\)]+\)/g, '').trim()
+            : '';
+          const clientNameStr = cleanName ? ` ${cleanName}` : '';
+          const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\n\n✅ *تم تأكيد طلبك رقم #${orderNumStr} بنجاح.*\nطلبك قائم ومؤكد وسنقوم بتجهيزه وشحنه لك في أقرب وقت إن شاء الله! ✨`;
+          await sendWhatsAppMessage(fromPhone, confirmMsg);
+        } else {
+          await sendWhatsAppMessage(fromPhone, `أهلاً بك! 🌸\nتم إغلاق طلب الإلغاء وتبقى طلبيتك قائمة ومؤكدة بنجاح.`);
+        }
         return true;
       }
     }
