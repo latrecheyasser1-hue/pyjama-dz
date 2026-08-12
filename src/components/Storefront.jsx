@@ -362,6 +362,13 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
   const [quantity, setQuantity] = useState(1);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }, [product?.id]);
+
   const [waitlistName, setWaitlistName] = useState('');
   const [waitlistWhatsapp, setWaitlistWhatsapp] = useState('');
   const [isWaitlistSubmitting, setIsWaitlistSubmitting] = useState(false);
@@ -1083,6 +1090,15 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [activePage, setActivePage] = useState(null); // 'about', etc.
+
+  useEffect(() => {
+    if (activeDetailProduct || activePage) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+      window.scrollTo(0, 0);
+    }
+  }, [activeDetailProduct, activePage]);
   const [reclamationName, setReclamationName] = useState('');
   const [reclamationWhatsapp, setReclamationWhatsapp] = useState('');
   const [reclamationMessage, setReclamationMessage] = useState('');
