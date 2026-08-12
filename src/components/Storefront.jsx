@@ -5,7 +5,7 @@ import { CHLEF_DELIVERY_RATES } from '../data/algeriaDeliveryRates';
 import { showToast } from '../utils/toast';
 import { sanitizeAlgerianPhone, isValidAlgerianPhone } from '../utils/phoneUtils';
 import { supabase } from '../lib/supabaseClient';
-import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2, Check, Heart, Star, Search, User, Bell, AlertTriangle, Menu, ChevronRight, Home, Grid, MessageCircle, FileText } from 'lucide-react';
+import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2, Check, Heart, Star, Search, User, Bell, AlertTriangle, Menu, ChevronRight, Home, Grid, MessageCircle, FileText, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import DeliveryTariffsModal from './DeliveryTariffsModal';
 const getProductDisplayCategory = (prodCategory, categoriesList) => {
@@ -40,6 +40,142 @@ const getProductCategoryGroupId = (prodCategory, categoriesList) => {
     if (robesCat) return robesCat.id || prodCategory;
   }
   return prodCategory;
+};
+
+const DeliveryTariffsPageContent = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedWilaya, setExpandedWilaya] = useState(null);
+
+  const filteredWilayas = useMemo(() => {
+    if (!searchQuery.trim()) return CHLEF_DELIVERY_RATES;
+    const q = searchQuery.toLowerCase().trim();
+    return CHLEF_DELIVERY_RATES.filter(w => 
+      w.code.includes(q) || 
+      w.name.toLowerCase().includes(q) || 
+      w.nameAr.includes(q)
+    );
+  }, [searchQuery]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Live Search Input */}
+      <div>
+        <div style={{ position: 'relative' }}>
+          <Search size={20} color="#94A3B8" style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)' }} />
+          <input 
+            type="text"
+            placeholder="ابحث عن ولايتك بالاسم أو الرقم (ex: 16, Alger, Oran, الشلف...)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '16px 48px 16px 20px',
+              borderRadius: '16px',
+              border: '2px solid #E2E8F0',
+              fontSize: '1rem',
+              fontWeight: 800,
+              outline: 'none',
+              boxSizing: 'border-box',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
+              transition: 'all 0.2s'
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Wilayas Accordion List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {filteredWilayas.map((wilaya) => {
+          const isExpanded = expandedWilaya === wilaya.code;
+          return (
+            <div 
+              key={wilaya.code}
+              style={{
+                border: isExpanded ? '2px solid #E11D48' : '1px solid #E2E8F0',
+                borderRadius: '18px',
+                overflow: 'hidden',
+                background: '#FFFFFF',
+                boxShadow: isExpanded ? '0 10px 25px rgba(225, 29, 72, 0.08)' : '0 2px 8px rgba(0,0,0,0.02)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setExpandedWilaya(isExpanded ? null : wilaya.code)}
+                style={{
+                  width: '100%',
+                  padding: '16px 20px',
+                  background: isExpanded ? '#FFF1F2' : '#FFFFFF',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  textAlign: 'right'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <span style={{ background: '#800020', color: '#FFF', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 900 }}>
+                    {wilaya.code}
+                  </span>
+                  <span style={{ fontSize: '1.08rem', fontWeight: 900, color: '#1E293B' }}>
+                    {wilaya.code} - {wilaya.name} ({wilaya.nameAr})
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '0.82rem', background: '#F1F5F9', padding: '5px 12px', borderRadius: '9999px', color: '#475569', fontWeight: 800 }}>
+                    {wilaya.options.length} خيارات توصيل
+                  </span>
+                  {isExpanded ? <ChevronUp size={20} color="#E11D48" /> : <ChevronDown size={20} color="#64748B" />}
+                </div>
+              </button>
+
+              {/* Options Details Grid */}
+              {isExpanded && (
+                <div style={{ padding: '20px', borderTop: '1px dashed #FDA4AF', background: '#FAFAFA' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px' }}>
+                    {wilaya.options.map((opt, idx) => (
+                      <div 
+                        key={idx}
+                        style={{
+                          background: '#FFFFFF',
+                          padding: '16px',
+                          borderRadius: '14px',
+                          border: '1px solid #E2E8F0',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                          boxShadow: '0 4px 10px rgba(0,0,0,0.03)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 900, color: opt.provider.includes('Yalidine') ? '#800020' : '#0284C7' }}>
+                            {opt.provider}
+                          </span>
+                          <span style={{ fontSize: '0.78rem', padding: '3px 10px', borderRadius: '6px', background: opt.type === 'À domicile' ? '#FEF2F2' : '#F0F9FF', color: opt.type === 'À domicile' ? '#991B1B' : '#075985', fontWeight: 800 }}>
+                            {opt.type === 'À domicile' ? '🏠 المنزل' : '🏢 المكتب (Stopdesk)'}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#E11D48', margin: '4px 0 2px' }}>
+                          {opt.price} DA
+                        </div>
+
+                        <span style={{ fontSize: '0.82rem', color: '#64748B', lineHeight: 1.4 }}>
+                          {opt.note}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 };
 
 const getProductTotalStock = (product) => {
@@ -2085,7 +2221,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         {/* 2. LUXURY TRUST BENEFITS BAR */}
         {(selectedCategory === 'all' && !searchQuery.trim() && !activeDetailProduct && !activePage) && (
           <div className="storefront-trust-benefits">
-            <div className="benefit-card" onClick={() => setIsTariffsModalOpen(true)} style={{ cursor: 'pointer' }}>
+            <div className="benefit-card" onClick={() => { setActivePage('tariffs'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ cursor: 'pointer' }}>
               <div className="benefit-icon-wrapper">🚚</div>
               <div className="benefit-text">
                 <h4>توصيل لـ 58 ولاية</h4>
@@ -2365,6 +2501,45 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               <div style={{ background: 'linear-gradient(135deg, #FFF5F7 0%, #FFE4E6 100%)', border: '1px solid #FECDD3', padding: '32px 24px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 8px 24px rgba(225, 29, 72, 0.08)' }}>
                 <h3 style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--burgundy-dark)', margin: '0 0 10px 0' }}>نتمنى لكم تجربة تسوق ممتعة وراقية</h3>
                 <p style={{ fontSize: '0.95rem', color: '#9F1239', fontWeight: 700, margin: '0 0 20px 0' }}>شكراً لثقتكم واختياركم لـ {storeNameDisplay}</p>
+                <button 
+                  onClick={() => { setActivePage(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  style={{ background: 'linear-gradient(135deg, #800020, #E11D48)', color: '#FFFFFF', border: 'none', padding: '14px 36px', borderRadius: '12px', fontSize: '1rem', fontWeight: 900, cursor: 'pointer', boxShadow: '0 8px 20px rgba(128, 0, 32, 0.25)' }}
+                >
+                  العودة للمتجر والاستكشاف 🛍️
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : activePage === 'tariffs' ? (
+          <div className="luxury-tariffs-page animate-fade-in" style={{ background: '#F8FAFC', paddingBottom: '60px', direction: 'rtl' }}>
+            {/* Hero Header */}
+            <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', padding: '50px 20px 35px', textAlign: 'center', position: 'relative' }}>
+              <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                <button 
+                  onClick={() => { setActivePage(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#334155', padding: '10px 24px', borderRadius: '9999px', fontSize: '0.92rem', fontWeight: 800, cursor: 'pointer', marginTop: '10px', marginBottom: '20px', transition: 'all 0.2s', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}
+                >
+                  ← العودة للمتجر (Retour à la boutique)
+                </button>
+                <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: 'var(--burgundy-dark)', margin: '0 0 10px 0', letterSpacing: '-0.5px' }}>
+                  Tarifs de livraison — أسعار التوصيل لـ 58 ولاية 🚚
+                </h1>
+                <p style={{ fontSize: '1.05rem', color: '#E11D48', fontWeight: 800, margin: 0, lineHeight: 1.6 }}>
+                  أسعار رسمية محدثة ومضبوطة لجميع الولايات الجزائرية (Yalidine & ZR Express)
+                </p>
+              </div>
+            </div>
+
+            {/* Main Content Container */}
+            <div style={{ maxWidth: '1000px', margin: '30px auto 0', padding: '0 20px' }}>
+              <div style={{ background: '#FFFFFF', borderRadius: '24px', padding: '32px 28px', boxShadow: '0 10px 30px rgba(0,0,0,0.04)', border: '1px solid #E2E8F0' }}>
+                <DeliveryTariffsPageContent />
+              </div>
+
+              {/* Call To Action */}
+              <div style={{ background: 'linear-gradient(135deg, #FFF5F7 0%, #FFE4E6 100%)', border: '1px solid #FECDD3', padding: '32px 24px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 8px 24px rgba(225, 29, 72, 0.08)', marginTop: '24px' }}>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--burgundy-dark)', margin: '0 0 10px 0' }}>توصيل سريع لـ 58 ولاية مع خدمة الدفع عند الاستلام</h3>
+                <p style={{ fontSize: '0.95rem', color: '#9F1239', fontWeight: 700, margin: '0 0 20px 0' }}>مع إمكانية فتح الطرد وفحص المنتجات قبل الدفع</p>
                 <button 
                   onClick={() => { setActivePage(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                   style={{ background: 'linear-gradient(135deg, #800020, #E11D48)', color: '#FFFFFF', border: 'none', padding: '14px 36px', borderRadius: '12px', fontSize: '1rem', fontWeight: 900, cursor: 'pointer', boxShadow: '0 8px 20px rgba(128, 0, 32, 0.25)' }}
@@ -2671,7 +2846,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       <footer className="whb-footer">
         {/* Trust Badges Bar */}
         <div className="footer-trust-badges-bar">
-          <div className="footer-trust-badge-item" onClick={() => setIsTariffsModalOpen(true)} style={{ cursor: 'pointer' }}>
+          <div className="footer-trust-badge-item" onClick={() => { setActivePage('tariffs'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ cursor: 'pointer' }}>
             <span>🚚</span>
             <span>Livraison 58 wilayas (Tarifs)</span>
           </div>
@@ -2731,7 +2906,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               À propos de nous
             </button>
 
-            <button type="button" onClick={() => setIsTariffsModalOpen(true)} className="footer-link-btn" style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', transition: 'color 0.2s', padding: 0 }}>
+            <button type="button" onClick={() => { setActivePage('tariffs'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="footer-link-btn" style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', transition: 'color 0.2s', padding: 0 }}>
               Tarifs de livraison
             </button>
 
@@ -4010,7 +4185,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 className="mobile-drawer-item"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
-                  setIsTariffsModalOpen(true);
+                  setActivePage('tariffs');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
               >
                 <div className="mobile-drawer-item-left">
