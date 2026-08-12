@@ -3330,13 +3330,43 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                   }
 
                   return (
-                    <button 
-                      onClick={() => setCheckoutStep(true)}
-                      className="btn btn-primary" 
-                      style={{ width: '100%', padding: '16px', fontSize: '1.15rem', justifyContent: 'center' }}
-                    >
-                      Passer à la caisse (إتمام الطلب) <ArrowRight size={20} />
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setIsCartOpen(false);
+                          setActiveDetailProduct(null);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '14px',
+                          fontSize: '1rem',
+                          fontWeight: 800,
+                          background: '#FFF1F2',
+                          color: '#E11D48',
+                          border: '1.5px solid #FECDD3',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          boxShadow: '0 2px 8px rgba(225, 29, 72, 0.08)',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        🛍️ متابعة التسوق (إضافة منتجات أخرى) / Continuer mes achats
+                      </button>
+
+                      <button 
+                        onClick={() => setCheckoutStep(true)}
+                        className="btn btn-primary" 
+                        style={{ width: '100%', padding: '16px', fontSize: '1.15rem', justifyContent: 'center' }}
+                      >
+                        Passer à la caisse (إتمام الطلب) <ArrowRight size={20} />
+                      </button>
+                    </div>
                   );
                 })()}
                 
