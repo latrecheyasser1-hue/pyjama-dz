@@ -18,7 +18,8 @@
     "react-barcode": "^1.6.1",
     "react-dom": "^19.2.7",
     "react-helmet-async": "^3.0.0",
-    "recharts": "^3.9.1"
+    "recharts": "^3.9.1",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

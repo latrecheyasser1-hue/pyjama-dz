@@ -12,7 +12,10 @@ const ZREXPRESS_API_KEY = import.meta.env.VITE_ZREXPRESS_API_KEY;
  * @returns {Promise<Object>} - Contains tracking number and label URL
  */
 export const createYalidineParcel = async (order) => {
-  console.log('Sending to Yalidine API...', order);
+  // COD amount sent to Yalidine MUST BE product price only (order.price).
+  // Yalidine API automatically calculates & adds the delivery rate for the target Wilaya!
+  const codProductPrice = Number(order.price || 0);
+  console.log(`Sending to Yalidine API... Colis COD Price: ${codProductPrice} DA (Product price only) | Customer Total: ${order.totalPrice || codProductPrice} DA`);
   
   if (!YALIDINE_API_ID || !YALIDINE_API_TOKEN) {
     console.warn('Yalidine API keys missing. Using mock data.');
@@ -23,17 +26,27 @@ export const createYalidineParcel = async (order) => {
           success: true,
           trackingNumber: `YAL-${Math.floor(Math.random() * 1000000)}`,
           shippingLabelUrl: `https://yalidine.app/mock-label/${order.id}.pdf`,
-          deliveryCompany: 'yalidine'
+          deliveryCompany: 'yalidine',
+          codPrice: codProductPrice
         });
       }, 500); // simulate network delay
     });
   }
 
-  // TODO: Implement actual API call when keys are provided
-  // Example implementation:
-  // const payload = { ... };
-  // const response = await fetch('https://api.yalidine.app/v1/parcels', { ... });
-  // return await response.json();
+  // Real Yalidine payload format:
+  // const payload = {
+  //   order_id: order.id,
+  //   firstname: order.clientName,
+  //   familyname: '',
+  //   contact_phone: order.phone,
+  //   address: order.commune || order.address,
+  //   to_wilaya_name: order.wilaya,
+  //   to_commune_name: order.commune,
+  //   price: codProductPrice, // Product price ONLY (Yalidine adds shipping fee automatically)
+  //   freeshipping: false,
+  //   is_center: order.deliveryMode?.includes('Bureau') ? 1 : 0
+  // };
+
   throw new Error('Real API not yet implemented');
 };
 
@@ -43,7 +56,8 @@ export const createYalidineParcel = async (order) => {
  * @returns {Promise<Object>} - Contains tracking number and label URL
  */
 export const createZRExpressParcel = async (order) => {
-  console.log('Sending to ZR Express API...', order);
+  const codProductPrice = Number(order.price || 0);
+  console.log(`Sending to ZR Express API... Colis COD Price: ${codProductPrice} DA (Product price only) | Customer Total: ${order.totalPrice || codProductPrice} DA`);
 
   if (!ZREXPRESS_API_KEY) {
     console.warn('ZR Express API key missing. Using mock data.');
@@ -54,7 +68,8 @@ export const createZRExpressParcel = async (order) => {
           success: true,
           trackingNumber: `ZR-${Math.floor(Math.random() * 1000000)}`,
           shippingLabelUrl: `https://zrexpress.com/mock-label/${order.id}.pdf`,
-          deliveryCompany: 'zrexpress'
+          deliveryCompany: 'zrexpress',
+          codPrice: codProductPrice
         });
       }, 500); // simulate network delay
     });

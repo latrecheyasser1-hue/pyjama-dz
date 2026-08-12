@@ -128,21 +128,22 @@ export default function App() {
         fetchSettings();
       }).subscribe();
 
-    // Fallback Polling (Every 2 seconds) to ensure orders, stock, and reclamations arrive instantly in real-time
+    // Supabase real-time handles instant updates when database changes happen.
+    // Fallback polling for new orders (every 10 seconds) without re-rendering products unnecessarily
     const pollInterval = setInterval(async () => {
-      fetchData('products', setProducts);
-      fetchSettings();
-      
       const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
       if (!error && data) {
         setOrders(prev => {
-          if (prev.length > 0 && data.length > prev.length) {
-            playNotificationSound();
+          if (JSON.stringify(prev) !== JSON.stringify(data)) {
+            if (prev.length > 0 && data.length > prev.length) {
+              playNotificationSound();
+            }
+            return data;
           }
-          return data;
+          return prev;
         });
       }
-    }, 2000);
+    }, 10000);
 
     return () => {
       supabase.removeChannel(productsSub);

@@ -753,7 +753,7 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
                       />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div className="gros-wilaya-commune-grid">
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#475569' }}>الولاية *</label>
                         <select 

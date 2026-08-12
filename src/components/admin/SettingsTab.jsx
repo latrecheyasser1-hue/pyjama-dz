@@ -19,6 +19,8 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
 
   // General settings state
   const [instaUrl, setInstaUrl] = useState(settings?.instagramUrl ?? 'https://www.instagram.com/pyjama_dz');
+  const [fbUrl, setFbUrl] = useState(settings?.facebookUrl ?? settings?.facebook ?? 'https://www.facebook.com/pyjama_dz');
+  const [tiktokUrl, setTiktokUrl] = useState(settings?.tiktokUrl ?? settings?.tiktok ?? 'https://www.tiktok.com/@pyjama_dz');
   const [whatsapp, setWhatsapp] = useState(settings?.whatsapp ?? '');
   const [whatsappBoutiqueManager, setWhatsappBoutiqueManager] = useState(settings?.whatsappBoutiqueManager ?? '');
   const [whatsappLivraisonManager, setWhatsappLivraisonManager] = useState(settings?.whatsappLivraisonManager ?? '');
@@ -38,6 +40,8 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   useEffect(() => {
     if (settings && !isInitialized) {
       if (settings.instagramUrl !== undefined) setInstaUrl(settings.instagramUrl ?? '');
+      if (settings.facebookUrl !== undefined || settings.facebook !== undefined) setFbUrl(settings.facebookUrl ?? settings.facebook ?? '');
+      if (settings.tiktokUrl !== undefined || settings.tiktok !== undefined) setTiktokUrl(settings.tiktokUrl ?? settings.tiktok ?? '');
       if (settings.whatsapp !== undefined) setWhatsapp(settings.whatsapp ?? '');
       if (settings.whatsappBoutiqueManager !== undefined) setWhatsappBoutiqueManager(settings.whatsappBoutiqueManager ?? '');
       if (settings.whatsappLivraisonManager !== undefined) setWhatsappLivraisonManager(settings.whatsappLivraisonManager ?? '');
@@ -82,6 +86,10 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
     onUpdateSettings({
       ...settings,
       instagramUrl: instaUrl,
+      facebookUrl: fbUrl,
+      facebook: fbUrl,
+      tiktokUrl: tiktokUrl,
+      tiktok: tiktokUrl,
       googleMapsUrl,
       googleMaps: googleMapsUrl,
       whatsapp,
@@ -210,7 +218,15 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
             </div>
             <div className="form-group">
               <label className="form-label">رابط الإنستغرام (Instagram URL)</label>
-              <input type="text" value={instaUrl} onChange={(e) => setInstaUrl(e.target.value)} className="form-input" />
+              <input type="text" value={instaUrl} onChange={(e) => setInstaUrl(e.target.value)} className="form-input" placeholder="https://www.instagram.com/pyjama_dz" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">رابط الفيسبوك (Facebook URL)</label>
+              <input type="text" value={fbUrl} onChange={(e) => setFbUrl(e.target.value)} className="form-input" placeholder="https://www.facebook.com/pyjama_dz" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">رابط تيك توك (TikTok URL)</label>
+              <input type="text" value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} className="form-input" placeholder="https://www.tiktok.com/@pyjama_dz" />
             </div>
             <div className="form-group">
               <label className="form-label">رابط خريطة جوجل (Google Maps URL)</label>
