@@ -1933,7 +1933,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
           {/* Center: Brand Logo */}
           <div 
             className="mazyoud-brand" 
-            onClick={() => { setSelectedCategory('all'); setSearchQuery(''); setTempSearchQuery(''); setActiveDetailProduct(null); }}
+            onClick={() => { setActivePage(null); setSelectedCategory('all'); setSearchQuery(''); setTempSearchQuery(''); setActiveDetailProduct(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            style={{ cursor: 'pointer' }}
           >
             <img 
               src="/favicon.svg?v=3" 
@@ -2123,8 +2124,10 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
             </a>
           </div>
         </header>
+      </div>
 
-        {/* Secondary Category Menu Bar (Horizontally Centered with Badges) */}
+      {/* Secondary Category Menu Bar (Non-Sticky Normal Scroll Container) */}
+      <div className="mazyoud-category-bar-wrapper">
         <nav className="mazyoud-category-bar">
           {categoriesList.map((cat) => {
             let badgeText = cat.badge || null;
