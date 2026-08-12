@@ -2123,88 +2123,46 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               <MapPin size={20} />
             </a>
           </div>
-        </header>
-      </div>
-
-      {/* Secondary Category Menu Bar (Non-Sticky Normal Scroll Container) */}
-      <div className="mazyoud-category-bar-wrapper">
-        <nav className="mazyoud-category-bar">
-          {categoriesList.map((cat) => {
-            let badgeText = cat.badge || null;
-            let badgeColor = { bg: '#DC2626', color: '#FFFFFF' };
-            if (cat.id === 'promo' && !badgeText) {
-              badgeText = '🔥 تخفيضات';
-              badgeColor = { bg: '#DC2626', color: '#FFFFFF' };
-            } else if (cat.badge) {
-              badgeColor = { bg: '#581845', color: '#FFFFFF' };
-            }
-
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                className={`mazyoud-cat-link ${selectedCategory === cat.id ? 'active' : ''}`}
-                onClick={() => {
-                  setSelectedCategory(cat.id);
-                  setSearchQuery('');
-                  setTempSearchQuery('');
-                  setActiveDetailProduct(null);
-                  scrollToProductsGrid(120);
-                }}
-              >
-                {badgeText && (
-                  <span 
-                    className="mazyoud-cat-badge"
-                    style={{ backgroundColor: badgeColor.bg, color: badgeColor.color }}
-                  >
-                    {badgeText}
-                  </span>
-                )}
-                <span>{cat.icon ? `${cat.icon} ` : ''}{cat.title || cat.name}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Live Search Dropdown Panel (Full Width) */}
-        {tempSearchQuery.trim().length > 0 && isSearchFocused && (
-          <div className="mazyoud-search-results-panel">
-            {liveSearchResults.length > 0 ? (
-              <>
-                <div className="mazyoud-search-results-grid">
-                  {liveSearchResults.map((prod) => (
-                    <div 
-                      key={prod.id} 
-                      className="mazyoud-search-prod-card"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                      }}
-                      onClick={() => {
-                        setActiveDetailProduct(prod);
-                        setIsSearchFocused(false);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                    >
-                      <img loading="lazy" decoding="async" src={(prod.images && prod.images[0]) || prod.image || ''} alt={prod.title} className="mazyoud-search-prod-img" />
-                      <div className="mazyoud-search-prod-info">
-                        <h4 className="mazyoud-search-prod-title">
-                          {prod.title}
-                        </h4>
-                        <span className="mazyoud-search-prod-price">
-                          {prod.price ? Number(prod.price).toLocaleString() : '0'} DA
-                        </span>
+          {/* Live Search Dropdown Panel (Full Width) */}
+          {tempSearchQuery.trim().length > 0 && isSearchFocused && (
+            <div className="mazyoud-search-results-panel">
+              {liveSearchResults.length > 0 ? (
+                <>
+                  <div className="mazyoud-search-results-grid">
+                    {liveSearchResults.map((prod) => (
+                      <div 
+                        key={prod.id} 
+                        className="mazyoud-search-prod-card"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                        }}
+                        onClick={() => {
+                          setActiveDetailProduct(prod);
+                          setIsSearchFocused(false);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                      >
+                        <img loading="lazy" decoding="async" src={(prod.images && prod.images[0]) || prod.image || ''} alt={prod.title} className="mazyoud-search-prod-img" />
+                        <div className="mazyoud-search-prod-info">
+                          <h4 className="mazyoud-search-prod-title">
+                            {prod.title}
+                          </h4>
+                          <span className="mazyoud-search-prod-price">
+                            {prod.price ? Number(prod.price).toLocaleString() : '0'} DA
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="mazyoud-search-no-results">
+                  Aucun produit trouvé pour "{searchQuery}" / لا يوجد أي منتج بهذا الاسم
                 </div>
-              </>
-            ) : (
-              <div className="mazyoud-search-no-results">
-                Aucun produit trouvé pour "{searchQuery}" / لا يوجد أي منتج بهذا الاسم
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
+        </header>
       </div>
 
       <div className="storefront-wrapper animate-fade-up">
