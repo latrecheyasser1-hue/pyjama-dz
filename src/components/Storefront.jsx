@@ -8,6 +8,9 @@ import { supabase } from '../lib/supabaseClient';
 import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2, Check, Heart, Star, Search, User, Bell, AlertTriangle, Menu, ChevronRight, Home, Grid, MessageCircle, FileText, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import DeliveryTariffsModal from './DeliveryTariffsModal';
+import CustomerAccountPage from './CustomerAccountPage';
+import CustomerDashboardPage from './CustomerDashboardPage';
+import { getCurrentCustomer } from '../services/customerService';
 const getProductDisplayCategory = (prodCategory, categoriesList) => {
   if (!Array.isArray(categoriesList)) return prodCategory || 'Pyjama DZ';
   const exact = categoriesList.find(c => c && typeof c === 'object' && c.id === prodCategory);
@@ -194,9 +197,9 @@ const getProductTotalStock = (product) => {
   return Number(product.stock || 0);
 };
 
-function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList }) {
+function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, wishlist = [], onToggleWishlist }) {
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(null);
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const isWishlisted = Array.isArray(wishlist) && wishlist.some(item => String(item.id) === String(product?.id));
 
   const activeVariant = (selectedVariantIdx !== null && Array.isArray(product?.colorVariants) && product.colorVariants.length > selectedVariantIdx) 
     ? product.colorVariants[selectedVariantIdx] 
@@ -220,7 +223,7 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList }
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            setIsWishlisted(!isWishlisted);
+            if (onToggleWishlist) onToggleWishlist(product);
           }}
           className={`wd-wishlist-btn ${isWishlisted ? 'active' : ''}`}
           title="Ajouter aux favoris"
@@ -975,6 +978,10 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
 }
 
 export default function Storefront({ products, orders = [], settings, onPlaceOrder, onUpdateSettings, onGoToGros }) {
+  const [currentCustomer, setCurrentCustomerState] = useState(() => getCurrentCustomer());
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isCustomerDashboardOpen, setIsCustomerDashboardOpen] = useState(false);
+
   const [realtimeCategories, setRealtimeCategories] = useState(() => {
     try {
       const cached = localStorage.getItem('pyjama_dz_categories_cache');
@@ -1453,6 +1460,56 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const [deliveryMode, setDeliveryMode] = useState('Livraison Domicile (توصيل للمنزل)');
   const [deliveryCompany, setDeliveryCompany] = useState('yalidine');
 
+  const isBureauDelivery = useMemo(() => {
+    return (deliveryMode || '').toLowerCase().includes('bureau') || (deliveryMode || '').includes('المكتب') || (deliveryMode || '').includes('مكتب');
+  }, [deliveryMode]);
+
+  const [selectedOffice, setSelectedOffice] = useState('');
+
+  const availableOfficesForWilaya = useMemo(() => {
+    if (!wilaya) return [];
+    const codeMatch = wilaya.match(/^(\d{2})/);
+    const code = codeMatch ? codeMatch[1] : '16';
+    const nameAr = wilaya.split('-')[1]?.trim() || wilaya;
+
+    if (code === '16') {
+      return [
+        `مكتب ياليدين الشراقة (Yalidine Chéraga)`,
+        `مكتب ياليدين القبة (Yalidine Kouba)`,
+        `مكتب ياليدين باب الزوار (Yalidine Bab Ezzouar)`,
+        `مكتب ياليدين بئر خادم (Yalidine Birkhadem)`,
+        `مكتب ياليدين الأبيار (Yalidine El Biar)`,
+        `مكتب ZR Express الجزائر العاصمة`
+      ];
+    }
+
+    if (code === '02') {
+      return [
+        `مكتب ياليدين الشلف المركز (Yalidine Chlef Centre)`,
+        `مكتب ياليدين بوقادير (Boukadir)`,
+        `مكتب ZR Express الشلف`
+      ];
+    }
+
+    const found = CHLEF_DELIVERY_RATES.find(w => w.code === code);
+    const officeOptions = found ? found.options.filter(o => o.type === 'Au bureau') : [];
+    
+    if (officeOptions && officeOptions.length > 0) {
+      return officeOptions.map(o => `${o.provider}: ${o.note || (`مكتب ${nameAr}`)}`);
+    }
+
+    return [
+      `مكتب ياليدين الرئيسي (${nameAr})`,
+      `مكتب ZR Express (${nameAr})`
+    ];
+  }, [wilaya]);
+
+  useEffect(() => {
+    if (availableOfficesForWilaya.length > 0) {
+      setSelectedOffice(availableOfficesForWilaya[0]);
+    }
+  }, [availableOfficesForWilaya]);
+
   const availableCommunes = useMemo(() => {
     return getCommunesForWilaya(wilaya);
   }, [wilaya]);
@@ -1469,6 +1526,20 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       }
     }
   }, [wilaya, availableCommunes]);
+
+  // Auto-fill logged in customer details for 1-click checkout
+  useEffect(() => {
+    if (currentCustomer) {
+      if (currentCustomer.full_name && !clientName) setClientName(currentCustomer.full_name);
+      if (currentCustomer.phone && !phone) setPhone(currentCustomer.phone);
+      if (currentCustomer.wilaya && ALGERIA_WILAYAS.includes(currentCustomer.wilaya)) {
+        setWilaya(currentCustomer.wilaya);
+      }
+      if (currentCustomer.commune) {
+        setCommune(currentCustomer.commune);
+      }
+    }
+  }, [currentCustomer]);
 
   const calculatedDeliveryFee = useMemo(() => {
     if (!wilaya) return 0;
@@ -1774,13 +1845,21 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
     const productTitles = orderItems.map(i => `${i.product} (x${i.qty})`).join(' + ');
 
+    const finalDeliveryMode = isBureauDelivery 
+      ? `Livraison Bureau (${selectedOffice || 'المكتب الرئيسي'})`
+      : deliveryMode;
+
+    const finalCommune = isBureauDelivery && selectedOffice
+      ? `${commune} [${selectedOffice}]`
+      : commune;
+
     const newOrder = {
       id: `CMD-${Math.floor(1000 + Math.random() * 9000)}`,
       clientName,
       phone,
       wilaya,
-      commune,
-      deliveryMode,
+      commune: finalCommune,
+      deliveryMode: finalDeliveryMode,
       deliveryCompany,
       product: productTitles,
       items: orderItems,
@@ -1918,6 +1997,68 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
   const totalCartCount = cartItems.reduce((sum, item) => sum + (item.qty || item.quantity || 1), 0);
   const storeNameDisplay = settings?.storeName || "PYJAMA DZ";
+
+  const [wishlist, setWishlist] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pyjama_customer_wishlist');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const toggleWishlist = useCallback((product) => {
+    if (!product || !product.id) return;
+    setWishlist(prev => {
+      const exists = prev.some(item => String(item.id) === String(product.id));
+      let updated;
+      if (exists) {
+        updated = prev.filter(item => String(item.id) !== String(product.id));
+        showToast('تمت إزالة المنتج من المفضلة 💔', 'info');
+      } else {
+        updated = [...prev, product];
+        showToast('تمت إضافة المنتج إلى قائمة المفضلة ❤️', 'success');
+      }
+      try {
+        localStorage.setItem('pyjama_customer_wishlist', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  }, []);
+
+  if (isAuthModalOpen) {
+    return (
+      <CustomerAccountPage
+        onBackToStore={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={(cust) => {
+          setCurrentCustomerState(cust);
+          setIsAuthModalOpen(false);
+          setIsCustomerDashboardOpen(true);
+        }}
+      />
+    );
+  }
+
+  if (isCustomerDashboardOpen && currentCustomer) {
+    return (
+      <CustomerDashboardPage
+        customer={currentCustomer}
+        onBackToStore={() => setIsCustomerDashboardOpen(false)}
+        onLogout={() => {
+          setCurrentCustomerState(null);
+          setIsCustomerDashboardOpen(false);
+        }}
+        wishlist={wishlist}
+        onToggleWishlist={toggleWishlist}
+        onSelectProduct={(p) => setActiveDetailProduct(p)}
+        onReorder={(oldOrder) => {
+          showToast('🛒 تم تحميل طلبيتكِ السابقة إلى السلة بنجاح!', 'success');
+          setIsCustomerDashboardOpen(false);
+          setIsCartOpen(true);
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -2061,6 +2202,25 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
           {/* Right: Circle Glass Action Buttons */}
           <div className="mazyoud-actions">
+            {/* Customer Account Button */}
+            <button
+              type="button"
+              className="mazyoud-circle-btn"
+              onClick={() => {
+                if (currentCustomer) {
+                  setIsCustomerDashboardOpen(true);
+                } else {
+                  setIsAuthModalOpen(true);
+                }
+              }}
+              title={currentCustomer ? `حسابي (${currentCustomer.full_name})` : "تسجيل الدخول / حسابي"}
+              style={{ position: 'relative' }}
+            >
+              <User size={22} color={currentCustomer ? "#BE123C" : "currentColor"} />
+              {currentCustomer && (
+                <span style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', background: '#25D366', borderRadius: '50%', border: '2px solid white' }} />
+              )}
+            </button>
             {/* Wholesale Portal Button */}
             <a 
               href="/gros"
@@ -2648,6 +2808,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                             key={product.id} 
                             product={product} 
                             categoriesList={categoriesList}
+                            wishlist={wishlist}
+                            onToggleWishlist={toggleWishlist}
                             onSelect={(p) => {
                               setActiveDetailProduct(p);
                               window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2732,6 +2894,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       key={product.id} 
                       product={product} 
                       categoriesList={categoriesList}
+                      wishlist={wishlist}
+                      onToggleWishlist={toggleWishlist}
                       onSelect={(p) => {
                         setActiveDetailProduct(p);
                         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -3043,15 +3207,39 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '18px' }}>
-                      <label className="form-label" style={{ fontWeight: 700 }}>طريقة التوصيل (Livraison)</label>
+                      <label className="form-label" style={{ fontWeight: 700 }}>طريقة التوصيل (Livraison) *</label>
                       <select 
-                        className="form-select" style={{ padding: '12px 16px', fontSize: '1rem' }}
+                        className="form-select" style={{ padding: '12px 16px', fontSize: '1rem', fontWeight: 800 }}
                         value={deliveryMode} onChange={(e) => setDeliveryMode(e.target.value)}
                       >
                         <option value="Livraison Domicile (توصيل للمنزل)">🏠 توصيل للمنزل (Livraison Domicile)</option>
-                        <option value="Livraison Bureau (توصيل للمكتب)">🏢 توصيل للمكتب (Livraison Bureau)</option>
+                        <option value="Livraison Bureau (توصيل للمكتب)">🏢 توصيل للمكتب (Livraison Bureau / Stop Desk)</option>
                       </select>
                     </div>
+
+                    {isBureauDelivery && (
+                      <div className="form-group animate-fade-up" style={{ marginBottom: '18px', background: '#EFF6FF', border: '1.5px solid #93C5FD', padding: '14px', borderRadius: '14px' }}>
+                        <label className="form-label" style={{ fontWeight: 800, color: '#1E40AF', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          🏢 تحديد مكتب / فرع الاستلام (Bureau Stop Desk) *
+                        </label>
+                        <select
+                          className="form-select"
+                          style={{ padding: '12px 16px', fontSize: '0.95rem', borderColor: '#60A5FA', background: '#FFFFFF', fontWeight: 800, marginTop: '6px', color: '#1E293B' }}
+                          value={selectedOffice}
+                          onChange={(e) => setSelectedOffice(e.target.value)}
+                          required={isBureauDelivery}
+                        >
+                          {availableOfficesForWilaya.map((officeOption, idx) => (
+                            <option key={idx} value={officeOption}>
+                              {officeOption}
+                            </option>
+                          ))}
+                        </select>
+                        <span style={{ fontSize: '0.78rem', color: '#2563EB', marginTop: '6px', display: 'block', fontWeight: 700 }}>
+                          ℹ️ سيصلك الطرد إلى هذا المكتب ويمكنك استلامه والدفع مباشرة عند وصوله.
+                        </span>
+                      </div>
+                    )}
 
                     <div className="form-group" style={{ marginBottom: '18px' }}>
                       <label className="form-label" style={{ fontWeight: 700 }}>شركة التوصيل (Société de Livraison) *</label>
@@ -3358,6 +3546,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       </button>
 
                       <button 
+                        type="button"
                         onClick={() => setCheckoutStep(true)}
                         className="btn btn-primary" 
                         style={{ width: '100%', padding: '16px', fontSize: '1.15rem', justifyContent: 'center' }}
@@ -4339,16 +4528,23 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
           <span>Recherche</span>
         </button>
 
-        {/* 5. Panier */}
+        {/* 5. Compte / حسابي */}
         <button 
           type="button"
           className="mobile-bottom-nav-item"
-          onClick={() => setIsCartOpen(true)}
+          onClick={() => {
+            if (currentCustomer) {
+              setIsCustomerDashboardOpen(true);
+            } else {
+              setIsAuthModalOpen(true);
+            }
+          }}
+          style={{ position: 'relative' }}
         >
-          <ShoppingCart size={20} />
-          <span>Panier</span>
-          {totalCartCount > 0 && (
-            <span className="mobile-bottom-nav-badge">{totalCartCount}</span>
+          <User size={20} color={currentCustomer ? "#BE123C" : "currentColor"} />
+          <span>{currentCustomer ? 'حسابي' : 'Compte'}</span>
+          {currentCustomer && (
+            <span style={{ position: 'absolute', top: '4px', right: '18px', width: '8px', height: '8px', background: '#25D366', borderRadius: '50%', border: '2px solid white' }} />
           )}
         </button>
       </div>
@@ -4446,6 +4642,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
       {/* DELIVERY TARIFFS MODAL (58 WILAYAS CHLEF DEPARTURE) */}
       <DeliveryTariffsModal isOpen={isTariffsModalOpen} onClose={() => setIsTariffsModalOpen(false)} />
+
     </>
   );
 }

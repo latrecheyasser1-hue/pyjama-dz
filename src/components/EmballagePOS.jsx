@@ -23,19 +23,61 @@ export default function EmballagePOS({ settings = {}, products = [], orders = []
     showToast('📞 تم تحديث حالة تأكيد المكالمة لطلبية الجملة', 'info');
   };
 
-  const validPin = settings?.cashierPin || '0000';
+  const [failedEmbalageAttempts, setFailedEmbalageAttempts] = useState(() => {
+    return Number(localStorage.getItem('embalage_failed_attempts') || 0);
+  });
+  const [embalageLockSec, setEmbalageLockSec] = useState(0);
+
+  useEffect(() => {
+    const checkEmbalageLock = () => {
+      const lockUntil = Number(localStorage.getItem('embalage_lock_until') || 0);
+      const rem = Math.ceil((lockUntil - Date.now()) / 1000);
+      if (rem > 0) {
+        setEmbalageLockSec(rem);
+      } else {
+        setEmbalageLockSec(0);
+        localStorage.removeItem('embalage_lock_until');
+      }
+    };
+    checkEmbalageLock();
+    const interval = setInterval(checkEmbalageLock, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handlePinLogin = (e) => {
     if (e) e.preventDefault();
+    if (embalageLockSec > 0) {
+      const mins = Math.floor(embalageLockSec / 60);
+      const secs = embalageLockSec % 60;
+      showToast(`⚠️ تم تجميد الدخول لمصلحة التغليف (5 محاولات خاطئة). يرجى الانتظار ${mins}:${secs < 10 ? '0' : ''}${secs} ⏳`, 'error');
+      return;
+    }
+
     if (pinInput === validPin) {
+      localStorage.removeItem('embalage_failed_attempts');
+      localStorage.removeItem('embalage_lock_until');
+      setFailedEmbalageAttempts(0);
       setIsAuthenticated(true);
       sessionStorage.setItem('pyjama_dz_embalage_auth', 'true');
       setPinError(false);
       setPinInput('');
       showToast('✅ تم الدخول بنجاح!', 'success');
     } else {
-      setPinError(true);
-      showToast('❌ الرمز السري غير صحيح!', 'error');
+      const nextFail = failedEmbalageAttempts + 1;
+      setFailedEmbalageAttempts(nextFail);
+      localStorage.setItem('embalage_failed_attempts', String(nextFail));
+
+      if (nextFail >= 5) {
+        const lockUntil = Date.now() + 5 * 60 * 1000;
+        localStorage.setItem('embalage_lock_until', String(lockUntil));
+        localStorage.setItem('embalage_failed_attempts', '0');
+        setFailedEmbalageAttempts(0);
+        setEmbalageLockSec(300);
+        showToast('⚠️ تم تجميد الدخول لمصلحة التغليف لمدة 5 دقائق لحمايتها من محاولات التخمين!', 'error');
+      } else {
+        setPinError(true);
+        showToast(`❌ الرمز السري غير صحيح! (محاولة ${nextFail}/5)`, 'error');
+      }
     }
   };
 
