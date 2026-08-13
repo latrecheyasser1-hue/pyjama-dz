@@ -1890,17 +1890,24 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
   const instaUrl = formatUrl(settings?.instagramUrl || settings?.instagram, "https://www.instagram.com/pyjama_dz");
   const getMapsUrl = () => {
-    const raw = String(
-      settings?.googleMapsUrl || 
-      settings?.googleMaps || 
-      settings?.mapsUrl || 
-      settings?.maps || 
-      settings?.locationUrl || 
-      ""
-    ).trim();
+    const candidate = (url) => {
+      if (!url) return null;
+      const s = String(url).trim();
+      if (!s || s === 'https://maps.google.com' || s === 'http://maps.google.com' || s === 'https://maps.google.com/' || s === 'http://maps.google.com/') {
+        return null;
+      }
+      return s;
+    };
 
-    if (raw && raw !== 'https://maps.google.com' && raw !== 'http://maps.google.com' && raw !== 'https://maps.google.com/') {
-      return formatUrl(raw, "https://maps.google.com");
+    const realLink = 
+      candidate(settings?.googleMapsUrl) || 
+      candidate(settings?.googleMaps) || 
+      candidate(settings?.mapsUrl) || 
+      candidate(settings?.maps) || 
+      candidate(settings?.locationUrl);
+
+    if (realLink) {
+      return formatUrl(realLink, "https://maps.google.com");
     }
 
     if (settings?.address && settings.address.trim()) {

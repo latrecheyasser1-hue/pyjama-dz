@@ -27,7 +27,7 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   const [whatsappEmballageManager, setWhatsappEmballageManager] = useState(settings?.whatsappEmballageManager ?? '');
   const [phoneList, setPhoneList] = useState(() => parsePhones(settings?.phoneOrders));
   const [address, setAddress] = useState(settings?.address ?? 'Chlef, Algérie');
-  const [googleMapsUrl, setGoogleMapsUrl] = useState(settings?.googleMapsUrl ?? 'https://maps.google.com');
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(settings?.googleMapsUrl || settings?.googleMaps || '');
   const [storeName, setStoreName] = useState((settings?.storeName ?? 'Pyjama DZ').replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -48,7 +48,7 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       if (settings.whatsappEmballageManager !== undefined) setWhatsappEmballageManager(settings.whatsappEmballageManager ?? '');
       if (settings.phoneOrders !== undefined) setPhoneList(parsePhones(settings.phoneOrders));
       if (settings.address !== undefined) setAddress(settings.address ?? '');
-      if (settings.googleMapsUrl !== undefined) setGoogleMapsUrl(settings.googleMapsUrl ?? '');
+      if (settings.googleMapsUrl || settings.googleMaps) setGoogleMapsUrl(settings.googleMapsUrl || settings.googleMaps || '');
       if (settings.storeName !== undefined) setStoreName((settings.storeName ?? '').replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
       if (settings.cashierPin !== undefined) setCashierPinInput(settings.cashierPin ?? '123456');
       setIsInitialized(true);
