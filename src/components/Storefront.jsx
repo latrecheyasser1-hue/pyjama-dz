@@ -1525,13 +1525,16 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       const saved = localStorage.getItem('customer_commune');
       if (saved) return saved;
     } catch(e) {}
-    const defaultCommunes = getCommunesForWilaya(ALGERIA_WILAYAS[15]);
+    const initialWilaya = (() => {
+      try { return localStorage.getItem('customer_wilaya') || ALGERIA_WILAYAS[15]; } catch(e) { return ALGERIA_WILAYAS[15]; }
+    })();
+    const defaultCommunes = getCommunesForWilaya(initialWilaya);
     return defaultCommunes && defaultCommunes.length > 0 ? defaultCommunes[0] : '';
   });
 
   useEffect(() => {
     if (availableCommunes && availableCommunes.length > 0) {
-      if (!availableCommunes.includes(commune)) {
+      if (!commune || !availableCommunes.includes(commune)) {
         setCommune(availableCommunes[0]);
         try { localStorage.setItem('customer_commune', availableCommunes[0]); } catch(e) {}
       }
@@ -1856,19 +1859,23 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
   const handleSubmitOrder = (e) => {
     e.preventDefault();
-    if (!clientName.trim() || !phone.trim() || !commune.trim()) {
-      showToast("⚠️ الرجاء ملء جميع المعلومات الشخصية (الاسم الكامل، رقم الهاتف، والبلدية)", 'warning');
+    if (!clientName.trim()) {
+      showToast("⚠️ يرجى كتابة الإسم واللقب الكامل", 'warning');
       return;
     }
 
     const cleanPhone = sanitizeAlgerianPhone(phone);
-    if (!isValidAlgerianPhone(cleanPhone)) {
+    if (!cleanPhone || !isValidAlgerianPhone(cleanPhone)) {
       showToast("⚠️ يرجى إدخال رقم هاتف جزائري صحيح يبدأ بـ 05 أو 06 أو 07 ويتكون من 10 أرقام (مثال: 0771335039)", 'error');
       return;
     }
 
+    const effectiveCommune = (commune && String(commune).trim()) 
+      ? String(commune).trim() 
+      : (availableCommunes && availableCommunes.length > 0 ? availableCommunes[0] : 'المركز');
+
     if (!deliveryMode) {
-      showToast("⚠️ يرجى اختيار نوع التوصيل (توصيل للمنزل أو استلام من المكتب)", 'warning');
+      showToast("⚠️ يرجى اختيار نوع التوصيل (لباب المنزل أو من المكتب)", 'warning');
       return;
     }
 
@@ -1893,7 +1900,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       localStorage.setItem('customer_name', clientName.trim());
       localStorage.setItem('customer_phone', cleanPhone);
       localStorage.setItem('customer_wilaya', wilaya);
-      localStorage.setItem('customer_commune', commune);
+      localStorage.setItem('customer_commune', effectiveCommune);
     } catch(err) {}
 
     // Build items for order
@@ -1913,8 +1920,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       : deliveryMode;
 
     const finalCommune = isBureauDelivery && selectedOffice
-      ? `${commune} [${selectedOffice}]`
-      : commune;
+      ? `${effectiveCommune} [${selectedOffice}]`
+      : effectiveCommune;
 
     const newOrder = {
       id: `CMD-${Math.floor(1000 + Math.random() * 9000)}`,
