@@ -1453,12 +1453,18 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     return (Array.isArray(products) ? products : []).slice(0, 10).map(p => String(p.id));
   }, [orders, products]);
 
-  // Form fields
-  const [clientName, setClientName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [wilaya, setWilaya] = useState(ALGERIA_WILAYAS[15]); // Default Alger
-  const [deliveryMode, setDeliveryMode] = useState('Livraison Domicile (توصيل للمنزل)');
-  const [deliveryCompany, setDeliveryCompany] = useState('yalidine');
+  // Form fields with persistent storage for returning mobile customers
+  const [clientName, setClientName] = useState(() => {
+    try { return localStorage.getItem('customer_name') || ''; } catch(e) { return ''; }
+  });
+  const [phone, setPhone] = useState(() => {
+    try { return localStorage.getItem('customer_phone') || ''; } catch(e) { return ''; }
+  });
+  const [wilaya, setWilaya] = useState(() => {
+    try { return localStorage.getItem('customer_wilaya') || ALGERIA_WILAYAS[15]; } catch(e) { return ALGERIA_WILAYAS[15]; }
+  });
+  const [deliveryMode, setDeliveryMode] = useState(''); // Empty initially so customer explicitly chooses Home vs Bureau
+  const [deliveryCompany, setDeliveryCompany] = useState(''); // Empty initially so customer explicitly chooses Yalidine vs ZR
 
   const isBureauDelivery = useMemo(() => {
     return (deliveryMode || '').toLowerCase().includes('bureau') || (deliveryMode || '').includes('المكتب') || (deliveryMode || '').includes('مكتب');
@@ -1515,6 +1521,10 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   }, [wilaya]);
 
   const [commune, setCommune] = useState(() => {
+    try {
+      const saved = localStorage.getItem('customer_commune');
+      if (saved) return saved;
+    } catch(e) {}
     const defaultCommunes = getCommunesForWilaya(ALGERIA_WILAYAS[15]);
     return defaultCommunes && defaultCommunes.length > 0 ? defaultCommunes[0] : '';
   });
@@ -1523,6 +1533,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     if (availableCommunes && availableCommunes.length > 0) {
       if (!availableCommunes.includes(commune)) {
         setCommune(availableCommunes[0]);
+        try { localStorage.setItem('customer_commune', availableCommunes[0]); } catch(e) {}
       }
     }
   }, [wilaya, availableCommunes]);
@@ -1530,19 +1541,47 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   // Auto-fill logged in customer details for 1-click checkout
   useEffect(() => {
     if (currentCustomer) {
-      if (currentCustomer.full_name && !clientName) setClientName(currentCustomer.full_name);
-      if (currentCustomer.phone && !phone) setPhone(currentCustomer.phone);
+      if (currentCustomer.full_name && !clientName) {
+        setClientName(currentCustomer.full_name);
+        try { localStorage.setItem('customer_name', currentCustomer.full_name); } catch(e) {}
+      }
+      if (currentCustomer.phone && !phone) {
+        setPhone(currentCustomer.phone);
+        try { localStorage.setItem('customer_phone', currentCustomer.phone); } catch(e) {}
+      }
       if (currentCustomer.wilaya && ALGERIA_WILAYAS.includes(currentCustomer.wilaya)) {
         setWilaya(currentCustomer.wilaya);
+        try { localStorage.setItem('customer_wilaya', currentCustomer.wilaya); } catch(e) {}
       }
       if (currentCustomer.commune) {
         setCommune(currentCustomer.commune);
+        try { localStorage.setItem('customer_commune', currentCustomer.commune); } catch(e) {}
       }
     }
   }, [currentCustomer]);
 
-  const calculatedDeliveryFee = useMemo(() => {
+  const yalidineRate = useMemo(() => {
     if (!wilaya) return 0;
+    const codeMatch = wilaya.match(/^(\d{2})/);
+    const wilayaCode = codeMatch ? codeMatch[1] : '16';
+    const targetType = isBureauDelivery ? 'Au bureau' : 'À domicile';
+    const wilayaData = CHLEF_DELIVERY_RATES.find(w => w.code === wilayaCode);
+    const opt = wilayaData?.options?.find(o => o.provider.toLowerCase().includes('yalidine') && o.type === targetType);
+    return opt ? Number(opt.price || 0) : 0;
+  }, [wilaya, isBureauDelivery]);
+
+  const zrRate = useMemo(() => {
+    if (!wilaya) return 0;
+    const codeMatch = wilaya.match(/^(\d{2})/);
+    const wilayaCode = codeMatch ? codeMatch[1] : '16';
+    const targetType = isBureauDelivery ? 'Au bureau' : 'À domicile';
+    const wilayaData = CHLEF_DELIVERY_RATES.find(w => w.code === wilayaCode);
+    const opt = wilayaData?.options?.find(o => o.provider.toLowerCase().includes('zr') && o.type === targetType);
+    return opt ? Number(opt.price || 0) : 0;
+  }, [wilaya, isBureauDelivery]);
+
+  const calculatedDeliveryFee = useMemo(() => {
+    if (!wilaya || !deliveryMode || !deliveryCompany) return 0;
     const codeMatch = wilaya.match(/^(\d{2})/);
     const wilayaCode = codeMatch ? codeMatch[1] : null;
 
@@ -1817,8 +1856,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
   const handleSubmitOrder = (e) => {
     e.preventDefault();
-    if (!clientName || !phone || !commune || !deliveryCompany) {
-      showToast("⚠️ الرجاء ملء جميع الحقول الإلزامية (الاسم الكامل، رقم الهاتف، البلدية وشركة التوصيل)", 'warning');
+    if (!clientName.trim() || !phone.trim() || !commune.trim()) {
+      showToast("⚠️ الرجاء ملء جميع المعلومات الشخصية (الاسم الكامل، رقم الهاتف، والبلدية)", 'warning');
       return;
     }
 
@@ -1827,11 +1866,35 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       showToast("⚠️ يرجى إدخال رقم هاتف جزائري صحيح يبدأ بـ 05 أو 06 أو 07 ويتكون من 10 أرقام (مثال: 0771335039)", 'error');
       return;
     }
+
+    if (!deliveryMode) {
+      showToast("⚠️ يرجى اختيار نوع التوصيل (توصيل للمنزل أو استلام من المكتب)", 'warning');
+      return;
+    }
+
+    if (isBureauDelivery && !selectedOffice) {
+      showToast("⚠️ يرجى تحديد مكتب أو فرع الاستلام (Bureau Stop Desk)", 'warning');
+      return;
+    }
+
+    if (!deliveryCompany) {
+      showToast("⚠️ يرجى اختيار شركة التوصيل (Yalidine أو ZR Express)", 'warning');
+      return;
+    }
+
     const activeCartItems = cartItems.filter(item => item.qty > 0);
     if (activeCartItems.length === 0) {
       showToast("⚠️ السلة لا تحتوي على منتجات بكمية أكبر من 0! يرجى إدخال كمية للمنتجات المطلوبة.", 'warning');
       return;
     }
+
+    // Save to localStorage for returning visits
+    try {
+      localStorage.setItem('customer_name', clientName.trim());
+      localStorage.setItem('customer_phone', cleanPhone);
+      localStorage.setItem('customer_wilaya', wilaya);
+      localStorage.setItem('customer_commune', commune);
+    } catch(err) {}
 
     // Build items for order
     const orderItems = activeCartItems.map(item => ({
@@ -1855,8 +1918,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
     const newOrder = {
       id: `CMD-${Math.floor(1000 + Math.random() * 9000)}`,
-      clientName,
-      phone,
+      clientName: clientName.trim(),
+      phone: cleanPhone,
       wilaya,
       commune: finalCommune,
       deliveryMode: finalDeliveryMode,
@@ -1873,10 +1936,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     onPlaceOrder(newOrder);
     setOrderSuccess(true);
     setCartItems([]);
-    setClientName('');
-    setPhone('');
-    setCommune('');
-    setDeliveryCompany('');
   };
 
   // Category Showcase Card with static first product image and flame/solde special designs
@@ -3161,9 +3220,13 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                     <div className="form-group" style={{ marginBottom: '18px' }}>
                       <label className="form-label" style={{ fontWeight: 700 }}>الإسم واللقب (Nom et Prénom) *</label>
                       <input 
-                        type="text" required placeholder="Ex: Yasmine Benali" 
+                        type="text" required placeholder="مثال: ياسمين بن علي" 
                         className="form-input" style={{ padding: '12px 16px', fontSize: '1rem' }}
-                        value={clientName} onChange={(e) => setClientName(e.target.value)}
+                        value={clientName} 
+                        onChange={(e) => {
+                          setClientName(e.target.value);
+                          try { localStorage.setItem('customer_name', e.target.value); } catch(err){}
+                        }}
                       />
                     </div>
 
@@ -3172,7 +3235,12 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       <input 
                         type="tel" required placeholder="مثال: 0771335039 (10 أرقام)" 
                         className="form-input" style={{ padding: '12px 16px', fontSize: '1rem', direction: 'ltr', textAlign: 'left' }}
-                        value={phone} onChange={(e) => setPhone(sanitizeAlgerianPhone(e.target.value))}
+                        value={phone} 
+                        onChange={(e) => {
+                          const cleaned = sanitizeAlgerianPhone(e.target.value);
+                          setPhone(cleaned);
+                          try { localStorage.setItem('customer_phone', cleaned); } catch(err){}
+                        }}
                         maxLength={10}
                       />
                     </div>
@@ -3180,8 +3248,12 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                     <div className="form-group" style={{ marginBottom: '18px' }}>
                       <label className="form-label" style={{ fontWeight: 700 }}>الولاية (Wilaya) *</label>
                       <select 
-                        className="form-select" style={{ padding: '12px 16px', fontSize: '1rem' }}
-                        value={wilaya} onChange={(e) => setWilaya(e.target.value)}
+                        className="form-select" style={{ padding: '12px 16px', fontSize: '1rem', fontWeight: 700 }}
+                        value={wilaya} 
+                        onChange={(e) => {
+                          setWilaya(e.target.value);
+                          try { localStorage.setItem('customer_wilaya', e.target.value); } catch(err){}
+                        }}
                       >
                         {ALGERIA_WILAYAS.map(w => (
                           <option key={w} value={w}>{w}</option>
@@ -3193,7 +3265,11 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       <label className="form-label" style={{ fontWeight: 700 }}>البلدية (Commune) *</label>
                       <select 
                         className="form-select" style={{ padding: '12px 16px', fontSize: '1rem' }}
-                        value={commune} onChange={(e) => setCommune(e.target.value)}
+                        value={commune} 
+                        onChange={(e) => {
+                          setCommune(e.target.value);
+                          try { localStorage.setItem('customer_commune', e.target.value); } catch(err){}
+                        }}
                         required
                       >
                         {availableCommunes.length > 0 ? (
@@ -3206,14 +3282,81 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       </select>
                     </div>
 
+                    {/* Delivery Mode: Home vs Bureau */}
                     <div className="form-group" style={{ marginBottom: '18px' }}>
-                      <label className="form-label" style={{ fontWeight: 700 }}>طريقة التوصيل (Livraison) *</label>
+                      <label className="form-label" style={{ fontWeight: 800, color: 'var(--burgundy)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>📍 نوع التوصيل (Mode de Livraison) *</span>
+                        {!deliveryMode && <span style={{ fontSize: '0.78rem', color: '#E11D48', fontWeight: 800 }}>يرجى الاختيار 👇</span>}
+                      </label>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px', marginBottom: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setDeliveryMode('Livraison Domicile (توصيل للمنزل)')}
+                          style={{
+                            padding: '12px 10px',
+                            borderRadius: '12px',
+                            border: deliveryMode.includes('Domicile') ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
+                            background: deliveryMode.includes('Domicile') ? '#FFF5F7' : '#FFFFFF',
+                            color: deliveryMode.includes('Domicile') ? 'var(--burgundy)' : '#475569',
+                            boxShadow: deliveryMode.includes('Domicile') ? '0 4px 12px rgba(128, 0, 32, 0.12)' : 'none',
+                            fontWeight: 800,
+                            fontSize: '0.92rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <span style={{ fontSize: '1.4rem' }}>🏠</span>
+                          <span>لباب المنزل</span>
+                          <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Livraison Domicile</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeliveryMode('Livraison Bureau (توصيل للمكتب)')}
+                          style={{
+                            padding: '12px 10px',
+                            borderRadius: '12px',
+                            border: isBureauDelivery ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
+                            background: isBureauDelivery ? '#FFF5F7' : '#FFFFFF',
+                            color: isBureauDelivery ? 'var(--burgundy)' : '#475569',
+                            boxShadow: isBureauDelivery ? '0 4px 12px rgba(128, 0, 32, 0.12)' : 'none',
+                            fontWeight: 800,
+                            fontSize: '0.92rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <span style={{ fontSize: '1.4rem' }}>🏢</span>
+                          <span>من المكتب / الفرع</span>
+                          <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Stop Desk</span>
+                        </button>
+                      </div>
+
                       <select 
-                        className="form-select" style={{ padding: '12px 16px', fontSize: '1rem', fontWeight: 800 }}
-                        value={deliveryMode} onChange={(e) => setDeliveryMode(e.target.value)}
+                        className="form-select" 
+                        style={{ 
+                          padding: '10px 14px', 
+                          fontSize: '0.92rem', 
+                          fontWeight: 700,
+                          borderColor: !deliveryMode ? '#F43F5E' : '#CBD5E1',
+                          background: !deliveryMode ? '#FFF1F2' : '#FFFFFF'
+                        }}
+                        value={deliveryMode} 
+                        onChange={(e) => setDeliveryMode(e.target.value)}
+                        required
                       >
+                        <option value="">-- اختر نوع التوصيل (منزل أو مكتب) * --</option>
                         <option value="Livraison Domicile (توصيل للمنزل)">🏠 توصيل للمنزل (Livraison Domicile)</option>
-                        <option value="Livraison Bureau (توصيل للمكتب)">🏢 توصيل للمكتب (Livraison Bureau / Stop Desk)</option>
+                        <option value="Livraison Bureau (توصيل للمكتب)">🏢 استلام من المكتب (Livraison Bureau / Stop Desk)</option>
                       </select>
                     </div>
 
@@ -3229,6 +3372,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                           onChange={(e) => setSelectedOffice(e.target.value)}
                           required={isBureauDelivery}
                         >
+                          <option value="">-- اختر مكتب / فرع الاستلام * --</option>
                           {availableOfficesForWilaya.map((officeOption, idx) => (
                             <option key={idx} value={officeOption}>
                               {officeOption}
@@ -3241,15 +3385,83 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       </div>
                     )}
 
+                    {/* Delivery Company Selection */}
                     <div className="form-group" style={{ marginBottom: '18px' }}>
-                      <label className="form-label" style={{ fontWeight: 700 }}>شركة التوصيل (Société de Livraison) *</label>
+                      <label className="form-label" style={{ fontWeight: 800, color: 'var(--burgundy)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>🚚 شركة التوصيل (Société de Livraison) *</span>
+                        {!deliveryCompany && <span style={{ fontSize: '0.78rem', color: '#E11D48', fontWeight: 800 }}>يرجى الاختيار 👇</span>}
+                      </label>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px', marginBottom: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setDeliveryCompany('yalidine')}
+                          style={{
+                            padding: '12px 10px',
+                            borderRadius: '12px',
+                            border: deliveryCompany === 'yalidine' ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
+                            background: deliveryCompany === 'yalidine' ? '#FFF5F7' : '#FFFFFF',
+                            color: deliveryCompany === 'yalidine' ? 'var(--burgundy)' : '#475569',
+                            boxShadow: deliveryCompany === 'yalidine' ? '0 4px 12px rgba(128, 0, 32, 0.12)' : 'none',
+                            fontWeight: 800,
+                            fontSize: '0.92rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <span style={{ fontWeight: 900 }}>📦 Yalidine Express</span>
+                          <span style={{ fontSize: '0.88rem', color: '#059669', fontWeight: 900 }}>
+                            {yalidineRate > 0 ? `${yalidineRate.toLocaleString()} DA` : 'حسب الولاية'}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeliveryCompany('zrexpress')}
+                          style={{
+                            padding: '12px 10px',
+                            borderRadius: '12px',
+                            border: deliveryCompany === 'zrexpress' ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
+                            background: deliveryCompany === 'zrexpress' ? '#FFF5F7' : '#FFFFFF',
+                            color: deliveryCompany === 'zrexpress' ? 'var(--burgundy)' : '#475569',
+                            boxShadow: deliveryCompany === 'zrexpress' ? '0 4px 12px rgba(128, 0, 32, 0.12)' : 'none',
+                            fontWeight: 800,
+                            fontSize: '0.92rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <span style={{ fontWeight: 900 }}>⚡ ZR Express</span>
+                          <span style={{ fontSize: '0.88rem', color: '#059669', fontWeight: 900 }}>
+                            {zrRate > 0 ? `${zrRate.toLocaleString()} DA` : 'حسب الولاية'}
+                          </span>
+                        </button>
+                      </div>
+
                       <select 
-                        className="form-select" style={{ padding: '12px 16px', fontSize: '1rem' }}
-                        value={deliveryCompany} onChange={(e) => setDeliveryCompany(e.target.value)}
+                        className="form-select" 
+                        style={{ 
+                          padding: '10px 14px', 
+                          fontSize: '0.92rem', 
+                          fontWeight: 700,
+                          borderColor: !deliveryCompany ? '#F43F5E' : '#CBD5E1',
+                          background: !deliveryCompany ? '#FFF1F2' : '#FFFFFF'
+                        }}
+                        value={deliveryCompany} 
+                        onChange={(e) => setDeliveryCompany(e.target.value)}
                         required
                       >
-                        <option value="yalidine">Yalidine (ياليدين)</option>
-                        <option value="zrexpress">ZR Express</option>
+                        <option value="">-- اختر شركة التوصيل * --</option>
+                        <option value="yalidine">📦 Yalidine Express {yalidineRate > 0 ? `(${yalidineRate.toLocaleString()} DA)` : ''}</option>
+                        <option value="zrexpress">⚡ ZR Express {zrRate > 0 ? `(${zrRate.toLocaleString()} DA)` : ''}</option>
                       </select>
                     </div>
 
@@ -3272,16 +3484,22 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '0.95rem', color: '#475569' }}>
-                        <span>سعر التوصيل ({wilaya.split('-')[1]?.trim() || wilaya} - {deliveryCompany === 'zrexpress' ? 'ZR Express' : 'Yalidine'}):</span>
-                        <strong style={{ color: '#059669', fontSize: '1.05rem' }}>
-                          {calculatedDeliveryFee > 0 ? `+${calculatedDeliveryFee.toLocaleString()} DA` : 'مجاني'}
-                        </strong>
+                        <span>سعر التوصيل ({wilaya.split('-')[1]?.trim() || wilaya}):</span>
+                        {(!deliveryMode || !deliveryCompany) ? (
+                          <span style={{ color: '#E11D48', fontSize: '0.85rem', fontWeight: 800 }}>يرجى اختيار نوع وشركة التوصيل</span>
+                        ) : (
+                          <strong style={{ color: '#059669', fontSize: '1.05rem' }}>
+                            {calculatedDeliveryFee > 0 ? `+${calculatedDeliveryFee.toLocaleString()} DA` : 'مجاني'}
+                          </strong>
+                        )}
                       </div>
 
                       <div style={{ borderTop: '2px dashed #F472B6', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                           <span style={{ fontSize: '1rem', fontWeight: 900, color: '#1E293B', display: 'block' }}>المبلغ الإجمالي عند الاستلام:</span>
-                          <span style={{ fontSize: '0.78rem', color: '#64748B' }}>شامل المنتجات + التوصيل للحافلة/المنزل</span>
+                          <span style={{ fontSize: '0.78rem', color: '#64748B' }}>
+                            {isBureauDelivery ? 'استلام من المكتب' : 'توصيل لباب المنزل'}
+                          </span>
                         </div>
                         <span style={{ fontSize: '1.45rem', fontWeight: 900, color: 'var(--burgundy-dark)' }}>
                           {(cartTotal + calculatedDeliveryFee).toLocaleString()} DA
