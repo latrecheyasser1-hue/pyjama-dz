@@ -1533,9 +1533,9 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
       'إلغاء', 'الغاء', 'ألغي', 'الغي', 'إلغي', 'انولي', 'أنولي', 'نلغي', 'حبيت نلغي', 'حاب نلغي', 'حابة نلغي', 'حاب انولي',
       'انولي الطلب', 'إلغاء الطلب', 'الغاء الطلب', 'ألغي الطلب', 'الغي الطلب', 'نلغي الطلب', 'انولي لاكومند', 'انولي لا كومند',
       'nanuli', 'anuli', 'nanulii', 'anulii', 'nanoli', 'anoli', 'nanolii', 'anoli', 'noli', 'nanuli la commande', 'anuli la commande',
-      'annuler', 'anuler', 'annule', 'anule', 'annulé', 'anulé', 'annulee', 'anulee', 'canceller', 'cancel', 'annulez', 'annulation',
-      'annuler commande', 'anuler commande', 'nanuli la commande taa3i', 'anuler la commande', 'slm anuler la commande', 'slm ni haab nanuli',
-      'sha ni hab annule', 'ni hab annule', 'hab annule', 'ni hab annuler', 'sha ni hab annuler'
+      'nanuller', 'nanuler', 'annuller', 'anuller', 'annuler', 'anuler', 'annule', 'anule', 'annulé', 'anulé', 'annulee', 'anulee', 'canceller', 'cancel', 'annulez', 'annulation',
+      'annuler commande', 'anuler commande', 'nanuller la commande', 'nanuler la commande', 'nanuli la commande taa3i', 'anuler la commande', 'slm anuler la commande', 'slm ni haab nanuli',
+      'sha ni hab annule', 'ni hab annule', 'hab annule', 'ni hab annuler', 'sha ni hab annuler', 'hab nanuller', 'ni hab nanuller', 'hab nanuler', 'hab nanulli'
     ];
 
     const isCancelRequest = cancelKeywords.some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
@@ -2011,6 +2011,9 @@ const systemInstruction = `أنت ياسين، بائع ومستشار تجار�
 
 - الزبون: "Sha choof golii chhal tc3ood baah twssalnii la commande ??" أو "شحال تقعد باه توصل؟" أو "وقتاش توصلني؟" أو "délai de livraison" أو "wa9tech toussel"
   الرد: "التوصيل سريع خويا لعزيز! يقعد من 24 إلى 48 ساعة فقط وتكون عندك الكولي لباب دارك أو للمكتب، ويعيطلك ليفرو قبل ما يوصل لعندك 🚚📦"
+
+- الزبون: "Khooyaa ni hab nanuller la commande" أو "حاب نلغي الطلبية" أو "annuler la commande" أو "انولي لاكوموند"
+  الرد: "[ACTION:CANCEL_ORDER] حبيت تلغي طلبيتك خويا لعزيز؟ تفضل أكدلي بكلمة (تأكيد الإلغاء) أو إذا غيرت رأيك اكتبلنا (تراجع) ونجهزوها لك بكل سرور 🌸"
 
 - الزبون: "كاش توصيل لوهران/سطيف/الجزائر؟" أو "livraison dispo ?"
   الرد: "إيه نعم كاين التوصيل متوفر لجميع 58 ولاية حتى لباب دارك والدفع عند الاستلام بعد المعاينة 🚚"
