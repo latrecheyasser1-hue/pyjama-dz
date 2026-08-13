@@ -217,6 +217,13 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
                         }
                       }
 
+                      const renderSafeString = (val, fallback = 'منتج فاخر') => {
+                        if (!val) return fallback;
+                        if (typeof val === 'string') return val;
+                        if (typeof val === 'object') return val.title || val.name || val.product || fallback;
+                        return String(val);
+                      };
+
                       return (
                         <div key={order.id || idx} style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '18px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.03)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid #F1F5F9' }}>
@@ -236,7 +243,7 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
                               {itemsList.map((item, i) => (
                                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#FFFFFF', padding: '10px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
                                   {item.image || item.image_url ? (
-                                    <img src={item.image || item.image_url} alt={item.title || item.name} style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover', border: '1px solid #E2E8F0' }} />
+                                    <img src={item.image || item.image_url} alt={renderSafeString(item.title || item.name, 'منتج')} style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover', border: '1px solid #E2E8F0' }} />
                                   ) : (
                                     <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: '#FFF1F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#BE123C' }}>
                                       <ShoppingBag size={22} />
@@ -245,7 +252,7 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
                                   
                                   <div style={{ flex: 1 }}>
                                     <h4 style={{ fontSize: '0.88rem', fontWeight: 800, margin: '0 0 4px', color: '#1E293B' }}>
-                                      {item.title || item.name || order.product || 'بيجامة فاخرة'}
+                                      {renderSafeString(item.title || item.name || item.product || order.product, 'بيجامة فاخرة')}
                                     </h4>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '0.75rem', fontWeight: 700 }}>
                                       {(item.size || item.selectedSize) && (

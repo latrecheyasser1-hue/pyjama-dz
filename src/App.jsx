@@ -924,7 +924,14 @@ export default function App() {
 
   const enrichedOrders = useMemo(() => {
     if (!orders || !Array.isArray(orders)) return [];
-    const sorted = [...orders].sort((a, b) => {
+    const filteredRealOrders = orders.filter(o => {
+      if (o.status === 'account') return false;
+      if (o.product === '_CUSTOMER_ACCOUNT_') return false;
+      if (typeof o.product === 'object' && o.product?.type === '_CUSTOMER_ACCOUNT_') return false;
+      return true;
+    });
+
+    const sorted = [...filteredRealOrders].sort((a, b) => {
       const dateA = new Date(a.created_at || a.date || 0).getTime();
       const dateB = new Date(b.created_at || b.date || 0).getTime();
       return dateA - dateB;
@@ -936,7 +943,7 @@ export default function App() {
       idToTicket[order.id] = ticketNum < 10 ? `0${ticketNum}` : `${ticketNum}`;
     });
 
-    return orders.map(order => ({
+    return filteredRealOrders.map(order => ({
       ...order,
       ticketNumber: idToTicket[order.id] || '01'
     }));

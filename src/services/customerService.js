@@ -169,7 +169,7 @@ export const registerCustomer = async ({ fullName, phone, password, wilaya = '',
     await supabase.from('orders').insert([{
       clientName: `ACCOUNT: ${fullName.trim()}`,
       phone: cleanPhone,
-      product: { type: '_CUSTOMER_ACCOUNT_', title: 'حساب زبون' },
+      product: '_CUSTOMER_ACCOUNT_',
       items: [{ password_hash: password, wilaya, commune, full_name: fullName.trim(), wishlist: [] }],
       status: 'account',
       archived: true
@@ -254,7 +254,7 @@ export const loginCustomer = async (phone, password) => {
     return current;
   }
 
-  throw new Error('رقم الهاتف غير مسجل أو كلمة السر غير صحيحة، يرجى إنشاء حساب جديد أو الدخول السريع عبر الواتساب 📲');
+  throw new Error('رقم الهاتف غير مسجل أو كلمة السر غير صحيحة، يرجى إنشاء حساب جديد أو الدخول السريع عبر رمز الواتساب 📲');
 };
 
 /**
@@ -306,7 +306,7 @@ export const loginOrCreateWithOTP = async (phone, fullName = '') => {
     await supabase.from('orders').insert([{
       clientName: `ACCOUNT: ${autoAccount.full_name}`,
       phone: cleanPhone,
-      product: { type: '_CUSTOMER_ACCOUNT_', title: 'حساب زبون' },
+      product: '_CUSTOMER_ACCOUNT_',
       items: [{ password_hash: autoAccount.password_hash, full_name: autoAccount.full_name, wilaya: '', commune: '', wishlist: [] }],
       status: 'account',
       archived: true
@@ -360,8 +360,16 @@ export const getCustomerOrders = async (phone) => {
       return [];
     }
 
+    // Filter out system account records (status === 'account' or product === '_CUSTOMER_ACCOUNT_')
+    const realOrdersOnly = data.filter(order => {
+      if (order.status === 'account') return false;
+      if (order.product === '_CUSTOMER_ACCOUNT_') return false;
+      if (typeof order.product === 'object' && order.product?.type === '_CUSTOMER_ACCOUNT_') return false;
+      return true;
+    });
+
     // Sort chronologically ascending to calculate global ticketNumber (1, 2, 3... 341) matching Admin dashboard
-    const sortedAll = [...data].sort((a, b) => {
+    const sortedAll = [...realOrdersOnly].sort((a, b) => {
       const dateA = new Date(a.created_at || a.date || 0).getTime();
       const dateB = new Date(b.created_at || b.date || 0).getTime();
       return dateA - dateB;
