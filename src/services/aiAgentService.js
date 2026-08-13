@@ -222,17 +222,43 @@ export const sendWhatsAppImage = async (toPhone, imageUrl, caption = '') => {
 /**
  * Process Customer Message with AI Agent
  */
-export const processMessageWithAIAgent = async (customerPhone, messageText) => {
-  const text = (messageText || '').toLowerCase().trim();
+  // 1. Natural Algerian Greetings & Small Talk
+  const isGreeting = ['slm', 'salam', 'salut', 'bonjour', 'coucou', 'marhaba', 'ahla', 'ahlan', 'kirak', 'kirakom', 'cv', 'ca va', 'labas', 'mlaah', 'dayriin', 'dayriini', 'سلام', 'مرحبا', 'أهلا', 'صباح', 'مساء', 'كيراك', 'كيراكم', 'لاباس', 'مليح', 'صافا'].some(w => text.includes(w));
+  
+  if (isGreeting && !text.includes('تأكيد') && !text.includes('إلغاء') && !text.includes('صور') && !text.includes('موقع') && !text.includes('سعر') && !text.includes('شحال')) {
+    const greetingReply = `وعليكم السلام ورحمة الله وبركاته! يسلمك ويعيشك خونا/أختنا لعزيزة، رانا غاية ولاباس الحمد لله ربي يحفظك 🌸\n\nنتمنى تكون بألف خير وصحة! كاش ما عجبك كاش موديل بيجامة، مقاس، أو حاب تستفسر على التوصيل وتأكيد طلبيتك؟ راني هنا خبير المبيعات في خدمتك خطوة بخطوة 🛍️✨`;
+    await sendWhatsAppMessage(customerPhone, greetingReply);
+    return greetingReply;
+  }
 
-  // Smart Intent Detection & Auto-tool Execution
-  if (text.includes('تأكيد') || text.includes('نأكد') || text.includes('confirmer') || text.includes('confirm')) {
+  // 2. Price Inquiries
+  if (text.includes('سعر') || text.includes('سومة') || text.includes('شحال') || text.includes('بشحال') || text.includes('prix') || text.includes('combien') || text.includes('chhal')) {
+    const { data: prods } = await supabase.from('products').select('title, price').limit(4);
+    let priceList = '';
+    if (prods && prods.length > 0) {
+      priceList = prods.map(p => `• *${p.title}*: ${p.price} دج`).join('\n');
+    }
+    const priceReply = `أهلاً بك 🌸 أسعار البيجامات متوفرة بأفضل جودة ووفق طلبك:\n\n${priceList || '• أسعارنا تبدأ من 2,800 دج فقط للمجموعات الفاخرة'}\n\nالتوصيل متوفر لجميع الولايات والدفع عند الاستلام بعد المعاينة 📦✨`;
+    await sendWhatsAppMessage(customerPhone, priceReply);
+    return priceReply;
+  }
+
+  // 3. Delivery Inquiries
+  if (text.includes('توصيل') || text.includes('شحن') || text.includes('livraison') || text.includes('yalidine') || text.includes('zrexpress') || text.includes('delai') || text.includes('وقتاش توصل')) {
+    const deliveryReply = `أهلاً بك 🌸 التوصيل متوفر لجميع 58 ولاية حتى باب المنزل أو للمكتب (Stop Desk) مع شركتي ياليدين و ZR Express 🚚.\n\n⏱️ مدة التوصيل: من 24 إلى 48 ساعة فقط، والدفع عند الاستلام بعد معاينة السلعة.\nما هي الولاية التي ترغب في التوصيل إليها؟ ✨`;
+    await sendWhatsAppMessage(customerPhone, deliveryReply);
+    return deliveryReply;
+  }
+
+  // 4. Order Confirmation Intent
+  if (text.includes('تأكيد') || text.includes('نأكد') || text.includes('confirmer') || text.includes('confirm') || text.includes('oui') || text.includes('نعم')) {
     const res = await executeAgentTool('confirmOrder', {}, customerPhone);
     const reply = `${res.message}\n\nشكراً لثقتك بنا في Pyjama DZ! سنقوم بتجهيز طلبيتك وشحنها في أقرب وقت 🌸🚚`;
     await sendWhatsAppMessage(customerPhone, reply);
     return reply;
   }
 
+  // 5. Order Cancellation Intent
   if (text.includes('إلغاء') || text.includes('نلغي') || text.includes('annuler') || text.includes('cancel')) {
     if (text.includes('نعم') || text.includes('أكيد') || text.includes('إلغاء نهائي') || text.includes('أصر')) {
       const res = await executeAgentTool('cancelOrder', {}, customerPhone);
@@ -245,13 +271,15 @@ export const processMessageWithAIAgent = async (customerPhone, messageText) => {
     }
   }
 
-  if (text.includes('موقع') || text.includes('محل') || text.includes('عنوان') || text.includes('maps') || text.includes('مكان')) {
+  // 6. Location Intent
+  if (text.includes('موقع') || text.includes('محل') || text.includes('عنوان') || text.includes('maps') || text.includes('مكان') || text.includes('win jayiin') || text.includes('adresse')) {
     const res = await executeAgentTool('getStoreLocation', {}, customerPhone);
     await sendWhatsAppMessage(customerPhone, res.message);
     return res.message;
   }
 
-  if (text.includes('صور') || text.includes('صورة') || text.includes('موديل') || text.includes('photo') || text.includes('image')) {
+  // 7. Photos Intent
+  if (text.includes('صور') || text.includes('صورة') || text.includes('موديل') || text.includes('photo') || text.includes('image') || text.includes('model')) {
     const res = await executeAgentTool('getProductPhotos', { query: text }, customerPhone);
     if (res.images && res.images.length > 0) {
       await sendWhatsAppMessage(customerPhone, `أهلاً بك 🌸 تفضلي صور الموديل المطلوب (${res.productTitle}) بسعر ${res.price} دج:`);
@@ -264,7 +292,8 @@ export const processMessageWithAIAgent = async (customerPhone, messageText) => {
     }
   }
 
-  if (text.includes('متوفر') || text.includes('سطوك') || text.includes('stock') || text.includes('مقاس')) {
+  // 8. Stock Check Intent
+  if (text.includes('متوفر') || text.includes('سطوك') || text.includes('stock') || text.includes('مقاس') || text.includes('dispo') || text.includes('kain') || text.includes('kayn')) {
     const res = await executeAgentTool('checkStock', { query: text }, customerPhone);
     const reply = res.available 
       ? `نعم أختي الكريمة 🌸 المنتج (${res.productTitle}) متوفر حالياً في السطوك بسعر ${res.price} دج! يمكنك الطلب فوراً من المتجر.`
@@ -273,8 +302,8 @@ export const processMessageWithAIAgent = async (customerPhone, messageText) => {
     return reply;
   }
 
-  // General Friendly Algerian AI Sales Agent Response
-  const generalReply = `أهلاً وسهلاً بك في متجر Pyjama DZ 🌸\n\nأنا خبير المبيعات الخاص بك ومستعد لخدمتك في أي وقت!\n\nيمكنني مساعدتك في:\n1️⃣ تأكيد طلبيتك المباشرة\n2️⃣ تعديل المقاس، اللون أو عنوان التوصيل\n3️⃣ إرسال صور الموديلات والمنتجات الفاخرة 📸\n4️⃣ إرسال موقع محلاتنا على الخريطة 📍\n\nتفضلي بطرح سؤالك أو طلبك وأنا تحت أمرك 🌸`;
+  // 9. General Friendly Algerian AI Sales Agent Fallback Response
+  const generalReply = `أهلاً وسهلاً بك في متجر Pyjama DZ 🌸\n\nأنا خبير المبيعات ومستعد لخدمتك في أي وقت!\n\nيمكنني مساعدتك في:\n1️⃣ تأكيد طلبيتك المباشرة 🛍️\n2️⃣ تعديل المقاس، اللون أو عنوان التوصيل ✏️\n3️⃣ إرسال صور الموديلات والبيجامات الفاخرة 📸\n4️⃣ إرسال موقع محلاتنا على الخريطة 📍\n\nتفضل بطرح استفسارك أو طلبك وأنا تحت أمرك 🌸`;
   await sendWhatsAppMessage(customerPhone, generalReply);
   return generalReply;
 };
