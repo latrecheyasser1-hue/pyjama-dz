@@ -1631,8 +1631,8 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
     const rawLower = String(messageText).toLowerCase().trim();
     const normText = normalizeText(messageText);
 
-    // Skip immediately if customer is asking a question or saying no!
-    if (['anuler', 'annuler', 'anule', 'annule', 'الغي', 'ألفي', 'إلغاء', 'الغال', 'lala', 'لا اريد', 'لاريد'].some(k => rawLower.includes(k) || normText.includes(k))) {
+    // Skip immediately if customer is asking a question (includes ?, كاين, شحال, وين, واش, كيفاش, هل, est-ce que, livraison, etc.)!
+    if (['?', '؟', 'كاين', 'شحال', 'وين', 'واش', 'كيفاش', 'هل', 'سعر', 'سومة', 'توصيل', 'livraison', 'kayen', 'chhal', 'win', 'wach', 'kifah', 'prix', 'anuler', 'annuler', 'anule', 'annule', 'الغي', 'ألفي', 'إلغاء', 'الغال', 'lala', 'لا اريد', 'لاريد'].some(k => rawLower.includes(k) || normText.includes(k))) {
       return false;
     }
 
@@ -1641,10 +1641,12 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
       'أكد الطلبية', 'تأكيد الطلبية', 'تأكيد الطلب', 'أكدلي الطلبية', 'أكدلي طلبية', 'أكدلي الطلب',
       'akedha', 'akedhaa', 'aked', 'akedli', 'akedlii', 'confirme', 'confirmer', 'confirmation',
       'oui confirme', 'oui akedli', 'oui aked', 'daccord confirme', 'oui akedha',
-      'ih akedha', 'ih aked', 'ih', 'إيه', 'ايه', 'نعم', 'نعام', 'صح', 'اوكي', 'ok', 'yes', 'oui', 'ثبتها', 'ثبتلي'
+      'ih akedha', 'ih aked', 'ثبتها', 'ثبتلي'
     ];
 
-    const isConfirm = confirmKeywords.some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw));
+    const isExactAffirmative = ['نعم', 'نعام', 'إيه', 'ايه', 'صح', 'اوكي', 'ok', 'yes', 'oui', 'ih'].includes(normText.trim()) || ['نعم', 'نعام', 'إيه', 'ايه', 'صح', 'اوكي', 'ok', 'yes', 'oui', 'ih'].includes(rawLower.trim());
+
+    const isConfirm = confirmKeywords.some(kw => normText === kw || rawLower === kw || normText.includes(kw) || rawLower.includes(kw)) || isExactAffirmative;
 
     if (!isConfirm) return false;
 
