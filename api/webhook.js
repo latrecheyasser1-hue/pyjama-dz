@@ -238,6 +238,7 @@ async function downloadMetaMedia(mediaId) {
     });
     const metaData = await metaRes.json();
     console.log('downloadMetaMedia metaRes status:', metaRes.status, 'url present:', !!metaData?.url);
+    
     if (metaData && metaData.url) {
       let audioRes = await fetch(metaData.url, {
         headers: {
@@ -260,13 +261,29 @@ async function downloadMetaMedia(mediaId) {
         console.log('downloadMetaMedia success, byteLength:', arrayBuf.byteLength, 'mimeType:', mimeType);
         return { base64, mimeType };
       } else {
-        console.error('downloadMetaMedia binary download failed:', audioRes.status, audioRes.statusText);
+        const errTxt = `${audioRes.status} ${audioRes.statusText}`;
+        console.error('downloadMetaMedia binary download failed:', errTxt);
+        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+          body: JSON.stringify({ key: 'last_vocal_debug', value: JSON.stringify({ step: 'audioRes_failed', error: errTxt, url: metaData.url, timestamp: Date.now() }) })
+        });
       }
     } else {
       console.error('downloadMetaMedia Meta API returned error:', metaData);
+      await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ key: 'last_vocal_debug', value: JSON.stringify({ step: 'metaRes_failed', error: metaData, mediaId, timestamp: Date.now() }) })
+      });
     }
   } catch (err) {
     console.error('Error downloading Meta media:', err);
+    await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({ key: 'last_vocal_debug', value: JSON.stringify({ step: 'download_exception', error: err.message, mediaId, timestamp: Date.now() }) })
+    });
   }
   return null;
 }
@@ -302,9 +319,19 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
       } else {
         const errText = await res.text();
         console.error('Groq Whisper error response:', errText);
+        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+          body: JSON.stringify({ key: 'last_vocal_debug', value: JSON.stringify({ step: 'whisper_api_error', error: errText, timestamp: Date.now() }) })
+        });
       }
     } catch (err) {
       console.error('Groq Whisper Audio error:', err.message);
+      await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ key: 'last_vocal_debug', value: JSON.stringify({ step: 'whisper_exception', error: err.message, timestamp: Date.now() }) })
+      });
     }
   }
 
