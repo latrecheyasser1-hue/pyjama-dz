@@ -225,7 +225,10 @@ async function getAllProducts() {
 
 async function downloadMetaMedia(mediaId) {
   const token = await getMetaAccessToken();
-  if (!token || !mediaId) return null;
+  if (!token || !mediaId) {
+    console.error('downloadMetaMedia: Missing token or mediaId', { mediaId });
+    return null;
+  }
   try {
     const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
       headers: {
@@ -234,6 +237,7 @@ async function downloadMetaMedia(mediaId) {
       }
     });
     const metaData = await metaRes.json();
+    console.log('downloadMetaMedia metaRes status:', metaRes.status, 'url present:', !!metaData?.url);
     if (metaData && metaData.url) {
       let audioRes = await fetch(metaData.url, {
         headers: {
@@ -243,6 +247,7 @@ async function downloadMetaMedia(mediaId) {
       });
       
       if (!audioRes.ok) {
+        console.log('downloadMetaMedia retry without auth header for CDN URL...');
         audioRes = await fetch(metaData.url, {
           headers: { 'User-Agent': 'curl/7.68.0' }
         });
@@ -252,8 +257,13 @@ async function downloadMetaMedia(mediaId) {
         const arrayBuf = await audioRes.arrayBuffer();
         const base64 = Buffer.from(arrayBuf).toString('base64');
         const mimeType = metaData.mime_type ? metaData.mime_type.split(';')[0].trim() : 'audio/ogg';
+        console.log('downloadMetaMedia success, byteLength:', arrayBuf.byteLength, 'mimeType:', mimeType);
         return { base64, mimeType };
+      } else {
+        console.error('downloadMetaMedia binary download failed:', audioRes.status, audioRes.statusText);
       }
+    } else {
+      console.error('downloadMetaMedia Meta API returned error:', metaData);
     }
   } catch (err) {
     console.error('Error downloading Meta media:', err);
@@ -266,14 +276,13 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
   if (!keys || keys.length === 0 || !base64Audio) return null;
 
   const audioBuffer = Buffer.from(base64Audio, 'base64');
-  const blob = new Blob([audioBuffer], { type: mimeType || 'audio/ogg' });
+  const blob = new Blob([new Uint8Array(audioBuffer)], { type: 'audio/ogg' });
 
   for (const selectedKey of keys) {
     try {
       const formData = new FormData();
       formData.append('file', blob, 'audio.ogg');
       formData.append('model', 'whisper-large-v3-turbo');
-      formData.append('prompt', 'تفريغ صوتي بالدارجة الجزائرية: اسكو كاين ليفريزون، التوصيل، المقاس، وين جايين، شحال السعر، ديسبونيبل');
       formData.append('temperature', '0.0');
 
       const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
