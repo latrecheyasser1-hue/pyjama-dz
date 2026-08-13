@@ -1889,18 +1889,28 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   };
 
   const instaUrl = formatUrl(settings?.instagramUrl || settings?.instagram, "https://www.instagram.com/pyjama_dz");
-  const rawMaps = String(
-    settings?.googleMapsUrl || 
-    settings?.googleMaps || 
-    settings?.mapsUrl || 
-    settings?.maps || 
-    settings?.locationUrl || 
-    settings?.location || 
-    ""
-  ).trim();
-  const mapsUrl = rawMaps 
-    ? formatUrl(rawMaps, "https://maps.google.com")
-    : formatUrl("https://maps.google.com/?q=" + encodeURIComponent(settings?.address || "Chlef, Algeria"), "https://maps.google.com");
+  const getMapsUrl = () => {
+    const raw = String(
+      settings?.googleMapsUrl || 
+      settings?.googleMaps || 
+      settings?.mapsUrl || 
+      settings?.maps || 
+      settings?.locationUrl || 
+      ""
+    ).trim();
+
+    if (raw && raw !== 'https://maps.google.com' && raw !== 'http://maps.google.com' && raw !== 'https://maps.google.com/') {
+      return formatUrl(raw, "https://maps.google.com");
+    }
+
+    if (settings?.address && settings.address.trim()) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.address.trim())}`;
+    }
+
+    return "https://maps.google.com";
+  };
+
+  const mapsUrl = getMapsUrl();
   
   const getPhoneList = () => {
     if (Array.isArray(settings?.phoneOrders) && settings.phoneOrders.length > 0) {
