@@ -273,6 +273,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
       const formData = new FormData();
       formData.append('file', blob, 'audio.ogg');
       formData.append('model', 'whisper-large-v3-turbo');
+      formData.append('language', 'ar');
       formData.append('temperature', '0.0');
 
       const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
@@ -1683,12 +1684,12 @@ async function processIncomingPayload(body) {
                 ? phonesArr.map(p => `- ${p}`).join('\n')
                 : '- 0554128933';
 
-              const storeAddressDisplay = storeSettings.address || "ÙˆÙ„Ø§ÙŠØ© Ø§Ù„Ø´Ù„Ù (Chlef)";
+              const storeAddressDisplay = storeSettings.address || "ولاية الشلف (Chlef)";
               const storeMapsUrl = storeSettings.googleMapsUrl || storeSettings.googleMaps || "https://maps.app.goo.gl/algeria-pyjama-dz";
               const storeInstaUrl = storeSettings.instagramUrl || storeSettings.instagram || "https://www.instagram.com/pyjama_dz";
               const storeName = storeSettings.storeName || "Pyjama DZ";
 
-              // ðŸŽ™ï¸ VOICE NOTE / AUDIO HANDLER
+              // 🎙️ VOICE NOTE / AUDIO HANDLER
               if (messageType === 'audio' || messageType === 'voice') {
                 const audioId = message.audio?.id || message.voice?.id;
                 console.log(`Received Audio Note / Vocal (${audioId}) from ${fromPhone}`);
@@ -1696,13 +1697,13 @@ async function processIncomingPayload(body) {
                 if (audioId) {
                   const media = await downloadMetaMedia(audioId);
                   if (media && media.base64) {
-                    let audioPrompt = `Ø£Ù†Øª Ø£Ø¯Ø§Ø© ØªÙØ±ÙŠØº ØµÙˆØªÙŠ. ÙØ±Øº Ø§Ù„ÙƒÙ„Ù…Ø§Øª Ø§Ù„Ù…Ø³Ù…ÙˆØ¹Ø© Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø© Ø§Ù„Ø¬Ø²Ø§Ø¦Ø±ÙŠØ© Ø¨Ø¯ÙˆÙ† Ø§Ø®ØªØ±Ø§Ø¹ ÙˆØ¨Ø¯ÙˆÙ† Ø¥ÙŠÙ…ÙˆØ¬ÙŠ.`;
-                    const systemInstruction = "Ø£Ù†Øª Ø£Ø¯Ø§Ø© ØªÙØ±ÙŠØº ØµÙˆØªÙŠ Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø© Ø§Ù„Ø¬Ø²Ø§Ø¦Ø±ÙŠØ©. Ø£Ø®Ø±Ø¬ Ø§Ù„Ù†Øµ Ø§Ù„Ù…Ø³Ù…ÙˆØ¹ ÙÙ‚Ø· ÙˆØ¨Ø¯ÙˆÙ† Ø¥ÙŠÙ…ÙˆØ¬ÙŠ ÙƒÙ„ÙŠØ§Ù‹.";
+                    let audioPrompt = "تفريغ صوتي بالدارجة الجزائرية.";
+                    const systemInstruction = "أنت أداة تفريغ صوتي بالدارجة الجزائرية. أخرج النص المسموع فقط.";
                     
                     let transcript = await generateGeminiAudio(media.base64, media.mimeType, audioPrompt, systemInstruction);
                     if (transcript) {
                       console.log(`Vocal Transcription for ${fromPhone}: ${transcript}`);
-                      if (!transcript.includes("ØºÙŠØ±_Ù…ÙÙ‡ÙˆÙ…") && !transcript.includes("ØºÙŠØ± Ù…ÙÙ‡ÙˆÙ…")) {
+                      if (!transcript.includes("غير_مفهوم") && !transcript.includes("غير مفهوم")) {
                         messageText = transcript;
                       }
                     }
@@ -1710,7 +1711,7 @@ async function processIncomingPayload(body) {
                 }
 
                 if (!messageText) {
-                  messageText = "Ù…Ø±Ø­Ø¨Ø§Ù‹ØŒ Ø£Ø±Ø³Ù„Øª Ø±Ø³Ø§Ù„Ø© ØµÙˆØªÙŠØ© ÙˆØ§Ø³ØªÙØ³Ø§Ø±Ø§Ù‹ Ø¹Ù† Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª ÙˆØ§Ù„Ø·Ù„Ø¨ÙŠØ§Øª ÙˆØ§Ù„Ø£Ø³Ø¹Ø§Ø±.";
+                  messageText = "مرحباً، أرسلت رسالة صوتية واستفساراً عن المنتجات والطلبيات والأسعار.";
                 }
               }
 
