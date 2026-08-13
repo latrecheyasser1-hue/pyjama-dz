@@ -268,8 +268,31 @@ async function downloadMetaMedia(mediaId) {
 }
 
 async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInstruction = "") {
-  const keys = await getGroqKeys();
-  if (!keys || keys.length === 0 || !base64Audio) return null;
+  let keys = [];
+
+  try {
+    const resKey = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.groq_transcribe_key&select=value`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const keyData = await resKey.json();
+    if (Array.isArray(keyData) && keyData[0]?.value) {
+      const dbKey = keyData[0].value.trim();
+      if (dbKey && !keys.includes(dbKey)) keys.push(dbKey);
+    }
+  } catch (e) {}
+
+  if (process.env.GROQ_TRANSCRIBE_KEY && !keys.includes(process.env.GROQ_TRANSCRIBE_KEY)) {
+    keys.push(process.env.GROQ_TRANSCRIBE_KEY);
+  }
+
+  const fallbackKeys = await getGroqKeys();
+  if (Array.isArray(fallbackKeys)) {
+    for (const fk of fallbackKeys) {
+      if (fk && !keys.includes(fk)) keys.push(fk);
+    }
+  }
+
+  if (keys.length === 0 || !base64Audio) return null;
 
   const audioBuffer = Buffer.from(base64Audio, 'base64');
   const blob = new Blob([new Uint8Array(audioBuffer)], { type: 'audio/ogg' });
@@ -280,6 +303,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
       formData.append('file', blob, 'audio.ogg');
       formData.append('model', 'whisper-large-v3-turbo');
       formData.append('temperature', '0.0');
+      formData.append('prompt', 'متجر بيجامات الجزائر Pyjama DZ، توصيل 58 ولاية، شحال السومة، باغي نطلب، باغي نشري، بيجامة، قطن، ساتان، الشلف، وهران، العاصمة، سطيف، قسنطينة');
 
       const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
         method: 'POST',
@@ -297,7 +321,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
         }
       } else {
         const errText = await res.text();
-        console.error('Groq Whisper error response:', errText);
+        console.error('Groq Whisper error response with key:', selectedKey.slice(0, 10), errText);
         await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
           method: 'POST',
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
