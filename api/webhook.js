@@ -89,61 +89,21 @@ async function getLatestStockAlertForPhone(phone) {
   return null;
 }
 
-async function getGeminiKeys() {
-  const keys = [];
+async function getGroqKeys() {
+  const keys = [process.env.GROQ_API_KEY].filter(Boolean);
 
-  const addKey = (raw) => {
-    if (!raw || typeof raw !== 'string') return;
-    raw.split(/[\n,;\s"']+/).forEach(part => {
-      const clean = part.trim();
-      if (clean && clean.length > 15 && !keys.includes(clean)) {
-        keys.push(clean);
-      }
-    });
-  };
-
-  // 1. Sweep all process.env variables containing "GEMINI"
-  Object.keys(process.env).forEach(envVar => {
-    if (envVar.toUpperCase().includes('GEMINI')) {
-      addKey(process.env[envVar]);
-    }
-  });
-
-  // 2. Query Supabase settings table for any row containing "gemini" or "key"
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=key,value`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.groq_api_key`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const data = await res.json();
-    if (Array.isArray(data)) {
-      data.forEach(item => {
-        if (item.key && (item.key.toLowerCase().includes('gemini') || item.key.toLowerCase().includes('key')) && item.value) {
-          if (typeof item.value === 'object') {
-            try { addKey(JSON.stringify(item.value)); } catch(e) {}
-          } else {
-            addKey(String(item.value));
-          }
-        }
-      });
+    if (Array.isArray(data) && data[0]?.value) {
+      const dbKey = data[0].value.trim();
+      if (dbKey && !keys.includes(dbKey)) keys.unshift(dbKey);
     }
   } catch (err) {
-    console.error('Error fetching Gemini keys from Supabase:', err);
+    console.error('Error fetching Groq keys from Supabase:', err);
   }
-
-  // 3. Built-in hardcoded 10 Gemini API Keys
-  const hardcoded = [
-    Buffer.from('QVEuQWI4Uk42THJfRndDWGdzWnpvNUI3X0ZHTXV2Yzkyd1diSDYwWk53eFJpSVJqTEx2akE=', 'base64').toString('utf8'), // Key 1
-    Buffer.from('QVEuQWI4Uk42SWpweDNfcmhWYTBGZDYzeEdfNWlCdzN2eGlWQ2pkajhZRFh6QlBUMFpkUmc=', 'base64').toString('utf8'), // Key 2
-    Buffer.from('QVEuQWI4Uk42SnFZODAtdWVvaUkyX1RvUUFQMGpjZm5WS3Z2Y2RadlZkeV9uMG1Vb2x5N3c=', 'base64').toString('utf8'), // Key 3
-    Buffer.from('QVEuQWI4Uk42SnJiWXFJaDJEa3lyRU5MVXJNVkRVZ2xSSjlqZWZ6WXk4aEFyYnNNMGxaZXc=', 'base64').toString('utf8'), // Key 4
-    Buffer.from('QVEuQWI4Uk42S2ZpZXB4alF5NlNaWkIzVDRpODBvOGhSckJBSDhzYzBNeHRoRDB4N3hsMVE=', 'base64').toString('utf8'), // Key 5
-    Buffer.from('QVEuQWI4Uk42SmZJX0V2MHZfRjJoLTh1R0dFbTd4bnpOeEZxbzNLTmNPd09LeDM0VW5rMGc=', 'base64').toString('utf8'), // Key 6
-    Buffer.from('QVEuQWI4Uk42SjJQdE1HZmpuUmVUZ2pyTlJBTzFUUFdlcHQ3SXR5QV9MZEVmaVpER3JlNEE=', 'base64').toString('utf8'), // Key 7
-    Buffer.from('QVEuQWI4Uk42SUxYM1h6M2RodVJzNi1LTHVGSFdiZjhOUktDR09IU01OcDV2ekpPQjlSd0E=', 'base64').toString('utf8'), // Key 8
-    Buffer.from('QVEuQWI4Uk42TGgxRVpsR2pOUTQxU2RKWDV5NEY3SE5jdFV1MTVWZnl5RnRTaVZCS2FQdGc=', 'base64').toString('utf8'), // Key 9
-    Buffer.from('QVEuQWI4Uk42SjBKU2oxTTd6RU4xdDEzZnJoSzNQZ3lGRkxQNlo0bExZaDgtbC1DV0VqOXc=', 'base64').toString('utf8')  // Key 10
-  ];
-  hardcoded.forEach(k => addKey(k));
 
   return keys;
 }
@@ -427,41 +387,60 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}, userMessage = "", products = []) {
-  const modelEndpoints = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
-  const keys = await getGeminiKeys();
-  if (!keys || keys.length === 0) return getSmartFallbackResponse(userMessage || prompt, storeSettings, products);
+  const keys = await getGroqKeys();
+
+  const productsSummary = (products || []).slice(0, 8).map(p => `- ${p.title} (${p.price} دج)`).join('\n');
+
+  const defaultSystemPrompt = `أنت خبير مبيعات ومستشار تجاري جزائري محترف وعفوي ولطيف جداً في متجر بيجامات الجزائر "Pyjama DZ" على الواتساب.
+تتحدث بالدارجة الجزائرية المحترمة واللطيفة والعفوية كأنك إنسان حقيقي وصديق للزبون يدردش معه بكل ودية وبدون أي تصنع أو نصوص جامدة.
+
+قواعد المحادثة:
+1. أجب بشكل بشري طبيعي وواقعي، كن مختصراً وواضحاً (سطرين أو 3 أسطر كافية لكل رد).
+2. طمئن الزبون بخصوص الجودة والقماش (قطن وساتان أصلي فاخر) وضمان الاستبدال والمعاينة عند الاستلام.
+3. تفهم كل كلمات الدارجة والفرانكو آراب (kifach, chhal, souma, kayn, dispo, qualite, livree, slm, win jayiin, etc).
+4. إذا طلب الزبون تأكيد الطلبية ضع في ردك [ACTION:CONFIRM_ORDER]، وإذا أصر على الإلغاء ضع [ACTION:CANCEL_ORDER]، وإذا طلب صور الموديلات ضع [ACTION:SEND_PHOTOS].
+
+المنتجات المتوفرة حالياً في المتجر:
+${productsSummary || '- بيجامات ساتان وقطن فاخرة صيفية وشتوية (2,800 دج إلى 4,500 دج)'}`;
 
   for (const selectedKey of keys) {
-    for (const model of modelEndpoints) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 7000);
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': selectedKey
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.3, maxOutputTokens: 500 }
-          }),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${selectedKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: systemInstruction || defaultSystemPrompt
+            },
+            {
+              role: 'user',
+              content: userMessage || prompt
+            }
+          ],
+          temperature: 0.6,
+          max_tokens: 300
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-        if (res.status === 200) {
-          const data = await res.json();
-          const parts = data.candidates?.[0]?.content?.parts || [];
-          const textParts = parts.filter(p => p.text && !p.thought).map(p => p.text).filter(Boolean);
-          const text = textParts.join('');
-          if (text && text.trim().length > 0) return removeEmojis(text.trim());
+      if (res.ok) {
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content && content.trim().length > 0) {
+          return removeEmojis(content.trim());
         }
-      } catch (err) {
-        console.error(`Gemini AI fetch notice for model ${model}:`, err);
       }
+    } catch (err) {
+      console.error('Groq AI fetch notice:', err.message);
     }
   }
 
