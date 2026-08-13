@@ -252,6 +252,7 @@ body {
   font-weight: 800;
   background: linear-gradient(135deg, var(--burgundy), var(--rose-primary));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -0.5px;
 }
@@ -466,6 +467,7 @@ body {
   font-weight: 800;
   background: linear-gradient(135deg, var(--burgundy), var(--rose-primary));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -678,6 +680,7 @@ body {
   font-weight: 900;
   background: linear-gradient(135deg, var(--burgundy), var(--rose-primary));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -2367,6 +2370,7 @@ tr:hover {
   margin: 0 0 4px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.1rem;
@@ -2783,7 +2787,9 @@ input::-webkit-inner-spin-button {
   margin: 0;
 }
 input[type=number] {
+  -webkit-appearance: textfield;
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* ==========================================================================
