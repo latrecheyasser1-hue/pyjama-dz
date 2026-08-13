@@ -313,69 +313,50 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
 
   // 0. GREETINGS & SALUTATIONS
   if (['slm', 'سلام', 'وعليكم', 'سلام عليكم', 'مرحبا', 'أهلا', 'اهلين', 'bonjour', 'coucou', 'salut', 'kirak', 'kirakom', 'dayriin', 'dayriini', 'labas', 'mlaah', 'cv', 'ca va'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return "وعليكم السلام ورحمة الله وبركاته! يسلمك ويعيشك خونا/أختنا لعزيزة، رانا غاية ولاباس الحمد لله ربي يحفظك 🌸\n\nأهلاً وسهلاً بك في متجر Pyjama DZ! كاش ما عجبك كاش موديل بيجامة، مقاس، أو حاب تستفسر على التوصيل وتأكيد طلبيتك؟ راني هنا خبير المبيعات في خدمتك خطوة بخطوة 🛍️✨";
+    return "وعليكم السلام ورحمة الله، رانا غاية الحمد لله ربي يحفظك خويا/أختي لعزيزة! كاش ما عجبك كاش موديل بيجامة أو حاب تستفسر على التوصيل وتأكيد طلبيتك؟ تفضل راني في خدمتك 🌸";
   }
 
   // 1. QUALITY & FABRIC INQUIRY
   if (['qualite', 'qualité', 'chaba', 'chab', 'chbab', 'جودة', 'نوعية', 'قماش', 'مليحة', 'شبابة', 'شباب', 'مليح'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return "جودة السلعة والقماش ممتازة جداً ورفيعة ومريحة في اللبس 100% قطن وساتان أصلي مع ضمان المعاينة والاستبدال مجاناً عند الاستلام 🌸\nتفضل بتصفح جميع الموديلات والتفاصيل عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app ✨";
+    return "جودة السلعة ممتازة جداً قطن وساتان أصلي فاخر ومريح في اللبس، مع ضمان المعاينة والاستبدال عند الاستلام 🌸\nتقدر تشوف كافة التفاصيل والأسعار عبر موقعنا: https://pyjama-dz.vercel.app";
   }
 
   // 2. DELIVERY TIMING / SPEED INQUIRY
   if (['winta', 'twsslni', 'twsslnii', 'وقتاش', 'شحال تقعد', 'شحال ياخد', 'شحال تاخد', 'متى', 'تتوصل', 'توصلني'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return "التوصيل سريع جداً يدوم بين 24 حتى 48 ساعة فقط لجميع الولايات! 🚚✨\nوفور ما تخرج الطلبية مع الموزع، راح يتصل بيك في الهاتف باش يسلمهالك وتعاينيها. هل ترغبين في تأكيد طلبيتك الآن؟ 🌸";
+    return "التوصيل سريع يدوم بين 24 حتى 48 ساعة فقط لجميع الولايات مع الاتصال بك قبل التسليم للمعاينة 🚚✨";
   }
 
   // 3. PHONE NUMBERS QUERY
   if (['numero', 'nomer', 'num', 'nomro', 'nomiro', 'هاتف', 'رقم', 'ارقام', 'نميرو', 'نومرو', 'tel', 'phone'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return "أرقام التواصل والواتساب الرسمية للمتجر:\n" + formattedPhonesBullets + "\n\nنحن في خدمتك دائماً. 🌸";
+    return "أرقام التواصل والواتساب الرسمية للمتجر:\n" + formattedPhonesBullets + "\n\nرانا في الخدمة دائماً 🌸";
   }
 
   // 4. LOCATION QUERY
   if (['win jayiin', 'win jayin', 'مقر', 'عنوان', 'موقع', 'بلاصة', 'لوكيشن', 'اللوكيشن', 'chlef', 'الشلف'].some(k => norm.includes(k) || pLower.includes(k))) {
     let mapsMsg = "📍 المقر والعنوان: " + address + ".\n";
     if (mapsUrl && mapsUrl.length > 8) {
-      mapsMsg += "رابط خريطة جوجل (Google Maps):\n" + mapsUrl + "\n\n";
+      mapsMsg += "رابط خريطة جوجل: " + mapsUrl + "\n";
     }
-    mapsMsg += "التوصيل متوفر لجميع 58 ولاية حتى باب المنزل. كيف يمكننا مساعدتك اليوم؟ 🌸";
+    mapsMsg += "والتوصيل متوفر لجميع 58 ولاية حتى باب الدار 🌸";
     return mapsMsg;
   }
 
   // 5. REAL-TIME PRODUCT ITEM / COLOR / STOCK CHECKER
   if (['ensemble', 'noir', 'rouge', 'rose', 'blanc', 'bleu', 'بيجامة', 'انسامبل', 'انصامبل', 'سطوك', 'كاين', 'kaayn', 'kayn', 'dispo', 'disponibilite', 'couleur', 'taille', 'مقاس', 'لون'].some(k => norm.includes(k) || pLower.includes(k))) {
-    const availableColors = [];
-    (products || []).forEach(p => {
-      if (Array.isArray(p.colorVariants)) {
-        p.colorVariants.forEach(cv => {
-          if (cv.name) availableColors.push(normalizeText(cv.name));
-        });
-      }
-    });
-
-    const hasColorMatch = availableColors.some(c => c && c.length > 1 && (norm.includes(c) || pLower.includes(c)));
-    const hasTitleMatch = (products || []).some(p => {
-      const t = normalizeText(p.title);
-      return norm.split(/\s+/).some(w => w.length > 2 && t.includes(w));
-    });
-
-    if (hasColorMatch || hasTitleMatch) {
-      return "إيه كاين متوفر في السطوك أختي الكريمة 🌸 تفضلي بتصفح الصور والمقاسات وتأكيد طلبك وسنرسل لك الصور مباشرة هنا:\nhttps://pyjama-dz.vercel.app ✨";
-    } else {
-      return "هذا الموديل أو المقاس نافذ حالياً في السطوك، يمكنك تسجيل رقمك في قائمة الانتظار بالموقع وسنخبرك فور توفره 📲";
-    }
+    return "إيه كاين متوفر في السطوك أختي/خويا لعزيز 🌸 تقدر تصفح الألوان والمقاسات عبر موقعنا: https://pyjama-dz.vercel.app";
   }
 
   // 6. PRICES / CATALOG
   if (['prix', 'سعر', 'اسعار', 'سومة', 'شحال', 'بكم', 'منتجات', 'موديلات', 'بيجامة', 'بيجامات', 'سلعة', 'chhal'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return "أسعارنا مناسبة جداً وتبدأ من 2,800 دج فقط للمجموعات الفاخرة 🛍️✨\nتفضل بتصفح كافة الصور، المقاسات، الألوان والأسعار عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app\nوالتوصيل متوفر لجميع الولايات مع الدفع عند الاستلام. 🌸";
+    return "أسعارنا مناسبة جداً وتبدأ من 2,800 دج للموديلات الفاخرة 🛍️\nتفضل بتصفح كافة الصور والموديلات عبر موقعنا: https://pyjama-dz.vercel.app والتوصيل متوفر لـ 58 ولاية 🌸";
   }
 
   // 7. DELIVERY GENERAL
   if (['livraison', 'توصيل', 'شحن', 'نوصلو', 'ولاية', 'ديكسبريس', 'يالادين'].some(k => norm.includes(k) || pLower.includes(k))) {
-    return "التوصيل متوفر لجميع 58 ولاية حتى باب المنزل أو للمكتب (Stop Desk) مع شركتي ياليدين و ZR Express 🚚.\nالدفع يكون عند الاستلام بعد معاينة طلبك 📦✨. واشمن ولاية راك حاب نوصلولك؟";
+    return "التوصيل متوفر لجميع 58 ولاية حتى باب الدار أو للمكتب (Stop Desk) والدفع عند الاستلام بعد ما تعاين طلبيتك 🚚📦";
   }
 
-  return "أهلاً وسهلاً بك في متجر Pyjama DZ 🌸\n\nأنا خبير المبيعات ومستعد لخدمتك في أي وقت!\n\nيمكنني مساعدتك في:\n1️⃣ تأكيد طلبيتك المباشرة 🛍️\n2️⃣ تعديل المقاس، اللون أو عنوان التوصيل ✏️\n3️⃣ إرسال صور الموديلات والبيجامات الفاخرة 📸\n4️⃣ إرسال موقع محلاتنا على الخريطة 📍\n\nتفضل بطرح استفسارك أو طلبك وأنا تحت أمرك 🌸";
+  return "أهلاً وسهلاً بك في متجر Pyjama DZ! تفضل خويا/أختي راني في خدمتك لأي استفسار أو تأكيد طلبيتك 🌸";
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}, userMessage = "", products = []) {
@@ -383,14 +364,17 @@ async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = 
 
   const productsSummary = (products || []).slice(0, 8).map(p => `- ${p.title} (${p.price} دج)`).join('\n');
 
-  const defaultSystemPrompt = `أنت خبير مبيعات ومستشار تجاري جزائري محترف وعفوي ولطيف جداً في متجر بيجامات الجزائر "Pyjama DZ" على الواتساب.
-تتحدث بالدارجة الجزائرية المحترمة واللطيفة والعفوية كأنك إنسان حقيقي وصديق للزبون يدردش معه بكل ودية وبدون أي تصنع أو نصوص جامدة.
+  const defaultSystemPrompt = `أنت بائع ومستشار تجاري جزائري حقيقي (إنسان واقعي وبنادم ماشي روبوت) في متجر بيجامات الجزائر Pyjama DZ.
+تتحدث بالدارجة الجزائرية العفوية المحترمة وبحروف عربية دائماً وبشكل بشري طبيعي ودافئ.
 
-قواعد المحادثة:
-1. أجب بشكل بشري طبيعي وواقعي، كن مختصراً وواضحاً (سطرين أو 3 أسطر كافية لكل رد).
-2. طمئن الزبون بخصوص الجودة والقماش (قطن وساتان أصلي فاخر) وضمان الاستبدال والمعاينة عند الاستلام.
-3. تفهم كل كلمات الدارجة والفرانكو آراب (kifach, chhal, souma, kayn, dispo, qualite, livree, slm, win jayiin, etc).
-4. إذا طلب الزبون تأكيد الطلبية ضع في ردك [ACTION:CONFIRM_ORDER]، وإذا أصر على الإلغاء ضع [ACTION:CANCEL_ORDER]، وإذا طلب صور الموديلات ضع [ACTION:SEND_PHOTOS].
+قواعدك الصارمة:
+1. اكتب دائماً باللغة العربية بحروف عربية (بالدارجة الجزائرية المفهومة والمهذبة)، حتى لو كتب الزبون بالفرانكو (Franco-Arab).
+2. إياك والردود الروبوتية الطويلة أو القوالب الجاهزة المكررة! جاوب بدقة على قد السؤال في سطرين أو 3 أسطر فقط كأنك تهدر مع الزبون في المحل.
+3. إذا سلم أو سأل عن الحال (slm, cv, rakom mlih, kirakom): رد بالسلام والتحية الجزائرية الطيبة العفوية واسأله كيفاش تقدر تعاونو.
+4. تفهم تماماً كل مصطلحات الدارجة والفرانكو (souma, chhal, qualite, dispo, taille, livree, win jayiin, gros).
+5. إذا سأل عن الأسعار: أخبره أن الأسعار تبدأ من 2800 دج وموديلات فاخرة قطن وساتان.
+6. إذا سأل عن التوصيل: متوفر 58 ولاية حتى لباب الدار والدفع عند الاستلام.
+7. إذا طلب الزبون تأكيد الطلبية ضع في ردك [ACTION:CONFIRM_ORDER]، وإذا أصر على الإلغاء ضع [ACTION:CANCEL_ORDER]، وإذا طلب صور الموديلات ضع [ACTION:SEND_PHOTOS].
 
 المنتجات المتوفرة حالياً في المتجر:
 ${productsSummary || '- بيجامات ساتان وقطن فاخرة صيفية وشتوية (2,800 دج إلى 4,500 دج)'}`;
@@ -398,7 +382,7 @@ ${productsSummary || '- بيجامات ساتان وقطن فاخرة صيفية
   for (const selectedKey of keys) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -417,8 +401,8 @@ ${productsSummary || '- بيجامات ساتان وقطن فاخرة صيفية
               content: userMessage || prompt
             }
           ],
-          temperature: 0.6,
-          max_tokens: 300
+          temperature: 0.7,
+          max_tokens: 250
         }),
         signal: controller.signal
       });
@@ -1903,15 +1887,15 @@ async function processIncomingPayload(body) {
               }
             }
 
-              // STRICT AI SALES INSTRUCTIONS (ZERO EMOJIS)
-              const isWholesale = ["gros", "Ø¬Ù…Ù„Ø©", "Ø¨Ø§Ù„Ø¬Ù…Ù„Ø©", "ÙƒØ§Ø¨Ø©", "ØªØ¬Ø§Ø±Ø©", "Ø³ÙŠØ±ÙŠ", "serie", "Ø³ÙŠØ±ÙŠØ§Øª", "ÙƒÙ…ÙŠØ©", "ÙƒÙ…ÙŠØ§Øª", "grosiste", "grossiste", "Ø¨ÙŠØ¹ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø©", "Ø´Ø±Ø§Ø¡ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø©"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
+              // STRICT AI SALES INSTRUCTIONS
+              const isWholesale = ["gros", "جملة", "بالجملة", "كابة", "تجارة", "سيري", "serie", "سيريات", "كمية", "كميات", "grosiste", "grossiste", "بيع بالجملة", "شراء بالجملة"].some(k => normText.includes(k) || messageText.toLowerCase().includes(k));
               let salesModeRules = isWholesale
-                ? "ØªÙ†Ø¨ÙŠÙ‡ Ø­ØªÙ…ÙŠ: Ø§Ù„Ø²Ø¨ÙˆÙ† ÙŠØ³Ø£Ù„ Ø¹Ù† Ø§Ù„Ø¨ÙŠØ¹ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø© (Gros). ÙŠØ¬Ø¨ Ø­ØªÙ…Ø§Ù‹ Ø¥Ø¹Ø·Ø§Ø¤Ù‡ ÙˆØªÙˆØ¬ÙŠÙ‡Ù‡ Ù„Ø±Ø§Ø¨Ø· ØµÙØ­Ø© Ø§Ù„Ø¬Ù…Ù„Ø© Ø§Ù„Ù…Ø®ØµØµ Ù„Ù„Ø´Ø±Ø§Ø¡ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø© Ù…Ø¨Ø§Ø´Ø±Ø© ÙˆÙ‡Ùˆ: https://pyjama-dz.vercel.app/gros ÙˆØ¥Ø®Ø¨Ø§Ø±Ù‡ Ø¨Ø£Ù†Ù‡ Ø¥Ø°Ø§ Ø£Ø±Ø§Ø¯ Ø§Ù„Ø´Ø±Ø§Ø¡ Ø¨Ø§Ù„Ø¬Ù…Ù„Ø© ÙŠØ¬Ø¨ Ø£Ù† ÙŠØ¯Ø®Ù„ ÙˆÙŠØ·Ù„Ø¨ Ù…Ø¨Ø§Ø´Ø±Ø© Ù…Ù† Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ù…Ø®ØµØµ Ù„Ù„Ø¬Ù…Ù„Ø©."
-                : "Ø§Ù„Ø²Ø¨ÙˆÙ† Ø²Ø¨ÙˆÙ† Ø¹Ø§Ø¯ÙŠ Ø¨Ø§Ù„Ù‚Ø·Ø¹Ø©. Ø£Ø¬Ø¨ Ø¹Ù† Ø³Ø¤Ø§Ù„Ù‡ Ù…Ù† Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù†Ø¸Ø§Ù… ÙÙ‚Ø·.";
+                ? "تنبيه: الزبون يسأل عن الجملة (Gros). وجهه لصفحة الجملة: https://pyjama-dz.vercel.app/gros"
+                : "الزبون زبون عادي بالقطعة. دردش معه بلباقة وعفوية.";
 
-              let prompt = `Ø±Ø³Ø§Ù„Ø© Ø§Ù„Ø²Ø¨ÙˆÙ†: "${messageText}"`;
+              let prompt = `رسالة الزبون: "${messageText}"`;
               if (isWholesale) {
-                prompt += `\n(ØªØ°ÙƒÙŠØ± ØµØ§Ø±Ù…: Ø§Ù„Ø²Ø¨ÙˆÙ† ÙŠØ³Ø£Ù„ Ø¹Ù† Ø§Ù„Ø¬Ù…Ù„Ø© GrosØŒ Ø£Ø¹Ø·Ù‡ Ø±Ø§Ø¨Ø· ØµÙØ­Ø© Ø§Ù„Ø¬Ù…Ù„Ø© Ø§Ù„Ù…Ø®ØµØµ Ù…Ø¨Ø§Ø´Ø±Ø©: https://pyjama-dz.vercel.app/gros ÙˆÙˆØ¬Ù‡Ù‡ Ù„Ù„Ø·Ù„Ø¨ Ù…Ù†Ù‡Ø§).`;
+                prompt += `\n(تذكير: الزبون يسأل عن الجملة Gros، أعطه رابط صفحة الجملة: https://pyjama-dz.vercel.app/gros).`;
               }
 
               const localPhone = fromPhone.replace(/^\+?213/, '0');
@@ -1924,30 +1908,30 @@ async function processIncomingPayload(body) {
                 if (Array.isArray(existingOrders) && existingOrders.length > 0) {
                   const exOrder = existingOrders[0];
                   const exOrderNum = await getSequentialOrderNum(exOrder);
-                  prompt += `\n\nÙ…Ø¹Ù„ÙˆÙ…Ø§Øª Ø·Ù„Ø¨ Ø§Ù„Ø²Ø¨ÙˆÙ† Ø§Ù„Ø­Ø§Ù„ÙŠ Ù…Ù† Ø§Ù„Ø¯Ø§ØªØ§Ø¨ÙŠØ²:\n- Ø§Ù„Ø§Ø³Ù…: ${exOrder.clientName || ''}\n- Ø±Ù‚Ù… Ø§Ù„Ø·Ù„Ø¨: #${exOrderNum}\n- Ø§Ù„Ù…Ù†ØªØ¬: ${exOrder.product}\n- Ø§Ù„ÙˆÙ„Ø§ÙŠØ©: ${exOrder.wilaya}\n- Ø§Ù„Ø­Ø§Ù„Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©: ${exOrder.status}\nØ¥Ø°Ø§ Ø·Ù„Ø¨ Ø§Ù„Ø²Ø¨ÙˆÙ† ØªØ£ÙƒÙŠØ¯ Ù‡Ø§Ø¯ Ø§Ù„Ø·Ù„Ø¨ÙŠØ© Ø£Ùˆ Ù‚Ø§Ù„ (Ø£ÙƒØ¯Ù„ÙŠ/akedli/Ù…Ø§Ù„Ø§/Ù…Ù„Ø§)ØŒ Ø£Ø¬Ø¨ Ø¨Ø£Ù† Ø§Ù„Ø·Ù„Ø¨ÙŠØ© Ø±Ù‚Ù… #${exOrderNum} Ù…Ø³Ø¬Ù„Ø© ÙˆÙ…Ø¤ÙƒØ¯Ø© ÙˆØ¬Ø§Ø±ÙŠ Ø´Ø­Ù†Ù‡Ø§ØŒ ÙˆÙ„Ø§ ØªØ·Ù„Ø¨ Ù…Ù†Ù‡ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ù…Ù† Ø¬Ø¯ÙŠØ¯ Ø¥Ø·Ù„Ø§Ù‚Ø§Ù‹.`;
+                  prompt += `\n\nمعلومات طلب الزبون الحالي من النظام:\n- الاسم: ${exOrder.clientName || ''}\n- رقم الطلب: #${exOrderNum}\n- المنتج: ${exOrder.product}\n- الولاية: ${exOrder.wilaya}\n- الحالة: ${exOrder.status}\nإذا طلب الزبون تأكيد الطلبية، أجب بأن الطلبية #${exOrderNum} مسجلة ومؤكدة.`;
                 }
               } catch (e) {
                 console.error("Error fetching order context for AI:", e);
               }
 
               const catalogSummary = products.map(p => {
-                let colorsStr = "Ù…ØªÙˆÙØ±";
+                let colorsStr = "متوفر";
                 if (Array.isArray(p.colorVariants) && p.colorVariants.length > 0) {
                   colorsStr = p.colorVariants.map(cv => {
-                    const colorName = cv.name || cv.color || 'rouge (Ø£Ø­Ù…Ø±)';
+                    const colorName = cv.name || cv.color || 'أحمر';
                     if (typeof cv.stock === 'object' && cv.stock !== null) {
                       const sizesStr = Object.entries(cv.stock).map(([sz, qty]) => {
                         const numQ = Number(qty || 0);
-                        return `${sz}: ${numQ > 0 ? numQ + ' Ø­Ø¨Ø© (Ù…ØªÙˆÙØ±)' : '0 Ø­Ø¨Ø© (ØºÙŠØ± Ù…ØªÙˆÙØ±/Ù†Ø§ÙØ°)'}`;
+                        return `${sz}: ${numQ > 0 ? numQ + ' حبة' : 'نافذ'}`;
                       }).join(', ');
-                      return `Ø§Ù„Ù„ÙˆÙ† (${colorName}): [${sizesStr}]`;
+                      return `اللون (${colorName}): [${sizesStr}]`;
                     } else {
                       const numQ = Number(cv.stock || 0);
-                      return `Ø§Ù„Ù„ÙˆÙ† (${colorName}): ${numQ > 0 ? numQ + ' Ø­Ø¨Ø© (Ù…ØªÙˆÙØ±)' : '0 Ø­Ø¨Ø© (ØºÙŠØ± Ù…ØªÙˆÙØ±/Ù†Ø§ÙØ°)'}`;
+                      return `اللون (${colorName}): ${numQ > 0 ? numQ + ' حبة' : 'نافذ'}`;
                     }
                   }).join(' | ');
                 }
-                return `- ${p.title}: Ø§Ù„Ø³Ø¹Ø± ${p.price} Ø¯Ø¬ | Ø§Ù„Ø³Ø·ÙˆÙƒ Ø§Ù„Ø­Ù‚ÙŠÙ‚ÙŠ Ø­Ø³Ø¨ Ø§Ù„Ù…Ù‚Ø§Ø³Ø§Øª ÙˆØ§Ù„Ø£Ù„ÙˆØ§Ù†: ${colorsStr}`;
+                return `- ${p.title}: السعر ${p.price} دج | الستوك: ${colorsStr}`;
               }).join('\n');
               const settingsSummary = Object.entries(storeSettings).map(([k, v]) => `- ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('\n');
 
@@ -1956,7 +1940,7 @@ function checkStockInquiry(messageText, products) {
   const norm = normalizeText(messageText);
   const rawLower = String(messageText).toLowerCase();
 
-  const sizeMatch = rawLower.match(/(?:taille|Ù…Ù‚Ø§Ø³|ØªØ±Ø§ÙŠ|ØªÙŠØ§ÙŠ|Ù…ÙƒØ§Ø³|ØªØ±Ø§Ø³)?\s*\b(3xl|xxxl|2xl|xxl|xl|l|m|s)\b/i);
+  const sizeMatch = rawLower.match(/(?:taille|مقاس|تراي|تياي|مكاس|تراس)?\s*\b(3xl|xxxl|2xl|xxl|xl|l|m|s)\b/i);
   if (!sizeMatch) return null;
 
   let reqSize = sizeMatch[1].toUpperCase();
@@ -1972,7 +1956,7 @@ function checkStockInquiry(messageText, products) {
           if (typeof cv.stock === 'object' && cv.stock !== null) {
             const qty = Number(cv.stock[reqSize] || 0);
             if (qty === 0) {
-              return `Ù„Ù„Ø£Ø³Ù Ø§Ù„Ù…Ù‚Ø§Ø³ (${reqSize}) ÙÙŠ Ø§Ù„Ù„ÙˆÙ† (${cv.name || cv.color}) ØºÙŠØ± Ù…ØªÙˆÙØ± Ø­Ø§Ù„ÙŠØ§Ù‹ ÙÙŠ Ø§Ù„Ø³Ø·ÙˆÙƒ.\nÙ„Ù‚Ø¯ Ù‚Ù…Ù†Ø§ Ø¨ØªØ³Ø¬ÙŠÙ„ Ø·Ù„Ø¨Ùƒ ÙˆØ³Ù†Ø­ÙŠØ·Ùƒ Ø¹Ù„Ù…Ø§Ù‹ ÙÙˆØ±Ø§Ù‹ Ø¹Ø¨Ø± Ø§Ù„ÙˆØ§ØªØ³Ø§Ø¨ Ø¨Ù…Ø¬Ø±Ø¯ ØªÙˆÙØ±Ù‡ Ù…Ø¬Ø¯Ø¯Ø§Ù‹. Ø´ÙƒØ±Ø§Ù‹ Ù„Ø§Ù†ØªØ¸Ø§Ø±Ùƒ ðŸŒ¸`;
+              return `للأسف المقاس (${reqSize}) في اللون (${cv.name || cv.color}) نافذ حالياً في الستوك.\nسجلنا طلبك وسنخبرك فور توفره مجدداً 🌸`;
             }
           }
         }
@@ -1982,27 +1966,24 @@ function checkStockInquiry(messageText, products) {
   return null;
 }
 
-const systemInstruction = `Ø£Ù†Øª Ù…Ø³Ø§Ø¹Ø¯ ÙˆÙ…Ø³Ø¤ÙˆÙ„ Ø®Ø¯Ù…Ø© Ø§Ù„Ø¹Ù…Ù„Ø§Ø¡ Ø§Ù„Ù…Ø­ØªØ±Ù Ù„Ù…ØªØ¬Ø± (${storeName}).
-ØªØªØ­Ø¯Ø« Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø© Ø§Ù„Ø¬Ø²Ø§Ø¦Ø±ÙŠØ© Ø§Ù„ÙØµÙŠØ­Ø© ÙˆØ§Ù„Ù…Ø­ØªØ±Ù…Ø© ÙˆØªØ¯Ø±Ø¯Ø´ Ù…Ø¹ Ø§Ù„Ø²Ø¨ÙˆÙ† Ø¨Ø°ÙƒØ§Ø¡ ÙˆÙ„Ø¨Ø§Ù‚Ø© ÙƒØ£Ù†Ùƒ Ø¥Ù†Ø³Ø§Ù† Ø­Ù‚ÙŠÙ‚ÙŠ ÙŠØ´ØªØºÙ„ ÙÙŠ Ø§Ù„Ù…ØªØ¬Ø±.
-Ø§ÙÙ‡Ù… ÙƒÙ„ Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ø²Ø¨ÙˆÙ† Ø¨Ø°ÙƒØ§Ø¡ ÙˆÙ…Ø±ÙˆÙ†Ø© ÙˆØ¨Ø£Ø³Ù„ÙˆØ¨ Ø¨Ø´Ø±ÙŠ Ø·Ø¨ÙŠØ¹ÙŠ ÙˆÙ„Ø¨Ù‚ (Ø³ÙˆØ§Ø¡ ÙƒØªØ¨ Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø©ØŒ Ø§Ù„ÙØ±Ù†Ø³ÙŠØ©ØŒ Ø§Ù„ÙØ±Ø§Ù†ÙƒÙˆ "Franco-Arabic"ØŒ Ø£Ùˆ Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©).
+const systemInstruction = `أنت بائع ومستشار تجاري جزائري حقيقي (إنسان واقعي وبنادم ماشي روبوت) في متجر بيجامات الجزائر Pyjama DZ.
+تتحدث بالدارجة الجزائرية العفوية المحترمة وبحروف عربية دائماً وبشكل بشري طبيعي ودافئ.
 
-Ù‚ÙˆØ§Ø¹Ø¯ Ø§Ù„Ø§Ø³ØªØ¬Ø§Ø¨Ø© ÙˆØªÙˆØ¬ÙŠÙ‡ Ø§Ù„Ø²Ø¨ÙˆÙ†:
-1. Ù‚Ø§Ù†ÙˆÙ† ØµØ§Ø±Ù… ÙˆØ­ØªÙ…ÙŠ: Ø§Ù„Ø·Ù„Ø¨ÙŠØ§Øª ØªØªÙ… Ø­ØµØ±ÙŠØ§Ù‹ ÙˆÙ…Ø¨Ø§Ø´Ø±Ø© Ø¹Ø¨Ø± Ù…ÙˆÙ‚Ø¹Ù†Ø§ Ø§Ù„Ø±Ø³Ù…ÙŠ (https://pyjama-dz.vercel.app). ÙŠÙ…Ù†Ø¹ Ù…Ù†Ø¹Ø§Ù‹ Ø¨Ø§ØªØ§Ù‹ Ø¥Ù†Ø´Ø§Ø¡ Ø£Ùˆ ØªØ³Ø¬ÙŠÙ„ Ø£ÙŠ Ø·Ù„Ø¨ÙŠØ© Ø¬Ø¯ÙŠØ¯Ø© Ø¯Ø§Ø®Ù„ Ø§Ù„Ø´Ø§Øª. Ø¥Ø°Ø§ Ø£Ø±Ø§Ø¯ Ø§Ù„Ø²Ø¨ÙˆÙ† Ø§Ù„Ø´Ø±Ø§Ø¡ Ø£Ùˆ Ø§Ù„Ø·Ù„Ø¨ (Ù…Ø«Ù„: Ù†Ø·Ù„Ø¨ØŒ Ù†Ø¯ÙŠØ± ÙƒÙˆÙ…Ø§Ù†Ø¯ØŒ Ø­Ø§Ø¨ Ù†Ø´Ø±ÙŠØŒ commandeØŒ ouiØŒ Ù†Ø¹Ù…): ÙˆØ¬Ù‡Ù‡ Ù…Ø¨Ø§Ø´Ø±Ø© Ù„Ø±Ø§Ø¨Ø· Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø±Ø³Ù…ÙŠ Ù„Ù„Ø´Ø±Ø§Ø¡ ÙˆØ§Ø®ØªÙŠØ§Ø± Ø§Ù„Ù…Ù‚Ø§Ø³ ÙˆØ§Ù„Ù„ÙˆÙ† Ù…Ù†Ù‡ Ù…Ø¨Ø§Ø´Ø±Ø©: https://pyjama-dz.vercel.app
-2. Ø¥Ø°Ø§ ÙƒØ§Ù† Ù„Ù„Ø²Ø¨ÙˆÙ† Ø·Ù„Ø¨ÙŠØ© Ø³Ø§Ø¨Ù‚Ø© Ù…Ø³Ø¬Ù„Ø© ÙÙŠ Ø§Ù„Ø¯Ø§ØªØ§Ø¨ÙŠØ² Ù…Ù† Ø§Ù„Ù…ÙˆÙ‚Ø¹ ÙˆÙŠØ±ÙŠØ¯ ØªØ£ÙƒÙŠØ¯Ù‡Ø§ (Ù…Ø«Ù„: Ø£ÙƒØ¯Ù„ÙŠØŒ aked, confirme): Ø£Ø®Ø±Ø¬ Ø§Ù„ÙƒÙˆØ¯: [ACTION:CONFIRM_ORDER] Ø«Ù… Ø§ÙƒØªØ¨ Ø±Ø¯ Ø§Ù„ØªØ£ÙƒÙŠØ¯ Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø©.
-3. Ø¥Ø°Ø§ Ø£Ø±Ø§Ø¯ Ø§Ù„Ø²Ø¨ÙˆÙ† Ø¥Ù„ØºØ§Ø¡ Ø·Ù„Ø¨ÙŠØªÙ‡ Ø§Ù„Ù…Ø³Ø¬Ù„Ø© Ù…Ù† Ø§Ù„Ù…ÙˆÙ‚Ø¹ (Ù…Ø«Ù„: Ø§Ù„ØºÙŠØŒ anuler, annuler): Ø£Ø®Ø±Ø¬ Ø§Ù„ÙƒÙˆØ¯: [ACTION:CANCEL_ORDER] Ø«Ù… Ø§ÙƒØªØ¨ Ø±Ø¯ Ø§Ù„Ø¥Ù„ØºØ§Ø¡ Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø©.
-4. Ø¥Ø°Ø§ Ø·Ù„Ø¨ Ø§Ù„Ø²Ø¨ÙˆÙ† ØµÙˆØ± Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª (ØµÙˆØ±ØŒ ØªØµØ§ÙˆÙŠØ±ØŒ photoØŒ tsswira): Ø£Ø®Ø±Ø¬ Ø§Ù„ÙƒÙˆØ¯: [ACTION:SEND_PHOTOS] ÙˆÙˆØ¬Ù‡Ù‡ Ù„Ù„Ù…ÙˆÙ‚Ø¹ Ù„Ø±Ø¤ÙŠØ© ÙƒØ§ÙØ© Ø§Ù„ØµÙˆØ± ÙˆØ§Ù„Ù…ÙˆØ¯ÙŠÙ„Ø§Øª Ø§Ù„Ù…ØªÙˆÙØ±Ø©.
-5. Ø§Ø³ØªÙØ³Ø§Ø±Ø§Øª Ø§Ù„Ù…ÙƒØ§Ù† ÙˆØ§Ù„Ù…Ù‚Ø± ÙˆØ§Ù„Ø¹Ù†ÙˆØ§Ù†: Ø£Ø¹Ø·Ù‡ Ø§Ù„Ø¹Ù†ÙˆØ§Ù† ÙˆØ±Ø§Ø¨Ø· Ø®Ø±Ø§Ø¦Ø· Ø¬ÙˆØ¬Ù„ Ù…Ù† Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù†Ø¸Ø§Ù….
-6. Ø§Ø³ØªÙØ³Ø§Ø±Ø§Øª Ø£Ø±Ù‚Ø§Ù… Ø§Ù„Ù‡Ø§ØªÙ: Ø£Ø¹Ø·Ù‡ Ø£Ø±Ù‚Ø§Ù… Ø§Ù„Ù‡Ø§ØªÙ Ø§Ù„Ø±Ø³Ù…ÙŠØ© Ø§Ù„Ù…ÙƒØªÙˆØ¨Ø© ÙÙŠ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù†Ø¸Ø§Ù….
-7. Ø§Ø³ØªÙØ³Ø§Ø±Ø§Øª Ø§Ù„Ø£Ø³Ø¹Ø§Ø± ÙˆØ§Ù„Ù…Ù‚Ø§Ø³Ø§Øª ÙˆØ§Ù„Ø£Ù„ÙˆØ§Ù† ÙˆØ§Ù„Ø¬ÙˆØ¯Ø©: Ø£Ø¬Ø¨ Ø¨Ø£Ø³Ù„ÙˆØ¨ Ù„Ø·ÙŠÙ Ø¨Ø§Ù„Ø¯Ø§Ø±Ø¬Ø© Ø§Ù„Ø¬Ø²Ø§Ø¦Ø±ÙŠØ© ÙˆÙˆØ¬Ù‡Ù‡ Ù„Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø±Ø³Ù…ÙŠ Ù„ØªØµÙØ­ ÙƒØ§ÙØ© Ø§Ù„ØµÙˆØ± ÙˆØ§Ù„Ø£Ø³Ø¹Ø§Ø± ÙˆØ§Ù„Ø·Ù„Ø¨ Ù…Ø¨Ø§Ø´Ø±Ø©: https://pyjama-dz.vercel.app
+قواعدك الصارمة:
+1. اكتب دائماً باللغة العربية بحروف عربية (بالدارجة الجزائرية المفهومة والمهذبة)، حتى لو كتب الزبون بالفرانكو (Franco-Arab).
+2. إياك والردود الروبوتية الطويلة أو القوالب الجاهزة المكررة! جاوب بدقة على قد السؤال في سطرين أو 3 أسطر فقط كأنك تهدر مع الزبون في المحل.
+3. إذا سلم أو سأل عن الحال (slm, cv, rakom mlih, kirakom): رد بالسلام والتحية الجزائرية الطيبة العفوية واسأله كيفاش تقدر تعاونو.
+4. تفهم تماماً كل مصطلحات الدارجة والفرانكو (souma, chhal, qualite, dispo, taille, livree, win jayiin, gros).
+5. إذا سأل عن الأسعار: أخبره أن الأسعار تبدأ من 2800 دج وموديلات فاخرة قطن وساتان.
+6. إذا سأل عن التوصيل: متوفر 58 ولاية حتى لباب الدار والدفع عند الاستلام.
+7. إذا طلب الزبون تأكيد الطلبية ضع في ردك [ACTION:CONFIRM_ORDER]، وإذا أصر على الإلغاء ضع [ACTION:CANCEL_ORDER]، وإذا طلب صور الموديلات ضع [ACTION:SEND_PHOTOS].
 
-Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…ØªØ¬Ø±:
-- Ø§Ù„Ø¹Ù†ÙˆØ§Ù† ÙˆØ§Ù„Ù…Ù‚Ø±: ${storeAddressDisplay}
-- Ø±Ø§Ø¨Ø· Ø®Ø±Ø§Ø¦Ø· Ø¬ÙˆØ¬Ù„: ${storeMapsUrl}
-- Ø±Ø§Ø¨Ø· Ø§Ù„Ù…ÙˆÙ‚Ø¹ Ø§Ù„Ø±Ø³Ù…ÙŠ: https://pyjama-dz.vercel.app
-- Ø±Ø§Ø¨Ø· ØµÙØ­Ø© Ø§Ù„Ø¬Ù…Ù„Ø© (Gros): https://pyjama-dz.vercel.app/gros
-${settingsSummary}
+بيانات المتجر:
+- العنوان والمقر: ${storeAddressDisplay}
+- رابط الموقع: https://pyjama-dz.vercel.app
+- رابط الجملة: https://pyjama-dz.vercel.app/gros
 
-Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…Ù†ØªØ¬Ø§Øª ÙˆØ§Ù„Ø£Ø³Ø¹Ø§Ø± ÙˆØ§Ù„Ø³Ø·ÙˆÙƒ Ø§Ù„Ø­Ø§Ù„ÙŠØ© Ù…Ù† Ø§Ù„Ø¯Ø§ØªØ§Ø¨ÙŠØ²:
+المنتجات والستوك:
 ${catalogSummary}
 ${salesModeRules}`;
 
