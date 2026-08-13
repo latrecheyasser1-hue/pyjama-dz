@@ -224,66 +224,46 @@ async function getAllProducts() {
 }
 
 async function downloadMetaMedia(mediaId) {
-  const token = await getMetaAccessToken();
-  if (!token || !mediaId) {
-    console.error('downloadMetaMedia: Missing token or mediaId', { mediaId });
-    return null;
-  }
-  try {
-    const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'User-Agent': 'curl/7.68.0'
-      }
-    });
-    const metaData = await metaRes.json();
-    console.log('downloadMetaMedia metaRes status:', metaRes.status, 'url present:', !!metaData?.url);
-    
-    if (metaData && metaData.url) {
-      let audioRes = await fetch(metaData.url, {
+  const tokens = [];
+  const dynToken = await getMetaAccessToken();
+  if (dynToken) tokens.push(dynToken);
+  if (DEFAULT_TOKEN && !tokens.includes(DEFAULT_TOKEN)) tokens.push(DEFAULT_TOKEN);
+
+  for (const token of tokens) {
+    try {
+      const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'User-Agent': 'curl/7.68.0'
         }
       });
+      const metaData = await metaRes.json();
       
-      if (!audioRes.ok) {
-        console.log('downloadMetaMedia retry without auth header for CDN URL...');
-        audioRes = await fetch(metaData.url, {
-          headers: { 'User-Agent': 'curl/7.68.0' }
+      if (metaData && metaData.url) {
+        let audioRes = await fetch(metaData.url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'curl/7.68.0'
+          }
         });
-      }
+        
+        if (!audioRes.ok) {
+          audioRes = await fetch(metaData.url, {
+            headers: { 'User-Agent': 'curl/7.68.0' }
+          });
+        }
 
-      if (audioRes.ok) {
-        const arrayBuf = await audioRes.arrayBuffer();
-        const base64 = Buffer.from(arrayBuf).toString('base64');
-        const mimeType = metaData.mime_type ? metaData.mime_type.split(';')[0].trim() : 'audio/ogg';
-        console.log('downloadMetaMedia success, byteLength:', arrayBuf.byteLength, 'mimeType:', mimeType);
-        return { base64, mimeType };
-      } else {
-        const errTxt = `${audioRes.status} ${audioRes.statusText}`;
-        console.error('downloadMetaMedia binary download failed:', errTxt);
-        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-          method: 'POST',
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-          body: JSON.stringify({ key: 'last_vocal_debug', value: JSON.stringify({ step: 'audioRes_failed', error: errTxt, url: metaData.url, timestamp: Date.now() }) })
-        });
+        if (audioRes.ok) {
+          const arrayBuf = await audioRes.arrayBuffer();
+          const base64 = Buffer.from(arrayBuf).toString('base64');
+          const mimeType = metaData.mime_type ? metaData.mime_type.split(';')[0].trim() : 'audio/ogg';
+          console.log('downloadMetaMedia success, byteLength:', arrayBuf.byteLength, 'mimeType:', mimeType);
+          return { base64, mimeType };
+        }
       }
-    } else {
-      console.error('downloadMetaMedia Meta API returned error:', metaData);
-      await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-        method: 'POST',
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-        body: JSON.stringify({ key: 'last_vocal_debug', value: JSON.stringify({ step: 'metaRes_failed', error: metaData, mediaId, timestamp: Date.now() }) })
-      });
+    } catch (err) {
+      console.error('Error downloading Meta media with token:', err.message);
     }
-  } catch (err) {
-    console.error('Error downloading Meta media:', err);
-    await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-      method: 'POST',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-      body: JSON.stringify({ key: 'last_vocal_debug', value: JSON.stringify({ step: 'download_exception', error: err.message, mediaId, timestamp: Date.now() }) })
-    });
   }
   return null;
 }
