@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient.js';
 
 const CUSTOMER_SESSION_KEY = 'pyjama_customer_session';
 const OTP_EXPIRATION_SECONDS = 60; // 1 minute validity
