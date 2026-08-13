@@ -273,7 +273,7 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
       const formData = new FormData();
       formData.append('file', blob, 'audio.ogg');
       formData.append('model', 'whisper-large-v3-turbo');
-      formData.append('language', 'ar');
+      formData.append('prompt', 'تفريغ صوتي بالدارجة الجزائرية: اسكو كاين ليفريزون، التوصيل، المقاس، وين جايين، شحال السعر، ديسبونيبل');
       formData.append('temperature', '0.0');
 
       const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
@@ -290,6 +290,9 @@ async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInst
           console.log('🎙️ Groq Whisper Transcribed Voice Note:', data.text);
           return removeEmojis(data.text.trim());
         }
+      } else {
+        const errText = await res.text();
+        console.error('Groq Whisper error response:', errText);
       }
     } catch (err) {
       console.error('Groq Whisper Audio error:', err.message);
@@ -1711,7 +1714,8 @@ async function processIncomingPayload(body) {
                 }
 
                 if (!messageText) {
-                  messageText = "مرحباً، أرسلت رسالة صوتية واستفساراً عن المنتجات والطلبيات والأسعار.";
+                  await sendWhatsAppMessage(fromPhone, "خويا لعزيز ماسمعتش الفواكال مليح، عاودلي الله يحفظك ولا اكتبهالي ميساج راني في خدمتك 🌸");
+                  continue;
                 }
               }
 
