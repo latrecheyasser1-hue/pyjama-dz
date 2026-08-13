@@ -243,6 +243,78 @@ async function downloadMetaMedia(mediaId) {
       });
       
       if (!audioRes.ok) {
+function cleanProductText(prod) {
+  if (!prod) return "Ø¨ÙŠØ¬Ø§Ù…Ø§Øª Ù Ø§Ø®Ø±Ø©";
+  return String(prod).replace(/\(\(/g, '').replace(/\)\)/g, '');
+}
+
+async function getStoreSettings() {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/settings?select=*`;
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      const settingsMap = {};
+      data.forEach(item => {
+        if (item.key && item.value) {
+          settingsMap[item.key] = item.value;
+        }
+      });
+      return settingsMap;
+    }
+    return {};
+  } catch (err) {
+    console.error('Error fetching settings from Supabase:', err);
+    return {};
+  }
+}
+
+async function getAllProducts() {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/products?select=*&order=created_at.desc`;
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      // Filter strictly for retail/delivery products (exclude wholesale gros__ and boutique__ clones)
+      return data.filter(p => !p.category?.startsWith('gros__') && !p.category?.startsWith('boutique__'));
+    }
+    return [];
+  } catch (err) {
+    console.error('Error fetching products from Supabase:', err);
+    return [];
+  }
+}
+
+async function downloadMetaMedia(mediaId) {
+  const token = await getMetaAccessToken();
+  if (!token || !mediaId) return null;
+  try {
+    const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'User-Agent': 'curl/7.68.0'
+      }
+    });
+    const metaData = await metaRes.json();
+    if (metaData && metaData.url) {
+      let audioRes = await fetch(metaData.url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'User-Agent': 'curl/7.68.0'
+        }
+      });
+      
+      if (!audioRes.ok) {
         audioRes = await fetch(metaData.url, {
           headers: { 'User-Agent': 'curl/7.68.0' }
         });
@@ -262,47 +334,39 @@ async function downloadMetaMedia(mediaId) {
 }
 
 async function generateGeminiAudio(base64Audio, mimeType, promptText, systemInstruction = "") {
-  const modelEndpoints = ['gemini-2.0-flash', 'gemini-flash-latest'];
-  const keys = await getGeminiKeys();
-  for (const selectedKey of keys) {
-    for (const model of modelEndpoints) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': selectedKey
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: mimeType || 'audio/ogg',
-                    data: base64Audio
-                  }
-                },
-                {
-                  text: promptText || "Ø§Ø³ØªÙ…Ø¹ Ù„Ù‡Ø°Ø§ Ø§Ù„ØªØ³Ø¬ÙŠÙ„ Ø§Ù„ØµÙˆØªÙŠ Ù„Ù„Ø²Ø¨ÙˆÙ†ØŒ ÙˆØ§ÙÙ‡Ù… Ø·Ù„Ø¨Ù‡ Ø¨Ø¯Ù‚Ø© Ø¯ÙˆÙ† ÙƒØªØ§Ø¨Ø© Ø¥ÙŠÙ…ÙˆØ¬ÙŠ."
-                }
-              ]
-            }],
-            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-            generationConfig: { temperature: 0.2, maxOutputTokens: 250 }
-          })
-        });
+  const keys = await getGroqKeys();
+  if (!keys || keys.length === 0 || !base64Audio) return null;
 
-        if (res.status === 200) {
-          const data = await res.json();
-          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) return removeEmojis(text.trim());
+  const audioBuffer = Buffer.from(base64Audio, 'base64');
+  const blob = new Blob([audioBuffer], { type: mimeType || 'audio/ogg' });
+
+  for (const selectedKey of keys) {
+    try {
+      const formData = new FormData();
+      formData.append('file', blob, 'audio.ogg');
+      formData.append('model', 'whisper-large-v3-turbo');
+      formData.append('temperature', '0.0');
+
+      const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${selectedKey}`
+        },
+        body: formData
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.text) {
+          console.log('🎙️ Groq Whisper Transcribed Voice Note:', data.text);
+          return removeEmojis(data.text.trim());
         }
-      } catch (err) {
-        console.error('Gemini Audio error:', err);
       }
+    } catch (err) {
+      console.error('Groq Whisper Audio error:', err.message);
     }
   }
+
   return null;
 }
 
