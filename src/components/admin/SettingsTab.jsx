@@ -228,10 +228,7 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
               <label className="form-label">رابط تيك توك (TikTok URL)</label>
               <input type="text" value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} className="form-input" placeholder="https://www.tiktok.com/@pyjama_dz" />
             </div>
-            <div className="form-group">
-              <label className="form-label">رابط خريطة جوجل (Google Maps URL)</label>
-              <input type="text" value={googleMapsUrl} onChange={(e) => setGoogleMapsUrl(e.target.value)} className="form-input" placeholder="https://maps.google.com/..." />
-            </div>
+
             <div className="form-group">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <label className="form-label" style={{ margin: 0 }}>رقم أو أرقام الطلبيات الهاتفية (Téléphones)</label>

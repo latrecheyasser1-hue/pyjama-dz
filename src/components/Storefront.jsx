@@ -1889,35 +1889,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   };
 
   const instaUrl = formatUrl(settings?.instagramUrl || settings?.instagram, "https://www.instagram.com/pyjama_dz");
-  const getMapsUrl = () => {
-    const candidate = (url) => {
-      if (!url) return null;
-      const s = String(url).trim();
-      if (!s || s === 'https://maps.google.com' || s === 'http://maps.google.com' || s === 'https://maps.google.com/' || s === 'http://maps.google.com/') {
-        return null;
-      }
-      return s;
-    };
-
-    const realLink = 
-      candidate(settings?.googleMapsUrl) || 
-      candidate(settings?.googleMaps) || 
-      candidate(settings?.mapsUrl) || 
-      candidate(settings?.maps) || 
-      candidate(settings?.locationUrl);
-
-    if (realLink) {
-      return formatUrl(realLink, "https://maps.google.com");
-    }
-
-    if (settings?.address && settings.address.trim()) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.address.trim())}`;
-    }
-
-    return "https://maps.google.com";
-  };
-
-  const mapsUrl = getMapsUrl();
+  const mapsUrl = "https://www.google.com/maps/place/%D8%A8%D9%8A%D8%AC%D8%A7%D9%85%D8%A7+%D8%AF%D9%8A%D8%B2%D8%A7%D8%AF+pyjama+dz%E2%80%AD/@36.1617248,1.3172613,15z/data=!4m10!1m2!2m1!1z2KjZitis2KfZhdinINiv2YrYstin2K8gcHlqYW1hIGR6!3m6!1s0x12840f0028274abd:0x2fafac4197a2004a!8m2!3d36.1617262!4d1.3300512!15sCiHYqNmK2KzYp9mF2Kcg2K_Zitiy2KfYryBweWphbWEgZHqSAQ5jbG90aGluZ19zdG9yZeABAA!16s%2Fg%2F11njwxbqt_?entry=ttu&g_ep=EgoyMDI2MDgxMS4wIKXMDSoASAFQAw%3D%3D";
   
   const getPhoneList = () => {
     if (Array.isArray(settings?.phoneOrders) && settings.phoneOrders.length > 0) {
