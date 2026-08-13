@@ -148,27 +148,26 @@ function extractCleanPhonesList(...sources) {
 }
 
 async function getSequentialOrderNum(targetOrder) {
-  if (!targetOrder || !targetOrder.created_at) return "313";
+  if (!targetOrder || !targetOrder.id) return "346";
   try {
-    const url = `${SUPABASE_URL}/rest/v1/orders?created_at=lte.${encodeURIComponent(targetOrder.created_at)}&select=id`;
+    const url = `${SUPABASE_URL}/rest/v1/orders?select=id,status,product,created_at&order=created_at.asc`;
     const res = await fetch(url, {
       headers: {
         'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Prefer': 'count=exact'
+        'Authorization': `Bearer ${SUPABASE_KEY}`
       }
     });
-    const contentRange = res.headers.get('content-range');
-    if (contentRange && contentRange.includes('/')) {
-      const total = contentRange.split('/')[1];
-      if (total && total !== '*') return total;
+    const rawOrders = await res.json();
+    if (Array.isArray(rawOrders)) {
+      const realOrders = rawOrders.filter(o => o.status !== 'account' && !String(o.product || '').includes('_CUSTOMER_ACCOUNT_'));
+      const idx = realOrders.findIndex(o => o.id === targetOrder.id);
+      if (idx !== -1) return String(idx + 1);
+      return String(realOrders.length);
     }
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) return String(data.length);
   } catch (err) {
     console.error('Error computing order number:', err);
   }
-  return "313";
+  return "346";
 }
 
 function cleanProductText(prod) {

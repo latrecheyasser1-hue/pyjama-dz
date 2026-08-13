@@ -23,23 +23,24 @@ async function getMetaAccessToken() {
 
 async function getSequentialOrderNum(orderId) {
   try {
-    const url = `${SUPABASE_URL}/rest/v1/orders?select=id,created_at&order=created_at.asc`;
+    const url = `${SUPABASE_URL}/rest/v1/orders?select=id,status,product,created_at&order=created_at.asc`;
     const res = await fetch(url, {
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`
       }
     });
-    const orders = await res.json();
-    if (Array.isArray(orders)) {
-      const idx = orders.findIndex(o => o.id === orderId);
+    const rawOrders = await res.json();
+    if (Array.isArray(rawOrders)) {
+      const realOrders = rawOrders.filter(o => o.status !== 'account' && !String(o.product || '').includes('_CUSTOMER_ACCOUNT_'));
+      const idx = realOrders.findIndex(o => o.id === orderId);
       if (idx !== -1) return String(idx + 1);
-      return String(orders.length);
+      return String(realOrders.length);
     }
   } catch (err) {
     console.error('Error fetching sequential order number:', err);
   }
-  return "58";
+  return "346";
 }
 
 export default async function handler(req, res) {
