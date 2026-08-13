@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, Lock, Phone, User, CheckCircle2, AlertCircle, RefreshCw, MessageSquare, Eye, EyeOff } from 'lucide-react';
-import { generateOTPCode, verifyOTPCode, registerCustomer, loginCustomer } from '../services/customerService';
+import { generateOTPCode, verifyOTPCode, registerCustomer, loginCustomer, loginOrCreateWithOTP } from '../services/customerService';
 
 export default function CustomerAccountPage({ onBackToStore, onAuthSuccess }) {
   const [activeTab, setActiveTab] = useState('register'); // 'register' or 'login'
@@ -155,11 +155,12 @@ export default function CustomerAccountPage({ onBackToStore, onAuthSuccess }) {
 
     setLoading(true);
     try {
-      const customer = await registerCustomer({
-        fullName,
-        phone,
-        password
-      });
+      let customer;
+      if (password && fullName) {
+        customer = await registerCustomer({ fullName, phone, password });
+      } else {
+        customer = await loginOrCreateWithOTP(phone, fullName);
+      }
 
       setSuccessMsg('تم إنشاء حسابك بنجاح');
       setTimeout(() => {
@@ -565,6 +566,36 @@ export default function CustomerAccountPage({ onBackToStore, onAuthSuccess }) {
                   {loading ? <RefreshCw className="spin" size={20} /> : <CheckCircle2 size={20} />}
                   تسجيل الدخول
                 </button>
+
+                <div style={{ textAlign: 'center', marginTop: '16px', borderTop: '1px solid #E2E8F0', paddingTop: '16px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('register');
+                      setStep('input');
+                      setErrorMsg('');
+                      setSuccessMsg('📲 أدخل رقم هاتفك وسنرسل لك رمز التأكيد للواتساب لتسجيل الدخول المباشر والتفعيل بدون كلمة سر');
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      background: '#F0FDF4',
+                      border: '1.5px solid #86EFAC',
+                      color: '#15803D',
+                      borderRadius: '14px',
+                      fontSize: '0.9rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    💬 نسيت كلمة السر أو حساب جديد؟ الدخول السريع عبر رمز الواتساب (WhatsApp OTP)
+                  </button>
+                </div>
               </form>
             )}
 

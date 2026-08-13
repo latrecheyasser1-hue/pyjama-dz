@@ -99,6 +99,28 @@ export const setCustomerSession = (customer) => {
   } catch (e) {}
 };
 
+const LOCAL_ACCOUNTS_KEY = 'pyjama_registered_accounts_v2';
+
+const getLocalAccounts = () => {
+  try {
+    const raw = localStorage.getItem(LOCAL_ACCOUNTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const saveLocalAccount = (acc) => {
+  try {
+    const list = getLocalAccounts();
+    const cleanPhone = formatPhoneNumber(acc.phone);
+    const core9 = cleanPhone.slice(-9);
+    const filtered = list.filter(a => formatPhoneNumber(a.phone).slice(-9) !== core9);
+    filtered.push(acc);
+    localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(filtered));
+  } catch (e) {}
+};
+
 /**
  * Register a new customer
  */
@@ -108,18 +130,31 @@ export const registerCustomer = async ({ fullName, phone, password, wilaya = '',
     throw new Error('رقم الهاتف غير صالح');
   }
 
-  // Check if customer already exists in Supabase DB
-  const { data: existing } = await supabase
-    .from('customers')
-    .select('id, phone')
-    .eq('phone', cleanPhone)
-    .maybeSingle();
+  const core9 = cleanPhone.slice(-9);
 
-  if (existing) {
+  // Check if account already exists in Supabase orders system records
+  try {
+    const { data: dbAccs } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('status', 'account');
+
+    if (dbAccs && dbAccs.length > 0) {
+      const match = dbAccs.find(r => formatPhoneNumber(r.phone).slice(-9) === core9);
+      if (match) {
+        throw new Error('هذا الرقم مسجل بالفعل في المتجر، يمكنك تسجيل الدخول مباشرة');
+      }
+    }
+  } catch (e) {}
+
+  // Check local storage
+  const localList = getLocalAccounts();
+  if (localList.some(a => formatPhoneNumber(a.phone).slice(-9) === core9)) {
     throw new Error('هذا الرقم مسجل بالفعل في المتجر، يمكنك تسجيل الدخول مباشرة');
   }
 
   const newCustomer = {
+    id: 'cust_' + Date.now(),
     full_name: fullName.trim(),
     phone: cleanPhone,
     password_hash: password,
@@ -129,22 +164,29 @@ export const registerCustomer = async ({ fullName, phone, password, wilaya = '',
     created_at: new Date().toISOString()
   };
 
-  const { data, error } = await supabase
-    .from('customers')
-    .insert([newCustomer])
-    .select('*')
-    .single();
-
-  if (error) {
-    // If customers table doesn't exist yet in DB, fallback to local session object for seamless Localhost testing
-    console.warn('Supabase customers table notice/fallback:', error);
-    const mockCustomer = { ...newCustomer, id: 'cust_' + Date.now() };
-    setCustomerSession(mockCustomer);
-    return mockCustomer;
+  // 1. Insert into Supabase orders table (status: 'account') -> Persists globally on all devices!
+  try {
+    await supabase.from('orders').insert([{
+      clientName: `ACCOUNT: ${fullName.trim()}`,
+      phone: cleanPhone,
+      product: { type: '_CUSTOMER_ACCOUNT_', title: 'حساب زبون' },
+      items: [{ password_hash: password, wilaya, commune, full_name: fullName.trim(), wishlist: [] }],
+      status: 'account',
+      archived: true
+    }]);
+  } catch (errSupabase) {
+    console.warn('Supabase account insert fallback:', errSupabase);
   }
 
-  setCustomerSession(data);
-  return data;
+  // 2. Try customers table if present
+  try {
+    await supabase.from('customers').insert([newCustomer]);
+  } catch (e2) {}
+
+  // 3. Save locally
+  saveLocalAccount(newCustomer);
+  setCustomerSession(newCustomer);
+  return newCustomer;
 };
 
 /**
@@ -152,28 +194,128 @@ export const registerCustomer = async ({ fullName, phone, password, wilaya = '',
  */
 export const loginCustomer = async (phone, password) => {
   const cleanPhone = formatPhoneNumber(phone);
-  
-  const { data, error } = await supabase
-    .from('customers')
-    .select('*')
-    .eq('phone', cleanPhone)
-    .maybeSingle();
+  if (!cleanPhone || cleanPhone.length < 9) {
+    throw new Error('رقم الهاتف غير صالح');
+  }
+  const core9 = cleanPhone.slice(-9);
 
-  if (error || !data) {
-    // Fallback check in local session if matching
-    const current = getCurrentCustomer();
-    if (current && current.phone === cleanPhone && current.password_hash === password) {
-      return current;
+  // 1. Query Supabase orders table for system account records
+  try {
+    const { data: dbAccs } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('status', 'account');
+
+    if (dbAccs && dbAccs.length > 0) {
+      const match = dbAccs.find(r => formatPhoneNumber(r.phone).slice(-9) === core9);
+      if (match) {
+        const itemInfo = (match.items && match.items[0]) || {};
+        const storedPass = itemInfo.password_hash || match.password_hash;
+        if (storedPass !== password) {
+          throw new Error('كلمة السر غير صحيحة، يرجى التثبت وإعادة المحاولة');
+        }
+        const custObj = {
+          id: match.id || 'cust_' + Date.now(),
+          full_name: itemInfo.full_name || match.clientName?.replace(/^ACCOUNT:\s*/, '') || 'زبون',
+          phone: cleanPhone,
+          password_hash: password,
+          wilaya: itemInfo.wilaya || match.wilaya || '',
+          commune: itemInfo.commune || match.commune || '',
+          wishlist: itemInfo.wishlist || []
+        };
+        saveLocalAccount(custObj);
+        setCustomerSession(custObj);
+        return custObj;
+      }
     }
-    throw new Error('رقم الهاتف أو كلمة السر غير صحيحة، يرجى التثبت وإعادة المحاولة');
+  } catch (errDb) {
+    if (errDb.message && errDb.message.includes('كلمة السر')) {
+      throw errDb;
+    }
   }
 
-  if (data.password_hash !== password) {
-    throw new Error('كلمة السر غير صحيحة');
+  // 2. Check local storage
+  const localList = getLocalAccounts();
+  const localMatch = localList.find(a => formatPhoneNumber(a.phone).slice(-9) === core9);
+  if (localMatch) {
+    if (localMatch.password_hash !== password) {
+      throw new Error('كلمة السر غير صحيحة، يرجى التثبت وإعادة المحاولة');
+    }
+    setCustomerSession(localMatch);
+    return localMatch;
   }
 
-  setCustomerSession(data);
-  return data;
+  // 3. Check current session
+  const current = getCurrentCustomer();
+  if (current && formatPhoneNumber(current.phone).slice(-9) === core9) {
+    if (current.password_hash !== password) {
+      throw new Error('كلمة السر غير صحيحة، يرجى التثبت وإعادة المحاولة');
+    }
+    return current;
+  }
+
+  throw new Error('رقم الهاتف غير مسجل أو كلمة السر غير صحيحة، يرجى إنشاء حساب جديد أو الدخول السريع عبر الواتساب 📲');
+};
+
+/**
+ * 1-Click WhatsApp OTP Login or Auto-Register
+ */
+export const loginOrCreateWithOTP = async (phone, fullName = '') => {
+  const cleanPhone = formatPhoneNumber(phone);
+  const core9 = cleanPhone.slice(-9);
+
+  // Check if account already exists
+  try {
+    const { data: dbAccs } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('status', 'account');
+
+    if (dbAccs && dbAccs.length > 0) {
+      const match = dbAccs.find(r => formatPhoneNumber(r.phone).slice(-9) === core9);
+      if (match) {
+        const itemInfo = (match.items && match.items[0]) || {};
+        const custObj = {
+          id: match.id || 'cust_' + Date.now(),
+          full_name: itemInfo.full_name || fullName || 'زبون الممتاز',
+          phone: cleanPhone,
+          wilaya: itemInfo.wilaya || '',
+          commune: itemInfo.commune || '',
+          wishlist: itemInfo.wishlist || []
+        };
+        saveLocalAccount(custObj);
+        setCustomerSession(custObj);
+        return custObj;
+      }
+    }
+  } catch (e) {}
+
+  // Auto-create new account
+  const autoAccount = {
+    id: 'cust_' + Date.now(),
+    full_name: fullName.trim() || `زبون (${cleanPhone})`,
+    phone: cleanPhone,
+    password_hash: 'OTP_VERIFIED_' + Date.now(),
+    wilaya: '',
+    commune: '',
+    wishlist: [],
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    await supabase.from('orders').insert([{
+      clientName: `ACCOUNT: ${autoAccount.full_name}`,
+      phone: cleanPhone,
+      product: { type: '_CUSTOMER_ACCOUNT_', title: 'حساب زبون' },
+      items: [{ password_hash: autoAccount.password_hash, full_name: autoAccount.full_name, wilaya: '', commune: '', wishlist: [] }],
+      status: 'account',
+      archived: true
+    }]);
+  } catch (e) {}
+
+  saveLocalAccount(autoAccount);
+  setCustomerSession(autoAccount);
+  return autoAccount;
 };
 
 /**
