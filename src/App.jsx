@@ -295,6 +295,11 @@ export default function App() {
           }
         }
       });
+      setSettings(prev => {
+        const merged = { ...prev, ...obj };
+        try { localStorage.setItem('pyjama_settings_cache', JSON.stringify(merged)); } catch(e) {}
+        return merged;
+      });
     }
 
     // Also fetch dedicated 'reclamations' table and RLS-free 'orders' reclamations from Supabase DB to ensure instant mobile delivery
