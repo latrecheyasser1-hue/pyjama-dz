@@ -1907,6 +1907,18 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       candidate(settings?.locationUrl);
 
     if (realLink) {
+      // Extract exact latitude and longitude for 100% iOS Safari & PWA Google Maps App deep link compatibility
+      const latMatch = realLink.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || 
+                       realLink.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) ||
+                       realLink.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/) ||
+                       realLink.match(/ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
+
+      if (latMatch && latMatch[1] && latMatch[2]) {
+        const lat = latMatch[1];
+        const lng = latMatch[2];
+        return `https://maps.google.com/?q=${lat},${lng}`;
+      }
+
       return formatUrl(realLink, "https://maps.google.com");
     }
 
