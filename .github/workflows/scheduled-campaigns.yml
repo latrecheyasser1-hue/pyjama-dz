@@ -1,0 +1,28 @@
+name: Scheduled Marketing Automations
+
+on:
+  schedule:
+    # 1. Weekly Top 10 Hot Sale Broadcast: Every Friday at 10:00 AM UTC (11:00 AM Algerian Time)
+    - cron: '0 10 * * 5'
+    # 2. 14-Day Customer Followup & Satisfaction Check: Every day at 11:00 AM UTC (12:00 PM Algerian Time)
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-automations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Weekly Top 10 Hot Sale (Fridays)
+        run: |
+          DAY_OF_WEEK=$(date +%u)
+          if [ "$DAY_OF_WEEK" -eq 5 ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "🚀 Triggering Weekly Top 10 Hot Sale Campaign..."
+            curl -s -X GET "https://pyjama-dz.vercel.app/api/cron-notifications?action=weekly_hot_sale"
+          else
+            echo "ℹ️ Not Friday, skipping Weekly Hot Sale."
+          fi
+
+      - name: Trigger 14-Day Customer Satisfaction Follow-up
+        run: |
+          echo "🌸 Triggering 14-Day Customer Follow-up Check..."
+          curl -s -X GET "https://pyjama-dz.vercel.app/api/cron-notifications?action=followup_14_days"
