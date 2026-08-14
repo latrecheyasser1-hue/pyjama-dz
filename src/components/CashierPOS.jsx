@@ -230,6 +230,9 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
     if (isAuthenticated) return;
 
     const handleKeyDown = (e) => {
+      // If user is typing directly inside the input, let the input's onChange handle it without duplication
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+
       if (/^[0-9]$/.test(e.key)) {
         handleKeypadPress(e.key);
       } else if (e.key === 'Backspace') {
@@ -518,9 +521,12 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
           <form onSubmit={handlePinLogin} style={{ marginBottom: '24px' }}>
             <input
               type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={pinInput}
               onChange={(e) => {
-                setPinInput(e.target.value);
+                const clean = e.target.value.replace(/\D/g, '').slice(0, 6);
+                setPinInput(clean);
                 setPinError(false);
               }}
               placeholder="••••"
