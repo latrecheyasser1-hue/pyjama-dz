@@ -218,27 +218,36 @@ export default async function handler(req, res) {
         });
       }
 
+      const clientEntries = Array.from(uniqueClients.entries());
       let sentCount = 0;
-      for (const [phone, rawName] of uniqueClients.entries()) {
-        const firstName = cleanClientName(rawName);
-        const greeting = firstName ? `أهلاً وسهلاً بك ${firstName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
 
-        // Send Top 10 Product Images
-        for (let i = 0; i < top10Products.length; i++) {
-          const item = top10Products[i];
-          if (item.imageUrl) {
-            const caption = `🔥 *${item.title}*\n💰 السعر: ${item.price} دج`;
-            await sendWhatsAppImage(phone, item.imageUrl, caption);
-            await new Promise(r => setTimeout(r, 200));
+      // Process in concurrent batches of 3 clients for high speed
+      const batchSize = 3;
+      for (let i = 0; i < clientEntries.length; i += batchSize) {
+        const batch = clientEntries.slice(i, i + batchSize);
+        await Promise.all(batch.map(async ([phone, rawName]) => {
+          try {
+            const firstName = cleanClientName(rawName);
+            const greeting = firstName ? `أهلاً وسهلاً بك ${firstName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
+
+            // Send Top 10 Product Images
+            for (const item of top10Products) {
+              if (item.imageUrl) {
+                const caption = `🔥 *${item.title}*\n💰 السعر: ${item.price} دج`;
+                await sendWhatsAppImage(phone, item.imageUrl, caption);
+                await new Promise(r => setTimeout(r, 60));
+              }
+            }
+
+            // Final summary message with official website link
+            const textMsg = `*متجر Pyjama DZ ✨*\n\n${greeting}! 🌸\nهذو هما أفضل 10 منتجات الأكثر طلباً ومبيعاً هذا الأسبوع في متجرنا! 🔥✨\n\nتفضل بتصفح كافة الصور والموديلات والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+
+            await sendWhatsAppMessage(phone, textMsg);
+            sentCount++;
+          } catch(e) {
+            console.error('Error sending to client:', phone, e);
           }
-        }
-
-        // Final summary message with official website link
-        const textMsg = `*متجر Pyjama DZ ✨*\n\n${greeting}! 🌸\nهذو هما أفضل 10 منتجات الأكثر طلباً ومبيعاً هذا الأسبوع في متجرنا! 🔥✨\n\nتفضل بتصفح كافة الصور والموديلات والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
-
-        await sendWhatsAppMessage(phone, textMsg);
-        sentCount++;
-        await new Promise(r => setTimeout(r, 250));
+        }));
       }
 
       hotSaleResult = { status: 'success', sentCount, totalClients: uniqueClients.size, mediaCount: top10Products.length };

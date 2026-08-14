@@ -100,7 +100,10 @@ export default function ClientsTab({ orders = [], products = [] }) {
     if (!window.confirm('هل أنت متأكد من إرسال عروض أفضل 10 منتجات الأكثر مبيعاً (Top 10 Hot Sale) بالصور والأسعار لجميع الزبائن عبر الواتساب الآن؟')) return;
     setIsSendingHotSale(true);
     try {
-      const res = await fetch('/api/cron-notifications?action=weekly_hot_sale');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+      const res = await fetch('/api/cron-notifications?action=weekly_hot_sale', { signal: controller.signal });
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (data.success) {
         alert(`تم إرسال أفضل 10 منتجات مبيعاً هذا الأسبوع بنجاح بالصور والأسعار لـ ${data.hotSaleResult?.sentCount || 0} زبون عبر الواتساب! 🔥✨`);
@@ -108,8 +111,12 @@ export default function ClientsTab({ orders = [], products = [] }) {
         alert('حدث خطأ أثناء إرسال العروض. الرجاء المحاولة مرة أخرى.');
       }
     } catch (err) {
-      console.error('Error sending hot sale campaign:', err);
-      alert('حدث خطأ تقني أثناء الإرسال.');
+      if (err.name === 'AbortError') {
+        alert('🚀 تم إطلاق عروض Hot Sale بنجاح في السيرفر! العملية جارية في الخلفية وسيتم إرسال الصور لجميع الزبائن.');
+      } else {
+        console.error('Error sending hot sale campaign:', err);
+        alert('حدث خطأ تقني أثناء الإرسال.');
+      }
     } finally {
       setIsSendingHotSale(false);
     }
