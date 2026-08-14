@@ -131,7 +131,7 @@ export default async function handler(req, res) {
     let hotSaleResult = null;
 
     if (action === 'weekly_hot_sale' || action === 'all') {
-      // 1. Fetch all store products
+      // 1. Fetch only retail delivery products (exclude Gros/Wholesale and Boutique/POS)
       const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
@@ -139,7 +139,12 @@ export default async function handler(req, res) {
       const productMap = new Map();
       if (Array.isArray(allProducts)) {
         allProducts.forEach(p => {
-          if (p && p.id) productMap.set(String(p.id), p);
+          if (!p || !p.id) return;
+          const cat = String(p.category || '').toLowerCase();
+          const chan = String(p.channel || '').toLowerCase();
+          if (p.isGrosOnly || p.isGros || cat === 'gros' || cat.startsWith('gros__') || chan === 'gros') return;
+          if (p.isPos || p.isBoutique || cat.startsWith('boutique__') || chan === 'boutique') return;
+          productMap.set(String(p.id), p);
         });
       }
 
