@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { KeyRound, Lock, Save, Globe, Plus, Trash2 } from 'lucide-react';
+import { KeyRound, Lock, Save, Globe, Plus, Trash2, Truck, RefreshCw, ShieldCheck } from 'lucide-react';
 import { showToast } from '../../utils/toast';
 
 export default function SettingsTab({ settings, onUpdateSettings, currentPin, onChangePin }) {
@@ -35,6 +35,13 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   const [cashierPinInput, setCashierPinInput] = useState(() => settings?.cashierPin ?? '123456');
   const [cashierSuccess, setCashierSuccess] = useState(false);
 
+  // Shipping API Keys state
+  const [yalidineApiId, setYalidineApiId] = useState(settings?.yalidine_api_id ?? '');
+  const [yalidineApiToken, setYalidineApiToken] = useState(settings?.yalidine_api_token ?? '');
+  const [zrExpressApiKey, setZrExpressApiKey] = useState(settings?.zr_express_api_key ?? settings?.zr_express_token ?? '');
+  const [shippingSavedSuccess, setShippingSavedSuccess] = useState(false);
+  const [isSyncingTracking, setIsSyncingTracking] = useState(false);
+
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
@@ -51,6 +58,9 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
       if (settings.googleMapsUrl || settings.googleMaps) setGoogleMapsUrl(settings.googleMapsUrl || settings.googleMaps || '');
       if (settings.storeName !== undefined) setStoreName((settings.storeName ?? '').replace(/\s*-\s*Luxury\s*Homewear/i, '').trim());
       if (settings.cashierPin !== undefined) setCashierPinInput(settings.cashierPin ?? '123456');
+      if (settings.yalidine_api_id !== undefined) setYalidineApiId(settings.yalidine_api_id ?? '');
+      if (settings.yalidine_api_token !== undefined) setYalidineApiToken(settings.yalidine_api_token ?? '');
+      if (settings.zr_express_api_key !== undefined || settings.zr_express_token !== undefined) setZrExpressApiKey(settings.zr_express_api_key ?? settings.zr_express_token ?? '');
       setIsInitialized(true);
     }
   }, [settings, isInitialized]);
@@ -117,6 +127,37 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
     });
     setCashierSuccess(true);
     setTimeout(() => setCashierSuccess(false), 3000);
+  };
+
+  const handleSaveShippingApis = (e) => {
+    e.preventDefault();
+    onUpdateSettings({
+      ...settings,
+      yalidine_api_id: yalidineApiId.trim(),
+      yalidine_api_token: yalidineApiToken.trim(),
+      zr_express_api_key: zrExpressApiKey.trim(),
+      zr_express_token: zrExpressApiKey.trim()
+    });
+    setShippingSavedSuccess(true);
+    setTimeout(() => setShippingSavedSuccess(false), 3000);
+  };
+
+  const handleManualSyncTracking = async () => {
+    setIsSyncingTracking(true);
+    try {
+      const res = await fetch('/api/track-shipments');
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ تمت المزامنة بنجاح!\n• عدد الطرود المفحوصة: ${data.activeOrdersChecked}\n• عدد الطرود المحدثة: ${data.ordersUpdated}\n• عدد الإشعارات المرسلة للزبائن: ${data.notificationsSent} إشعار 📦✨`);
+      } else {
+        alert(`⚠️ تنبيه: ${data.message || 'حدث خطأ أثناء المزامنة'}`);
+      }
+    } catch (err) {
+      console.error('Error syncing tracking:', err);
+      alert('حدث خطأ تقني أثناء الاتصال بشركات التوصيل.');
+    } finally {
+      setIsSyncingTracking(false);
+    }
   };
 
   return (
@@ -345,6 +386,95 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
             <Save size={16} />
             <span>{cashierSuccess ? "✅ تم حفظ كود الكاشير بنجاح !" : "💾 حفظ كود الكاشير"}</span>
           </button>
+        </form>
+      </div>
+
+      {/* Shipping Automations & API Credentials Card */}
+      <div style={{ background: 'white', padding: '28px', borderRadius: '16px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)', marginTop: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px', borderBottom: '2px solid #F1F5F9', paddingBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ background: '#ECFDF5', padding: 12, borderRadius: 12, color: '#059669', border: '1px solid #A7F3D0' }}>
+              <Truck size={24} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1E293B', margin: 0 }}>🚚 أوتوميشن تتبع الطرود وشركات التوصيل (Yalidine & ZR Express)</h3>
+              <span style={{ fontSize: '0.85rem', color: '#64748B' }}>نظام تتبع حالة الطرود الآلي وإرسال تنبيهات وصول المكتب وخروج الموزع وتفادي الروتور (Anti-Retour)</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              type="button"
+              onClick={handleManualSyncTracking}
+              disabled={isSyncingTracking}
+              style={{ background: '#059669', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s', opacity: isSyncingTracking ? 0.7 : 1 }}
+            >
+              <RefreshCw size={16} className={isSyncingTracking ? 'animate-spin' : ''} />
+              <span>{isSyncingTracking ? '⏳ جاري فحص الطرود...' : '🔄 فحص ومزامنة الطرود الآن'}</span>
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveShippingApis} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+            {/* Yalidine */}
+            <div style={{ background: '#F8FAFC', padding: '18px', borderRadius: '12px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.1rem' }}>🟡</span>
+                <strong style={{ fontSize: '1rem', color: '#0F172A' }}>إعدادات Yalidine API</strong>
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>Yalidine API ID (Identifiant)</label>
+                <input 
+                  type="text" 
+                  value={yalidineApiId} 
+                  onChange={(e) => setYalidineApiId(e.target.value)} 
+                  className="form-input" 
+                  placeholder="Ex: 84920194829" 
+                  style={{ background: 'white' }}
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>Yalidine API Token (Clé secrète)</label>
+                <input 
+                  type="password" 
+                  value={yalidineApiToken} 
+                  onChange={(e) => setYalidineApiToken(e.target.value)} 
+                  className="form-input" 
+                  placeholder="Ex: yali_sec_xxxxxxxxxxxx" 
+                  style={{ background: 'white' }}
+                />
+              </div>
+            </div>
+
+            {/* ZR Express */}
+            <div style={{ background: '#F8FAFC', padding: '18px', borderRadius: '12px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.1rem' }}>🔴</span>
+                <strong style={{ fontSize: '1rem', color: '#0F172A' }}>إعدادات ZR Express API</strong>
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>ZR Express API Key / Token</label>
+                <input 
+                  type="password" 
+                  value={zrExpressApiKey} 
+                  onChange={(e) => setZrExpressApiKey(e.target.value)} 
+                  className="form-input" 
+                  placeholder="Ex: zr_token_xxxxxxxxxxxx" 
+                  style={{ background: 'white' }}
+                />
+              </div>
+              <span style={{ fontSize: '0.78rem', color: '#64748B' }}>
+                💡 بمجرد إدخال مفاتيح الربط، سيتعرف السيستم على الطرود تلقائياً ويبعث رسائل الواتساب الذكية للزبائن في اللحظة المناسبة.
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '8px' }}>
+            <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', padding: '12px 24px', width: 'fit-content' }}>
+              <Save size={16} />
+              <span>{shippingSavedSuccess ? "✅ تم حفظ إعدادات شركات التوصيل بنجاح !" : "💾 حفظ مفاتيح شركات التوصيل"}</span>
+            </button>
+          </div>
         </form>
       </div>
     </div>

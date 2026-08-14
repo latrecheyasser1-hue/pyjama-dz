@@ -26,3 +26,8 @@ jobs:
         run: |
           echo "🌸 Triggering 14-Day Customer Follow-up Check..."
           curl -s -X GET "https://pyjama-dz.vercel.app/api/cron-notifications?action=followup_14_days"
+
+      - name: Trigger Automated Shipment Tracking & Anti-Retour Alerts
+        run: |
+          echo "🚚 Triggering Shipping & Anti-Retour WhatsApp Automation..."
+          curl -s -X GET "https://pyjama-dz.vercel.app/api/track-shipments"
