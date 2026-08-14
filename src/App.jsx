@@ -102,15 +102,30 @@ export default function App() {
   useEffect(() => {
     fetchInitialData();
     
-    // Subscribe to real-time changes
-    const productsSub = supabase.channel('products_channel')
+    // 1. Subscribe to real-time database changes with instant in-memory state updates
+    const productsSub = supabase.channel('products_realtime_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
-        fetchData('products', setProducts);
+        if (payload.eventType === 'UPDATE' && payload.new) {
+          setProducts(prev => prev.map(p => p.id === payload.new.id ? { ...p, ...payload.new } : p));
+        } else if (payload.eventType === 'INSERT' && payload.new) {
+          setProducts(prev => [payload.new, ...prev]);
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          setProducts(prev => prev.filter(p => p.id !== payload.old.id));
+        } else {
+          fetchData('products', setProducts);
+        }
       }).subscribe();
 
-    const ordersSub = supabase.channel('orders_channel')
+    const ordersSub = supabase.channel('orders_realtime_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
-        fetchData('orders', setOrders);
+        if (payload.eventType === 'UPDATE' && payload.new) {
+          setOrders(prev => prev.map(o => o.id === payload.new.id ? { ...o, ...payload.new } : o));
+        } else if (payload.eventType === 'INSERT' && payload.new) {
+          setOrders(prev => [payload.new, ...prev]);
+          playNotificationSound();
+        } else {
+          fetchData('orders', setOrders);
+        }
       }).subscribe();
 
     const suppliersSub = supabase.channel('suppliers_channel')
@@ -128,22 +143,49 @@ export default function App() {
         fetchSettings();
       }).subscribe();
 
-    // Supabase real-time handles instant updates when database changes happen.
-    // Fallback polling for new orders (every 10 seconds) without re-rendering products unnecessarily
-    const pollInterval = setInterval(async () => {
-      const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-      if (!error && data) {
-        setOrders(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(data)) {
-            if (prev.length > 0 && data.length > prev.length) {
-              playNotificationSound();
+    // 2. High-reliability background sync function for orders & products (stock updates from WhatsApp)
+    const syncFreshData = async () => {
+      try {
+        const [prodsRes, ordsRes] = await Promise.all([
+          supabase.from('products').select('*').order('created_at', { ascending: false }),
+          supabase.from('orders').select('*').order('created_at', { ascending: false })
+        ]);
+
+        if (!prodsRes.error && prodsRes.data) {
+          setProducts(prev => {
+            const isDifferent = JSON.stringify(prev) !== JSON.stringify(prodsRes.data);
+            return isDifferent ? prodsRes.data : prev;
+          });
+        }
+
+        if (!ordsRes.error && ordsRes.data) {
+          setOrders(prev => {
+            if (JSON.stringify(prev) !== JSON.stringify(ordsRes.data)) {
+              if (prev.length > 0 && ordsRes.data.length > prev.length) {
+                playNotificationSound();
+              }
+              return ordsRes.data;
             }
-            return data;
-          }
-          return prev;
-        });
+            return prev;
+          });
+        }
+      } catch (err) {
+        console.error('Background sync error:', err);
       }
-    }, 10000);
+    };
+
+    // Auto-sync every 6 seconds in background
+    const pollInterval = setInterval(syncFreshData, 6000);
+
+    // Auto-sync immediately when tab/window becomes active or gains focus
+    const handleFocusOrVisible = () => {
+      if (!document.hidden) {
+        syncFreshData();
+      }
+    };
+
+    window.addEventListener('focus', handleFocusOrVisible);
+    document.addEventListener('visibilitychange', handleFocusOrVisible);
 
     return () => {
       supabase.removeChannel(productsSub);
@@ -152,6 +194,8 @@ export default function App() {
       supabase.removeChannel(expensesSub);
       supabase.removeChannel(settingsSub);
       clearInterval(pollInterval);
+      window.removeEventListener('focus', handleFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleFocusOrVisible);
     };
   }, []);
 
