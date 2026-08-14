@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Allow: /gros
+Disallow: /admin
+Disallow: /cashier
+Disallow: /embalage
+Disallow: /api/
+
+Sitemap: https://pyjama-dz.vercel.app/sitemap.xml
