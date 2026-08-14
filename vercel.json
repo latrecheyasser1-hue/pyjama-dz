@@ -18,6 +18,10 @@
   ],
   "crons": [
     {
+      "path": "/api/cron-notifications?action=weekly_hot_sale",
+      "schedule": "0 10 * * 5"
+    },
+    {
       "path": "/api/cron-notifications?action=process_delayed_confirmations",
       "schedule": "0 9 * * *"
     },

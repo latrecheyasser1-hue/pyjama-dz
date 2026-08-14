@@ -97,13 +97,13 @@ export default function ClientsTab({ orders = [], products = [] }) {
   const [isSendingFollowup, setIsSendingFollowup] = useState(false);
 
   const handleSendWeeklyHotSale = async () => {
-    if (!window.confirm('هل أنت متأكد من إرسال عرض Hot Sale الأسبوعي المخصص باسم كل زبون عبر الواتساب الآن؟')) return;
+    if (!window.confirm('هل أنت متأكد من إرسال عروض أفضل 10 منتجات الأكثر مبيعاً (Top 10 Hot Sale) بالصور والأسعار لجميع الزبائن عبر الواتساب الآن؟')) return;
     setIsSendingHotSale(true);
     try {
       const res = await fetch('/api/cron-notifications?action=weekly_hot_sale');
       const data = await res.json();
       if (data.success) {
-        alert(`تم إرسال عروض Hot Sale الأسبوعية بنجاح لـ ${data.hotSaleResult?.sentCount || 0} زبون عبر الواتساب! 🔥✨`);
+        alert(`تم إرسال أفضل 10 منتجات مبيعاً هذا الأسبوع بنجاح بالصور والأسعار لـ ${data.hotSaleResult?.sentCount || 0} زبون عبر الواتساب! 🔥✨`);
       } else {
         alert('حدث خطأ أثناء إرسال العروض. الرجاء المحاولة مرة أخرى.');
       }

@@ -131,60 +131,73 @@ export default async function handler(req, res) {
     let hotSaleResult = null;
 
     if (action === 'weekly_hot_sale' || action === 'all') {
-      const settingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.hot_sale_products&select=value`, {
+      // 1. Fetch all store products
+      const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
-      const settingsData = await settingsRes.json();
-      let hotSaleIds = [];
-      if (Array.isArray(settingsData) && settingsData[0]?.value) {
-        try {
-          const parsed = typeof settingsData[0].value === 'string' ? JSON.parse(settingsData[0].value) : settingsData[0].value;
-          if (Array.isArray(parsed)) hotSaleIds = parsed;
-        } catch(e) {}
-      }
-
-      let products = [];
-      if (hotSaleIds.length > 0) {
-        const idFilter = hotSaleIds.map(id => `"${id}"`).join(',');
-        const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=in.(${idFilter})&select=*`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      const allProducts = await prodRes.json();
+      const productMap = new Map();
+      if (Array.isArray(allProducts)) {
+        allProducts.forEach(p => {
+          if (p && p.id) productMap.set(String(p.id), p);
         });
-        products = await prodRes.json();
       }
 
-      if (!Array.isArray(products) || products.length === 0) {
-        const fallbackRes = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*&limit=2`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      // 2. Fetch recent orders from the past 7 days to calculate Top 10 Best Sellers
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const orderCountRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?created_at=gte.${sevenDaysAgo}&status=not.in.(annulee,retour,account)&select=items,productId,product`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const recentOrders = await orderCountRes.json();
+
+      const salesCounter = new Map(); // prodId -> count
+      if (Array.isArray(recentOrders)) {
+        recentOrders.forEach(o => {
+          if (Array.isArray(o.items) && o.items.length > 0) {
+            o.items.forEach(it => {
+              const pid = it.productId ? String(it.productId) : null;
+              if (pid) {
+                salesCounter.set(pid, (salesCounter.get(pid) || 0) + Number(it.qty || 1));
+              }
+            });
+          } else if (o.productId) {
+            const pid = String(o.productId);
+            salesCounter.set(pid, (salesCounter.get(pid) || 0) + 1);
+          }
         });
-        products = await fallbackRes.json();
       }
 
-      const productMediaList = [];
-      const seenProdIds = new Set();
-      const seenImgUrls = new Set();
+      // 3. Sort products by weekly sales descending
+      const sortedProds = Array.from(productMap.values()).sort((a, b) => {
+        const salesA = salesCounter.get(String(a.id)) || 0;
+        const salesB = salesCounter.get(String(b.id)) || 0;
+        if (salesB !== salesA) return salesB - salesA;
+        return (b.views || 0) - (a.views || 0);
+      });
 
-      if (Array.isArray(products)) {
-        products.forEach(p => {
-          if (!p || !p.id || seenProdIds.has(p.id)) return;
-          const imgUrl = getProductImageUrl(p);
-          if (!imgUrl || seenImgUrls.has(imgUrl)) return;
+      // 4. Select top 10 products with valid images
+      const top10Products = [];
+      const seenImgs = new Set();
 
-          seenProdIds.add(p.id);
-          seenImgUrls.add(imgUrl);
-
-          productMediaList.push({
+      for (const p of sortedProds) {
+        if (top10Products.length >= 10) break;
+        const imgUrl = getProductImageUrl(p);
+        if (imgUrl && !seenImgs.has(imgUrl)) {
+          seenImgs.add(imgUrl);
+          top10Products.push({
             id: p.id,
-            title: p.title || 'منتج مميز',
-            price: p.price || 0,
+            title: p.title || 'بيجامة فاخرة',
+            price: p.price || 2800,
             imageUrl: imgUrl
           });
-        });
+        }
       }
 
-      const orderRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=phone,clientName&order=created_at.desc&limit=500`, {
+      // 5. Fetch all unique clients who placed orders
+      const clientRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?select=phone,clientName&status=not.in.(account)&order=created_at.desc&limit=1000`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
-      const orders = await orderRes.json();
+      const orders = await clientRes.json();
 
       const uniqueClients = new Map();
       if (Array.isArray(orders)) {
@@ -205,22 +218,25 @@ export default async function handler(req, res) {
         const firstName = cleanClientName(rawName);
         const greeting = firstName ? `أهلاً وسهلاً بك ${firstName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
 
-        for (const item of productMediaList) {
+        // Send Top 10 Product Images
+        for (let i = 0; i < top10Products.length; i++) {
+          const item = top10Products[i];
           if (item.imageUrl) {
-            const caption = `✨ *${item.title}*\nالسعر: ${item.price} دج`;
+            const caption = `🔥 *${item.title}*\n💰 السعر: ${item.price} دج`;
             await sendWhatsAppImage(phone, item.imageUrl, caption);
-            await new Promise(r => setTimeout(r, 150));
+            await new Promise(r => setTimeout(r, 200));
           }
         }
 
-        const textMsg = `*متجر Pyjama DZ*\n\n${greeting}! 🌸\nهذو هما المنتجات والسلعة الأكثر مبيعاً هاد الأسبوع في متجرنا! 🔥✨\n\nتفضل بتصفح كافة الصور والمنتجات والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+        // Final summary message with official website link
+        const textMsg = `*متجر Pyjama DZ ✨*\n\n${greeting}! 🌸\nهذو هما أفضل 10 منتجات الأكثر طلباً ومبيعاً هذا الأسبوع في متجرنا! 🔥✨\n\nتفضل بتصفح كافة الصور والموديلات والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
 
         await sendWhatsAppMessage(phone, textMsg);
         sentCount++;
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 250));
       }
 
-      hotSaleResult = { status: 'success', sentCount, totalClients: uniqueClients.size, mediaCount: productMediaList.length };
+      hotSaleResult = { status: 'success', sentCount, totalClients: uniqueClients.size, mediaCount: top10Products.length };
     }
 
     let followupResult = null;
