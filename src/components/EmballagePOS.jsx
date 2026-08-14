@@ -5,6 +5,7 @@ import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export default function EmballagePOS({ settings = {}, products = [], orders = [], onUpdateStatus, onGoBack }) {
   const { isInstallable, promptInstall } = usePWAInstall();
+  const validPin = settings?.embalagePin || settings?.emballagePin || settings?.cashierPin || '123456';
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return sessionStorage.getItem('pyjama_dz_embalage_auth') === 'true';
   });
