@@ -1350,8 +1350,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
     try {
       const formattedPhone = cleanPhone.length === 10 ? cleanPhone : '0' + cleanPhone.slice(-9);
-      const SUPABASE_URL = 'https://tdhxdnmjmnfjkictdzpk.supabase.co';
-      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkaHhkbm1qbW5mamtpY3RkenBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMjIxMDAsImV4cCI6MjEwMjc5ODEwMH0.K3moWEWjE5cvBmFwaGyPspx_yIixii9tY136DgpCZ3g';
+      const SUPABASE_URL = 'https://qnbwyblbxtwubmuejwtp.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
       await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
         method: 'POST',

@@ -1,33 +1,41 @@
-import { createClient } from '@supabase/supabase-js';
-import { INITIAL_PRODUCTS, INITIAL_SUPPLIERS, INITIAL_EXPENSES } from './src/data/mockData.js';
+import fs from 'fs';
+import path from 'path';
 
-const NEW_SUPABASE_URL = 'https://tdhxdnmjmnfjkictdzpk.supabase.co';
-const NEW_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkaHhkbm1qbW5mamtpY3RkenBrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzIyMjEwMCwiZXhwIjoyMTAyNzk4MTAwfQ.2RWEeSVfxF8MOVF8KYg5pZYl1tsWTp4MJR_-rBwaoJM';
+const NEW_URL = 'https://tdhxdnmjmnfjkictdzpk.supabase.co';
+const OLD_URL = 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 
-const supabase = createClient(NEW_SUPABASE_URL, NEW_SERVICE_ROLE_KEY);
+const NEW_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkaHhkbm1qbW5mamtpY3RkenBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMjIxMDAsImV4cCI6MjEwMjc5ODEwMH0.K3moWEWjE5cvBmFwaGyPspx_yIixii9tY136DgpCZ3g';
+const OLD_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
-async function testCustomerAuth() {
-  const phone = '0771335039';
-  const password = 'mypassword123';
-  const fullName = 'ياسر لطرش';
+const files = [
+  'src/lib/supabaseClient.js',
+  'index.html',
+  'src/migrate_data.js',
+  'src/components/Storefront.jsx',
+  'api/notify-restock.js',
+  'api/product-image.js',
+  'api/send-order-whatsapp.js',
+  'api/send-reclamation-whatsapp.js',
+  'api/send-otp-whatsapp.js',
+  'api/track-shipments.js',
+  'api/process-delayed-confirmations.js',
+  'api/cron-notifications.js',
+  'api/check-low-stock.js',
+  'api/webhook.js'
+];
 
-  console.log('Testing customer insert in customers table...');
-  const { data: reg, error: regErr } = await supabase.from('customers').upsert({
-    id: 'cust_' + Date.now(),
-    full_name: fullName,
-    phone: phone,
-    password_hash: password,
-    wilaya: '16 - الجزائر',
-    commune: 'باب الزوار'
-  });
-  console.log('REGISTRATION RESULT:', { reg, regErr });
-
-  console.log('Testing customer login query...');
-  const { data: user, error: logErr } = await supabase.from('customers').select('*').eq('phone', phone).single();
-  console.log('LOGIN RESULT:', { user, logErr });
+for (const rel of files) {
+  const full = path.join(process.cwd(), rel);
+  if (fs.existsSync(full)) {
+    let content = fs.readFileSync(full, 'utf8');
+    content = content.replaceAll(NEW_URL, OLD_URL);
+    content = content.replaceAll(NEW_KEY, OLD_KEY);
+    fs.writeFileSync(full, content, 'utf8');
+    console.log(`Reverted: ${rel}`);
+  }
 }
 
-testCustomerAuth();
+
 
 
 
