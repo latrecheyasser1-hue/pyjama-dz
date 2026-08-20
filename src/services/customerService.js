@@ -199,7 +199,64 @@ export const loginCustomer = async (phone, password) => {
   }
   const core9 = cleanPhone.slice(-9);
 
-  // 1. Query Supabase orders table for system account records
+  // 1. Query Supabase users and customers tables
+  try {
+    const { data: directUsers } = await supabase
+      .from('users')
+      .select('*')
+      .ilike('phone', `%${core9}%`);
+
+    if (directUsers && directUsers.length > 0) {
+      const u = directUsers[0];
+      if (u.password_hash !== password) {
+        throw new Error('كلمة السر غير صحيحة، يرجى التثبت وإعادة المحاولة');
+      }
+      const custObj = {
+        id: u.id,
+        full_name: u.full_name || 'زبون',
+        phone: cleanPhone,
+        password_hash: password,
+        wilaya: u.wilaya || '',
+        commune: u.commune || '',
+        wishlist: u.wishlist || []
+      };
+      saveLocalAccount(custObj);
+      setCustomerSession(custObj);
+      return custObj;
+    }
+  } catch (errUsers) {
+    if (errUsers.message && errUsers.message.includes('كلمة السر')) throw errUsers;
+  }
+
+  try {
+    const { data: directCusts } = await supabase
+      .from('customers')
+      .select('*')
+      .ilike('phone', `%${core9}%`);
+
+    if (directCusts && directCusts.length > 0) {
+      const c = directCusts[0];
+      if (c.password_hash !== password) {
+        throw new Error('كلمة السر غير صحيحة، يرجى التثبت وإعادة المحاولة');
+      }
+      const custObj = {
+        id: c.id,
+        full_name: c.full_name || 'زبون',
+        phone: cleanPhone,
+        password_hash: password,
+        wilaya: c.wilaya || '',
+        commune: c.commune || '',
+        wishlist: c.wishlist || []
+      };
+      saveLocalAccount(custObj);
+      setCustomerSession(custObj);
+      return custObj;
+    }
+  } catch (errCusts) {
+    if (errCusts.message && errCusts.message.includes('كلمة السر')) throw errCusts;
+  }
+
+  // Query Supabase orders table for account records
   try {
     const { data: dbAccs } = await supabase
       .from('orders')
