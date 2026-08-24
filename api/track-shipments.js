@@ -86,10 +86,18 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // CRC token challenge for Yalidine Webhooks
-  if (req.query?.crc_token) {
+  // Instant 200 response for Webhook validation & CRC challenge
+  const urlObj = new URL(req.url, `http://${req.headers?.host || 'localhost'}`);
+  const crcToken = req.query?.crc_token || urlObj.searchParams.get('crc_token');
+  if (crcToken) {
     res.setHeader('Content-Type', 'text/plain');
-    return res.status(200).send(req.query.crc_token);
+    return res.status(200).send(crcToken);
+  }
+
+  // If a simple GET ping from Yalidine validation without 'cron' or 'action=run'
+  if (req.method === 'GET' && !req.query?.action && !urlObj.searchParams.get('action') && !req.query?.cron) {
+    res.setHeader('Content-Type', 'text/plain');
+    return res.status(200).send('PYJAMA_DZ_WEBHOOK_OK');
   }
 
   try {
