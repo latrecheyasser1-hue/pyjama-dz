@@ -2161,31 +2161,23 @@ ${salesModeRules}`;
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    const rawUrl = req.url || '';
-    const queryStr = rawUrl.includes('?') ? rawUrl.slice(rawUrl.indexOf('?') + 1) : '';
-    const searchParams = new URLSearchParams(queryStr);
+    const urlObj = new URL(req.url || '/', 'http://localhost');
+    const allQuery = { ...(req.query || {}) };
+    for (const [k, v] of urlObj.searchParams.entries()) {
+      allQuery[k] = v;
+    }
 
-    // 1. Yalidine (Guepex) CRC token validation (subscribe & crc_token)
-    const isYalidineSub = req.query?.subscribe !== undefined || searchParams.has('subscribe');
-    const crcToken = req.query?.crc_token || searchParams.get('crc_token');
-
-    if (crcToken) {
+    // 1. Yalidine (Guepex) CRC Token Validation
+    if (allQuery.crc_token) {
       res.setHeader('Content-Type', 'text/plain');
-      return res.status(200).send(String(crcToken));
-    }
-    if (isYalidineSub && crcToken) {
-      res.setHeader('Content-Type', 'text/plain');
-      return res.status(200).send(String(crcToken));
+      return res.status(200).send(String(allQuery.crc_token));
     }
 
-    // 2. Meta WhatsApp webhook validation
-    const mode = req.query?.['hub.mode'] || searchParams.get('hub.mode');
-    const challenge = req.query?.['hub.challenge'] || searchParams.get('hub.challenge');
-
-    if (mode === 'subscribe' || challenge) {
-      console.log('WEBHOOK_VERIFIED');
-      return res.status(200).send(challenge || 'OK');
+    // 2. Meta WhatsApp Webhook Validation
+    if (allQuery['hub.mode'] === 'subscribe' || allQuery['hub.challenge']) {
+      return res.status(200).send(String(allQuery['hub.challenge'] || 'OK'));
     }
+
     return res.status(200).send('OK');
   }
 
