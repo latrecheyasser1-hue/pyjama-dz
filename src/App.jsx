@@ -676,6 +676,33 @@ export default function App() {
 
       setOrders(prev => prev.map(o => String(o.id).trim() === String(orderId).trim() ? { ...o, ...updatePayload } : o));
 
+      // Trigger automatic Yalidine / Delivery parcel creation when order is confirmed
+      if (orderToUpdate && newStatus === 'confirmee') {
+        const isHanoutOrPos = Boolean(
+          orderToUpdate.isPos === true || 
+          orderToUpdate.clientName === 'زبون المحل (بيع حضوري)' || 
+          orderToUpdate.commune === 'المتجر الحضوري'
+        );
+        if (!isHanoutOrPos && !orderToUpdate.tracking_number) {
+          processOrderDelivery(orderToUpdate).then(async (res) => {
+            if (res && res.success && res.trackingNumber) {
+              console.log(`📦 Parcel created with Yalidine: ${res.trackingNumber}`);
+              await supabase.from('orders').update({
+                tracking_number: res.trackingNumber,
+                shipping_label_url: res.shippingLabelUrl,
+                deliveryCompany: res.deliveryCompany || 'yalidine'
+              }).eq('id', orderId);
+              setOrders(prev => prev.map(o => String(o.id).trim() === String(orderId).trim() ? { 
+                ...o, 
+                tracking_number: res.trackingNumber,
+                shipping_label_url: res.shippingLabelUrl,
+                deliveryCompany: res.deliveryCompany || 'yalidine'
+              } : o));
+            }
+          }).catch(e => console.error('Auto delivery parcel creation error:', e));
+        }
+      }
+
       const wasAlreadyReturned = orderToUpdate?.status === 'annulee' || orderToUpdate?.status === 'retour';
       const isNowReturned = newStatus === 'annulee' || newStatus === 'retour';
       const shouldRestoreStock = isNowReturned && !wasAlreadyReturned;
