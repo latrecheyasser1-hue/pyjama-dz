@@ -683,19 +683,19 @@ export default function App() {
           orderToUpdate.clientName === 'زبون المحل (بيع حضوري)' || 
           orderToUpdate.commune === 'المتجر الحضوري'
         );
-        if (!isHanoutOrPos && !orderToUpdate.tracking_number) {
+        if (!isHanoutOrPos && !orderToUpdate.trackingNumber && !orderToUpdate.tracking_number) {
           processOrderDelivery(orderToUpdate).then(async (res) => {
             if (res && res.success && res.trackingNumber) {
               console.log(`📦 Parcel created with Yalidine: ${res.trackingNumber}`);
               await supabase.from('orders').update({
-                tracking_number: res.trackingNumber,
-                shipping_label_url: res.shippingLabelUrl,
+                trackingNumber: res.trackingNumber,
+                shippingLabelUrl: res.shippingLabelUrl,
                 deliveryCompany: res.deliveryCompany || 'yalidine'
               }).eq('id', orderId);
               setOrders(prev => prev.map(o => String(o.id).trim() === String(orderId).trim() ? { 
                 ...o, 
-                tracking_number: res.trackingNumber,
-                shipping_label_url: res.shippingLabelUrl,
+                trackingNumber: res.trackingNumber,
+                shippingLabelUrl: res.shippingLabelUrl,
                 deliveryCompany: res.deliveryCompany || 'yalidine'
               } : o));
             }

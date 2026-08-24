@@ -302,10 +302,9 @@ export default async function handler(req, res) {
                 'Prefer': 'return=representation'
               },
               body: JSON.stringify({
-                tracking_number: tracking,
-                shipping_label_url: labelUrl,
-                deliveryCompany: 'yalidine',
-                status: 'en_livraison'
+                trackingNumber: tracking,
+                shippingLabelUrl: labelUrl,
+                deliveryCompany: 'yalidine'
               })
             });
           } catch (dbErr) {
