@@ -1477,23 +1477,29 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     const codeMatch = wilaya.match(/^(\d{2})/);
     const code = codeMatch ? codeMatch[1] : '16';
     const nameAr = wilaya.split('-')[1]?.trim() || wilaya;
+    const isYalidine = (deliveryCompany || '').toLowerCase().includes('yalidine') || !deliveryCompany;
+    const isZR = (deliveryCompany || '').toLowerCase().includes('zr');
 
     if (code === '16') {
+      if (isZR) {
+        return [`مكتب ZR Express الجزائر العاصمة (Alger Centre)`];
+      }
       return [
         `مكتب ياليدين الشراقة (Yalidine Chéraga)`,
         `مكتب ياليدين القبة (Yalidine Kouba)`,
         `مكتب ياليدين باب الزوار (Yalidine Bab Ezzouar)`,
         `مكتب ياليدين بئر خادم (Yalidine Birkhadem)`,
         `مكتب ياليدين الأبيار (Yalidine El Biar)`,
-        `مكتب ZR Express الجزائر العاصمة`
+        `مكتب ياليدين الرويبة (Yalidine Rouiba)`
       ];
     }
 
     if (code === '02') {
+      if (isZR) {
+        return [`مكتب ZR Express الشلف المركز`];
+      }
       return [
-        `مكتب ياليدين الشلف المركز (Yalidine Chlef Centre)`,
-        `مكتب ياليدين بوقادير (Boukadir)`,
-        `مكتب ZR Express الشلف`
+        `مكتب ياليدين الشلف - وكالة الشلف المركزية (Yalidine Chlef Centre)`
       ];
     }
 
@@ -1501,20 +1507,26 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     const officeOptions = found ? found.options.filter(o => o.type === 'Au bureau') : [];
     
     if (officeOptions && officeOptions.length > 0) {
-      return officeOptions.map(o => `${o.provider}: ${o.note || (`مكتب ${nameAr}`)}`);
+      if (isZR) {
+        const zrOpt = officeOptions.find(o => o.provider.toLowerCase().includes('zr'));
+        return [zrOpt ? `${zrOpt.provider}: ${zrOpt.note || (`مكتب ${nameAr}`)}` : `مكتب ZR Express (${nameAr})`];
+      }
+      const yalOpt = officeOptions.find(o => o.provider.toLowerCase().includes('yalidine'));
+      return [yalOpt ? `${yalOpt.provider}: ${yalOpt.note || (`مكتب ${nameAr}`)}` : `مكتب ياليدين الرئيسي (${nameAr})`];
     }
 
-    return [
-      `مكتب ياليدين الرئيسي (${nameAr})`,
-      `مكتب ZR Express (${nameAr})`
-    ];
-  }, [wilaya]);
+    return isZR 
+      ? [`مكتب ZR Express (${nameAr})`] 
+      : [`مكتب ياليدين الرئيسي (${nameAr})`];
+  }, [wilaya, deliveryCompany]);
 
   useEffect(() => {
     if (availableOfficesForWilaya.length > 0) {
-      setSelectedOffice(availableOfficesForWilaya[0]);
+      if (!availableOfficesForWilaya.includes(selectedOffice)) {
+        setSelectedOffice(availableOfficesForWilaya[0]);
+      }
     }
-  }, [availableOfficesForWilaya]);
+  }, [availableOfficesForWilaya, selectedOffice]);
 
   const availableCommunes = useMemo(() => {
     return getCommunesForWilaya(wilaya);
