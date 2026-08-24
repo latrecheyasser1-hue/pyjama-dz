@@ -86,6 +86,12 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  // CRC token challenge for Yalidine Webhooks
+  if (req.query?.crc_token) {
+    res.setHeader('Content-Type', 'text/plain');
+    return res.status(200).send(req.query.crc_token);
+  }
+
   try {
     // 1. Fetch Shipping API Settings from Supabase
     const settingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(yalidine_api_id,yalidine_api_token,zr_express_api_key,zr_express_token)&select=key,value`, {
