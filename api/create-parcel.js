@@ -37,8 +37,82 @@ function formatAlgerianPhone(rawPhone) {
   if (digits.startsWith('213')) return '0' + digits.substring(3);
   if (digits.length === 9) return '0' + digits;
   return digits;
+const WILAYAS_MAP = {
+  '1': 'Adrar', 'أدرار': 'Adrar', 'adrar': 'Adrar',
+  '2': 'Chlef', 'الشلف': 'Chlef', 'chlef': 'Chlef',
+  '3': 'Laghouat', 'الأغواط': 'Laghouat', 'laghouat': 'Laghouat',
+  '4': 'Oum El Bouaghi', 'أم البواقي': 'Oum El Bouaghi',
+  '5': 'Batna', 'باتنة': 'Batna', 'batna': 'Batna',
+  '6': 'Béjaïa', 'بجاية': 'Béjaïa', 'bejaia': 'Béjaïa',
+  '7': 'Biskra', 'بسكرة': 'Biskra', 'biskra': 'Biskra',
+  '8': 'Béchar', 'بشار': 'Béchar', 'bechar': 'Béchar',
+  '9': 'Blida', 'البليدة': 'Blida', 'blida': 'Blida',
+  '10': 'Bouira', 'البويرة': 'Bouira', 'bouira': 'Bouira',
+  '11': 'Tamanrasset', 'تمنراست': 'Tamanrasset',
+  '12': 'Tébessa', 'تبسة': 'Tébessa', 'tebessa': 'Tébessa',
+  '13': 'Tlemcen', 'تلمسان': 'Tlemcen', 'tlemcen': 'Tlemcen',
+  '14': 'Tiaret', 'تيارت': 'Tiaret', 'tiaret': 'Tiaret',
+  '15': 'Tizi Ouzou', 'تيزي وزو': 'Tizi Ouzou', 'tizi ouzou': 'Tizi Ouzou',
+  '16': 'Alger', 'الجزائر': 'Alger', 'alger': 'Alger', 'algiers': 'Alger',
+  '17': 'Djelfa', 'الجلفة': 'Djelfa', 'djelfa': 'Djelfa',
+  '18': 'Jijel', 'جيجل': 'Jijel', 'jijel': 'Jijel',
+  '19': 'Sétif', 'سطيف': 'Sétif', 'setif': 'Sétif',
+  '20': 'Saïda', 'سعيدة': 'Saïda', 'saida': 'Saïda',
+  '21': 'Skikda', 'سكيكدة': 'Skikda', 'skikda': 'Skikda',
+  '22': 'Sidi Bel Abbès', 'سيدي بلعباس': 'Sidi Bel Abbès',
+  '23': 'Annaba', 'عنابة': 'Annaba', 'annaba': 'Annaba',
+  '24': 'Guelma', 'قالمة': 'Guelma', 'guelma': 'Guelma',
+  '25': 'Constantine', 'قسنطينة': 'Constantine', 'constantine': 'Constantine',
+  '26': 'Médéa', 'المدية': 'Médéa', 'medea': 'Médéa',
+  '27': 'Mostaganem', 'مستغانم': 'Mostaganem', 'mostaganem': 'Mostaganem',
+  '28': 'M\'Sila', 'المسيلة': 'M\'Sila', 'msila': 'M\'Sila',
+  '29': 'Mascara', 'معسكر': 'Mascara', 'mascara': 'Mascara',
+  '30': 'Ouargla', 'ورقلة': 'Ouargla', 'ouargla': 'Ouargla',
+  '31': 'Oran', 'وهران': 'Oran', 'oran': 'Oran',
+  '32': 'El Bayadh', 'البيض': 'El Bayadh',
+  '33': 'Illizi', 'إليزي': 'Illizi',
+  '34': 'Bordj Bou Arreridj', 'برج بوعريريج': 'Bordj Bou Arreridj',
+  '35': 'Boumerdès', 'بومرداس': 'Boumerdès', 'boumerdes': 'Boumerdès',
+  '36': 'El Tarf', 'الطارف': 'El Tarf',
+  '37': 'Tindouf', 'تندوف': 'Tindouf',
+  '38': 'Tissemsilt', 'تيسمسيلت': 'Tissemsilt',
+  '39': 'El Oued', 'الوادي': 'El Oued',
+  '40': 'Khenchela', 'خنشلة': 'Khenchela',
+  '41': 'Souk Ahras', 'سوق أهراس': 'Souk Ahras',
+  '42': 'Tipaza', 'تيبازة': 'Tipaza', 'tipaza': 'Tipaza',
+  '43': 'Mila', 'ميلة': 'Mila',
+  '44': 'Aïn Defla', 'عين الدفلى': 'Aïn Defla', 'ain defla': 'Aïn Defla',
+  '45': 'Naâma', 'النعامة': 'Naâma', 'naama': 'Naâma',
+  '46': 'Aïn Témouchent', 'عين تموشنت': 'Aïn Témouchent',
+  '47': 'Ghardaïa', 'غرداية': 'Ghardaïa', 'ghardaia': 'Ghardaïa',
+  '48': 'Relizane', 'غليزان': 'Relizane', 'relizane': 'Relizane',
+  '49': 'Timimoun', 'تيميمون': 'Timimoun',
+  '50': 'Bordj Badji Mokhtar', 'برج باجي مختار': 'Bordj Badji Mokhtar',
+  '51': 'Ouled Djellal', 'أولاد جلال': 'Ouled Djellal',
+  '52': 'Béni Abbès', 'بني عباس': 'Béni Abbès',
+  '53': 'In Salah', 'عين صالح': 'In Salah',
+  '54': 'In Guezzam', 'عين قزام': 'In Guezzam',
+  '55': 'Touggourt', 'تقرت': 'Touggourt',
+  '56': 'Djanet', 'جانت': 'Djanet',
+  '57': 'El M\'Ghair', 'المغير': 'El M\'Ghair',
+  '58': 'El Meniaa', 'المنيعة': 'El Meniaa'
+};
+
+function normalizeWilaya(rawWilaya) {
+  if (!rawWilaya) return 'Alger';
+  const clean = String(rawWilaya).replace(/^\d+[\s\-_]*/, '').trim().toLowerCase();
+  for (const [key, val] of Object.entries(WILAYAS_MAP)) {
+    if (clean === key.toLowerCase() || clean.includes(key.toLowerCase()) || key.toLowerCase().includes(clean)) {
+      return val;
+    }
+  }
+  return String(rawWilaya).replace(/^\d+[\s\-_]*/, '').trim() || 'Alger';
 }
 
+function normalizeCommune(rawCommune, wilayaName) {
+  if (!rawCommune) return wilayaName;
+  return String(rawCommune).replace(/^\d+[\s\-_]*/, '').trim();
+}
 function splitFullName(rawName) {
   const clean = String(rawName || 'زبون')
     .replace(/\(واتساب:[^\)]+\)/g, '')
@@ -78,6 +152,9 @@ export default async function handler(req, res) {
     const codProductPrice = Number(order.price || order.totalPrice || 0);
     const { firstname, familyname } = splitFullName(order.clientName);
     const contactPhone = formatAlgerianPhone(order.phone || order.whatsapp);
+    const normalizedToWilaya = normalizeWilaya(order.wilaya);
+    const normalizedToCommune = normalizeCommune(order.commune, normalizedToWilaya);
+    const fromWilaya = normalizeWilaya(creds.store_wilaya || 'Chlef');
 
     // ==========================================
     // 1. YALIDINE / GUEPEX INTEGRATION
@@ -87,7 +164,6 @@ export default async function handler(req, res) {
       const apiToken = creds.yalidine_api_token;
 
       if (!apiId || !apiToken) {
-        // Fallback simulation when keys not yet configured
         return res.status(200).json({
           success: true,
           isMock: true,
@@ -102,13 +178,13 @@ export default async function handler(req, res) {
       const orderRef = String(order.ticketNumber || order.id || Date.now());
       const parcelPayload = [{
         order_id: orderRef,
-        from_wilaya_name: creds.store_wilaya || 'Chlef',
+        from_wilaya_name: fromWilaya,
         firstname: firstname,
         familyname: familyname,
         contact_phone: contactPhone,
-        address: order.commune ? `${order.commune}, ${order.wilaya}` : (order.address || order.wilaya),
-        to_commune_name: order.commune || order.wilaya,
-        to_wilaya_name: order.wilaya,
+        address: order.commune ? `${order.commune}, ${normalizedToWilaya}` : (order.address || normalizedToWilaya),
+        to_commune_name: normalizedToCommune,
+        to_wilaya_name: normalizedToWilaya,
         product_list: order.product || 'بيجامات وملابس نوم فاخرة',
         price: codProductPrice,
         do_insurance: false,
@@ -156,6 +232,7 @@ export default async function handler(req, res) {
               },
               body: JSON.stringify({
                 tracking_number: tracking,
+                shipping_label_url: labelUrl,
                 deliveryCompany: 'yalidine',
                 status: 'en_livraison'
               })
