@@ -2161,24 +2161,43 @@ ${salesModeRules}`;
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    const urlObj = new URL(req.url || '/', 'http://localhost');
-    const allQuery = { ...(req.query || {}) };
-    for (const [k, v] of urlObj.searchParams.entries()) {
-      allQuery[k] = v;
-    }
+    const query = req.query || {};
+    let urlToken = null;
+    let urlChallenge = null;
+    let urlMode = null;
+    try {
+      const u = new URL(req.url, 'http://localhost');
+      urlToken = u.searchParams.get('crc_token');
+      urlChallenge = u.searchParams.get('hub.challenge');
+      urlMode = u.searchParams.get('hub.mode');
+    } catch(e) {}
+
+    const crcToken = query.crc_token || urlToken;
+    const challenge = query['hub.challenge'] || urlChallenge;
+    const mode = query['hub.mode'] || urlMode;
 
     // 1. Yalidine (Guepex) CRC Token Validation
-    if (allQuery.crc_token) {
+    if (crcToken) {
+      console.log('✅ Yalidine CRC Token Echo:', crcToken);
       res.setHeader('Content-Type', 'text/plain');
-      return res.status(200).send(String(allQuery.crc_token));
+      res.statusCode = 200;
+      if (typeof res.send === 'function') return res.send(String(crcToken));
+      return res.end(String(crcToken));
     }
 
     // 2. Meta WhatsApp Webhook Validation
-    if (allQuery['hub.mode'] === 'subscribe' || allQuery['hub.challenge']) {
-      return res.status(200).send(String(allQuery['hub.challenge'] || 'OK'));
+    if (mode === 'subscribe' || challenge) {
+      res.setHeader('Content-Type', 'text/plain');
+      res.statusCode = 200;
+      const respVal = String(challenge || 'OK');
+      if (typeof res.send === 'function') return res.send(respVal);
+      return res.end(respVal);
     }
 
-    return res.status(200).send('OK');
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    if (typeof res.send === 'function') return res.send('OK');
+    return res.end('OK');
   }
 
   if (req.method === 'POST') {
