@@ -355,7 +355,22 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
   const phonesArr = extractCleanPhonesList(...phoneSources);
   const formattedPhonesBullets = phonesArr.length > 0 ? phonesArr.map(p => "- " + p).join("\n") : "- 0554128933";
 
-  // 0. GREETINGS & SALUTATIONS
+  // 0. WEBSITE / LINK QUERY
+  if (['site', 'sit', 'lien', 'web', 'website', 'page', 'rabit', 'رابط', 'سيت', 'الموقع', 'موقعكم', 'سيت تاعكم'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return "تفضل خويا/أختي لعزيزة، هذا هو رابط متجرنا الرسمي لتصفح كافة البيجامات والموديلات والطلب مباشرة:\n🌐 https://pyjama-dz.vercel.app\nوالتوصيل متوفر لـ 58 ولاية حتى لباب دارك مع الدفع عند الاستلام 🌸";
+  }
+
+  // 0.1 DIRECT ORDER INTENT
+  if (['hab nchri', 'haab nchri', 'baghi nchri', 'baghya nchri', 'nchri', 'ncommander', 'commande', 'commander', 'نكوموندي', 'نطلب', 'حاب نشري', 'باغي نشري', 'باغية نشري', 'نشري'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return "مرحباً بيك خويا لعزيز تشرفنا! تقدر تطلب مباشرة وتخير الموديل والمقاس عبر موقعنا الرسمي:\n🌐 https://pyjama-dz.vercel.app\nوتأكد طلبك في ثواني والتوصيل يوصلك حتى لباب الدار وتفحص سلعتك قبل ما تخلص 🌸";
+  }
+
+  // 0.2 PHOTOS / IMAGES QUERY
+  if (['tswira', 'tsswiira', 'tsswira', 'tsawer', 'tssawer', 'photo', 'photos', 'image', 'تصويرة', 'تصاور', 'صورة', 'صور', 'sbat', 'صباط', 'بيجامة'].some(k => norm.includes(k) || pLower.includes(k))) {
+    return "تفضل تصفح كامل صور الموديلات والألوان بجودة عالية وتفاصيلها عبر موقعنا الرسمي:\n🌐 https://pyjama-dz.vercel.app\nوإذا حبيت موديل معين قولي عليه وراني نبعثلك تصويرته مباشرة 📸🌸";
+  }
+
+  // 0.3 GREETINGS & SALUTATIONS
   if (['slm', 'سلام', 'وعليكم', 'سلام عليكم', 'مرحبا', 'أهلا', 'اهلين', 'bonjour', 'coucou', 'salut', 'kirak', 'kirakom', 'dayriin', 'dayriini', 'labas', 'mlaah', 'cv', 'ca va'].some(k => norm.includes(k) || pLower.includes(k))) {
     return "وعليكم السلام ورحمة الله، رانا غاية الحمد لله ربي يحفظك خويا/أختي لعزيزة! كاش ما عجبك كاش موديل بيجامة أو حاب تستفسر على التوصيل وتأكيد طلبيتك؟ تفضل راني في خدمتك 🌸";
   }
@@ -400,7 +415,7 @@ function getSmartFallbackResponse(userMessage, storeSettings = {}, products = []
     return "التوصيل متوفر لجميع 58 ولاية حتى باب الدار أو للمكتب (Stop Desk) والدفع عند الاستلام بعد ما تعاين طلبيتك 🚚📦";
   }
 
-  return "أهلاً وسهلاً بك في متجر Pyjama DZ! تفضل خويا/أختي راني في خدمتك لأي استفسار أو تأكيد طلبيتك 🌸";
+  return "أهلاً وسهلاً بك في متجر Pyjama DZ! تفضل خويا/أختي راني في خدمتك، تقدر تصفح كامل السلعة والطلب عبر موقعنا: https://pyjama-dz.vercel.app أو قولي واش راك تحوس وراني هنا نعاونك 🌸";
 }
 
 async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = {}, userMessage = "", products = []) {
@@ -415,55 +430,64 @@ async function generateGeminiAI(prompt, systemInstruction = "", storeSettings = 
 1. اكتب دائماً باللغة العربية بحروف عربية (بالدارجة الجزائرية المفهومة والمهذبة)، حتى لو كتب الزبون بالفرانكو (Franco-Arab).
 2. إياك والردود الروبوتية الطويلة أو القوالب الجاهزة المكررة! جاوب بدقة على قد السؤال في سطرين أو 3 أسطر فقط كأنك تهدر مع الزبون في المحل.
 3. إذا سلم أو سأل عن الحال (slm, cv, rakom mlih, kirakom): رد بالسلام والتحية الجزائرية الطيبة العفوية واسأله كيفاش تقدر تعاونو.
-4. تفهم تماماً كل مصطلحات الدارجة والفرانكو (souma, chhal, qualite, dispo, taille, livree, win jayiin, gros).
-5. إذا سأل عن الأسعار: أخبره أن الأسعار تبدأ من 2800 دج وموديلات فاخرة قطن وساتان.
-6. إذا سأل عن التوصيل: متوفر 58 ولاية حتى لباب الدار والدفع عند الاستلام.
-7. طريقة الطلب: الطلب يتم حصرياً وبكل سهولة عبر موقعنا الرسمي: https://pyjama-dz.vercel.app ولا نسجل الطلبات في الشات.
-8. إذا طلب الزبون تأكيد الطلبية ضع في ردك [ACTION:CONFIRM_ORDER]، وإذا أصر على الإلغاء ضع [ACTION:CANCEL_ORDER]، وإذا طلب صور الموديلات ضع [ACTION:SEND_PHOTOS].
+4. تفهم تماماً كل مصطلحات الدارجة والفرانكو (souma, chhal, qualite, dispo, taille, livree, win jayiin, gros, sbat, site).
+5. إذا سأل عن الموقع أو رابط المتجر: أعطيه رابط موقعنا الرسمي: https://pyjama-dz.vercel.app
+6. إذا سأل عن الأسعار: أخبره أن الأسعار تبدأ من 2800 دج وموديلات فاخرة قطن وساتان.
+7. إذا سأل عن التوصيل: متوفر 58 ولاية حتى لباب الدار والدفع عند الاستلام بعد المعاينة.
+8. طريقة الطلب: الطلب يتم حصرياً وبكل سهولة عبر موقعنا الرسمي: https://pyjama-dz.vercel.app ولا نسجل الطلبات في الشات.
+9. إذا طلب الزبون تأكيد الطلبية ضع في ردك [ACTION:CONFIRM_ORDER]، وإذا أصر على الإلغاء ضع [ACTION:CANCEL_ORDER]، وإذا طلب صور الموديلات ضع [ACTION:SEND_PHOTOS].
 
 المنتجات المتوفرة حالياً في المتجر:
 ${productsSummary || '- بيجامات ساتان وقطن فاخرة صيفية وشتوية (2,800 دج إلى 4,500 دج)'}`;
 
   const userQueryText = prompt || (userMessage ? `رسالة واستفسار الزبون: "${userMessage}"` : "");
 
-  for (const selectedKey of keys) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7000);
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${selectedKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content: systemInstruction || defaultSystemPrompt
-            },
-            {
-              role: 'user',
-              content: userQueryText
-            }
-          ],
-          temperature: 0.1,
-          max_tokens: 200
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
+  const activeGroqModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'groq/compound', 'allam-2-7b'];
 
-      if (res.ok) {
-        const data = await res.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (content && content.trim().length > 0) {
-          return removeEmojis(content.trim());
+  for (const selectedKey of keys) {
+    for (const modelName of activeGroqModels) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${selectedKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              {
+                role: 'system',
+                content: systemInstruction || defaultSystemPrompt
+              },
+              {
+                role: 'user',
+                content: userQueryText
+              }
+            ],
+            temperature: 0.2,
+            max_tokens: 300
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          let content = data.choices?.[0]?.message?.content;
+          if (content && content.trim().length > 0) {
+            // Strip any thinking tags if present
+            content = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+            if (content.length > 0) {
+              return content;
+            }
+          }
         }
+      } catch (err) {
+        console.error(`Groq AI fetch notice with ${modelName}:`, err.message);
       }
-    } catch (err) {
-      console.error('Groq AI fetch notice:', err.message);
     }
   }
 
