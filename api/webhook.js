@@ -2161,31 +2161,23 @@ ${salesModeRules}`;
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
+    const rawUrl = req.url || '';
+    const qIndex = rawUrl.indexOf('?');
+    const searchParams = new URLSearchParams(qIndex !== -1 ? rawUrl.slice(qIndex + 1) : '');
+
     const query = req.query || {};
-    let urlToken = null;
-    let urlChallenge = null;
-    let urlMode = null;
-    try {
-      const u = new URL(req.url, 'http://localhost');
-      urlToken = u.searchParams.get('crc_token');
-      urlChallenge = u.searchParams.get('hub.challenge');
-      urlMode = u.searchParams.get('hub.mode');
-    } catch(e) {}
+    const crcToken = query.crc_token || query['crc_token'] || searchParams.get('crc_token');
 
-    const crcToken = query.crc_token || urlToken;
-    const challenge = query['hub.challenge'] || urlChallenge;
-    const mode = query['hub.mode'] || urlMode;
-
-    // 1. Yalidine (Guepex) CRC Token Validation
     if (crcToken) {
-      console.log('✅ Yalidine CRC Token Echo:', crcToken);
       res.setHeader('Content-Type', 'text/plain');
       res.statusCode = 200;
       if (typeof res.send === 'function') return res.send(String(crcToken));
       return res.end(String(crcToken));
     }
 
-    // 2. Meta WhatsApp Webhook Validation
+    // Check Meta webhook verification
+    const mode = query['hub.mode'] || searchParams.get('hub.mode');
+    const challenge = query['hub.challenge'] || searchParams.get('hub.challenge');
     if (mode === 'subscribe' || challenge) {
       res.setHeader('Content-Type', 'text/plain');
       res.statusCode = 200;
@@ -2194,10 +2186,12 @@ export default async function handler(req, res) {
       return res.end(respVal);
     }
 
+    // Fallback: If query contains any key, echo it or diagnostic
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain');
-    if (typeof res.send === 'function') return res.send('OK');
-    return res.end('OK');
+    const debug = JSON.stringify({ q: req.query, u: req.url });
+    if (typeof res.send === 'function') return res.send(debug);
+    return res.end(debug);
   }
 
   if (req.method === 'POST') {
