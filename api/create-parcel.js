@@ -37,6 +37,8 @@ function formatAlgerianPhone(rawPhone) {
   if (digits.startsWith('213')) return '0' + digits.substring(3);
   if (digits.length === 9) return '0' + digits;
   return digits;
+}
+
 const WILAYAS_MAP = {
   '1': 'Adrar', 'أدرار': 'Adrar', 'adrar': 'Adrar',
   '2': 'Chlef', 'الشلف': 'Chlef', 'chlef': 'Chlef',
@@ -111,11 +113,18 @@ function normalizeWilaya(rawWilaya) {
 
 function normalizeCommune(rawCommune, wilayaName) {
   if (!rawCommune) return wilayaName;
-  return String(rawCommune).replace(/^\d+[\s\-_]*/, '').trim();
+  const cleaned = String(rawCommune)
+    .replace(/\[.*?\]/g, '')
+    .replace(/\(.*?\)/g, '')
+    .replace(/^\d+[\s\-_]*/, '')
+    .trim();
+  return cleaned || wilayaName;
 }
+
 function splitFullName(rawName) {
   const clean = String(rawName || 'زبون')
     .replace(/\(واتساب:[^\)]+\)/g, '')
+    .replace(/\[.*?\]/g, '')
     .replace(/زبون/g, '')
     .trim();
   const parts = clean.split(/\s+/).filter(Boolean);
@@ -123,6 +132,21 @@ function splitFullName(rawName) {
   if (parts.length === 1) return { firstname: parts[0], familyname: 'Client' };
   return { firstname: parts[0], familyname: parts.slice(1).join(' ') };
 }
+
+const WILAYA_IDS = {
+  'Adrar': 1, 'Chlef': 2, 'Laghouat': 3, 'Oum El Bouaghi': 4, 'Batna': 5,
+  'Béjaïa': 6, 'Biskra': 7, 'Béchar': 8, 'Blida': 9, 'Bouira': 10,
+  'Tamanrasset': 11, 'Tébessa': 12, 'Tlemcen': 13, 'Tiaret': 14, 'Tizi Ouzou': 15,
+  'Alger': 16, 'Djelfa': 17, 'Jijel': 18, 'Sétif': 19, 'Saïda': 20,
+  'Skikda': 21, 'Sidi Bel Abbès': 22, 'Annaba': 23, 'Guelma': 24, 'Constantine': 25,
+  'Médéa': 26, 'Mostaganem': 27, 'M\'Sila': 28, 'Mascara': 29, 'Ouargla': 30,
+  'Oran': 31, 'El Bayadh': 32, 'Illizi': 33, 'Bordj Bou Arreridj': 34, 'Boumerdès': 35,
+  'El Tarf': 36, 'Tindouf': 37, 'Tissemsilt': 38, 'El Oued': 39, 'Khenchela': 40,
+  'Souk Ahras': 41, 'Tipaza': 42, 'Mila': 43, 'Aïn Defla': 44, 'Naâma': 45,
+  'Aïn Témouchent': 46, 'Ghardaïa': 47, 'Relizane': 48, 'Timimoun': 49, 'Bordj Badji Mokhtar': 50,
+  'Ouled Djellal': 51, 'Béni Abbès': 52, 'In Salah': 53, 'In Guezzam': 54, 'Touggourt': 55,
+  'Djanet': 56, 'El M\'Ghair': 57, 'El Meniaa': 58
+};
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -153,8 +177,9 @@ export default async function handler(req, res) {
     const { firstname, familyname } = splitFullName(order.clientName);
     const contactPhone = formatAlgerianPhone(order.phone || order.whatsapp);
     const normalizedToWilaya = normalizeWilaya(order.wilaya);
-    const normalizedToCommune = normalizeCommune(order.commune, normalizedToWilaya);
+    let normalizedToCommune = normalizeCommune(order.commune, normalizedToWilaya);
     const fromWilaya = normalizeWilaya(creds.store_wilaya || 'Chlef');
+    const toWilayaId = WILAYA_IDS[normalizedToWilaya] || 16;
 
     // ==========================================
     // 1. YALIDINE / GUEPEX INTEGRATION
@@ -175,6 +200,51 @@ export default async function handler(req, res) {
         });
       }
 
+      let stopdeskId = null;
+      let targetCommune = normalizedToCommune;
+
+      if (isStopdesk) {
+        try {
+          const cRes = await fetch(`${YALIDINE_BASE_URL}centers?wilaya_id=${toWilayaId}`, {
+            headers: { 'X-API-ID': apiId, 'X-API-TOKEN': apiToken }
+          });
+          const cJson = await cRes.json();
+          const centers = cJson.data || [];
+          if (centers.length > 0) {
+            const rawSearch = `${order.commune || ''} ${order.deliveryMode || ''}`.toLowerCase();
+            const matched = centers.find(c => 
+              rawSearch.includes(String(c.commune_name || '').toLowerCase()) ||
+              rawSearch.includes(String(c.name || '').toLowerCase())
+            ) || centers[0];
+
+            stopdeskId = matched.center_id;
+            targetCommune = matched.commune_name;
+          }
+        } catch (cErr) {
+          console.error('Error fetching stopdesk centers:', cErr);
+        }
+      } else {
+        // Domicile delivery - match exact commune from official Yalidine list
+        try {
+          const comRes = await fetch(`${YALIDINE_BASE_URL}communes?wilaya_id=${toWilayaId}`, {
+            headers: { 'X-API-ID': apiId, 'X-API-TOKEN': apiToken }
+          });
+          const comJson = await comRes.json();
+          const communesList = comJson.data || [];
+          if (communesList.length > 0) {
+            const cleanSearch = normalizedToCommune.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const matchedCom = communesList.find(c => {
+              const cName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return cName === cleanSearch || cName.includes(cleanSearch) || cleanSearch.includes(cName);
+            }) || communesList[0];
+
+            targetCommune = matchedCom.name;
+          }
+        } catch (comErr) {
+          console.error('Error fetching communes list:', comErr);
+        }
+      }
+
       const orderRef = String(order.ticketNumber || order.id || Date.now());
       const parcelPayload = [{
         order_id: orderRef,
@@ -182,8 +252,8 @@ export default async function handler(req, res) {
         firstname: firstname,
         familyname: familyname,
         contact_phone: contactPhone,
-        address: order.commune ? `${order.commune}, ${normalizedToWilaya}` : (order.address || normalizedToWilaya),
-        to_commune_name: normalizedToCommune,
+        address: order.address || `${targetCommune}, ${normalizedToWilaya}`,
+        to_commune_name: targetCommune,
         to_wilaya_name: normalizedToWilaya,
         product_list: order.product || 'بيجامات وملابس نوم فاخرة',
         price: codProductPrice,
@@ -195,6 +265,7 @@ export default async function handler(req, res) {
         weight: 1,
         freeshipping: false,
         is_stopdesk: isStopdesk,
+        ...(stopdeskId ? { stopdesk_id: stopdeskId } : {}),
         has_exchange: false
       }];
 
