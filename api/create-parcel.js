@@ -122,14 +122,14 @@ function normalizeCommune(rawCommune, wilayaName) {
 }
 
 function splitFullName(rawName) {
-  const clean = String(rawName || 'زبون')
+  const clean = String(rawName || '')
     .replace(/\(واتساب:[^\)]+\)/g, '')
     .replace(/\[.*?\]/g, '')
-    .replace(/زبون/g, '')
+    .replace(/\(.*?\)/g, '')
     .trim();
   const parts = clean.split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return { firstname: 'Client', familyname: 'PyjamaDZ' };
-  if (parts.length === 1) return { firstname: parts[0], familyname: 'Client' };
+  if (parts.length === 0) return { firstname: 'Client', familyname: '' };
+  if (parts.length === 1) return { firstname: parts[0], familyname: '' };
   return { firstname: parts[0], familyname: parts.slice(1).join(' ') };
 }
 
