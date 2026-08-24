@@ -2162,14 +2162,20 @@ ${salesModeRules}`;
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     const rawUrl = req.url || '';
-    const queryStr = rawUrl.includes('?') ? rawUrl.split('?')[1] : '';
+    const queryStr = rawUrl.includes('?') ? rawUrl.slice(rawUrl.indexOf('?') + 1) : '';
     const searchParams = new URLSearchParams(queryStr);
 
-    // 1. Yalidine (Guepex) CRC token validation
+    // 1. Yalidine (Guepex) CRC token validation (subscribe & crc_token)
+    const isYalidineSub = req.query?.subscribe !== undefined || searchParams.has('subscribe');
     const crcToken = req.query?.crc_token || searchParams.get('crc_token');
+
     if (crcToken) {
       res.setHeader('Content-Type', 'text/plain');
-      return res.status(200).send(crcToken);
+      return res.status(200).send(String(crcToken));
+    }
+    if (isYalidineSub && crcToken) {
+      res.setHeader('Content-Type', 'text/plain');
+      return res.status(200).send(String(crcToken));
     }
 
     // 2. Meta WhatsApp webhook validation
