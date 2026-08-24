@@ -2161,9 +2161,20 @@ ${salesModeRules}`;
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    const mode = req.query?.['hub.mode'] || urlObj.searchParams.get('hub.mode');
-    const challenge = req.query?.['hub.challenge'] || urlObj.searchParams.get('hub.challenge');
+    const rawUrl = req.url || '';
+    const queryStr = rawUrl.includes('?') ? rawUrl.split('?')[1] : '';
+    const searchParams = new URLSearchParams(queryStr);
+
+    // 1. Yalidine (Guepex) CRC token validation
+    const crcToken = req.query?.crc_token || searchParams.get('crc_token');
+    if (crcToken) {
+      res.setHeader('Content-Type', 'text/plain');
+      return res.status(200).send(crcToken);
+    }
+
+    // 2. Meta WhatsApp webhook validation
+    const mode = req.query?.['hub.mode'] || searchParams.get('hub.mode');
+    const challenge = req.query?.['hub.challenge'] || searchParams.get('hub.challenge');
 
     if (mode === 'subscribe' || challenge) {
       console.log('WEBHOOK_VERIFIED');
@@ -2176,6 +2187,39 @@ export default async function handler(req, res) {
     let body = req.body;
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch(e) {}
+    }
+
+    // Handle Yalidine parcel status webhook
+    if (body && Array.isArray(body.events)) {
+      try {
+        for (const ev of body.events) {
+          const tracking = ev.data?.tracking;
+          const status = ev.data?.status;
+          if (tracking && status) {
+            let internalStatus = 'en_livraison';
+            if (['Livré', 'Livre'].includes(status)) internalStatus = 'livree';
+            if (['Retour vers vendeur', 'Retourné au vendeur', 'Echèc livraison', 'Retour groupé'].includes(status)) internalStatus = 'retour';
+            if (['Annulé', 'Annule'].includes(status)) internalStatus = 'annulee';
+
+            await fetch(`${SUPABASE_URL}/rest/v1/orders?tracking_number=eq.${tracking}`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                status: internalStatus,
+                yalidine_last_status: status,
+                delivery_last_update: new Date().toISOString()
+              })
+            });
+          }
+        }
+      } catch (yErr) {
+        console.error('Error handling Yalidine webhook:', yErr);
+      }
+      return res.status(200).json({ success: true });
     }
 
     if (body) {
