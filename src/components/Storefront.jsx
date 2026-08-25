@@ -3158,6 +3158,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
             <style>{`
               @keyframes slideLeft {
                 from { transform: translateX(100%); }
+{{ ... }}
                 to { transform: translateX(0); }
               }
             `}</style>
@@ -3273,82 +3274,72 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       </select>
                     </div>
 
-                    {/* Delivery Mode: Home vs Bureau */}
+                    {/* Delivery Mode Selection */}
                     <div className="form-group" style={{ marginBottom: '18px' }}>
                       <label className="form-label" style={{ fontWeight: 800, color: 'var(--burgundy)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span>📍 نوع التوصيل (Mode de Livraison) *</span>
                         {!deliveryMode && <span style={{ fontSize: '0.78rem', color: '#E11D48', fontWeight: 800 }}>يرجى الاختيار 👇</span>}
                       </label>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px', marginBottom: '8px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px' }}>
                         <button
                           type="button"
                           onClick={() => setDeliveryMode('Livraison Domicile (توصيل للمنزل)')}
                           style={{
-                            padding: '12px 10px',
-                            borderRadius: '12px',
+                            padding: '14px 10px',
+                            borderRadius: '14px',
                             border: deliveryMode.includes('Domicile') ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
                             background: deliveryMode.includes('Domicile') ? '#FFF5F7' : '#FFFFFF',
                             color: deliveryMode.includes('Domicile') ? 'var(--burgundy)' : '#475569',
-                            boxShadow: deliveryMode.includes('Domicile') ? '0 4px 12px rgba(128, 0, 32, 0.12)' : 'none',
+                            boxShadow: deliveryMode.includes('Domicile') ? '0 4px 14px rgba(128, 0, 32, 0.15)' : 'none',
                             fontWeight: 800,
-                            fontSize: '0.92rem',
+                            fontSize: '0.94rem',
                             cursor: 'pointer',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             gap: '4px',
-                            transition: 'all 0.2s ease'
+                            transition: 'all 0.2s ease',
+                            position: 'relative'
                           }}
                         >
-                          <span style={{ fontSize: '1.4rem' }}>🏠</span>
+                          <span style={{ fontSize: '1.5rem' }}>🏠</span>
                           <span>لباب المنزل</span>
-                          <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Livraison Domicile</span>
+                          <span style={{ fontSize: '0.72rem', color: deliveryMode.includes('Domicile') ? 'var(--burgundy)' : '#64748B', fontWeight: 700 }}>Livraison Domicile</span>
+                          {deliveryMode.includes('Domicile') && (
+                            <span style={{ position: 'absolute', top: 6, right: 8, fontSize: '0.9rem' }}>✅</span>
+                          )}
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setDeliveryMode('Livraison Bureau (توصيل للمكتب)')}
                           style={{
-                            padding: '12px 10px',
-                            borderRadius: '12px',
+                            padding: '14px 10px',
+                            borderRadius: '14px',
                             border: isBureauDelivery ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
                             background: isBureauDelivery ? '#FFF5F7' : '#FFFFFF',
                             color: isBureauDelivery ? 'var(--burgundy)' : '#475569',
-                            boxShadow: isBureauDelivery ? '0 4px 12px rgba(128, 0, 32, 0.12)' : 'none',
+                            boxShadow: isBureauDelivery ? '0 4px 14px rgba(128, 0, 32, 0.15)' : 'none',
                             fontWeight: 800,
-                            fontSize: '0.92rem',
+                            fontSize: '0.94rem',
                             cursor: 'pointer',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             gap: '4px',
-                            transition: 'all 0.2s ease'
+                            transition: 'all 0.2s ease',
+                            position: 'relative'
                           }}
                         >
-                          <span style={{ fontSize: '1.4rem' }}>🏢</span>
+                          <span style={{ fontSize: '1.5rem' }}>🏢</span>
                           <span>من المكتب / الفرع</span>
-                          <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Stop Desk</span>
+                          <span style={{ fontSize: '0.72rem', color: isBureauDelivery ? 'var(--burgundy)' : '#64748B', fontWeight: 700 }}>Stop Desk</span>
+                          {isBureauDelivery && (
+                            <span style={{ position: 'absolute', top: 6, right: 8, fontSize: '0.9rem' }}>✅</span>
+                          )}
                         </button>
                       </div>
-
-                      <select 
-                        className="form-select" 
-                        style={{ 
-                          padding: '10px 14px', 
-                          fontSize: '0.92rem', 
-                          fontWeight: 700,
-                          borderColor: !deliveryMode ? '#F43F5E' : '#CBD5E1',
-                          background: !deliveryMode ? '#FFF1F2' : '#FFFFFF'
-                        }}
-                        value={deliveryMode} 
-                        onChange={(e) => setDeliveryMode(e.target.value)}
-                        required
-                      >
-                        <option value="">-- اختر نوع التوصيل (منزل أو مكتب) * --</option>
-                        <option value="Livraison Domicile (توصيل للمنزل)">🏠 توصيل للمنزل (Livraison Domicile)</option>
-                        <option value="Livraison Bureau (توصيل للمكتب)">🏢 استلام من المكتب (Livraison Bureau / Stop Desk)</option>
-                      </select>
                     </div>
 
                     {isBureauDelivery && (
@@ -3383,77 +3374,67 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                         {!deliveryCompany && <span style={{ fontSize: '0.78rem', color: '#E11D48', fontWeight: 800 }}>يرجى الاختيار 👇</span>}
                       </label>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px', marginBottom: '8px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px' }}>
                         <button
                           type="button"
                           onClick={() => setDeliveryCompany('yalidine')}
                           style={{
-                            padding: '12px 10px',
-                            borderRadius: '12px',
+                            padding: '14px 10px',
+                            borderRadius: '14px',
                             border: deliveryCompany === 'yalidine' ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
                             background: deliveryCompany === 'yalidine' ? '#FFF5F7' : '#FFFFFF',
                             color: deliveryCompany === 'yalidine' ? 'var(--burgundy)' : '#475569',
-                            boxShadow: deliveryCompany === 'yalidine' ? '0 4px 12px rgba(128, 0, 32, 0.12)' : 'none',
+                            boxShadow: deliveryCompany === 'yalidine' ? '0 4px 14px rgba(128, 0, 32, 0.15)' : 'none',
                             fontWeight: 800,
-                            fontSize: '0.92rem',
+                            fontSize: '0.94rem',
                             cursor: 'pointer',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             gap: '4px',
-                            transition: 'all 0.2s ease'
+                            transition: 'all 0.2s ease',
+                            position: 'relative'
                           }}
                         >
                           <span style={{ fontWeight: 900 }}>📦 Yalidine Express</span>
-                          <span style={{ fontSize: '0.88rem', color: '#059669', fontWeight: 900 }}>
+                          <span style={{ fontSize: '0.92rem', color: '#059669', fontWeight: 900 }}>
                             {yalidineRate > 0 ? `${yalidineRate.toLocaleString()} DA` : 'حسب الولاية'}
                           </span>
+                          {deliveryCompany === 'yalidine' && (
+                            <span style={{ position: 'absolute', top: 6, right: 8, fontSize: '0.9rem' }}>✅</span>
+                          )}
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setDeliveryCompany('zrexpress')}
                           style={{
-                            padding: '12px 10px',
-                            borderRadius: '12px',
+                            padding: '14px 10px',
+                            borderRadius: '14px',
                             border: deliveryCompany === 'zrexpress' ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
                             background: deliveryCompany === 'zrexpress' ? '#FFF5F7' : '#FFFFFF',
                             color: deliveryCompany === 'zrexpress' ? 'var(--burgundy)' : '#475569',
-                            boxShadow: deliveryCompany === 'zrexpress' ? '0 4px 12px rgba(128, 0, 32, 0.12)' : 'none',
+                            boxShadow: deliveryCompany === 'zrexpress' ? '0 4px 14px rgba(128, 0, 32, 0.15)' : 'none',
                             fontWeight: 800,
-                            fontSize: '0.92rem',
+                            fontSize: '0.94rem',
                             cursor: 'pointer',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             gap: '4px',
-                            transition: 'all 0.2s ease'
+                            transition: 'all 0.2s ease',
+                            position: 'relative'
                           }}
                         >
                           <span style={{ fontWeight: 900 }}>⚡ ZR Express</span>
-                          <span style={{ fontSize: '0.88rem', color: '#059669', fontWeight: 900 }}>
+                          <span style={{ fontSize: '0.92rem', color: '#059669', fontWeight: 900 }}>
                             {zrRate > 0 ? `${zrRate.toLocaleString()} DA` : 'حسب الولاية'}
                           </span>
+                          {deliveryCompany === 'zrexpress' && (
+                            <span style={{ position: 'absolute', top: 6, right: 8, fontSize: '0.9rem' }}>✅</span>
+                          )}
                         </button>
                       </div>
-
-                      <select 
-                        className="form-select" 
-                        style={{ 
-                          padding: '10px 14px', 
-                          fontSize: '0.92rem', 
-                          fontWeight: 700,
-                          borderColor: !deliveryCompany ? '#F43F5E' : '#CBD5E1',
-                          background: !deliveryCompany ? '#FFF1F2' : '#FFFFFF'
-                        }}
-                        value={deliveryCompany} 
-                        onChange={(e) => setDeliveryCompany(e.target.value)}
-                        required
-                      >
-                        <option value="">-- اختر شركة التوصيل * --</option>
-                        <option value="yalidine">📦 Yalidine Express {yalidineRate > 0 ? `(${yalidineRate.toLocaleString()} DA)` : ''}</option>
-                        <option value="zrexpress">⚡ ZR Express {zrRate > 0 ? `(${zrRate.toLocaleString()} DA)` : ''}</option>
-                      </select>
                     </div>
 
                     {/* Live Order & Delivery Calculation Summary */}
