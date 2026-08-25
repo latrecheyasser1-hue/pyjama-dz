@@ -86,6 +86,67 @@ export default async function handler(req, res) {
     return res.status(200).send('PYJAMA_DZ_WEBHOOK_OK');
   }
 
+  // Handle direct Real-Time Yalidine Webhook Event (Instant 0ms trigger)
+  if (req.method === 'POST' && (req.body?.tracking || req.body?.data || req.body?.event_id)) {
+    try {
+      const pData = req.body.data || req.body;
+      const tracking = pData.tracking || req.body.tracking;
+      const status = pData.last_status || pData.status || req.body.status;
+      if (tracking) {
+        const oRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?trackingNumber=eq.${encodeURIComponent(tracking)}&limit=1`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const oRows = await oRes.json();
+        if (Array.isArray(oRows) && oRows[0]) {
+          const targetOrder = oRows[0];
+          const normStatus = String(status || '').toLowerCase();
+          const isBureau = String(targetOrder.deliveryMode || '').toLowerCase().includes('bureau') || 
+                           String(targetOrder.deliveryMode || '').includes('مكتب') || 
+                           String(targetOrder.commune || '').includes('[');
+          const phone = targetOrder.phone;
+          const cleanName = String(targetOrder.clientName || '').replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim().split(' ')[0];
+          const greeting = cleanName ? `أهلاً وسهلاً بك ${cleanName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
+          const orderNum = targetOrder.ticketNumber || String(targetOrder.id).slice(0, 6);
+
+          let officeName = 'مكتب الاستلام';
+          const officeMatch = String(targetOrder.commune || targetOrder.deliveryMode || '').match(/\[([^\]]+)\]/);
+          if (officeMatch) officeName = officeMatch[1];
+
+          const patchData = {};
+
+          if (normStatus.includes('livré') || normStatus.includes('livre') || normStatus.includes('delivered') || normStatus.includes('recouvert')) {
+            patchData.status = 'livree';
+            patchData.delivered_at = new Date().toISOString();
+          } else if (isBureau && (normStatus.includes('centre') || normStatus.includes('bureau') || normStatus.includes('disponible')) && !targetOrder.bureau_arrival_notif_sent) {
+            patchData.bureau_arrival_notif_sent = true;
+            patchData.bureau_arrived_at = new Date().toISOString();
+            if (phone) {
+              const msg = `*متجر Pyjama DZ ✨*\n\n${greeting}! 🌸\nنود إعلامك أن طلبيتك رقم #${orderNum} وصلت الآن إلى مكتب التوصيل [${officeName}] وهي جاهزة للاستلام! 🏢📦\n\nيرجى التقرب من المكتب لاستلام طردك في أقرب وقت. شكراً جزيلاً لثقتك بمتجرنا! ❤️\nhttps://pyjama-dz.vercel.app`;
+              await sendWhatsAppMessage(phone, msg);
+            }
+          } else if (!isBureau && (normStatus.includes('sorti') || normStatus.includes('livreur') || normStatus.includes('en livraison') || normStatus.includes('en route')) && !targetOrder.domicile_out_notif_sent) {
+            patchData.domicile_out_notif_sent = true;
+            if (phone) {
+              const msg = `*متجر Pyjama DZ 🚚*\n\n${greeting}! 🌸\nطردك رقم #${orderNum} خرج الآن مع الموزع (Livreur) وراه في الطريق لعنوانك! 📦💨\n\nسيتصل بك الموزع قريباً على هاتفك للاستلام، يرجى إبقاء هاتفك مفتوحاً. شكراً لثقتك بنا! ❤️\nhttps://pyjama-dz.vercel.app`;
+              await sendWhatsAppMessage(phone, msg);
+            }
+          }
+
+          if (Object.keys(patchData).length > 0) {
+            await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${targetOrder.id}`, {
+              method: 'PATCH',
+              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify(patchData)
+            });
+          }
+        }
+      }
+      return res.status(200).json({ success: true, instantWebhookProcessed: true });
+    } catch(err) {
+      console.error('Yalidine Webhook Event Error:', err);
+    }
+  }
+
   try {
     // 1. Fetch Shipping API Settings from Supabase
     const settingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(yalidine_api_id,yalidine_api_token,zr_express_api_key,zr_express_token)&select=key,value`, {
