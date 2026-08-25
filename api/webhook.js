@@ -1964,6 +1964,19 @@ async function createZRExpressParcelDirectly(order) {
 
 async function createParcelDirectly(order) {
   if (!order) return null;
+  if (order.id) {
+    try {
+      const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}&select=trackingNumber`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const checkRows = await checkRes.json();
+      if (Array.isArray(checkRows) && checkRows[0] && checkRows[0].trackingNumber) {
+        console.log(`[webhook] Order ${order.id} already has parcel: ${checkRows[0].trackingNumber}`);
+        return checkRows[0].trackingNumber;
+      }
+    } catch (e) {}
+  }
+
   const rawCompany = String(order.deliveryCompany || '').toLowerCase();
   const isZR = rawCompany === 'zrexpress' || 
                rawCompany === 'zr' || 

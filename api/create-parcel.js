@@ -186,6 +186,27 @@ export default async function handler(req, res) {
     );
 
     const codProductPrice = Number(order.price || order.totalPrice || 0);
+
+    // Prevent duplicate parcel creation if already created by WhatsApp or another action
+    if (order.id) {
+      try {
+        const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}&select=id,trackingNumber,shippingLabelUrl,deliveryCompany`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const checkRows = await checkRes.json();
+        if (Array.isArray(checkRows) && checkRows[0] && checkRows[0].trackingNumber) {
+          console.log(`[create-parcel] Order ${order.id} already has parcel: ${checkRows[0].trackingNumber}`);
+          return res.status(200).json({
+            success: true,
+            alreadyCreated: true,
+            trackingNumber: checkRows[0].trackingNumber,
+            shippingLabelUrl: checkRows[0].shippingLabelUrl || '',
+            deliveryCompany: checkRows[0].deliveryCompany || effectiveCompany,
+            codPrice: codProductPrice
+          });
+        }
+      } catch (e) {}
+    }
     const { firstname, familyname } = splitFullName(order.clientName);
     const contactPhone = formatAlgerianPhone(order.phone || order.whatsapp);
     const normalizedToWilaya = normalizeWilaya(order.wilaya);

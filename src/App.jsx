@@ -866,7 +866,19 @@ export default function App() {
         );
 
         if (!isHanoutOrPos && !orderToUpdate.trackingNumber && !orderToUpdate.tracking_number) {
-          if (!parcelCreationLockRef.current.has(orderId)) {
+          // Double check fresh database state to prevent race conditions with WhatsApp bot
+          let alreadyHasTracking = false;
+          try {
+            const { data: dbOrder } = await supabase.from('orders').select('trackingNumber,shippingLabelUrl,deliveryCompany').eq('id', orderId).maybeSingle();
+            if (dbOrder && dbOrder.trackingNumber) {
+              alreadyHasTracking = true;
+              updatePayload.trackingNumber = dbOrder.trackingNumber;
+              updatePayload.shippingLabelUrl = dbOrder.shippingLabelUrl || '';
+              updatePayload.deliveryCompany = dbOrder.deliveryCompany || orderToUpdate.deliveryCompany || 'yalidine';
+            }
+          } catch (e) {}
+
+          if (!alreadyHasTracking && !parcelCreationLockRef.current.has(orderId)) {
             parcelCreationLockRef.current.add(orderId);
             try {
               const deliveryResult = await processOrderDelivery(orderToUpdate);
