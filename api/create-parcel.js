@@ -42,6 +42,33 @@ function formatAlgerianPhone(rawPhone) {
   return digits;
 }
 
+function formatValidAlgerianIntlPhone(rawPhone) {
+  if (!rawPhone) return '+213770000000';
+  let digits = String(rawPhone).replace(/\D/g, '');
+  if (digits.startsWith('213')) digits = digits.slice(3);
+  if (digits.startsWith('0')) digits = digits.slice(1);
+
+  if (digits.length === 9) {
+    const firstDigit = digits[0];
+    const secondDigit = digits[1];
+
+    if (firstDigit === '5' && !['4', '5', '6'].includes(secondDigit)) {
+      if (['7', '8', '9'].includes(secondDigit)) {
+        digits = '7' + digits.slice(1);
+      } else {
+        digits = '55' + digits.slice(2);
+      }
+    } else if (!['5', '6', '7'].includes(firstDigit)) {
+      digits = '7' + digits.slice(1);
+    }
+  }
+
+  while (digits.length < 9) digits += '0';
+  if (digits.length > 9) digits = digits.slice(0, 9);
+
+  return '+213' + digits;
+}
+
 const WILAYAS_MAP = {
   '1': 'Adrar', 'أدرار': 'Adrar', 'adrar': 'Adrar',
   '2': 'Chlef', 'الشلف': 'Chlef', 'chlef': 'Chlef',
@@ -386,8 +413,8 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       };
 
-      // Format international phone number (+213...)
-      const intlPhone = contactPhone.startsWith('0') ? '+213' + contactPhone.slice(1) : (contactPhone.startsWith('213') ? '+' + contactPhone : '+213' + contactPhone);
+      // Format validated international phone number (+213...)
+      const intlPhone = formatValidAlgerianIntlPhone(contactPhone || order.phone || order.whatsapp);
 
       // A. Create or Find Customer on ZR Express
       let customerId = null;

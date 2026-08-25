@@ -23,13 +23,11 @@ export const createYalidineParcel = async (order) => {
     }
     throw new Error(data.error || 'Failed to create Yalidine parcel');
   } catch (err) {
-    console.warn('[Yalidine] API route call notice, using local fallback:', err.message);
+    console.error('[Yalidine] Parcel creation error:', err.message);
     return {
-      success: true,
-      trackingNumber: `YAL-${Math.floor(100000 + Math.random() * 900000)}`,
-      shippingLabelUrl: `https://guepex.app/app/bordereau.php?tracking=yal-mock`,
-      deliveryCompany: 'yalidine',
-      codPrice: codProductPrice
+      success: false,
+      error: err.message,
+      deliveryCompany: 'yalidine'
     };
   }
 };
@@ -55,13 +53,11 @@ export const createZRExpressParcel = async (order) => {
     }
     throw new Error(data.error || 'Failed to create ZR Express parcel');
   } catch (err) {
-    console.warn('[ZR Express] API route call notice, using local fallback:', err.message);
+    console.error('[ZR Express] Parcel creation error:', err.message);
     return {
-      success: true,
-      trackingNumber: `ZR-${Math.floor(100000 + Math.random() * 900000)}`,
-      shippingLabelUrl: `https://zrexpress.com/mock-label/${order.id}.pdf`,
-      deliveryCompany: 'zrexpress',
-      codPrice: codProductPrice
+      success: false,
+      error: err.message,
+      deliveryCompany: 'zrexpress'
     };
   }
 };

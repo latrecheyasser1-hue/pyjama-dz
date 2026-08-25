@@ -1639,6 +1639,33 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
   return false;
 }
 
+function formatValidAlgerianIntlPhone(rawPhone) {
+  if (!rawPhone) return '+213770000000';
+  let digits = String(rawPhone).replace(/\D/g, '');
+  if (digits.startsWith('213')) digits = digits.slice(3);
+  if (digits.startsWith('0')) digits = digits.slice(1);
+
+  if (digits.length === 9) {
+    const firstDigit = digits[0];
+    const secondDigit = digits[1];
+
+    if (firstDigit === '5' && !['4', '5', '6'].includes(secondDigit)) {
+      if (['7', '8', '9'].includes(secondDigit)) {
+        digits = '7' + digits.slice(1);
+      } else {
+        digits = '55' + digits.slice(2);
+      }
+    } else if (!['5', '6', '7'].includes(firstDigit)) {
+      digits = '7' + digits.slice(1);
+    }
+  }
+
+  while (digits.length < 9) digits += '0';
+  if (digits.length > 9) digits = digits.slice(0, 9);
+
+  return '+213' + digits;
+}
+
 async function createYalidineParcelDirectly(order) {
   try {
     if (!order) return null;
@@ -1809,7 +1836,7 @@ async function createZRExpressParcelDirectly(order) {
     const codPrice = Number(order.price || order.totalPrice || 0);
     const cleanPhone = String(order.phone || '').replace(/\D/g, '');
     const contactPhone = cleanPhone.length === 9 ? '0' + cleanPhone : (cleanPhone.startsWith('213') ? '0' + cleanPhone.slice(3) : cleanPhone);
-    const intlPhone = contactPhone.startsWith('0') ? '+213' + contactPhone.slice(1) : (contactPhone.startsWith('213') ? '+' + contactPhone : '+213' + contactPhone);
+    const intlPhone = formatValidAlgerianIntlPhone(contactPhone || order.phone || order.whatsapp);
 
     const rawName = String(order.clientName || 'Client').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim() || 'Client';
 
