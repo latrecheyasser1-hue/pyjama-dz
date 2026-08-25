@@ -1,4 +1,5 @@
 import { YALIDINE_AGENCIES } from '../src/data/yalidineAgencies.js';
+import { ZR_AGENCIES } from '../src/data/zrAgencies.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
@@ -335,50 +336,131 @@ export default async function handler(req, res) {
     // 2. ZR EXPRESS INTEGRATION
     // ==========================================
     if (company.toLowerCase() === 'zrexpress' || company.toLowerCase() === 'zr') {
-      const zrKey = creds.zr_express_api_key;
+      const zrKey = creds.zr_express_api_key || 'Z7Hc9ysXDHbjfztqASk0YevJumND6TOFpH7tC8DKLpCFsX5ZfV2kjdSplyiktz3d';
+      const zrTenantId = creds.zr_express_tenant_id || 'c84d4b7b-9252-45c0-8339-5be6cfd9bc91';
+
       if (!zrKey) {
-        return res.status(200).json({
-          success: true,
-          isMock: true,
-          trackingNumber: `ZR-${Math.floor(100000 + Math.random() * 900000)}`,
-          shippingLabelUrl: `https://zrexpress.com/label-mock`,
-          deliveryCompany: 'zrexpress',
-          codPrice: codProductPrice,
-          message: 'ZR Express simulation (keys pending in Settings)'
+        return res.status(400).json({
+          success: false,
+          error: 'Missing ZR Express API key in settings'
         });
       }
 
-      // ZR Express direct API
-      const zrRes = await fetch('https://proapi.zr-express.com/api/v1/colis', {
+      // 1. Resolve stopdesk hub if applicable
+      let selectedHubId = null;
+      if (isStopdesk) {
+        const wilayaCode = String(wilayaNum).padStart(2, '0');
+        const wilayaHubs = ZR_AGENCIES[wilayaCode] || [];
+        if (wilayaHubs.length > 0) {
+          const bracketMatch = String(order.commune || '').match(/\[(.*?)\]/) || String(order.deliveryMode || '').match(/\((.*?)\)/);
+          const searchPhrase = bracketMatch ? bracketMatch[1].toLowerCase() : String(order.deliveryMode || '').toLowerCase();
+
+          let matchedHub = wilayaHubs.find(h => {
+            const hName = (h.name || '').toLowerCase();
+            return searchPhrase.includes(hName) || hName.includes(searchPhrase);
+          });
+
+          if (!matchedHub) {
+            const tokens = searchPhrase.replace(/مكتب|فرع|hub|de|\[|\]|\(|\)/gi, ' ').split(/\s+/).filter(t => t.length >= 4);
+            matchedHub = wilayaHubs.find(h => {
+              const hStr = (h.name + ' ' + (h.city || '')).toLowerCase();
+              return tokens.some(tok => hStr.includes(tok));
+            });
+          }
+
+          const chosen = matchedHub || wilayaHubs[0];
+          selectedHubId = chosen.id;
+        }
+      }
+
+      // 2. Build items list
+      const orderedProducts = Array.isArray(order.items) && order.items.length > 0
+        ? order.items.map(item => ({
+            productName: item.product || item.title || 'بيجامة',
+            quantity: Number(item.qty || item.quantity || 1),
+            unitPrice: Number(item.price || codProductPrice),
+            stockType: 'local'
+          }))
+        : [{
+            productName: order.product || 'بيجامات وملابس نوم فاخرة',
+            quantity: 1,
+            unitPrice: codProductPrice,
+            stockType: 'local'
+          }];
+
+      const parcelPayload = {
+        customer: {
+          name: rawName,
+          phone: {
+            number1: contactPhone
+          }
+        },
+        deliveryAddress: {
+          street: order.address || (cleanCommune + ', ' + toWilaya),
+          city: toWilaya,
+          hubId: selectedHubId || undefined
+        },
+        orderedProducts: orderedProducts,
+        deliveryType: isStopdesk ? 'pickup-point' : 'home',
+        amount: codProductPrice,
+        externalId: orderRef
+      };
+
+      console.log('ZR Express Request Payload:', JSON.stringify(parcelPayload, null, 2));
+
+      const zrRes = await fetch('https://api.zrexpress.app/api/v1/parcels', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${zrKey}`,
+          'X-Api-Key': zrKey,
+          'X-Tenant': zrTenantId,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          client_name: order.clientName,
-          client_phone: contactPhone,
-          wilaya: order.wilaya,
-          commune: order.commune,
-          type: isStopdesk ? 'stopdesk' : 'domicile',
-          price: codProductPrice,
-          product_name: order.product || 'بيجامات'
-        })
+        body: JSON.stringify(parcelPayload)
       });
 
       const zrData = await zrRes.json();
-      if (zrRes.ok && zrData.tracking) {
+      console.log('ZR Express Response:', JSON.stringify(zrData, null, 2));
+
+      if (zrRes.ok && (zrData.trackingNumber || zrData.id || zrData.items?.[0]?.trackingNumber)) {
+        const tracking = zrData.trackingNumber || zrData.items?.[0]?.trackingNumber || zrData.id;
+        const parcelId = zrData.id || zrData.items?.[0]?.id || tracking;
+        const labelUrl = `https://api.zrexpress.app/api/v1/parcels/labels/individual/pdf?trackingNumber=${encodeURIComponent(tracking)}`;
+
+        // Save tracking to order in Supabase
+        if (order.id) {
+          try {
+            await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+              },
+              body: JSON.stringify({
+                trackingNumber: tracking,
+                shippingLabelUrl: labelUrl,
+                deliveryCompany: 'zrexpress'
+              })
+            });
+          } catch (dbErr) {
+            console.error('Error saving tracking number to DB:', dbErr);
+          }
+        }
+
         return res.status(200).json({
           success: true,
-          trackingNumber: zrData.tracking,
-          shippingLabelUrl: zrData.label_url || '',
+          trackingNumber: tracking,
+          parcelId: parcelId,
+          shippingLabelUrl: labelUrl,
           deliveryCompany: 'zrexpress',
           codPrice: codProductPrice
         });
       } else {
+        const errMsg = zrData.message || zrData.error || 'ZR Express parcel creation failed';
         return res.status(400).json({
           success: false,
-          error: zrData.message || 'ZR Express parcel creation failed',
+          error: errMsg,
           details: zrData
         });
       }

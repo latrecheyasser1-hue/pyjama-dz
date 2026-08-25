@@ -3,6 +3,7 @@ import { ALGERIA_WILAYAS, DEFAULT_CATEGORIES } from '../data/mockData';
 import { ALGERIA_WILAYAS_COMMUNES, getCommunesForWilaya } from '../data/algeriaCities';
 import { CHLEF_DELIVERY_RATES } from '../data/algeriaDeliveryRates';
 import { YALIDINE_AGENCIES, getAgenciesForWilaya } from '../data/yalidineAgencies';
+import { ZR_AGENCIES, getZRAgenciesForWilaya } from '../data/zrAgencies';
 import { showToast } from '../utils/toast';
 import { sanitizeAlgerianPhone, isValidAlgerianPhone } from '../utils/phoneUtils';
 import { supabase } from '../lib/supabaseClient';
@@ -1481,7 +1482,11 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     const isZR = (deliveryCompany || '').toLowerCase().includes('zr');
 
     if (isZR) {
-      return [`مكتب ZR Express - نقطة استلام (${nameAr})`];
+      const zrHubs = getZRAgenciesForWilaya(wilaya);
+      if (zrHubs && zrHubs.length > 0) {
+        return zrHubs.map(h => `${h.name}`);
+      }
+      return [`مكتب ZR Express الرئيسي (${nameAr})`];
     }
 
     const yalAgencies = getAgenciesForWilaya(wilaya);
