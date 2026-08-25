@@ -218,12 +218,31 @@ export default async function handler(req, res) {
         const wilayaCenters = officialCenters.filter(c => c.wilaya_id === toWilayaId || (c.wilaya_name && c.wilaya_name.toLowerCase() === normalizedToWilaya.toLowerCase()));
         
         if (wilayaCenters.length > 0) {
-          const combinedSearch = `${order.commune || ''} ${order.deliveryMode || ''}`.toLowerCase();
-          const matchedCenter = wilayaCenters.find(c => {
+          const bracketMatch = String(order.commune || '').match(/\[(.*?)\]/) || String(order.deliveryMode || '').match(/\((.*?)\)/);
+          const searchPhrase = bracketMatch ? bracketMatch[1].toLowerCase() : String(order.deliveryMode || '').toLowerCase();
+
+          // 1. Full agency name match
+          let matchedCenter = wilayaCenters.find(c => {
             const cName = (c.name || '').toLowerCase();
-            const cComm = (c.commune_name || '').toLowerCase();
-            return combinedSearch.includes(cComm) || combinedSearch.includes(cName) || cName.includes(normalizedToCommune.toLowerCase());
+            return searchPhrase.includes(cName) || cName.includes(searchPhrase);
           });
+
+          // 2. Commune name match within agency text
+          if (!matchedCenter) {
+            matchedCenter = wilayaCenters.find(c => {
+              const cComm = (c.commune_name || '').toLowerCase();
+              return searchPhrase.includes(cComm);
+            });
+          }
+
+          // 3. Keyword / Token match (e.g. 'ezzouar', 'cheraga', 'boukadir')
+          if (!matchedCenter) {
+            const tokens = searchPhrase.replace(/وكالة|مكتب|agence|de|\[|\]|\(|\)/gi, ' ').split(/\s+/).filter(t => t.length >= 4);
+            matchedCenter = wilayaCenters.find(c => {
+              const cStr = (c.name + ' ' + c.commune_name).toLowerCase();
+              return tokens.some(tok => cStr.includes(tok));
+            });
+          }
 
           const selectedCenter = matchedCenter || wilayaCenters[0];
           stopdeskId = selectedCenter.center_id;

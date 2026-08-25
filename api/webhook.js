@@ -1754,13 +1754,33 @@ async function createYalidineParcelDirectly(order) {
           const centers = JSON.parse(fs.readFileSync(centersPath, 'utf8'));
           const wCenters = centers.filter(c => c.wilaya_id === wilayaNum);
           if (wCenters.length > 0) {
-            const combined = String(order.commune || '') + ' ' + String(order.deliveryMode || '');
-            const matched = wCenters.find(c => {
-              const cComm = (c.commune_name || '').toLowerCase();
+            const bracketMatch = String(order.commune || '').match(/\[(.*?)\]/) || String(order.deliveryMode || '').match(/\((.*?)\)/);
+            const searchPhrase = bracketMatch ? bracketMatch[1].toLowerCase() : String(order.deliveryMode || '').toLowerCase();
+
+            // 1. Full agency name match
+            let matchedCenter = wCenters.find(c => {
               const cName = (c.name || '').toLowerCase();
-              return combined.toLowerCase().includes(cComm) || combined.toLowerCase().includes(cName) || cName.includes(cleanCommune.toLowerCase());
+              return searchPhrase.includes(cName) || cName.includes(searchPhrase);
             });
-            const sel = matched || wCenters[0];
+
+            // 2. Commune name match within agency text
+            if (!matchedCenter) {
+              matchedCenter = wCenters.find(c => {
+                const cComm = (c.commune_name || '').toLowerCase();
+                return searchPhrase.includes(cComm);
+              });
+            }
+
+            // 3. Keyword / Token match (e.g. 'ezzouar', 'cheraga', 'boukadir')
+            if (!matchedCenter) {
+              const tokens = searchPhrase.replace(/وكالة|مكتب|agence|de|\[|\]|\(|\)/gi, ' ').split(/\s+/).filter(t => t.length >= 4);
+              matchedCenter = wCenters.find(c => {
+                const cStr = (c.name + ' ' + c.commune_name).toLowerCase();
+                return tokens.some(tok => cStr.includes(tok));
+              });
+            }
+
+            const sel = matchedCenter || wCenters[0];
             stopdeskId = sel.center_id;
             cleanCommune = sel.commune_name || cleanCommune;
             toWilaya = sel.wilaya_name || 'Alger';
