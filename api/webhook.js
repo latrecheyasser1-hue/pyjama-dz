@@ -1782,6 +1782,12 @@ async function createYalidineParcelDirectly(order) {
       });
       return result.tracking;
     }
+  } catch (err) {
+    console.error('Direct Yalidine parcel creation error:', err);
+  }
+  return null;
+}
+
 async function createZRExpressParcelDirectly(order) {
   try {
     if (!order) return null;
