@@ -1,3 +1,5 @@
+import { YALIDINE_AGENCIES } from '../src/data/yalidineAgencies.js';
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
@@ -205,48 +207,39 @@ export default async function handler(req, res) {
       let targetCommune = normalizedToCommune;
 
       if (isStopdesk) {
-        let officialCenters = [];
-        try {
-          const fs = await import('fs');
-          const path = await import('path');
-          const centersPath = path.join(process.cwd(), 'src/data/official_centers.json');
-          if (fs.existsSync(centersPath)) {
-            officialCenters = JSON.parse(fs.readFileSync(centersPath, 'utf8'));
-          }
-        } catch(e) {}
-
-        const wilayaCenters = officialCenters.filter(c => c.wilaya_id === toWilayaId || (c.wilaya_name && c.wilaya_name.toLowerCase() === normalizedToWilaya.toLowerCase()));
+        const wilayaCode = String(toWilayaId).padStart(2, '0');
+        const wilayaAgencies = YALIDINE_AGENCIES[wilayaCode] || [];
         
-        if (wilayaCenters.length > 0) {
+        if (wilayaAgencies.length > 0) {
           const bracketMatch = String(order.commune || '').match(/\[(.*?)\]/) || String(order.deliveryMode || '').match(/\((.*?)\)/);
           const searchPhrase = bracketMatch ? bracketMatch[1].toLowerCase() : String(order.deliveryMode || '').toLowerCase();
 
           // 1. Full agency name match
-          let matchedCenter = wilayaCenters.find(c => {
-            const cName = (c.name || '').toLowerCase();
-            return searchPhrase.includes(cName) || cName.includes(searchPhrase);
+          let matchedCenter = wilayaAgencies.find(a => {
+            const aName = (a.name || '').toLowerCase();
+            return searchPhrase.includes(aName) || aName.includes(searchPhrase);
           });
 
           // 2. Commune name match within agency text
           if (!matchedCenter) {
-            matchedCenter = wilayaCenters.find(c => {
-              const cComm = (c.commune_name || '').toLowerCase();
-              return searchPhrase.includes(cComm);
+            matchedCenter = wilayaAgencies.find(a => {
+              const aComm = (a.commune || '').toLowerCase();
+              return searchPhrase.includes(aComm);
             });
           }
 
           // 3. Keyword / Token match (e.g. 'ezzouar', 'cheraga', 'boukadir')
           if (!matchedCenter) {
             const tokens = searchPhrase.replace(/وكالة|مكتب|agence|de|\[|\]|\(|\)/gi, ' ').split(/\s+/).filter(t => t.length >= 4);
-            matchedCenter = wilayaCenters.find(c => {
-              const cStr = (c.name + ' ' + c.commune_name).toLowerCase();
-              return tokens.some(tok => cStr.includes(tok));
+            matchedCenter = wilayaAgencies.find(a => {
+              const aStr = (a.name + ' ' + a.commune).toLowerCase();
+              return tokens.some(tok => aStr.includes(tok));
             });
           }
 
-          const selectedCenter = matchedCenter || wilayaCenters[0];
-          stopdeskId = selectedCenter.center_id;
-          targetCommune = selectedCenter.commune_name || normalizedToCommune;
+          const selectedCenter = matchedCenter || wilayaAgencies[0];
+          stopdeskId = selectedCenter.id;
+          targetCommune = selectedCenter.commune || normalizedToCommune;
         } else {
           stopdeskId = (toWilayaId * 10000 + 101);
           targetCommune = normalizedToCommune || normalizedToWilaya;

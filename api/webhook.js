@@ -1,3 +1,5 @@
+import { YALIDINE_AGENCIES } from '../src/data/yalidineAgencies.js';
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
@@ -1637,6 +1639,155 @@ async function processOrderCancellationIntent(fromPhone, messageText) {
   return false;
 }
 
+async function createYalidineParcelDirectly(order) {
+  try {
+    if (!order) return null;
+    const isStopdesk = Boolean(
+      String(order.deliveryMode || '').toLowerCase().includes('bureau') ||
+      String(order.deliveryMode || '').toLowerCase().includes('stop') ||
+      String(order.commune || '').includes('[') ||
+      order.is_stopdesk
+    );
+
+    const credsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(yalidine_api_id,yalidine_api_token,store_wilaya)&select=key,value`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const credsRows = await credsRes.json();
+    let apiId = '';
+    let apiToken = '';
+    let fromWilaya = 'Chlef';
+    if (Array.isArray(credsRows)) {
+      credsRows.forEach(r => {
+        if (r.key === 'yalidine_api_id') apiId = r.value?.trim();
+        if (r.key === 'yalidine_api_token') apiToken = r.value?.trim();
+        if (r.key === 'store_wilaya') fromWilaya = r.value?.trim() || 'Chlef';
+      });
+    }
+
+    if (!apiId || !apiToken) {
+      console.error('Missing Yalidine credentials');
+      return null;
+    }
+
+    const codPrice = Number(order.price || order.totalPrice || 0);
+    const cleanPhone = String(order.phone || '').replace(/\D/g, '');
+    const contactPhone = cleanPhone.length === 9 ? '0' + cleanPhone : (cleanPhone.startsWith('213') ? '0' + cleanPhone.slice(3) : cleanPhone);
+    const rawName = String(order.clientName || 'Client').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
+    const nameParts = rawName.split(/\s+/).filter(Boolean);
+    const firstname = nameParts[0] || 'Client';
+    const familyname = nameParts.slice(1).join(' ') || '';
+
+    const wilayaRaw = String(order.wilaya || '');
+    const wMatch = wilayaRaw.match(/(\d+)/);
+    const wilayaNum = wMatch ? parseInt(wMatch[1], 10) : 16;
+    
+    let toWilaya = 'Alger';
+    const wilayaNameMatch = wilayaRaw.match(/\d+[\s\-_]+([A-Za-zÀ-ÿ\s'\-]+)/);
+    if (wilayaNameMatch) {
+      toWilaya = wilayaNameMatch[1].trim();
+    } else {
+      toWilaya = wilayaRaw.replace(/\d+/g, '').replace(/[^\x00-\x7F]/g, '').replace(/[-_()]/g, '').trim() || 'Alger';
+    }
+
+    let cleanCommune = String(order.commune || '').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').replace(/^\d+[\s\-_]*/, '').trim();
+    if (!cleanCommune) cleanCommune = 'Alger Centre';
+
+    let stopdeskId = null;
+    if (isStopdesk) {
+      const wilayaCode = String(wilayaNum).padStart(2, '0');
+      const wilayaAgencies = YALIDINE_AGENCIES[wilayaCode] || [];
+
+      if (wilayaAgencies.length > 0) {
+        const bracketMatch = String(order.commune || '').match(/\[(.*?)\]/) || String(order.deliveryMode || '').match(/\((.*?)\)/);
+        const searchPhrase = bracketMatch ? bracketMatch[1].toLowerCase() : String(order.deliveryMode || '').toLowerCase();
+
+        // 1. Full agency name match
+        let matchedCenter = wilayaAgencies.find(a => {
+          const aName = (a.name || '').toLowerCase();
+          return searchPhrase.includes(aName) || aName.includes(searchPhrase);
+        });
+
+        // 2. Commune name match within agency text
+        if (!matchedCenter) {
+          matchedCenter = wilayaAgencies.find(a => {
+            const aComm = (a.commune || '').toLowerCase();
+            return searchPhrase.includes(aComm);
+          });
+        }
+
+        // 3. Keyword / Token match (e.g. 'ezzouar', 'cheraga', 'boukadir')
+        if (!matchedCenter) {
+          const tokens = searchPhrase.replace(/وكالة|مكتب|agence|de|\[|\]|\(|\)/gi, ' ').split(/\s+/).filter(t => t.length >= 4);
+          matchedCenter = wilayaAgencies.find(a => {
+            const aStr = (a.name + ' ' + a.commune).toLowerCase();
+            return tokens.some(tok => aStr.includes(tok));
+          });
+        }
+
+        const sel = matchedCenter || wilayaAgencies[0];
+        stopdeskId = sel.id;
+        cleanCommune = sel.commune || cleanCommune;
+      }
+    }
+
+    const orderRef = 'CMD-' + String(order.ticketNumber || order.id || Date.now()).slice(0, 8);
+    const payload = [{
+      order_id: orderRef,
+      from_wilaya_name: fromWilaya,
+      firstname: firstname,
+      familyname: familyname,
+      contact_phone: contactPhone,
+      address: order.address || (cleanCommune + ', ' + toWilaya),
+      to_commune_name: cleanCommune,
+      to_wilaya_name: toWilaya,
+      product_list: order.product || 'بيجامات وملابس نوم فاخرة',
+      price: codPrice,
+      do_insurance: false,
+      declared_value: 0,
+      length: 25,
+      width: 20,
+      height: 5,
+      weight: 1,
+      freeshipping: false,
+      is_stopdesk: isStopdesk,
+      ...(stopdeskId ? { stopdesk_id: stopdeskId } : {}),
+      has_exchange: false
+    }];
+
+    const res = await fetch('https://api.guepex.app/v1/parcels/', {
+      method: 'POST',
+      headers: {
+        'X-API-ID': apiId,
+        'X-API-TOKEN': apiToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    const result = data[orderRef] || Object.values(data)[0];
+    if (result && result.success && result.tracking) {
+      await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          trackingNumber: result.tracking,
+          shippingLabelUrl: result.label || result.labels || '',
+          deliveryCompany: 'yalidine'
+        })
+      });
+      return result.tracking;
+    }
+  } catch (err) {
+    console.error('Direct Yalidine parcel creation error:', err);
+  }
+  return null;
+}
+
 async function processOrderConfirmationIntent(fromPhone, messageText) {
   try {
     if (!messageText) return false;
@@ -1698,154 +1849,6 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
       // General affirmative words (oui, ok, صح, نعم) continue to Gemini AI for natural conversation
       return false;
     }
-async function createYalidineParcelDirectly(order) {
-  try {
-    if (!order) return null;
-    const isStopdesk = Boolean(
-      String(order.deliveryMode || '').toLowerCase().includes('bureau') ||
-      String(order.deliveryMode || '').toLowerCase().includes('stop') ||
-      String(order.commune || '').includes('[') ||
-      order.is_stopdesk
-    );
-
-    const credsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(yalidine_api_id,yalidine_api_token,store_wilaya)&select=key,value`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    const credsRows = await credsRes.json();
-    let apiId = '';
-    let apiToken = '';
-    let fromWilaya = 'Chlef';
-    if (Array.isArray(credsRows)) {
-      credsRows.forEach(r => {
-        if (r.key === 'yalidine_api_id') apiId = r.value?.trim();
-        if (r.key === 'yalidine_api_token') apiToken = r.value?.trim();
-        if (r.key === 'store_wilaya') fromWilaya = r.value?.trim() || 'Chlef';
-      });
-    }
-
-    if (!apiId || !apiToken) {
-      console.error('Missing Yalidine credentials');
-      return null;
-    }
-
-    const codPrice = Number(order.price || order.totalPrice || 0);
-    const cleanPhone = String(order.phone || '').replace(/\D/g, '');
-    const contactPhone = cleanPhone.length === 9 ? '0' + cleanPhone : (cleanPhone.startsWith('213') ? '0' + cleanPhone.slice(3) : cleanPhone);
-    const rawName = String(order.clientName || 'Client').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
-    const nameParts = rawName.split(/\s+/).filter(Boolean);
-    const firstname = nameParts[0] || 'Client';
-    const familyname = nameParts.slice(1).join(' ') || '';
-
-    let toWilaya = 'Alger';
-    const wilayaRaw = String(order.wilaya || '');
-    const wMatch = wilayaRaw.match(/(\d+)/);
-    const wilayaNum = wMatch ? parseInt(wMatch[1], 10) : 16;
-
-    let cleanCommune = String(order.commune || '').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').replace(/^\d+[\s\-_]*/, '').trim();
-    if (!cleanCommune) cleanCommune = 'Alger Centre';
-
-    let stopdeskId = null;
-    if (isStopdesk) {
-      try {
-        const fs = await import('fs');
-        const path = await import('path');
-        const centersPath = path.join(process.cwd(), 'src/data/official_centers.json');
-        if (fs.existsSync(centersPath)) {
-          const centers = JSON.parse(fs.readFileSync(centersPath, 'utf8'));
-          const wCenters = centers.filter(c => c.wilaya_id === wilayaNum);
-          if (wCenters.length > 0) {
-            const bracketMatch = String(order.commune || '').match(/\[(.*?)\]/) || String(order.deliveryMode || '').match(/\((.*?)\)/);
-            const searchPhrase = bracketMatch ? bracketMatch[1].toLowerCase() : String(order.deliveryMode || '').toLowerCase();
-
-            // 1. Full agency name match
-            let matchedCenter = wCenters.find(c => {
-              const cName = (c.name || '').toLowerCase();
-              return searchPhrase.includes(cName) || cName.includes(searchPhrase);
-            });
-
-            // 2. Commune name match within agency text
-            if (!matchedCenter) {
-              matchedCenter = wCenters.find(c => {
-                const cComm = (c.commune_name || '').toLowerCase();
-                return searchPhrase.includes(cComm);
-              });
-            }
-
-            // 3. Keyword / Token match (e.g. 'ezzouar', 'cheraga', 'boukadir')
-            if (!matchedCenter) {
-              const tokens = searchPhrase.replace(/وكالة|مكتب|agence|de|\[|\]|\(|\)/gi, ' ').split(/\s+/).filter(t => t.length >= 4);
-              matchedCenter = wCenters.find(c => {
-                const cStr = (c.name + ' ' + c.commune_name).toLowerCase();
-                return tokens.some(tok => cStr.includes(tok));
-              });
-            }
-
-            const sel = matchedCenter || wCenters[0];
-            stopdeskId = sel.center_id;
-            cleanCommune = sel.commune_name || cleanCommune;
-            toWilaya = sel.wilaya_name || 'Alger';
-          }
-        }
-      } catch(e) {}
-    }
-
-    const orderRef = 'CMD-' + String(order.ticketNumber || order.id || Date.now()).slice(0, 8);
-    const payload = [{
-      order_id: orderRef,
-      from_wilaya_name: fromWilaya,
-      firstname: firstname,
-      familyname: familyname,
-      contact_phone: contactPhone,
-      address: order.address || (cleanCommune + ', ' + toWilaya),
-      to_commune_name: cleanCommune,
-      to_wilaya_name: toWilaya,
-      product_list: order.product || 'بيجامات وملابس نوم فاخرة',
-      price: codPrice,
-      do_insurance: false,
-      declared_value: 0,
-      length: 25,
-      width: 20,
-      height: 5,
-      weight: 1,
-      freeshipping: false,
-      is_stopdesk: isStopdesk,
-      ...(stopdeskId ? { stopdesk_id: stopdeskId } : {}),
-      has_exchange: false
-    }];
-
-    const res = await fetch('https://api.guepex.app/v1/parcels/', {
-      method: 'POST',
-      headers: {
-        'X-API-ID': apiId,
-        'X-API-TOKEN': apiToken,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    const result = data[orderRef] || Object.values(data)[0];
-    if (result && result.success && result.tracking) {
-      await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
-        method: 'PATCH',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          trackingNumber: result.tracking,
-          shippingLabelUrl: result.label || result.labels || '',
-          deliveryCompany: 'yalidine'
-        })
-      });
-      return result.tracking;
-    }
-  } catch (err) {
-    console.error('Direct Yalidine parcel creation error:', err);
-  }
-  return null;
-}
 
     const orderToConfirm = pendingOrders[0];
     await updateOrderStatusAndArchive(orderToConfirm.id, 'confirmee');
