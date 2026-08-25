@@ -72,10 +72,15 @@ export const createZRExpressParcel = async (order) => {
  */
 export const processOrderDelivery = async (order) => {
   try {
-    const company = (order.deliveryCompany || 'yalidine').toLowerCase(); 
+    const rawCompany = String(order.deliveryCompany || '').toLowerCase();
+    const isZR = rawCompany === 'zrexpress' || 
+                 rawCompany === 'zr' || 
+                 rawCompany.includes('zr') || 
+                 String(order.deliveryMode || '').includes('Hub') || 
+                 String(order.commune || '').includes('Hub');
 
     let result;
-    if (company === 'zrexpress' || company === 'zr') {
+    if (isZR) {
       result = await createZRExpressParcel(order);
     } else {
       result = await createYalidineParcel(order);

@@ -1909,6 +1909,9 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       ? `${effectiveCommune} [${selectedOffice}]`
       : effectiveCommune;
 
+    const isZRChosen = deliveryCompany === 'zrexpress' || (selectedOffice && String(selectedOffice).includes('Hub'));
+    const finalDeliveryCompany = isZRChosen ? 'zrexpress' : (deliveryCompany || 'yalidine');
+
     const newOrder = {
       id: `CMD-${Math.floor(1000 + Math.random() * 9000)}`,
       clientName: clientName.trim(),
@@ -1916,7 +1919,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       wilaya,
       commune: finalCommune,
       deliveryMode: finalDeliveryMode,
-      deliveryCompany,
+      deliveryCompany: finalDeliveryCompany,
       product: productTitles,
       items: orderItems,
       price: cartTotal,
@@ -3276,7 +3279,83 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       </select>
                     </div>
 
-                    {/* Delivery Mode Selection */}
+                    {/* 1. Delivery Company Selection */}
+                    <div className="form-group" style={{ marginBottom: '18px' }}>
+                      <label className="form-label" style={{ fontWeight: 800, color: 'var(--burgundy)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>🚚 شركة التوصيل (Société de Livraison) *</span>
+                        {!deliveryCompany && <span style={{ fontSize: '0.78rem', color: '#E11D48', fontWeight: 800 }}>يرجى الاختيار 👇</span>}
+                      </label>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeliveryCompany('yalidine');
+                            setSelectedOffice('');
+                          }}
+                          style={{
+                            padding: '14px 10px',
+                            borderRadius: '14px',
+                            border: deliveryCompany === 'yalidine' ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
+                            background: deliveryCompany === 'yalidine' ? '#FFF5F7' : '#FFFFFF',
+                            color: deliveryCompany === 'yalidine' ? 'var(--burgundy)' : '#475569',
+                            boxShadow: deliveryCompany === 'yalidine' ? '0 4px 14px rgba(128, 0, 32, 0.15)' : 'none',
+                            fontWeight: 800,
+                            fontSize: '0.94rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.2s ease',
+                            position: 'relative'
+                          }}
+                        >
+                          <span style={{ fontWeight: 900 }}>📦 Yalidine Express</span>
+                          <span style={{ fontSize: '0.92rem', color: '#059669', fontWeight: 900 }}>
+                            {yalidineRate > 0 ? `${yalidineRate.toLocaleString()} DA` : 'حسب الولاية'}
+                          </span>
+                          {deliveryCompany === 'yalidine' && (
+                            <span style={{ position: 'absolute', top: 6, right: 8, fontSize: '0.9rem' }}>✅</span>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeliveryCompany('zrexpress');
+                            setSelectedOffice('');
+                          }}
+                          style={{
+                            padding: '14px 10px',
+                            borderRadius: '14px',
+                            border: deliveryCompany === 'zrexpress' ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
+                            background: deliveryCompany === 'zrexpress' ? '#FFF5F7' : '#FFFFFF',
+                            color: deliveryCompany === 'zrexpress' ? 'var(--burgundy)' : '#475569',
+                            boxShadow: deliveryCompany === 'zrexpress' ? '0 4px 14px rgba(128, 0, 32, 0.15)' : 'none',
+                            fontWeight: 800,
+                            fontSize: '0.94rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.2s ease',
+                            position: 'relative'
+                          }}
+                        >
+                          <span style={{ fontWeight: 900 }}>⚡ ZR Express</span>
+                          <span style={{ fontSize: '0.92rem', color: '#059669', fontWeight: 900 }}>
+                            {zrRate > 0 ? `${zrRate.toLocaleString()} DA` : 'حسب الولاية'}
+                          </span>
+                          {deliveryCompany === 'zrexpress' && (
+                            <span style={{ position: 'absolute', top: 6, right: 8, fontSize: '0.9rem' }}>✅</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2. Delivery Mode Selection */}
                     <div className="form-group" style={{ marginBottom: '18px' }}>
                       <label className="form-label" style={{ fontWeight: 800, color: 'var(--burgundy)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span>📍 نوع التوصيل (Mode de Livraison) *</span>
@@ -3344,10 +3423,13 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       </div>
                     </div>
 
+                    {/* 3. Stop Desk Agency Selection */}
                     {isBureauDelivery && (
                       <div className="form-group animate-fade-up" style={{ marginBottom: '18px', background: '#EFF6FF', border: '1.5px solid #93C5FD', padding: '14px', borderRadius: '14px' }}>
                         <label className="form-label" style={{ fontWeight: 800, color: '#1E40AF', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>🏢 تحديد مكتب / فرع الاستلام (Bureau Stop Desk) *</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            🏢 تحديد مكتب / فرع {deliveryCompany === 'zrexpress' ? 'ZR Express' : 'Yalidine'} *
+                          </span>
                           {!selectedOffice && <span style={{ fontSize: '0.78rem', color: '#E11D48', fontWeight: 800 }}>يرجى التحديد 👇</span>}
                         </label>
                         <select
@@ -3381,76 +3463,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                         </span>
                       </div>
                     )}
-
-                    {/* Delivery Company Selection */}
-                    <div className="form-group" style={{ marginBottom: '18px' }}>
-                      <label className="form-label" style={{ fontWeight: 800, color: 'var(--burgundy)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span>🚚 شركة التوصيل (Société de Livraison) *</span>
-                        {!deliveryCompany && <span style={{ fontSize: '0.78rem', color: '#E11D48', fontWeight: 800 }}>يرجى الاختيار 👇</span>}
-                      </label>
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '6px' }}>
-                        <button
-                          type="button"
-                          onClick={() => setDeliveryCompany('yalidine')}
-                          style={{
-                            padding: '14px 10px',
-                            borderRadius: '14px',
-                            border: deliveryCompany === 'yalidine' ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
-                            background: deliveryCompany === 'yalidine' ? '#FFF5F7' : '#FFFFFF',
-                            color: deliveryCompany === 'yalidine' ? 'var(--burgundy)' : '#475569',
-                            boxShadow: deliveryCompany === 'yalidine' ? '0 4px 14px rgba(128, 0, 32, 0.15)' : 'none',
-                            fontWeight: 800,
-                            fontSize: '0.94rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'all 0.2s ease',
-                            position: 'relative'
-                          }}
-                        >
-                          <span style={{ fontWeight: 900 }}>📦 Yalidine Express</span>
-                          <span style={{ fontSize: '0.92rem', color: '#059669', fontWeight: 900 }}>
-                            {yalidineRate > 0 ? `${yalidineRate.toLocaleString()} DA` : 'حسب الولاية'}
-                          </span>
-                          {deliveryCompany === 'yalidine' && (
-                            <span style={{ position: 'absolute', top: 6, right: 8, fontSize: '0.9rem' }}>✅</span>
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setDeliveryCompany('zrexpress')}
-                          style={{
-                            padding: '14px 10px',
-                            borderRadius: '14px',
-                            border: deliveryCompany === 'zrexpress' ? '2.5px solid var(--burgundy)' : '1.5px solid #E2E8F0',
-                            background: deliveryCompany === 'zrexpress' ? '#FFF5F7' : '#FFFFFF',
-                            color: deliveryCompany === 'zrexpress' ? 'var(--burgundy)' : '#475569',
-                            boxShadow: deliveryCompany === 'zrexpress' ? '0 4px 14px rgba(128, 0, 32, 0.15)' : 'none',
-                            fontWeight: 800,
-                            fontSize: '0.94rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'all 0.2s ease',
-                            position: 'relative'
-                          }}
-                        >
-                          <span style={{ fontWeight: 900 }}>⚡ ZR Express</span>
-                          <span style={{ fontSize: '0.92rem', color: '#059669', fontWeight: 900 }}>
-                            {zrRate > 0 ? `${zrRate.toLocaleString()} DA` : 'حسب الولاية'}
-                          </span>
-                          {deliveryCompany === 'zrexpress' && (
-                            <span style={{ position: 'absolute', top: 6, right: 8, fontSize: '0.9rem' }}>✅</span>
-                          )}
-                        </button>
-                      </div>
-                    </div>
 
                     {/* Live Order & Delivery Calculation Summary */}
                     <div style={{

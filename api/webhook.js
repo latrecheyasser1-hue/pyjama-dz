@@ -1782,10 +1782,194 @@ async function createYalidineParcelDirectly(order) {
       });
       return result.tracking;
     }
+async function createZRExpressParcelDirectly(order) {
+  try {
+    if (!order) return null;
+    const isStopdesk = Boolean(
+      String(order.deliveryMode || '').toLowerCase().includes('bureau') ||
+      String(order.deliveryMode || '').toLowerCase().includes('stop') ||
+      String(order.commune || '').includes('Hub') ||
+      order.is_stopdesk
+    );
+
+    const zrKey = 'Z7Hc9ysXDHbjfztqASk0YevJumND6TOFpH7tC8DKLpCFsX5ZfV2kjdSplyiktz3d';
+    const zrTenantId = 'c84d4b7b-9252-45c0-8339-5be6cfd9bc91';
+    const zrHeaders = {
+      'X-Api-Key': zrKey,
+      'X-Tenant': zrTenantId,
+      'Content-Type': 'application/json'
+    };
+
+    const codPrice = Number(order.price || order.totalPrice || 0);
+    const cleanPhone = String(order.phone || '').replace(/\D/g, '');
+    const contactPhone = cleanPhone.length === 9 ? '0' + cleanPhone : (cleanPhone.startsWith('213') ? '0' + cleanPhone.slice(3) : cleanPhone);
+    const intlPhone = contactPhone.startsWith('0') ? '+213' + contactPhone.slice(1) : (contactPhone.startsWith('213') ? '+' + contactPhone : '+213' + contactPhone);
+
+    const rawName = String(order.clientName || 'Client').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim() || 'Client';
+
+    // 1. Create or Find Customer
+    let customerId = null;
+    try {
+      const custRes = await fetch('https://api.zrexpress.app/api/v1/customers/individual', {
+        method: 'POST',
+        headers: zrHeaders,
+        body: JSON.stringify({
+          name: rawName,
+          phone: { number1: intlPhone }
+        })
+      });
+      const custData = await custRes.json();
+      customerId = custData?.id;
+    } catch (e) {}
+
+    if (!customerId) {
+      try {
+        const custSearch = await fetch('https://api.zrexpress.app/api/v1/customers/search', {
+          method: 'POST',
+          headers: zrHeaders,
+          body: JSON.stringify({ search: intlPhone, limit: 1 })
+        });
+        const cList = await custSearch.json();
+        customerId = cList.items?.[0]?.id || '5b4191cf-b08b-4990-bde5-119ac532df51';
+      } catch(e) {
+        customerId = '5b4191cf-b08b-4990-bde5-119ac532df51';
+      }
+    }
+
+    const orderRef = 'CMD-' + String(order.ticketNumber || order.id || Date.now()).slice(0, 8);
+    const supplierHubId = '46a61165-5378-484d-a0c9-f5c1df785df9'; // Hub Chlef 02
+
+    let cityTerritoryId = 'bcb30485-37b5-4135-a508-acad8a8a9cf8';
+    let districtTerritoryId = '7f6c89b5-2e84-4e6f-b32b-0024d0022c79';
+    let postalCode = '02000';
+
+    const wilayaRaw = String(order.wilaya || '');
+    let searchCommune = String(order.commune || '').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').replace(/^\d+[\s\-_]*/, '').trim() || wilayaRaw;
+
+    try {
+      const terrRes = await fetch('https://api.zrexpress.app/api/v1/territories/search', {
+        method: 'POST',
+        headers: zrHeaders,
+        body: JSON.stringify({ search: searchCommune, limit: 10 })
+      });
+      const terrData = await terrRes.json();
+      if (terrData.items && terrData.items.length > 0) {
+        const matched = terrData.items.find(t => {
+          const tName = (t.name || '').toLowerCase();
+          const tNameAr = (t.nameArabic || '');
+          return tName.includes(searchCommune.toLowerCase()) || searchCommune.includes(tName) || tNameAr.includes(searchCommune) || searchCommune.includes(tNameAr);
+        }) || terrData.items[0];
+
+        if (matched) {
+          districtTerritoryId = matched.id;
+          cityTerritoryId = matched.parentId || matched.id;
+          postalCode = matched.postalCode || postalCode;
+        }
+      }
+    } catch (e) {}
+
+    const parcelPayload = {
+      customer: {
+        customerId,
+        name: rawName,
+        phone: { number1: intlPhone }
+      },
+      hubId: supplierHubId,
+      deliveryAddress: {
+        cityTerritoryId,
+        districtTerritoryId,
+        street: order.address || (searchCommune + ', ' + wilayaRaw),
+        postalCode
+      },
+      orderedProducts: [
+        {
+          productId: '2da6c5d9-b679-45a1-92ea-af8206cd6638',
+          productName: order.product || 'بيجامات وملابس نوم فاخرة',
+          productSku: 'SKU-PYJAMA-01',
+          quantity: Number(order.quantity || 1),
+          unitPrice: codPrice,
+          length: 25,
+          width: 20,
+          height: 5,
+          weight: 1,
+          stockType: 'local'
+        }
+      ],
+      deliveryType: isStopdesk ? 'pickup-point' : 'home',
+      description: order.product || 'بيجامات وملابس نوم فاخرة',
+      amount: codPrice,
+      externalId: orderRef
+    };
+
+    const zrRes = await fetch('https://api.zrexpress.app/api/v1/parcels', {
+      method: 'POST',
+      headers: zrHeaders,
+      body: JSON.stringify(parcelPayload)
+    });
+
+    const zrData = await zrRes.json();
+    if (zrRes.ok && zrData.id) {
+      const parcelId = zrData.id;
+      let trackingNumber = `ZR-${parcelId.slice(0, 8).toUpperCase()}`;
+
+      try {
+        const getRes = await fetch(`https://api.zrexpress.app/api/v1/parcels/${parcelId}`, {
+          method: 'GET',
+          headers: zrHeaders
+        });
+        const fullParcel = await getRes.json();
+        if (fullParcel?.trackingNumber) {
+          trackingNumber = fullParcel.trackingNumber;
+        }
+      } catch (e) {}
+
+      let shippingLabelUrl = '';
+      try {
+        const pdfRes = await fetch('https://api.zrexpress.app/api/v1/parcels/labels/individual/pdf', {
+          method: 'POST',
+          headers: zrHeaders,
+          body: JSON.stringify({ trackingNumbers: [trackingNumber] })
+        });
+        const pdfData = await pdfRes.json();
+        shippingLabelUrl = pdfData.parcelLabelFiles?.[0]?.fileUrl || '';
+      } catch (e) {}
+
+      await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          trackingNumber,
+          shippingLabelUrl,
+          deliveryCompany: 'zrexpress'
+        })
+      });
+
+      return trackingNumber;
+    }
   } catch (err) {
-    console.error('Direct Yalidine parcel creation error:', err);
+    console.error('Direct ZR Express parcel creation error:', err);
   }
   return null;
+}
+
+async function createParcelDirectly(order) {
+  if (!order) return null;
+  const rawCompany = String(order.deliveryCompany || '').toLowerCase();
+  const isZR = rawCompany === 'zrexpress' || 
+               rawCompany === 'zr' || 
+               rawCompany.includes('zr') || 
+               String(order.deliveryMode || '').includes('Hub') || 
+               String(order.commune || '').includes('Hub');
+
+  if (isZR) {
+    return await createZRExpressParcelDirectly(order);
+  } else {
+    return await createYalidineParcelDirectly(order);
+  }
 }
 
 async function processOrderConfirmationIntent(fromPhone, messageText) {
@@ -1862,7 +2046,7 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
         orderToConfirm.commune === 'المتجر الحضوري'
       );
       if (!isHanoutOrPos && !orderToConfirm.trackingNumber) {
-        trackingCreated = await createYalidineParcelDirectly(orderToConfirm);
+        trackingCreated = await createParcelDirectly(orderToConfirm);
       }
     } catch (deliveryErr) {
       console.error('Error triggering delivery on WhatsApp confirm:', deliveryErr);

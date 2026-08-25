@@ -163,11 +163,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { order, company = 'yalidine' } = req.body || {};
+    const { order, company } = req.body || {};
 
     if (!order) {
       return res.status(400).json({ success: false, error: 'Missing order details' });
     }
+
+    const rawComp = String(company || order.deliveryCompany || '').toLowerCase();
+    const isZR = rawComp === 'zrexpress' || 
+                 rawComp === 'zr' || 
+                 rawComp.includes('zr') || 
+                 String(order.deliveryMode || '').includes('Hub') || 
+                 String(order.commune || '').includes('Hub');
+
+    const effectiveCompany = isZR ? 'zrexpress' : 'yalidine';
 
     const creds = await getDeliverySettings();
     const isStopdesk = Boolean(
@@ -180,14 +189,18 @@ export default async function handler(req, res) {
     const { firstname, familyname } = splitFullName(order.clientName);
     const contactPhone = formatAlgerianPhone(order.phone || order.whatsapp);
     const normalizedToWilaya = normalizeWilaya(order.wilaya);
-    let normalizedToCommune = normalizeCommune(order.commune, normalizedToWilaya);
+    const normalizedToCommune = normalizeCommune(order.commune, normalizedToWilaya);
+    const rawName = String(order.clientName || 'Client').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim() || 'Client';
+    const toWilaya = normalizedToWilaya;
+    const cleanCommune = normalizedToCommune;
     const fromWilaya = normalizeWilaya(creds.store_wilaya || 'Chlef');
     const toWilayaId = WILAYA_IDS[normalizedToWilaya] || 16;
+    const orderRef = 'CMD-' + String(order.ticketNumber || order.id || Date.now()).slice(0, 8);
 
     // ==========================================
     // 1. YALIDINE / GUEPEX INTEGRATION
     // ==========================================
-    if (company.toLowerCase() === 'yalidine' || company.toLowerCase() === 'guepex') {
+    if (effectiveCompany === 'yalidine') {
       const apiId = creds.yalidine_api_id;
       const apiToken = creds.yalidine_api_token;
 
@@ -335,7 +348,7 @@ export default async function handler(req, res) {
     // ==========================================
     // 2. ZR EXPRESS INTEGRATION (VERIFIED & TESTED)
     // ==========================================
-    if (company.toLowerCase() === 'zrexpress' || company.toLowerCase() === 'zr') {
+    if (effectiveCompany === 'zrexpress') {
       const zrKey = creds.zr_express_api_key || 'Z7Hc9ysXDHbjfztqASk0YevJumND6TOFpH7tC8DKLpCFsX5ZfV2kjdSplyiktz3d';
       const zrTenantId = creds.zr_express_tenant_id || 'c84d4b7b-9252-45c0-8339-5be6cfd9bc91';
 

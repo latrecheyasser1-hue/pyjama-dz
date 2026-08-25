@@ -686,17 +686,18 @@ export default function App() {
         if (!isHanoutOrPos && !orderToUpdate.trackingNumber && !orderToUpdate.tracking_number) {
           processOrderDelivery(orderToUpdate).then(async (res) => {
             if (res && res.success && res.trackingNumber) {
-              console.log(`📦 Parcel created with Yalidine: ${res.trackingNumber}`);
+              const compName = res.deliveryCompany || orderToUpdate.deliveryCompany || 'yalidine';
+              console.log(`📦 Parcel created with ${compName}: ${res.trackingNumber}`);
               await supabase.from('orders').update({
                 trackingNumber: res.trackingNumber,
                 shippingLabelUrl: res.shippingLabelUrl,
-                deliveryCompany: res.deliveryCompany || 'yalidine'
+                deliveryCompany: compName
               }).eq('id', orderId);
               setOrders(prev => prev.map(o => String(o.id).trim() === String(orderId).trim() ? { 
                 ...o, 
                 trackingNumber: res.trackingNumber,
                 shippingLabelUrl: res.shippingLabelUrl,
-                deliveryCompany: res.deliveryCompany || 'yalidine'
+                deliveryCompany: compName
               } : o));
             }
           }).catch(e => console.error('Auto delivery parcel creation error:', e));
