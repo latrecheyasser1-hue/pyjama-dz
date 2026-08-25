@@ -102,12 +102,12 @@ export default async function handler(req, res) {
     const zrApiKey = creds.zr_express_api_key || 'Z7Hc9ysXDHbjfztqASk0YevJumND6TOFpH7tC8DKLpCFsX5ZfV2kjdSplyiktz3d';
     const zrTenantId = 'c84d4b7b-9252-45c0-8339-5be6cfd9bc91';
 
-    // 2. Fetch Active Dispatched Orders (Only real orders in last 15 days needing active tracking)
-    const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
-    const ordersRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?trackingNumber=not.is.null&created_at=gte.${fifteenDaysAgo}&status=in.(confirmee,expediee)&select=id,ticketNumber,clientName,phone,status,trackingNumber,deliveryCompany,deliveryMode,commune,bureau_arrived_at,bureau_arrival_notif_sent,bureau_reminder_sent,bureau_warning_sent,domicile_out_notif_sent&order=created_at.desc&limit=60`, {
+    // 2. Fetch Active Dispatched Orders
+    const ordersRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=in.(confirmee,expediee)&select=id,clientName,phone,wilaya,commune,deliveryMode,product,price,status,created_at,deliveryCompany,trackingNumber,shippingLabelUrl&order=created_at.desc&limit=80`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
-    const activeOrders = await ordersRes.json();
+    const rawOrders = await ordersRes.json();
+    const activeOrders = Array.isArray(rawOrders) ? rawOrders.filter(o => o.trackingNumber && o.trackingNumber.trim().length > 4) : [];
 
     if (!Array.isArray(activeOrders) || activeOrders.length === 0) {
       return res.status(200).json({ success: true, message: 'No active shipping orders to track', processed: 0 });
