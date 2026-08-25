@@ -106,8 +106,8 @@ export const CHLEF_DELIVERY_RATES = [
     { provider: "ZR Express", type: "À domicile", price: 650, note: "توصيل سريع لباب المنزل - ZR" }
   ]},
   { code: "16", name: "Alger", nameAr: "الجزائر", options: [
-    { provider: "Yalidine Express", type: "Au bureau", price: 450, note: "مكتب ياليدين الجزائر (Stop Desk)" },
-    { provider: "Yalidine Express", type: "À domicile", price: 600, note: "توصيل لباب المنزل - ياليدين" },
+    { provider: "Yalidine Express", type: "Au bureau", price: 600, note: "مكتب ياليدين الجزائر (Stop Desk)" },
+    { provider: "Yalidine Express", type: "À domicile", price: 650, note: "توصيل لباب المنزل - ياليدين" },
     { provider: "ZR Express", type: "Au bureau", price: 400, note: "نقطة استلام ZR Express" },
     { provider: "ZR Express", type: "À domicile", price: 550, note: "توصيل سريع لباب المنزل - ZR" }
   ]},
