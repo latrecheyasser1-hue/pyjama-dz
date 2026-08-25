@@ -238,6 +238,7 @@ export default function App() {
 
   const pendingUpdatesRef = useRef({});
   const updateDebounceRef = useRef({});
+  const parcelCreationLockRef = useRef(new Set());
 
   const fetchData = async (table, setter) => {
     const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
@@ -670,39 +671,6 @@ export default function App() {
       if (archived !== undefined) updatePayload.archived = archived;
       
       const orderToUpdate = orders.find(o => String(o.id).trim() === String(orderId).trim());
-      
-      const { error: orderErr } = await supabase.from('orders').update(updatePayload).eq('id', orderId);
-      if (orderErr) console.error("Order status update error:", orderErr);
-
-      setOrders(prev => prev.map(o => String(o.id).trim() === String(orderId).trim() ? { ...o, ...updatePayload } : o));
-
-      // Trigger automatic Yalidine / Delivery parcel creation when order is confirmed
-      if (orderToUpdate && newStatus === 'confirmee') {
-        const isHanoutOrPos = Boolean(
-          orderToUpdate.isPos === true || 
-          orderToUpdate.clientName === 'زبون المحل (بيع حضوري)' || 
-          orderToUpdate.commune === 'المتجر الحضوري'
-        );
-        if (!isHanoutOrPos && !orderToUpdate.trackingNumber && !orderToUpdate.tracking_number) {
-          processOrderDelivery(orderToUpdate).then(async (res) => {
-            if (res && res.success && res.trackingNumber) {
-              const compName = res.deliveryCompany || orderToUpdate.deliveryCompany || 'yalidine';
-              console.log(`📦 Parcel created with ${compName}: ${res.trackingNumber}`);
-              await supabase.from('orders').update({
-                trackingNumber: res.trackingNumber,
-                shippingLabelUrl: res.shippingLabelUrl,
-                deliveryCompany: compName
-              }).eq('id', orderId);
-              setOrders(prev => prev.map(o => String(o.id).trim() === String(orderId).trim() ? { 
-                ...o, 
-                trackingNumber: res.trackingNumber,
-                shippingLabelUrl: res.shippingLabelUrl,
-                deliveryCompany: compName
-              } : o));
-            }
-          }).catch(e => console.error('Auto delivery parcel creation error:', e));
-        }
-      }
 
       const wasAlreadyReturned = orderToUpdate?.status === 'annulee' || orderToUpdate?.status === 'retour';
       const isNowReturned = newStatus === 'annulee' || newStatus === 'retour';
@@ -890,14 +858,32 @@ export default function App() {
       }
 
       // Process delivery API if status is changed to confirmee and no tracking number exists
-      if (newStatus === 'confirmee' && orderToUpdate && !orderToUpdate.trackingNumber) {
-        const deliveryResult = await processOrderDelivery(orderToUpdate);
-        if (deliveryResult.success) {
-          updatePayload.trackingNumber = deliveryResult.trackingNumber;
-          updatePayload.shippingLabelUrl = deliveryResult.shippingLabelUrl;
-          updatePayload.deliveryCompany = deliveryResult.deliveryCompany;
-        } else {
-          console.error('Failed to process delivery API', deliveryResult.error);
+      if (newStatus === 'confirmee' && orderToUpdate) {
+        const isHanoutOrPos = Boolean(
+          orderToUpdate.isPos === true || 
+          orderToUpdate.clientName === 'زبون المحل (بيع حضوري)' || 
+          orderToUpdate.commune === 'المتجر الحضوري'
+        );
+
+        if (!isHanoutOrPos && !orderToUpdate.trackingNumber && !orderToUpdate.tracking_number) {
+          if (!parcelCreationLockRef.current.has(orderId)) {
+            parcelCreationLockRef.current.add(orderId);
+            try {
+              const deliveryResult = await processOrderDelivery(orderToUpdate);
+              if (deliveryResult && deliveryResult.success && deliveryResult.trackingNumber) {
+                const compName = deliveryResult.deliveryCompany || orderToUpdate.deliveryCompany || 'yalidine';
+                updatePayload.trackingNumber = deliveryResult.trackingNumber;
+                updatePayload.shippingLabelUrl = deliveryResult.shippingLabelUrl || '';
+                updatePayload.deliveryCompany = compName;
+              } else {
+                console.error('Failed to process delivery API:', deliveryResult?.error);
+              }
+            } catch (err) {
+              console.error('Failed to process delivery API:', err);
+            } finally {
+              parcelCreationLockRef.current.delete(orderId);
+            }
+          }
         }
       }
 
