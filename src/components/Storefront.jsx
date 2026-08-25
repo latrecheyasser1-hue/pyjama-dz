@@ -1492,13 +1492,10 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     return [`مكتب ياليدين الرئيسي (${nameAr})`];
   }, [wilaya, deliveryCompany]);
 
+  // Keep Stop Desk office selection empty initially so customer must explicitly choose their agency
   useEffect(() => {
-    if (availableOfficesForWilaya.length > 0) {
-      if (!availableOfficesForWilaya.includes(selectedOffice)) {
-        setSelectedOffice(availableOfficesForWilaya[0]);
-      }
-    }
-  }, [availableOfficesForWilaya, selectedOffice]);
+    setSelectedOffice('');
+  }, [wilaya, deliveryCompany]);
 
   const availableCommunes = useMemo(() => {
     return getCommunesForWilaya(wilaya);
@@ -3344,12 +3341,22 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
                     {isBureauDelivery && (
                       <div className="form-group animate-fade-up" style={{ marginBottom: '18px', background: '#EFF6FF', border: '1.5px solid #93C5FD', padding: '14px', borderRadius: '14px' }}>
-                        <label className="form-label" style={{ fontWeight: 800, color: '#1E40AF', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          🏢 تحديد مكتب / فرع الاستلام (Bureau Stop Desk) *
+                        <label className="form-label" style={{ fontWeight: 800, color: '#1E40AF', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>🏢 تحديد مكتب / فرع الاستلام (Bureau Stop Desk) *</span>
+                          {!selectedOffice && <span style={{ fontSize: '0.78rem', color: '#E11D48', fontWeight: 800 }}>يرجى التحديد 👇</span>}
                         </label>
                         <select
                           className="form-select"
-                          style={{ padding: '12px 16px', fontSize: '0.95rem', borderColor: '#60A5FA', background: '#FFFFFF', fontWeight: 800, marginTop: '6px', color: '#1E293B' }}
+                          style={{ 
+                            padding: '12px 16px', 
+                            fontSize: '0.95rem', 
+                            borderColor: !selectedOffice ? '#F43F5E' : '#60A5FA', 
+                            background: !selectedOffice ? '#FFF1F2' : '#FFFFFF', 
+                            fontWeight: 800, 
+                            marginTop: '6px', 
+                            color: '#1E293B',
+                            boxShadow: !selectedOffice ? '0 0 0 2px rgba(244, 63, 94, 0.15)' : 'none'
+                          }}
                           value={selectedOffice}
                           onChange={(e) => setSelectedOffice(e.target.value)}
                           required={isBureauDelivery}
@@ -3361,8 +3368,11 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                             </option>
                           ))}
                         </select>
-                        <span style={{ fontSize: '0.78rem', color: '#2563EB', marginTop: '6px', display: 'block', fontWeight: 700 }}>
-                          ℹ️ سيصلك الطرد إلى هذا المكتب ويمكنك استلامه والدفع مباشرة عند وصوله.
+                        <span style={{ fontSize: '0.78rem', color: !selectedOffice ? '#E11D48' : '#2563EB', marginTop: '6px', display: 'block', fontWeight: 700 }}>
+                          {!selectedOffice 
+                            ? '⚠️ إجباري: يجب اختيار المكتب أو الفرع الذي ترغب في استلام الطرد منه.'
+                            : 'ℹ️ سيصلك الطرد إلى هذا المكتب ويمكنك استلامه والدفع مباشرة عند وصوله.'
+                          }
                         </span>
                       </div>
                     )}
