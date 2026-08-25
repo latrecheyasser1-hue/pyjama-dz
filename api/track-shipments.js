@@ -49,23 +49,6 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   }
 }
 
-async function getSequentialOrderNum(orderId) {
-  try {
-    const url = `${SUPABASE_URL}/rest/v1/orders?select=id,status,product,created_at&order=created_at.asc`;
-    const res = await fetch(url, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    const rawOrders = await res.json();
-    if (Array.isArray(rawOrders)) {
-      const realOrders = rawOrders.filter(o => o.status !== 'account' && !String(o.product || '').includes('_CUSTOMER_ACCOUNT_'));
-      const idx = realOrders.findIndex(o => o.id === orderId);
-      if (idx !== -1) return String(idx + 1);
-      return String(realOrders.length);
-    }
-  } catch (err) {}
-  return "346";
-}
-
 function cleanClientName(rawName) {
   if (!rawName) return '';
   let clean = String(rawName)
@@ -114,12 +97,14 @@ export default async function handler(req, res) {
       settingsRows.forEach(r => { creds[r.key] = r.value; });
     }
 
-    const yalidineId = creds.yalidine_api_id || process.env.YALIDINE_API_ID;
-    const yalidineToken = creds.yalidine_api_token || process.env.YALIDINE_API_TOKEN;
-    const zrApiKey = creds.zr_express_api_key || creds.zr_express_token || process.env.ZR_EXPRESS_API_KEY;
+    const yalidineId = creds.yalidine_api_id || '91765086053360408544';
+    const yalidineToken = creds.yalidine_api_token || 'oB2eO7XJ51b0fJm2s4188w9w5uI4068s4o1m8B2aN650bW4vP548fR5m1wJ8';
+    const zrApiKey = creds.zr_express_api_key || 'Z7Hc9ysXDHbjfztqASk0YevJumND6TOFpH7tC8DKLpCFsX5ZfV2kjdSplyiktz3d';
+    const zrTenantId = 'c84d4b7b-9252-45c0-8339-5be6cfd9bc91';
 
-    // 2. Fetch Active Dispatched Orders
-    const ordersRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=not.in.(livree,annulee,retour,account)&select=*`, {
+    // 2. Fetch Active Dispatched Orders (Only real orders needing active tracking)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const ordersRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?trackingNumber=not.is.null&created_at=gte.${thirtyDaysAgo}&status=in.(confirmee,expediee)&select=id,ticketNumber,clientName,phone,status,trackingNumber,deliveryCompany,deliveryMode,commune,bureau_arrived_at,bureau_arrival_notif_sent,bureau_reminder_sent,bureau_warning_sent,domicile_out_notif_sent&order=created_at.desc&limit=60`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const activeOrders = await ordersRes.json();
@@ -134,72 +119,73 @@ export default async function handler(req, res) {
     const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
     const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
 
-    for (const order of activeOrders) {
-      const tracking = (order.trackingNumber || order.tracking || '').trim();
-      const company = String(order.deliveryCompany || '').toLowerCase();
-      const isBureau = String(order.deliveryMode || '').toLowerCase().includes('bureau') || String(order.deliveryMode || '').includes('مكتب') || String(order.commune || '').includes('[');
-      const phone = order.phone;
-      const firstName = cleanClientName(order.clientName);
-      const greeting = firstName ? `أهلاً وسهلاً بك ${firstName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
-      const orderNum = await getSequentialOrderNum(order.id);
+    // 3. Process orders concurrently in chunks of 10 for ultra-fast response
+    const chunkSize = 10;
+    for (let i = 0; i < activeOrders.length; i += chunkSize) {
+      const chunk = activeOrders.slice(i, i + chunkSize);
 
-      // Extract office branch name if present
-      let officeName = 'مكتب الاستلام';
-      const officeMatch = String(order.commune || order.deliveryMode || '').match(/\[([^\]]+)\]/);
-      if (officeMatch) {
-        officeName = officeMatch[1];
-      }
-
-      let currentStatus = null;
-      let lastTrackingUpdate = null;
-
-      // 3. Query Yalidine API if order is with Yalidine
-      if (company.includes('yalidine') && tracking && yalidineId && yalidineToken) {
-        try {
-          const yRes = await fetch(`https://api.yalidine.app/v1/parcels?tracking=${tracking}`, {
-            headers: {
-              'X-API-ID': yalidineId,
-              'X-API-TOKEN': yalidineToken
-            }
-          });
-          const yData = await yRes.json();
-          if (yData && yData.data && yData.data[tracking]) {
-            const pInfo = yData.data[tracking];
-            currentStatus = pInfo.last_status || pInfo.status;
-            lastTrackingUpdate = pInfo;
-          }
-        } catch (err) {
-          console.error('Yalidine tracking error for:', tracking, err.message);
+      await Promise.all(chunk.map(async (order) => {
+        const tracking = (order.trackingNumber || '').trim();
+        if (!tracking || tracking.startsWith('YAL-') || (tracking.startsWith('ZR-') && !tracking.includes('-ZR')) || tracking.endsWith('.pdf')) {
+          return; // Skip mock / legacy test tracking
         }
-      }
 
-      // 4. Query ZR Express API if order is with ZR Express
-      if (company.includes('zr') && tracking && zrApiKey) {
-        try {
-          const zrRes = await fetch(`https://api.zrexpress.com/api/v1/parcels/${tracking}`, {
-            headers: {
-              'Authorization': `Bearer ${zrApiKey}`,
-              'token': zrApiKey
-            }
-          });
-          const zrData = await zrRes.json();
-          if (zrData && (zrData.status || zrData.parcel_status)) {
-            currentStatus = zrData.status || zrData.parcel_status;
-            lastTrackingUpdate = zrData;
-          }
-        } catch (err) {
-          console.error('ZR Express tracking error for:', tracking, err.message);
+        const company = String(order.deliveryCompany || '').toLowerCase();
+        const isBureau = String(order.deliveryMode || '').toLowerCase().includes('bureau') || String(order.deliveryMode || '').includes('مكتب') || String(order.commune || '').includes('[');
+        const phone = order.phone;
+        const firstName = cleanClientName(order.clientName);
+        const greeting = firstName ? `أهلاً وسهلاً بك ${firstName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
+        const orderNum = order.ticketNumber || String(order.id).slice(0, 6);
+
+        let officeName = 'مكتب الاستلام';
+        const officeMatch = String(order.commune || order.deliveryMode || '').match(/\[([^\]]+)\]/);
+        if (officeMatch) {
+          officeName = officeMatch[1];
         }
-      }
 
-      // If status found, evaluate triggers
-      if (currentStatus) {
+        let currentStatus = null;
+
+        // Query Yalidine API
+        if (company.includes('yalidine') || tracking.toLowerCase().startsWith('yal-')) {
+          try {
+            const yRes = await fetch(`https://api.yalidine.app/v1/parcels?tracking=${tracking}`, {
+              headers: { 'X-API-ID': yalidineId, 'X-API-TOKEN': yalidineToken }
+            });
+            const yData = await yRes.json();
+            if (yData && yData.data && yData.data[tracking]) {
+              const pInfo = yData.data[tracking];
+              currentStatus = pInfo.last_status || pInfo.status;
+            }
+          } catch (err) {}
+        }
+        // Query ZR Express API
+        else if (company.includes('zr') || tracking.includes('-ZR')) {
+          try {
+            const zrRes = await fetch('https://api.zrexpress.app/api/v1/parcels/search', {
+              method: 'POST',
+              headers: {
+                'X-Api-Key': zrApiKey,
+                'X-Tenant': zrTenantId,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ trackingNumber: tracking })
+            });
+            const zrData = await zrRes.json();
+            if (zrData && zrData.items && zrData.items.length > 0) {
+              const p = zrData.items[0];
+              currentStatus = p.status || p.state?.name || p.parcel_status;
+            }
+          } catch (err) {}
+        }
+
+        if (!currentStatus) return;
+
         const normStatus = String(currentStatus).toLowerCase();
         let shouldUpdateOrder = false;
         const patchData = {};
 
         // A. DELIVERED (Livré)
-        if (normStatus.includes('livré') || normStatus.includes('livre') || normStatus.includes('delivered') || normStatus.includes('distribué')) {
+        if (normStatus.includes('livré') || normStatus.includes('livre') || normStatus.includes('delivered') || normStatus.includes('recouvert') || normStatus.includes('distribué')) {
           if (order.status !== 'livree') {
             patchData.status = 'livree';
             patchData.delivered_at = new Date().toISOString();
@@ -258,7 +244,7 @@ export default async function handler(req, res) {
         }
         // D. DOMICILE (Home Delivery) -> Out for delivery alert
         else if (!isBureau) {
-          const isOutForDelivery = normStatus.includes('sorti') || normStatus.includes('en cours de livraison') || normStatus.includes('livreur') || normStatus.includes('en livraison') || normStatus.includes('en route');
+          const isOutForDelivery = normStatus.includes('sorti') || normStatus.includes('en cours de livraison') || normStatus.includes('livreur') || normStatus.includes('en livraison') || normStatus.includes('en route') || normStatus.includes('vers_client');
 
           if (isOutForDelivery && !order.domicile_out_notif_sent) {
             patchData.domicile_out_notif_sent = true;
@@ -285,7 +271,7 @@ export default async function handler(req, res) {
           });
           updatedCount++;
         }
-      }
+      }));
     }
 
     return res.status(200).json({
