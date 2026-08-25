@@ -1698,10 +1698,140 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
       // General affirmative words (oui, ok, صح, نعم) continue to Gemini AI for natural conversation
       return false;
     }
+async function createYalidineParcelDirectly(order) {
+  try {
+    if (!order) return null;
+    const isStopdesk = Boolean(
+      String(order.deliveryMode || '').toLowerCase().includes('bureau') ||
+      String(order.deliveryMode || '').toLowerCase().includes('stop') ||
+      String(order.commune || '').includes('[') ||
+      order.is_stopdesk
+    );
+
+    const credsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(yalidine_api_id,yalidine_api_token,store_wilaya)&select=key,value`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const credsRows = await credsRes.json();
+    let apiId = '';
+    let apiToken = '';
+    let fromWilaya = 'Chlef';
+    if (Array.isArray(credsRows)) {
+      credsRows.forEach(r => {
+        if (r.key === 'yalidine_api_id') apiId = r.value?.trim();
+        if (r.key === 'yalidine_api_token') apiToken = r.value?.trim();
+        if (r.key === 'store_wilaya') fromWilaya = r.value?.trim() || 'Chlef';
+      });
+    }
+
+    if (!apiId || !apiToken) {
+      console.error('Missing Yalidine credentials');
+      return null;
+    }
+
+    const codPrice = Number(order.price || order.totalPrice || 0);
+    const cleanPhone = String(order.phone || '').replace(/\D/g, '');
+    const contactPhone = cleanPhone.length === 9 ? '0' + cleanPhone : (cleanPhone.startsWith('213') ? '0' + cleanPhone.slice(3) : cleanPhone);
+    const rawName = String(order.clientName || 'Client').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').trim();
+    const nameParts = rawName.split(/\s+/).filter(Boolean);
+    const firstname = nameParts[0] || 'Client';
+    const familyname = nameParts.slice(1).join(' ') || '';
+
+    let toWilaya = 'Alger';
+    const wilayaRaw = String(order.wilaya || '');
+    const wMatch = wilayaRaw.match(/(\d+)/);
+    const wilayaNum = wMatch ? parseInt(wMatch[1], 10) : 16;
+
+    let cleanCommune = String(order.commune || '').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').replace(/^\d+[\s\-_]*/, '').trim();
+    if (!cleanCommune) cleanCommune = 'Alger Centre';
+
+    let stopdeskId = null;
+    if (isStopdesk) {
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        const centersPath = path.join(process.cwd(), 'src/data/official_centers.json');
+        if (fs.existsSync(centersPath)) {
+          const centers = JSON.parse(fs.readFileSync(centersPath, 'utf8'));
+          const wCenters = centers.filter(c => c.wilaya_id === wilayaNum);
+          if (wCenters.length > 0) {
+            const combined = String(order.commune || '') + ' ' + String(order.deliveryMode || '');
+            const matched = wCenters.find(c => {
+              const cComm = (c.commune_name || '').toLowerCase();
+              const cName = (c.name || '').toLowerCase();
+              return combined.toLowerCase().includes(cComm) || combined.toLowerCase().includes(cName) || cName.includes(cleanCommune.toLowerCase());
+            });
+            const sel = matched || wCenters[0];
+            stopdeskId = sel.center_id;
+            cleanCommune = sel.commune_name || cleanCommune;
+            toWilaya = sel.wilaya_name || 'Alger';
+          }
+        }
+      } catch(e) {}
+    }
+
+    const orderRef = 'CMD-' + String(order.ticketNumber || order.id || Date.now()).slice(0, 8);
+    const payload = [{
+      order_id: orderRef,
+      from_wilaya_name: fromWilaya,
+      firstname: firstname,
+      familyname: familyname,
+      contact_phone: contactPhone,
+      address: order.address || (cleanCommune + ', ' + toWilaya),
+      to_commune_name: cleanCommune,
+      to_wilaya_name: toWilaya,
+      product_list: order.product || 'بيجامات وملابس نوم فاخرة',
+      price: codPrice,
+      do_insurance: false,
+      declared_value: 0,
+      length: 25,
+      width: 20,
+      height: 5,
+      weight: 1,
+      freeshipping: false,
+      is_stopdesk: isStopdesk,
+      ...(stopdeskId ? { stopdesk_id: stopdeskId } : {}),
+      has_exchange: false
+    }];
+
+    const res = await fetch('https://api.guepex.app/v1/parcels/', {
+      method: 'POST',
+      headers: {
+        'X-API-ID': apiId,
+        'X-API-TOKEN': apiToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    const result = data[orderRef] || Object.values(data)[0];
+    if (result && result.success && result.tracking) {
+      await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          trackingNumber: result.tracking,
+          shippingLabelUrl: result.label || result.labels || '',
+          deliveryCompany: 'yalidine'
+        })
+      });
+      return result.tracking;
+    }
+  } catch (err) {
+    console.error('Direct Yalidine parcel creation error:', err);
+  }
+  return null;
+}
+
     const orderToConfirm = pendingOrders[0];
     await updateOrderStatusAndArchive(orderToConfirm.id, 'confirmee');
 
-    // Auto-create Yalidine / delivery parcel immediately upon WhatsApp confirmation
+    // Auto-create Yalidine parcel immediately with await
+    let trackingCreated = null;
     try {
       const isHanoutOrPos = Boolean(
         orderToConfirm.isPos === true || 
@@ -1709,12 +1839,7 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
         orderToConfirm.commune === 'المتجر الحضوري'
       );
       if (!isHanoutOrPos && !orderToConfirm.trackingNumber) {
-        const appUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://pyjama-dz.vercel.app';
-        fetch(`${appUrl}/api/create-parcel`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order: orderToConfirm, company: orderToConfirm.deliveryCompany || 'yalidine' })
-        }).catch(e => console.error('Auto parcel creation error on WhatsApp confirm:', e));
+        trackingCreated = await createYalidineParcelDirectly(orderToConfirm);
       }
     } catch (deliveryErr) {
       console.error('Error triggering delivery on WhatsApp confirm:', deliveryErr);
@@ -1727,7 +1852,8 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
       : '';
     const clientNameStr = cleanName ? ` ${cleanName}` : '';
 
-    const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل. شكراً لثقتك بمتجرنا! ❤️`;
+    const trackingNotice = trackingCreated ? `\n🏷️ رقم تتبع الشحنة: *${trackingCreated}*` : '';
+    const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨${trackingNotice}\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل مع Yalidine. شكراً لثقتك بمتجرنا! ❤️`;
 
     await sendWhatsAppMessage(fromPhone, confirmMsg);
     return true;
