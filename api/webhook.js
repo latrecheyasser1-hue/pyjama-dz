@@ -1701,6 +1701,25 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
     const orderToConfirm = pendingOrders[0];
     await updateOrderStatusAndArchive(orderToConfirm.id, 'confirmee');
 
+    // Auto-create Yalidine / delivery parcel immediately upon WhatsApp confirmation
+    try {
+      const isHanoutOrPos = Boolean(
+        orderToConfirm.isPos === true || 
+        orderToConfirm.clientName === 'زبون المحل (بيع حضوري)' || 
+        orderToConfirm.commune === 'المتجر الحضوري'
+      );
+      if (!isHanoutOrPos && !orderToConfirm.trackingNumber) {
+        const appUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://pyjama-dz.vercel.app';
+        fetch(`${appUrl}/api/create-parcel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: orderToConfirm, company: orderToConfirm.deliveryCompany || 'yalidine' })
+        }).catch(e => console.error('Auto parcel creation error on WhatsApp confirm:', e));
+      }
+    } catch (deliveryErr) {
+      console.error('Error triggering delivery on WhatsApp confirm:', deliveryErr);
+    }
+
     const orderNumStr = await getSequentialOrderNum(orderToConfirm);
     const rawName = orderToConfirm.clientName || '';
     const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
