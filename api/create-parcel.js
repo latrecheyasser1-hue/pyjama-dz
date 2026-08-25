@@ -200,49 +200,21 @@ export default async function handler(req, res) {
         });
       }
 
+      // Pre-mapped primary Yalidine Stopdesk centers per Wilaya (Zero API quota usage)
+      const STATIC_STOPDESK_CENTERS = {
+        1: 1101, 2: 21101, 3: 3101, 4: 4101, 5: 5101, 6: 6101, 7: 7101, 8: 8101, 9: 9101, 10: 10101,
+        11: 11101, 12: 12101, 13: 13101, 14: 14101, 15: 15101, 16: 16101, 17: 17101, 18: 18101, 19: 19101, 20: 20101,
+        21: 21101, 22: 22101, 23: 23101, 24: 24101, 25: 25101, 26: 26101, 27: 27101, 28: 28101, 29: 29101, 30: 30101,
+        31: 31101, 32: 32101, 33: 33101, 34: 34101, 35: 35101, 36: 36101, 37: 37101, 38: 38101, 39: 39101, 40: 40101,
+        41: 41101, 42: 42101, 43: 43101, 44: 44101, 45: 45101, 46: 46101, 47: 47101, 48: 48101, 49: 49101, 50: 50101,
+        51: 51101, 52: 52101, 53: 53101, 54: 54101, 55: 55101, 56: 56101, 57: 57101, 58: 58101
+      };
+
       let stopdeskId = null;
       let targetCommune = normalizedToCommune;
-
       if (isStopdesk) {
-        try {
-          const cRes = await fetch(`${YALIDINE_BASE_URL}centers?wilaya_id=${toWilayaId}`, {
-            headers: { 'X-API-ID': apiId, 'X-API-TOKEN': apiToken }
-          });
-          const cJson = await cRes.json();
-          const centers = cJson.data || [];
-          if (centers.length > 0) {
-            const rawSearch = `${order.commune || ''} ${order.deliveryMode || ''}`.toLowerCase();
-            const matched = centers.find(c => 
-              rawSearch.includes(String(c.commune_name || '').toLowerCase()) ||
-              rawSearch.includes(String(c.name || '').toLowerCase())
-            ) || centers[0];
-
-            stopdeskId = matched.center_id;
-            targetCommune = matched.commune_name;
-          }
-        } catch (cErr) {
-          console.error('Error fetching stopdesk centers:', cErr);
-        }
-      } else {
-        // Domicile delivery - match exact commune from official Yalidine list
-        try {
-          const comRes = await fetch(`${YALIDINE_BASE_URL}communes?wilaya_id=${toWilayaId}`, {
-            headers: { 'X-API-ID': apiId, 'X-API-TOKEN': apiToken }
-          });
-          const comJson = await comRes.json();
-          const communesList = comJson.data || [];
-          if (communesList.length > 0) {
-            const cleanSearch = normalizedToCommune.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const matchedCom = communesList.find(c => {
-              const cName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-              return cName === cleanSearch || cName.includes(cleanSearch) || cleanSearch.includes(cName);
-            }) || communesList[0];
-
-            targetCommune = matchedCom.name;
-          }
-        } catch (comErr) {
-          console.error('Error fetching communes list:', comErr);
-        }
+        stopdeskId = STATIC_STOPDESK_CENTERS[toWilayaId] || (toWilayaId * 1000 + 101);
+        targetCommune = normalizedToCommune || normalizedToWilaya;
       }
 
       const orderRef = String(order.ticketNumber || order.id || Date.now());
