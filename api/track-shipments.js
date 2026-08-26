@@ -180,8 +180,8 @@ export default async function handler(req, res) {
     const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
     const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
 
-    // 3. Process orders in safe rate-limited chunks of 3 with 1s pause (Max 3 req/sec, strictly compliant with Yalidine 5 req/sec limit)
-    const chunkSize = 3;
+    // 3. Process orders in safe rate-limited chunks of 4 with 1s pause (Max 4 req/sec, strictly compliant with Yalidine 5 req/sec limit)
+    const chunkSize = 4;
     for (let i = 0; i < activeOrders.length; i += chunkSize) {
       const chunk = activeOrders.slice(i, i + chunkSize);
 
