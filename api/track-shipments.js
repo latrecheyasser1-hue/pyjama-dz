@@ -180,8 +180,8 @@ export default async function handler(req, res) {
     const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
     const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
 
-    // 3. Process orders concurrently in chunks of 10 for ultra-fast response
-    const chunkSize = 10;
+    // 3. Process orders in safe rate-limited chunks of 3 with 1s pause (Max 3 req/sec, strictly compliant with Yalidine 5 req/sec limit)
+    const chunkSize = 3;
     for (let i = 0; i < activeOrders.length; i += chunkSize) {
       const chunk = activeOrders.slice(i, i + chunkSize);
 
@@ -331,8 +331,12 @@ export default async function handler(req, res) {
             body: JSON.stringify(patchData)
           });
           updatedCount++;
-        }
       }));
+
+      // Safe 1-second pause between batches to strictly guarantee <= 3 req/sec with Yalidine
+      if (i + chunkSize < activeOrders.length) {
+        await new Promise(r => setTimeout(r, 1000));
+      }
     }
 
     return res.status(200).json({
