@@ -331,6 +331,7 @@ export default async function handler(req, res) {
             body: JSON.stringify(patchData)
           });
           updatedCount++;
+        }
       }));
 
       // Safe 1-second pause between batches to strictly guarantee <= 3 req/sec with Yalidine
