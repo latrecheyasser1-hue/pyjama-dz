@@ -171,7 +171,7 @@ export default function App() {
         if (!prodsRes.error && prodsRes.data) {
           const now = Date.now();
           setProducts(prev => {
-            return prodsRes.data.map(dbProd => {
+            const nextList = prodsRes.data.map(dbProd => {
               const pending = pendingUpdatesRef.current[dbProd.id];
               // If user recently edited or is editing this product, NEVER overwrite with DB data!
               if (pending && (now - pending.timestamp < 6000)) {
@@ -183,6 +183,8 @@ export default function App() {
               }
               return { ...dbProd, colorVariants: cvs };
             });
+            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
+            return nextList;
           });
         }
 
@@ -192,6 +194,7 @@ export default function App() {
               if (prev.length > 0 && ordsRes.data.length > prev.length) {
                 playNotificationSound();
               }
+              try { localStorage.setItem('pyjama_orders_cache', JSON.stringify(ordsRes.data)); } catch(e) {}
               return ordsRes.data;
             }
             return prev;
@@ -212,8 +215,22 @@ export default function App() {
       }
     };
 
+    const handleBeforeUnload = () => {
+      Object.keys(updateDebounceRef.current).forEach(id => {
+        if (updateDebounceRef.current[id]) {
+          clearTimeout(updateDebounceRef.current[id]);
+          const info = pendingUpdatesRef.current[id];
+          if (info?.product) {
+            const sanitized = sanitizeProductForDb(info.product);
+            supabase.from('products').update(sanitized).eq('id', id).then();
+          }
+        }
+      });
+    };
+
     window.addEventListener('focus', handleFocusOrVisible);
     document.addEventListener('visibilitychange', handleFocusOrVisible);
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       supabase.removeChannel(productsSub);
@@ -224,6 +241,7 @@ export default function App() {
       clearInterval(pollInterval);
       window.removeEventListener('focus', handleFocusOrVisible);
       document.removeEventListener('visibilitychange', handleFocusOrVisible);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, []);
 
@@ -299,15 +317,19 @@ export default function App() {
     const now = Date.now();
     pendingUpdatesRef.current[id] = { product: updatedProd, changedVariant, timestamp: now };
 
-    // 1. Instant Optimistic Local Update (0ms lag!)
-    setProducts(prev => prev.map(p => p.id === id ? updatedProd : p));
+    // 1. Instant Optimistic Local Update (0ms lag!) + Immediate LocalStorage Sync (survives instant F5 refresh!)
+    setProducts(prev => {
+      const nextList = prev.map(p => p.id === id ? updatedProd : p);
+      try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
+      return nextList;
+    });
 
     // 2. Clear previous pending DB update for this product
     if (updateDebounceRef.current[id]) {
       clearTimeout(updateDebounceRef.current[id]);
     }
 
-    // 3. Debounce background Supabase sync (300ms) to combine rapid + / - clicks into 1 single DB query
+    // 3. Fast debounce background Supabase sync (120ms) to ensure rapid persistence
     updateDebounceRef.current[id] = setTimeout(async () => {
       try {
         const latestInfo = pendingUpdatesRef.current[id];
@@ -330,7 +352,11 @@ export default function App() {
           // User latest edits ALWAYS have precedence over dbData
           const finalProduct = { ...dbData, ...latestProd };
           pendingUpdatesRef.current[id] = { product: finalProduct, changedVariant: lastChangedVariant, timestamp: Date.now() };
-          setProducts(prev => prev.map(p => p.id === id ? finalProduct : p));
+          setProducts(prev => {
+            const nextList = prev.map(p => p.id === id ? finalProduct : p);
+            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
+            return nextList;
+          });
 
           setTimeout(() => {
             if (pendingUpdatesRef.current[id] && (Date.now() - pendingUpdatesRef.current[id].timestamp >= 5000)) {
@@ -348,7 +374,7 @@ export default function App() {
       } catch (err) {
         console.error('Error in debounced product update:', err);
       }
-    }, 300);
+    }, 120);
   };
 
   const fetchSettings = async () => {
