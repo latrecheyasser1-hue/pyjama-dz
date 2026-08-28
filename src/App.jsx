@@ -26,6 +26,7 @@ const lazyWithRetry = (componentImport) =>
 const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard'));
 const GrosStorefront = lazyWithRetry(() => import('./components/GrosStorefront'));
 const EmballagePOS = lazyWithRetry(() => import('./components/EmballagePOS'));
+const AliOwnerDashboard = lazyWithRetry(() => import('./components/AliOwnerDashboard'));
 
 
 const playNotificationSound = () => {
@@ -96,6 +97,7 @@ export default function App() {
       import('./components/AdminDashboard').catch(() => {});
       import('./components/GrosStorefront').catch(() => {});
       import('./components/EmballagePOS').catch(() => {});
+      import('./components/AliOwnerDashboard').catch(() => {});
     }, 500);
 
     return () => {
@@ -1091,6 +1093,7 @@ export default function App() {
   const isGrosRoute = currentPath.toLowerCase().startsWith('/gros');
   const isCashierRoute = currentPath.toLowerCase().startsWith('/cashier');
   const isEmballageRoute = currentPath.toLowerCase().startsWith('/embalage') || currentPath.toLowerCase().startsWith('/emballage');
+  const isAliRoute = currentPath.toLowerCase().startsWith('/ali');
 
   const enrichedOrders = useMemo(() => {
     if (!orders || !Array.isArray(orders)) return [];
@@ -1155,6 +1158,14 @@ export default function App() {
             settings={settings}
             onUpdateSettings={handleUpdateSettings}
             onSwitchToClient={() => navigateTo('/')}
+          />
+        ) : isAliRoute ? (
+          <AliOwnerDashboard
+            orders={enrichedOrders}
+            products={products}
+            expenses={expenses}
+            settings={settings}
+            onGoToStore={() => navigateTo('/')}
           />
         ) : isCashierRoute ? (
           <CashierPOS 
