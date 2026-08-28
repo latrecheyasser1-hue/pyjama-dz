@@ -673,7 +673,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       colorVariants: updatedVariants
     };
 
-    onUpdateProduct(updatedProduct);
+    onUpdateProduct(updatedProduct, { colorIdx, size, qty: nextQty });
 
     if (delta > 0 && nextQty > 0) {
       triggerNotifyRestock(product.id, product.title, size, nextQty, targetCv?.color || targetCv?.name);
@@ -701,7 +701,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       colorVariants: updatedVariants
     };
 
-    onUpdateProduct(updatedProduct);
+    onUpdateProduct(updatedProduct, { colorIdx, size, qty: nextQty });
 
     if (nextQty > currentQty && nextQty > 0) {
       triggerNotifyRestock(product.id, product.title, size, nextQty, targetCv?.color || targetCv?.name);

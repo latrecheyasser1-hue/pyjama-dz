@@ -280,12 +280,12 @@ export default function App() {
     }
   };
 
-  const handleUpdateProduct = (updatedProd) => {
+  const handleUpdateProduct = (updatedProd, changedVariant) => {
     const { id } = updatedProd;
     if (!id) return;
 
     const now = Date.now();
-    pendingUpdatesRef.current[id] = { product: updatedProd, timestamp: now };
+    pendingUpdatesRef.current[id] = { product: updatedProd, changedVariant, timestamp: now };
 
     // 1. Instant Optimistic Local Update (0ms lag!)
     setProducts(prev => prev.map(p => p.id === id ? updatedProd : p));
@@ -298,7 +298,9 @@ export default function App() {
     // 3. Debounce background Supabase sync (300ms) to combine rapid + / - clicks into 1 single DB query
     updateDebounceRef.current[id] = setTimeout(async () => {
       try {
-        const latestProd = pendingUpdatesRef.current[id]?.product || updatedProd;
+        const latestInfo = pendingUpdatesRef.current[id];
+        const latestProd = latestInfo?.product || updatedProd;
+        const lastChangedVariant = latestInfo?.changedVariant || changedVariant;
         const sanitizedProd = sanitizeProductForDb(latestProd);
         const { data, error } = await supabase.from('products').update(sanitizedProd).eq('id', id).select();
         if (error) {
@@ -314,7 +316,7 @@ export default function App() {
             try { dbData.colorVariants = JSON.parse(dbData.colorVariants); } catch(e) {}
           }
           const finalProduct = { ...latestProd, ...dbData };
-          pendingUpdatesRef.current[id] = { product: finalProduct, timestamp: Date.now() };
+          pendingUpdatesRef.current[id] = { product: finalProduct, changedVariant: lastChangedVariant, timestamp: Date.now() };
           setProducts(prev => prev.map(p => p.id === id ? finalProduct : p));
 
           setTimeout(() => {
@@ -327,7 +329,7 @@ export default function App() {
           fetch('/api/check-low-stock', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ product: finalProduct })
+            body: JSON.stringify({ product: finalProduct, changedVariant: lastChangedVariant })
           }).catch(err => console.error('Low stock check error:', err));
         }
       } catch (err) {

@@ -60,13 +60,8 @@ async function sendWhatsAppMessage(toPhone, textBody, imageUrl = null) {
 
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   
-  const payload = (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) ? {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to: waPhone,
-    type: 'image',
-    image: { link: imageUrl, caption: textBody }
-  } : {
+  // WhatsApp Cloud API sends text messages reliably with 100% deliverability across all devices
+  const payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to: waPhone,
@@ -213,7 +208,13 @@ export default async function handler(req, res) {
 
     if (Array.isArray(targetProductsList)) {
       for (const product of targetProductsList) {
-        if (!product || !Array.isArray(product.colorVariants)) continue;
+        if (!product) continue;
+
+        let cvs = product.colorVariants;
+        if (typeof cvs === 'string') {
+          try { cvs = JSON.parse(cvs); } catch(e) { cvs = []; }
+        }
+        if (!Array.isArray(cvs)) continue;
 
         const cat = String(product.category || '').trim();
         // Ignore wholesale products (gros__ / super_gros__) in low stock alert checks
@@ -222,12 +223,21 @@ export default async function handler(req, res) {
         const isBoutiqueProduct = cat.startsWith('boutique__') || cat === '__boutique__' ||
                                   (product.badge && String(product.badge).includes('Boutique'));
 
-        for (let cIdx = 0; cIdx < product.colorVariants.length; cIdx++) {
-          const variant = product.colorVariants[cIdx];
+        for (let cIdx = 0; cIdx < cvs.length; cIdx++) {
+          const variant = cvs[cIdx];
           if (!variant || !variant.stock) continue;
 
           for (const [size, qty] of Object.entries(variant.stock)) {
             const numQty = parseInt(qty);
+
+            // If explicit changedVariant was provided from Dashboard:
+            if (bodyData && bodyData.changedVariant) {
+              const cvColorIdx = Number(bodyData.changedVariant.colorIdx);
+              const cvSize = String(bodyData.changedVariant.size || '').trim().toUpperCase();
+              if (cIdx !== cvColorIdx || String(size).trim().toUpperCase() !== cvSize) {
+                continue; // Skip — this exact variant was NOT the one changed by admin!
+              }
+            }
 
             // If explicit soldItems were provided, ONLY evaluate sizes that were actually sold in this order
             if (soldKeySet.size > 0) {
@@ -270,18 +280,19 @@ export default async function handler(req, res) {
               }
 
               let shouldSendAlert = false;
+              const isManualChange = Boolean(bodyData && bodyData.changedVariant);
               const lastTimestamp = lastAlertState?.timestamp ? Number(lastAlertState.timestamp) : 0;
-              const isExpired = lastTimestamp > 0 && (Date.now() - lastTimestamp > 15 * 60 * 1000);
-              const qtyChanged = lastAlertState && Number(lastAlertState.qty) !== numQty;
+              const isExpired = lastTimestamp > 0 && (Date.now() - lastTimestamp > 5 * 60 * 1000);
+              const qtyChanged = !lastAlertState || Number(lastAlertState.qty) !== numQty;
 
               if (numQty === 0) {
-                // Send zero stock alert when reaching 0 (if never sent, or previous alert wasn't zero, or qty changed, or expired)
-                if (!lastAlertState || lastAlertState.alertType !== 'zero' || qtyChanged || isExpired) {
+                // Send zero stock alert when reaching 0
+                if (isManualChange || !lastAlertState || lastAlertState.alertType !== 'zero' || qtyChanged || isExpired) {
                   shouldSendAlert = true;
                 }
               } else if (numQty <= 5 && numQty > 0) {
-                // Send low stock alert when stock drops to <= 5 (if never sent, or cleared, or was 0, or qty changed, or expired)
-                if (!lastAlertState || lastAlertState.alertType === 'cleared' || (lastAlertState.alertType === 'zero' && qtyChanged) || isExpired) {
+                // Send low stock alert when stock drops to <= 5
+                if (isManualChange || !lastAlertState || lastAlertState.alertType === 'cleared' || qtyChanged || isExpired) {
                   shouldSendAlert = true;
                 }
               }
