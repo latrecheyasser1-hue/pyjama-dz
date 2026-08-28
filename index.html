@@ -2,9 +2,6 @@
 <html lang="fr" dir="ltr">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     
     <!-- Primary Meta Tags -->
@@ -21,6 +18,18 @@
     <meta name="geo.region" content="DZ">
     <meta name="geo.placename" content="Algeria">
     <meta name="language" content="Arabic, French">
+
+    <!-- Critical Hero Image Preload for Instant First Paint -->
+    <link rel="preload" as="image" href="/hero-autumn.webp" type="image/webp" media="(min-width: 769px)" fetchpriority="high" />
+    <link rel="preload" as="image" href="/hero-autumn-mobile.webp" type="image/webp" media="(max-width: 768px)" fetchpriority="high" />
+
+    <!-- Google Fonts Non-blocking Preload -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" media="print" onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" />
+    </noscript>
 
     <!-- Speed Optimization Preconnects -->
     <link rel="preconnect" href="https://qnbwyblbxtwubmuejwtp.supabase.co" crossorigin />
@@ -83,11 +92,6 @@
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(regs) {
           for (var i = 0; i < regs.length; i++) { regs[i].unregister(); }
-        });
-      }
-      if ('caches' in window) {
-        caches.keys().then(function(keys) {
-          for (var i = 0; i < keys.length; i++) { caches.delete(keys[i]); }
         });
       }
       window.addEventListener('error', function(e) {
