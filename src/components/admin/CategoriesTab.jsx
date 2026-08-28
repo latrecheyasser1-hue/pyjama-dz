@@ -1,43 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { Tag, Plus, Trash2, Edit2, Check, X, ShieldAlert, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Tag, Plus, Trash2, Edit2, Check, X, ShieldAlert, Image as ImageIcon, Upload } from 'lucide-react';
 import { DEFAULT_CATEGORIES } from '../../data/mockData';
 import ConfirmModal from './ConfirmModal';
 import { showToast } from '../../utils/toast';
 
 export default function CategoriesTab({ settings, onUpdateSettings, products = [], setActiveTab }) {
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, targetIndex: null, targetTitle: '' });
+  
   const parseCategories = (catData) => {
-    if (!catData) return DEFAULT_CATEGORIES;
     let parsed = catData;
-    if (typeof catData === 'string') {
+    if (!catData) parsed = DEFAULT_CATEGORIES;
+    else if (typeof catData === 'string') {
       try { parsed = JSON.parse(catData); } catch (e) { parsed = DEFAULT_CATEGORIES; }
     }
-    return Array.isArray(parsed) ? parsed : DEFAULT_CATEGORIES;
+    if (!Array.isArray(parsed)) parsed = DEFAULT_CATEGORIES;
+
+    let list = [...parsed];
+    // Ensure all, hot_sale, and promo are present in the list
+    if (!list.some(c => c.id === 'all')) {
+      list.unshift({ id: 'all', title: 'TOUT VOIR', icon: '', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' });
+    }
+    if (!list.some(c => c.id === 'hot_sale')) {
+      const allIndex = list.findIndex(c => c.id === 'all');
+      list.splice(allIndex + 1, 0, { id: 'hot_sale', title: 'الأكثر مبيعاً (HOT SALE)', icon: '', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&q=80' });
+    }
+    if (!list.some(c => c.id === 'promo')) {
+      list.push({ id: 'promo', title: '% SOLDES', icon: '', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' });
+    }
+    return list;
   };
 
   const [categoriesList, setCategoriesList] = useState(() => parseCategories(settings?.categories));
 
-  // New Category State
+  // New Category State (Direct File Upload Only - No URLs, No Emojis)
   const [newTitle, setNewTitle] = useState('');
   const [newId, setNewId] = useState('');
-  const [newIcon, setNewIcon] = useState('🎀');
-  const [newImage, setNewImage] = useState('https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&q=80');
+  const [newImage, setNewImage] = useState('');
 
   // Editing State
   const [editingIndex, setEditingIndex] = useState(null);
   const [editTitle, setEditTitle] = useState('');
-  const [editIcon, setEditIcon] = useState('');
   const [editImage, setEditImage] = useState('');
-
-  const presetEmojis = ['✨', '👗', '🧸', '👰', '👘', '🧕', '🥿', '👑', '🌸', '🎀', '💖', '🔥', '🛍️', '💄', '🌙'];
-  const presetImages = [
-    { label: 'سلسلة ساتان وردي', url: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' },
-    { label: 'سلسلة حرير ذهبي', url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&q=80' },
-    { label: 'قطن مريح ناعم', url: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=300&q=80' },
-    { label: 'تجهيزات العروس VIP', url: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=300&q=80' },
-    { label: 'عباءات أنيقة', url: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=300&q=80' },
-    { label: 'أحذية خفيفة منزلية', url: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=300&q=80' }
-  ];
 
   const handleTitleChange = (val) => {
     setNewTitle(val);
@@ -54,6 +57,62 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
       .replace(/\s+/g, '-') || 'cat-' + Math.floor(Math.random() * 1000);
   };
 
+  // High-Definition Intelligent Canvas Image Compressor
+  const handleImageFileUpload = (e, isEdit = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('⚠️ يرجى اختيار ملف صورة صالح (JPG, PNG, WebP...)', 'warning');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 800; // Perfect crisp resolution for 1:1 category squares
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // Compress to WebP / JPEG 85% for ultra light size (~60KB) with crystal clear HD sharpness
+        let compressed = canvas.toDataURL('image/webp', 0.85);
+        if (!compressed.startsWith('data:image/webp')) {
+          compressed = canvas.toDataURL('image/jpeg', 0.85);
+        }
+
+        if (isEdit) {
+          setEditImage(compressed);
+        } else {
+          setNewImage(compressed);
+        }
+        showToast('✅ تم ضغط الصورة وحفظها بدقة عالية HD وبحجم خفيف جداً!', 'success');
+      };
+      img.src = event.target?.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleAddCategory = (e) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
@@ -63,8 +122,8 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     const newCategory = {
       id: finalId,
       title: newTitle.trim(),
-      icon: newIcon || '✨',
-      image: newImage || presetImages[0].url
+      icon: '',
+      image: newImage || ''
     };
 
     // Place before 'promo' if 'promo' is at the end, or just append
@@ -82,8 +141,8 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     // Reset Form
     setNewTitle('');
     setNewId('');
-    setNewIcon('🎀');
-    showToast(`✅ تم إضافة الصنف الجديد "${newCategory.title}" بنجاح!`, 'success');
+    setNewImage('');
+    showToast(`✅ تم إضافة القسم الجديد "${newCategory.title}" بنجاح!`, 'success');
   };
 
   const handleDeleteCategory = (index) => {
@@ -91,6 +150,10 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     if (!target) return;
     if (target.id === 'all') {
       showToast("⚠️ لا يمكن حذف صنف العرض الشامل (TOUT VOIR) لأنه الصنف الرئيسي للمتجر.", 'warning');
+      return;
+    }
+    if (target.id === 'hot_sale') {
+      showToast("⚠️ لا يمكن حذف صنف الأكثر مبيعاً (HOT SALE) لأنه صنف ذكي يعمل تلقائياً مع تحليلات المبيعات.", 'warning');
       return;
     }
     if (target.id === 'promo') {
@@ -119,8 +182,7 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     const target = categoriesList[index];
     setEditingIndex(index);
     setEditTitle(target.title);
-    setEditIcon(target.icon || '✨');
-    setEditImage(target.image || presetImages[0].url);
+    setEditImage(target.image || '');
   };
 
   const saveEditing = (index) => {
@@ -129,12 +191,13 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     updatedList[index] = {
       ...updatedList[index],
       title: editTitle.trim(),
-      icon: editIcon || '✨',
-      image: editImage || presetImages[0].url
+      icon: '',
+      image: editImage || ''
     };
     setCategoriesList(updatedList);
     onUpdateSettings({ categories: updatedList });
     setEditingIndex(null);
+    showToast(`✅ تم تحديث بيانات وصورة القسم بنجاح!`, 'success');
   };
 
   return (
@@ -175,41 +238,92 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
               <span style={{ fontSize: '0.75rem', color: '#888', marginTop: '4px' }}>يستخدم داخلياً لربط المنتجات بهذا القسم</span>
             </div>
 
+            {/* Category Photo: File Upload Only */}
             <div className="form-group">
-              <label className="form-label">أيقونة القسم (Emoji) *</label>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-                <input
-                  type="text"
-                  required
-                  value={newIcon}
-                  onChange={(e) => setNewIcon(e.target.value)}
-                  className="form-input"
-                  style={{ width: '70px', textAlign: 'center', fontSize: '1.5rem', padding: '4px' }}
-                />
-                <span style={{ fontSize: '0.82rem', color: '#666' }}>اختر إيموجي من الأسفل أو اكتب إيموجي مخصص:</span>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '10px', background: '#F9F8F6', borderRadius: '10px', border: '1px solid #EAE3DC' }}>
-                {presetEmojis.map(emoji => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => setNewIcon(emoji)}
-                    style={{
-                      border: newIcon === emoji ? '2px solid var(--rose-primary)' : '1px solid #DDD',
-                      background: newIcon === emoji ? 'var(--rose-light)' : 'white',
-                      borderRadius: '8px',
-                      width: '36px',
-                      height: '36px',
-                      fontSize: '1.3rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    {emoji}
-                  </button>
-                ))}
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ImageIcon size={16} color="var(--burgundy-dark)" /> صورة القسم (Photo de la catégorie)
+              </label>
+
+              {/* Live Preview & Direct Upload Button */}
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                <div style={{
+                  width: '84px',
+                  height: '84px',
+                  borderRadius: '14px',
+                  border: newImage ? '2px solid var(--burgundy-dark)' : '2px dashed #CBD5E1',
+                  overflow: 'hidden',
+                  background: '#F8FAFC',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                }}>
+                  {newImage ? (
+                    <>
+                      <img src={newImage} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button
+                        type="button"
+                        onClick={() => setNewImage('')}
+                        style={{
+                          position: 'absolute',
+                          top: '4px',
+                          right: '4px',
+                          background: '#E11D48',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '20px',
+                          height: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }}
+                        title="حذف الصورة"
+                      >
+                        ✕
+                      </button>
+                    </>
+                  ) : (
+                    <ImageIcon size={32} color="#94A3B8" />
+                  )}
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <label style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    background: 'linear-gradient(135deg, #FFF5F7 0%, #FFE4E6 100%)',
+                    border: '1.5px solid #FDA4AF',
+                    color: 'var(--burgundy-dark)',
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    fontSize: '0.86rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    width: '100%',
+                    boxShadow: '0 2px 6px rgba(225, 29, 72, 0.08)',
+                    transition: 'all 0.2s ease',
+                    textAlign: 'center'
+                  }}>
+                    <Upload size={18} /> {newImage ? 'تغيير صورة القسم' : 'رفع صورة من الهاتف أو الحاسوب'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageFileUpload(e, false)}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                  <span style={{ fontSize: '0.72rem', color: '#64748B', display: 'block', marginTop: '6px', lineHeight: 1.3 }}>
+                    ✨ يتم تقليل حجم الصورة وضغطها بدقة HD للحفاظ على سرعة المتجر
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -239,19 +353,21 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', borderBottom: '1px solid #EAE3DC', paddingBottom: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Tag size={22} style={{ color: 'var(--burgundy-dark)' }} />
-              <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--burgundy-dark)' }}>قائمة الأقسام الحالية ({categoriesList.length})</h3>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--burgundy-dark)' }}>قائمة الأقسام الحالية ({categoriesList.filter(c => c.id !== 'all').length})</h3>
             </div>
             <span style={{ fontSize: '0.85rem', color: '#666' }}>يتم حفظ التعديلات تلقائياً في المتجر</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {categoriesList.map((cat, index) => {
-              const isAll = cat.id === 'all';
+              if (cat.id === 'all') return null;
+              const isHotSale = cat.id === 'hot_sale';
               const isPromo = cat.id === 'promo';
-              const isProtected = isAll || isPromo;
+              const isProtected = isHotSale || isPromo;
               const isEditing = editingIndex === index;
-              const productCount = isAll
-                ? products.length
+              
+              const productCount = isHotSale
+                ? products.filter(p => p.isHotSale || p.badge === 'HOT SALE' || (p.totalSales && p.totalSales > 0)).length || products.length
                 : isPromo
                   ? products.filter(p => p.oldPrice && Number(p.oldPrice) > Number(p.price || 0)).length
                   : products.filter(p => p.category === cat.id).length;
@@ -263,7 +379,7 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '16px',
+                    padding: '14px 16px',
                     borderRadius: '12px',
                     background: isProtected ? '#FDFBF7' : 'white',
                     border: isProtected ? '2px solid #EAE3DC' : '1px solid #EAE3DC',
@@ -274,22 +390,59 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
                   }}
                 >
                   {isEditing ? (
-                    /* In-Place Edit Row */
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, flexWrap: 'wrap' }}>
-                      <input
-                        type="text"
-                        value={editIcon}
-                        onChange={(e) => setEditIcon(e.target.value)}
-                        className="form-input"
-                        style={{ width: '60px', textAlign: 'center', fontSize: '1.3rem', padding: '6px' }}
-                      />
-                      <input
-                        type="text"
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        className="form-input"
-                        style={{ flex: 1, minWidth: '180px', fontWeight: 700 }}
-                      />
+                    /* In-Place Edit Row: Upload Only */
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, flexWrap: 'wrap' }}>
+                      <div style={{
+                        width: '54px',
+                        height: '54px',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        border: '1.5px solid #CBD5E1',
+                        flexShrink: 0,
+                        background: '#F8FAFC',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        {editImage ? (
+                          <img src={editImage} alt="Edit" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <ImageIcon size={22} color="#94A3B8" />
+                        )}
+                      </div>
+
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '200px' }}>
+                        <input
+                          type="text"
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          placeholder="إسم القسم..."
+                          className="form-input"
+                          style={{ fontWeight: 700 }}
+                        />
+                        <label style={{
+                          background: '#F1F5F9',
+                          border: '1px solid #CBD5E1',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          width: 'fit-content'
+                        }}>
+                          <Upload size={14} /> {editImage ? 'تغيير صورة القسم' : 'رفع صورة من الجهاز'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleImageFileUpload(e, true)}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                      </div>
+
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button
                           onClick={() => saveEditing(index)}
@@ -312,33 +465,44 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
                   ) : (
                     /* Display Row */
                     <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
                         <div style={{
-                          width: '56px',
-                          height: '56px',
+                          width: '54px',
+                          height: '54px',
                           borderRadius: '12px',
-                          background: 'var(--rose-light)',
+                          background: '#F8FAFC',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: '1.8rem',
                           flexShrink: 0,
-                          border: '1px solid #E8A598',
+                          border: '1.5px solid #E2E8F0',
                           overflow: 'hidden',
                           position: 'relative'
                         }}>
-                          {cat.icon || '✨'}
+                          {cat.image ? (
+                            <img 
+                              src={cat.image} 
+                              alt={cat.title} 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.parentElement.innerHTML = '<span style="color:#94A3B8">🏷️</span>';
+                              }}
+                            />
+                          ) : (
+                            <ImageIcon size={24} color="#800020" />
+                          )}
                         </div>
 
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--burgundy-dark)' }}>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--burgundy-dark)' }}>
                               {cat.title}
                             </span>
                             <span style={{
                               padding: '2px 8px',
-                              background: isPromo ? '#FFF3E0' : '#F0EBE6',
-                              color: isPromo ? '#E65100' : '#555',
+                              background: isPromo ? '#FFF3E0' : isHotSale ? '#FEE2E2' : '#F0EBE6',
+                              color: isPromo ? '#E65100' : isHotSale ? '#B91C1C' : '#555',
                               borderRadius: '6px',
                               fontSize: '0.75rem',
                               fontWeight: 700
@@ -353,18 +517,18 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
                               fontSize: '0.75rem',
                               fontWeight: 700
                             }}>
-                              📦 {productCount} منتج
+                              {productCount} منتج
                             </span>
                           </div>
 
-                          {isAll && (
-                            <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <ShieldAlert size={14} color="#C53030" /> يعرض جميع المنتجات المتوفرة في المتجر بشكل افتراضي
+                          {isHotSale && (
+                            <div style={{ fontSize: '0.8rem', color: '#B91C1C', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                              🔥 صنف الأكثر مبيعاً (Hot Sale): يعرض تلقائياً المنتجات الأكثر طلباً في المتجر
                             </div>
                           )}
                           {isPromo && (
                             <div style={{ fontSize: '0.8rem', color: '#E65100', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
-                              🔥 صنف التخفيضات الدائم: يعرض تلقائياً أي منتج تم إدخال سعر قديم وسعر جديد له في المخزون!
+                              صنف التخفيضات الدائم: يعرض تلقائياً أي منتج تم إدخال سعر قديم وسعر جديد له في المخزون
                             </div>
                           )}
                           {!isProtected && (
@@ -375,53 +539,50 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        {!isProtected && (
-                          <>
-                            <button
-                              onClick={() => startEditing(index)}
-                              className="btn"
-                              style={{
-                                background: '#F0EBE6',
-                                color: 'var(--burgundy-dark)',
-                                padding: '8px 12px',
-                                borderRadius: '8px',
-                                border: 'none',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                cursor: 'pointer',
-                                fontWeight: 600
-                              }}
-                              title="تعديل إسم وأيقونة القسم"
-                            >
-                              <Edit2 size={16} /> تعديل
-                            </button>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button
+                          onClick={() => startEditing(index)}
+                          className="btn"
+                          style={{
+                            background: '#F0EBE6',
+                            color: 'var(--burgundy-dark)',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 700
+                          }}
+                          title="تعديل إسم وصورة القسم"
+                        >
+                          <Edit2 size={16} /> تعديل
+                        </button>
 
-                            <button
-                              onClick={() => handleDeleteCategory(index)}
-                              className="btn"
-                              style={{
-                                background: '#FFF5F5',
-                                color: '#C53030',
-                                padding: '8px 12px',
-                                borderRadius: '8px',
-                                border: '1px solid #FEB2B2',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                cursor: 'pointer',
-                                fontWeight: 600
-                              }}
-                              title="حذف القسم"
-                            >
-                              <Trash2 size={16} /> حذف
-                            </button>
-                          </>
-                        )}
-                        {isProtected && (
-                          <span style={{ fontSize: '0.8rem', color: '#888', fontStyle: 'italic', padding: '8px' }}>
-                            🔒 أساسي للنظام
+                        {!isProtected ? (
+                          <button
+                            onClick={() => handleDeleteCategory(index)}
+                            className="btn"
+                            style={{
+                              background: '#FFF5F5',
+                              color: '#C53030',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid #FEB2B2',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              cursor: 'pointer',
+                              fontWeight: 600
+                            }}
+                            title="حذف القسم"
+                          >
+                            <Trash2 size={16} /> حذف
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: '#888', fontStyle: 'italic', padding: '6px 10px', background: '#F5F2EC', borderRadius: '6px' }}>
+                            🔒 صنف رئيسي
                           </span>
                         )}
                       </div>

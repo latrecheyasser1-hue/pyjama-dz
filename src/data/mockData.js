@@ -1,8 +1,9 @@
 export const DEFAULT_CATEGORIES = [
   { id: 'all', title: 'TOUT VOIR', icon: '', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' },
-  { id: 'pyjamas-95', title: 'pyjamas', icon: '🌸', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' },
-  { id: 'shoes-3', title: 'shoes', icon: '🥿', image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=300&q=80' },
-  { id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' }
+  { id: 'hot_sale', title: 'الأكثر مبيعاً (HOT SALE)', icon: '', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&q=80' },
+  { id: 'pyjamas-95', title: 'pyjamas', icon: '', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' },
+  { id: 'shoes-3', title: 'shoes', icon: '', image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=300&q=80' },
+  { id: 'promo', title: '% SOLDES', icon: '', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' }
 ];
 
 export const INITIAL_SUPPLIERS = [

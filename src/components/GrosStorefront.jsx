@@ -519,7 +519,7 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
                   onClick={() => setSelectedCategory(cat.id)} 
                   className={`gros-cat-btn ${selectedCategory === cat.id ? 'active' : ''}`}
                 >
-                  {cat.icon || '✨'} {cat.title}
+                  {cat.title}
                 </button>
               ))}
             </div>

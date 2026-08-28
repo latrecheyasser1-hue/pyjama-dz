@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Pyjama DZ - Catalog</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#1b1c1c",
+                        "accent-gold": "#E5B1A1",
+                        "tertiary-container": "#00472f",
+                        "primary": "#570013",
+                        "tertiary-fixed": "#6ffbbe",
+                        "background-cream": "#FFFDF9",
+                        "surface-variant": "#e4e2e1",
+                        "background": "#fcf9f8",
+                        "surface": "#fcf9f8",
+                        "outline": "#8c7071",
+                        "inverse-surface": "#303030",
+                        "secondary-fixed-dim": "#efbbaa",
+                        "surface-soft": "#F9FAFB",
+                        "on-primary-fixed": "#40000b",
+                        "inverse-primary": "#ffb3b5",
+                        "primary-fixed-dim": "#ffb3b5",
+                        "surface-dim": "#dcd9d9",
+                        "emerald-cta": "#10B981",
+                        "surface-container": "#f0eded",
+                        "on-tertiary-container": "#20bf86",
+                        "on-primary-fixed-variant": "#8e0f28",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "tertiary": "#002e1d",
+                        "primary-fixed": "#ffdada",
+                        "ink-charcoal": "#242424",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#584141",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f6f3f2",
+                        "surface-container-high": "#eae7e7",
+                        "secondary-fixed": "#ffdbd0",
+                        "on-tertiary-fixed": "#002113",
+                        "secondary": "#7d5448",
+                        "surface-tint": "#af2b3e",
+                        "on-primary-container": "#ff828a",
+                        "on-error": "#ffffff",
+                        "inverse-on-surface": "#f3f0ef",
+                        "secondary-container": "#ffc8b8",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e4e2e1",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed": "#30130a",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "on-secondary-fixed-variant": "#633d31",
+                        "surface-bright": "#fcf9f8",
+                        "primary-container": "#800020",
+                        "on-background": "#1b1c1c",
+                        "on-error-container": "#93000a",
+                        "outline-variant": "#e0bfbf",
+                        "on-secondary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "on-secondary-container": "#7a5245"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "unit": "4px",
+                        "component-gap": "12px",
+                        "margin-desktop": "64px",
+                        "section-stack": "48px",
+                        "margin-mobile": "20px",
+                        "safe": "env(safe-area-inset-bottom)"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Cairo"],
+                        "headline-sm": ["Cairo"],
+                        "headline-lg": ["Cairo"],
+                        "body-md": ["Cairo"],
+                        "body-lg": ["Cairo"],
+                        "label-lg": ["Cairo"],
+                        "headline-lg-mobile": ["Cairo"],
+                        "display-lg": ["Cairo"],
+                        "headline-md": ["Cairo"],
+                        "label-md": ["Cairo"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Subtle scrollbar hiding for clean UI */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-cream text-on-surface antialiased font-body-md overflow-x-hidden pt-16 pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-background-cream/80 backdrop-blur-md shadow-sm dark:bg-background/80 dark:shadow-none flex flex-row-reverse justify-between items-center px-margin-mobile h-16">
+<button class="w-10 h-10 flex items-center justify-center text-primary dark:text-primary-fixed-dim hover:opacity-80 transition-opacity active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="shopping_bag">shopping_bag</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary dark:text-primary-fixed-dim tracking-tight">Pyjama DZ</h1>
+<button class="w-10 h-10 flex items-center justify-center text-primary dark:text-primary-fixed-dim hover:opacity-80 transition-opacity active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</header>
+<main class="w-full max-w-7xl mx-auto px-margin-mobile">
+<!-- Category Grid Section -->
+<section class="mt-section-stack md:px-margin-desktop">
+<h2 class="font-headline-md text-headline-md text-ink-charcoal mb-component-gap">الأقسام والتشكيلات</h2>
+<div class="grid grid-cols-3 gap-gutter">
+<!-- Category 1 (Active) -->
+<div class="flex flex-col items-center group cursor-pointer">
+<div class="w-full aspect-square bg-surface-soft rounded-lg overflow-hidden mb-unit border-2 border-primary">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A high-end flat lay product photograph of soft cotton pajamas folded neatly on a luxurious soft cream textured surface, glowing warm light, deep burgundy accents in the background to convey elegance and comfort." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvockbWX5MhlrXkim4sPEZbtdS_D-7TYCFNh5CZtRmgnj_q4F4cc8SgVNldGZYWUaxLKyxzcyrv7SsLrIkTRVHHVFzRA9JU6KuKrkaMVwV1BaLjwCI_kXmRSSQCgBJxar3xWFncwFXxoysLoNepph_fIeISegFPr2OnmzNTE6KnDm7w1WrnITeMcT75YOLsNz2UA9pfaqGE1PjEfEiYi97JVjJ43M68yW3N8vyAOOSQqpuIAE54QXn6dNwqCUvkfG9T23DxtiC_C4"/>
+</div>
+<span class="font-label-md text-label-md text-primary font-bold text-center">بيجامات قطن</span>
+</div>
+<!-- Category 2 -->
+<div class="flex flex-col items-center group cursor-pointer">
+<div class="w-full aspect-square bg-surface-soft rounded-lg overflow-hidden mb-unit opacity-90 group-hover:opacity-100 transition-opacity">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A luxurious close-up shot of shimmering silk satin pajamas in rose gold, draped elegantly over a velvet ottoman in a high-key bright minimalist room, soft natural lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuADr8MhOBJkfb8rpilWqNS0_DlxJyrN0rWUYQip9uRKkndsehyFE1MVUbG-3ujYUt8KC3vHxQ9vP6TRAPzT9q0jNw7CHGiDfS3fFtMTDdwCiKKVWpAWdV7g3nZO_VQGBWwiatzBByv0pBDeyt3LEFYXYvad-GRovRFHyfZ-lRB294nQvK0P2iavJzdnyPqFSMoxGTJskK26RJqhYGTunnOyes7H8jnosHc2q6t8eMB0vOf5CQG2-Ez4c7lLlBmnW9SlgCAQe1GHVUk"/>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant text-center">بيجامات ساتان حرير</span>
+</div>
+<!-- Category 3 -->
+<div class="flex flex-col items-center group cursor-pointer">
+<div class="w-full aspect-square bg-surface-soft rounded-lg overflow-hidden mb-unit opacity-90 group-hover:opacity-100 transition-opacity">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A delicate bridal robe made of sheer white lace and silk, hanging in a softly lit, cream-colored luxury dressing room. Emerald green plant leaves slightly blurring in the foreground." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqBHVj5i4uX8vMZw6caZW929IKBq2ixEkDMQuQ6RwHt6brUWSYE_tnLJqXJSHC0AJ7MH_WlIh1fsacs0x2l46TuhyeHbl_LaroR9WWG5a9QiW9GCQceKrEoWPrEAUnAP284es3uoR-LFLkdwDo-DZT3nMk6cdQaps5_VbTaqBYeUWgW0eqhy6cKj5DlRn--9dqHQU-lxhyXtDfZihyoCFPK4QaqquqB5Z_pTE8KW1ECQcK6EPEItCYmQuJBlShg1Tw_WuWJVGSJDo"/>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant text-center">أرواب عرايس</span>
+</div>
+<!-- Category 4 -->
+<div class="flex flex-col items-center group cursor-pointer">
+<div class="w-full aspect-square bg-surface-soft rounded-lg overflow-hidden mb-unit opacity-90 group-hover:opacity-100 transition-opacity">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Warm, thick winter pajama set neatly arranged on a plush white rug, cozy aesthetic, warm lighting casting soft shadows, luxurious thick texture in deep charcoal and burgundy hues." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6Zd9s6Bc6si-IM6Sp1Fee35MkXAZkXJ_TCNKSxCfpURCnIs8v5I1fsPGFPwOaF7U4kczMxDLq3s5BQhQqbypV82FuHxM2blUYutsYN8Cqw9EhzJqkkdr2GYVtXJETVqH8hb8MYC86Fv8zgMKY4yGh2vKuMxaGKb4XC2rCms3CmJcqRc-yVd6I3FJRKbrCC6E-i0VmwGGV1NbT4On10at6nGw19wfbSpWQsJb4ig3Pz-NOclxFMI_nToohW4CcjG6gChO7Jj9RezY"/>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant text-center">أطقم شتوية دافئة</span>
+</div>
+<!-- Category 5 -->
+<div class="flex flex-col items-center group cursor-pointer">
+<div class="w-full aspect-square bg-surface-soft rounded-lg overflow-hidden mb-unit opacity-90 group-hover:opacity-100 transition-opacity">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Light, breezy summer shorts set in soft pastel colors, laid out against a bright cream background with a hint of warm sunlight and sharp, crisp shadows, evoking high-end resort wear." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAAsEaVfvb5vTPYZGwPvlEldqCQE-trP8mfh9zLPK0-nsgPgQdtHS9sPq0KKwsU7eKYkp2D0x6si0778rmdaiCBOg9rG0RbJ3WFboB0KAif2YvkywXxigw6a_j-YACYdwsp46_2IbqumxF-2UucsKzU1Jv6gD6v9jvLlVTZsldiXl3c_X1uB163OdLF6sHeyO3YHIRD-wEAlBIJMqxz0EC933omQi2bhuxJNzdX_sYrg65ClvxYFNe_MYUoUaUZ5sR5gFG-KQMEVBY"/>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant text-center">شورتات صيفية</span>
+</div>
+<!-- Category 6 -->
+<div class="flex flex-col items-center group cursor-pointer">
+<div class="w-full aspect-square bg-surface-tint rounded-lg overflow-hidden mb-unit flex items-center justify-center bg-gradient-to-br from-primary-container to-primary">
+<span class="material-symbols-outlined text-white text-3xl" data-icon="local_offer">local_offer</span>
+</div>
+<span class="font-label-md text-label-md text-primary-container text-center font-bold">عروض خاصة</span>
+</div>
+</div>
+</section>
+<!-- Product Grid Section -->
+<section class="mt-section-stack md:px-margin-desktop">
+<div class="flex items-end justify-between mb-component-gap">
+<div>
+<h2 class="font-headline-sm text-headline-sm text-ink-charcoal">جميع الموديلات الحصرية</h2>
+<p class="font-body-sm text-body-sm text-outline mt-1">12 من أصل 36 موديل</p>
+</div>
+<button class="font-label-md text-label-md text-accent-gold hover:text-primary transition-colors flex items-center gap-1 group">
+                    عرض الكل
+                    <span class="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform" data-icon="arrow_back">arrow_back</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-gutter md:gap-6">
+<!-- Product 1 -->
+<div class="flex flex-col group">
+<div class="w-full aspect-[3/4] bg-surface-soft rounded-lg overflow-hidden mb-3 relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Elegant lifestyle shot of a model wearing a luxurious deep burgundy cotton pajama set, soft studio lighting highlighting the high-quality fabric, set against a warm minimalist cream backdrop." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6x8aaaIPlNh7DqcYnNakUW4KkfidzaEnujSU5TZdWlAXoxSirFoiJTxRZe7chOReCMz8kYpFBCYIdPJRm0yxcKQ0FsH8ya9fKPrgEhwrAu8oywVlPr_-THwUPzug-8pIAYbzz_Y0HXrTwPaXwnMnZnceY1xMCTezv8WdhKn6EJU5W5P_DjDEpkkMjjFs5z1FZ6vSuSxR88NQ3j3xoIPFXYWpoGkBh4KMr58wG3ZLpxfiyj0VUCJ9IF6LmeIA_V-3YOnYpQoJaI9s"/>
+<button class="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/50 backdrop-blur-md flex items-center justify-center text-primary hover:bg-white transition-colors shadow-sm">
+<span class="material-symbols-outlined text-lg" data-icon="favorite_border">favorite_border</span>
+</button>
+<div class="absolute bottom-2 right-2 bg-background-cream/90 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-bold text-emerald-cta">متوفر</div>
+</div>
+<h3 class="font-body-md text-body-md text-ink-charcoal line-clamp-1">طقم بيجامة قطن فاخر - عنابي</h3>
+<div class="flex items-center gap-2 mt-1 mb-2">
+<span class="font-headline-sm text-headline-sm text-primary">4,800 دج</span>
+<span class="font-body-sm text-body-sm text-outline line-through">6,500 دج</span>
+</div>
+<button class="w-full py-2 bg-primary-container text-white font-label-lg text-label-lg rounded-lg hover:bg-primary transition-colors shadow-[0_4px_24px_rgba(36,36,36,0.04)] active:scale-[0.98]">
+                        أطلبي الآن
+                    </button>
+</div>
+<!-- Product 2 -->
+<div class="flex flex-col group">
+<div class="w-full aspect-[3/4] bg-surface-soft rounded-lg overflow-hidden mb-3 relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="High-end editorial photo of a plush cream winter pajama set, soft fuzzy texture detailed closely under warm, inviting directional light, draped elegantly like a piece of art." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPcOSOkTyCUawhzrC_PGsM4P7EMwzm6gnVD_4ue-NUQ6O7Hbje8tcXzgcglf-f9svhQL5CCzkrW4Lj0hQMnSPEKRh-xWhIONffE4WDe1Qba7nImWWp-bOfM-5eBLODJIyPxdXbLgADrK5lXZqryo02FCAjDhkdQgTRLvWZ8yrAKq7kRNI7A1VXoOdYlY8S1sB1AooTc4hFPAek1ikjHScpw_1IoiVRy3Px45n3moz5nFDkVEspPk5nywmEwdPO1RJ84e4Y6-pwskE"/>
+<button class="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/50 backdrop-blur-md flex items-center justify-center text-primary hover:bg-white transition-colors shadow-sm">
+<span class="material-symbols-outlined text-lg" data-icon="favorite_border">favorite_border</span>
+</button>
+</div>
+<h3 class="font-body-md text-body-md text-ink-charcoal line-clamp-1">طقم شتوي مخملي ناعم</h3>
+<div class="flex items-center gap-2 mt-1 mb-2">
+<span class="font-headline-sm text-headline-sm text-primary">5,200 دج</span>
+</div>
+<button class="w-full py-2 bg-primary-container text-white font-label-lg text-label-lg rounded-lg hover:bg-primary transition-colors shadow-[0_4px_24px_rgba(36,36,36,0.04)] active:scale-[0.98]">
+                        أطلبي الآن
+                    </button>
+</div>
+<!-- Product 3 -->
+<div class="flex flex-col group">
+<div class="w-full aspect-[3/4] bg-surface-soft rounded-lg overflow-hidden mb-3 relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Beautifully styled photograph of rose gold satin sleepwear shorts and camisole resting on crisp white bedsheets, morning sunlight streaming in, casting long elegant shadows, luxury lifestyle aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAbDvNz4mvODE-pA18MY0WJ22eIXAA9DkWixyVXLH97QZnEV8uKCtPgRDiiBZj7Tlm_sV6s7AYWiq7pdulMMzvvTJ03MRNmG-oxR0rJmj5eDXhYzowm6u65d93Piv153d4WBBXGxPLy-BGUxYO_2TBgEMCgwJ03kB4UqMbUrC-5Osc3WKRnsbhZ4YyRFLUrSC8IEE6VU1iejR94zmL1_RWC9gfvRoqdC7s_zyBO0bv5e2UtENZBsfUNBMMaVHVWmZ_rCpHVAAo2744"/>
+<button class="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/50 backdrop-blur-md flex items-center justify-center text-primary hover:bg-white transition-colors shadow-sm">
+<span class="material-symbols-outlined text-lg filled" data-icon="favorite">favorite</span>
+</button>
+<div class="absolute bottom-2 right-2 bg-background-cream/90 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-bold text-accent-gold">جديد</div>
+</div>
+<h3 class="font-body-md text-body-md text-ink-charcoal line-clamp-1">شورت حرير ناعم - روز جولد</h3>
+<div class="flex items-center gap-2 mt-1 mb-2">
+<span class="font-headline-sm text-headline-sm text-primary">3,500 دج</span>
+</div>
+<button class="w-full py-2 bg-primary-container text-white font-label-lg text-label-lg rounded-lg hover:bg-primary transition-colors shadow-[0_4px_24px_rgba(36,36,36,0.04)] active:scale-[0.98]">
+                        أطلبي الآن
+                    </button>
+</div>
+<!-- Product 4 -->
+<div class="flex flex-col group">
+<div class="w-full aspect-[3/4] bg-surface-soft rounded-lg overflow-hidden mb-3 relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Sophisticated product shot of a two-piece ribbed cotton pajama set in deep charcoal gray, hanging gracefully on a wooden hanger against a soft cream wall, minimalist luxury interior design context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9-RmkJn_68fs07UUSZ2v70R5Fz_kj4UevOQGLzPjL2FSL5sTsmo4MSPnmZ25trX6Fsuds6bbGci98eO3KRTU0pwm0U8UglmjSA7fAy27rMxAKwQ26ZqnS4d-4BSwlkYuIUmYFvu4P5AcUNw1f9W2oUkSftvYPHRDONwQzBU-5_LP5Nx0bJSQ7JWjB9XjlGn_tMJoWGUkeBC5zDK-V4tvGhuAxVtj_txWvWi0KZrKSaEv6-gA2FKj78PnhXWJIkVpPMqpl8aInioc"/>
+<button class="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/50 backdrop-blur-md flex items-center justify-center text-primary hover:bg-white transition-colors shadow-sm">
+<span class="material-symbols-outlined text-lg" data-icon="favorite_border">favorite_border</span>
+</button>
+</div>
+<h3 class="font-body-md text-body-md text-ink-charcoal line-clamp-1">بيجامة قطن مضلع - رمادي داكن</h3>
+<div class="flex items-center gap-2 mt-1 mb-2">
+<span class="font-headline-sm text-headline-sm text-primary">4,100 دج</span>
+<span class="font-body-sm text-body-sm text-outline line-through">4,900 دج</span>
+</div>
+<button class="w-full py-2 bg-primary-container text-white font-label-lg text-label-lg rounded-lg hover:bg-primary transition-colors shadow-[0_4px_24px_rgba(36,36,36,0.04)] active:scale-[0.98]">
+                        أطلبي الآن
+                    </button>
+</div>
+</div>
+<!-- Loading More Section -->
+<div class="mt-section-stack text-center">
+<p class="font-body-sm text-body-sm text-outline mb-4">تم تحميل 12 من أصل 36 منتج</p>
+<div class="w-full h-1 bg-surface-variant rounded-full mb-6 overflow-hidden">
+<div class="h-full bg-accent-gold w-1/3 rounded-full"></div>
+</div>
+<button class="w-full md:w-auto md:px-12 py-3 border border-accent-gold text-primary font-label-lg text-label-lg rounded-lg hover:bg-surface-soft transition-colors active:scale-[0.98]">
+                    عرض المزيد من الموديلات
+                </button>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex flex-row-reverse justify-around items-center py-unit px-margin-mobile pb-safe bg-background-cream/90 backdrop-blur-xl shadow-[0_-4px_24px_rgba(36,36,36,0.04)] z-50 rounded-t-full h-16">
+<!-- Active Tab: Categories (since it's a catalog/categories page) -->
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim hover:text-primary transition-colors active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined filled" data-icon="grid_view">grid_view</span>
+<span class="font-label-md text-label-md mt-1">الفئات</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim hover:text-primary transition-colors active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-md text-label-md mt-1">الرئيسية</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim hover:text-primary transition-colors active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+<span class="font-label-md text-label-md mt-1">المفضلة</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim hover:text-primary transition-colors active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-md text-label-md mt-1">حسابي</span>
+</a>
+</nav>
+</body></html>

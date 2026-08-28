@@ -12,6 +12,7 @@ import { Helmet } from 'react-helmet-async';
 import DeliveryTariffsModal from './DeliveryTariffsModal';
 import CustomerAccountPage from './CustomerAccountPage';
 import CustomerDashboardPage from './CustomerDashboardPage';
+import ProductReviewsSection from './ProductReviewsSection';
 import { getCurrentCustomer } from '../services/customerService';
 const getProductDisplayCategory = (prodCategory, categoriesList) => {
   if (!Array.isArray(categoriesList)) return prodCategory || 'Pyjama DZ';
@@ -566,7 +567,15 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
               <h1 className="mazyoud-pdp-title" style={{ margin: 0 }}>{product.title}</h1>
 
               {/* Golden Stars Rating */}
-              <div className="mazyoud-pdp-rating" style={{ margin: 0, marginTop: '4px' }}>
+              <div 
+                className="mazyoud-pdp-rating" 
+                style={{ margin: 0, marginTop: '4px', cursor: 'pointer' }}
+                onClick={() => {
+                  const el = document.querySelector('.product-reviews-container');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                title="اضغط للانتقال إلى تقييمات وآراء الزبائن"
+              >
                 <div className="stars">
                   <Star size={16} fill="#F59E0B" color="#F59E0B" />
                   <Star size={16} fill="#F59E0B" color="#F59E0B" />
@@ -574,7 +583,9 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                   <Star size={16} fill="#F59E0B" color="#F59E0B" />
                   <Star size={16} fill="#F59E0B" color="#F59E0B" />
                 </div>
-                <span className="rating-text">4.8 / 5 (زبائن حقيقيون)</span>
+                <span className="rating-text" style={{ textDecoration: 'underline', textUnderlineOffset: '3px' }}>
+                  4.9 / 5 (تقييمات وآراء الزبائن ⭐)
+                </span>
               </div>
             </div>
 
@@ -975,6 +986,9 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
           </div>
         </div>
       )}
+
+      {/* Product Ratings & Customer Reviews Section (آراء وتقييمات الزبائن) */}
+      <ProductReviewsSection product={product} />
     </div>
   );
 }
@@ -1071,16 +1085,20 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
     return list.map(c => {
       if (c.id === 'all') {
-        return { ...c, title: 'TOUT VOIR', icon: '' };
+        return { ...c, title: c.title || 'TOUT VOIR', icon: '' };
       }
       if (c.id === 'hot_sale') {
-        return { ...c, title: 'الأكثر مبيعاً (HOT SALE)', icon: '' };
+        return { ...c, title: c.title || 'الأكثر مبيعاً (HOT SALE)', icon: '', image: c.image || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&q=80' };
       }
-      return c;
+      if (c.id === 'promo') {
+        return { ...c, title: c.title || '% SOLDES', icon: '', image: c.image || 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' };
+      }
+      return { ...c, icon: '' };
     });
   }, [settings?.categories, realtimeCategories]);
 
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [visibleProductCount, setVisibleProductCount] = useState(12);
   const [searchQuery, setSearchQuery] = useState('');
   const [tempSearchQuery, setTempSearchQuery] = useState('');
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
@@ -1098,7 +1116,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
-  const [activePage, setActivePage] = useState(null); // 'about', etc.
+  const [activePage, setActivePage] = useState(null); // 'about', 'shop', etc.
+  const [categoryOrigin, setCategoryOrigin] = useState('shop'); // 'shop' or 'home'
 
   useEffect(() => {
     if (activeDetailProduct || activePage) {
@@ -1300,6 +1319,12 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     }
     return Number(item.price || 0);
   };
+
+  const cartTotal = useMemo(() => {
+    return cartItems.reduce((acc, item) => acc + (getCartItemPrice(item) * item.qty), 0);
+  }, [cartItems]);
+
+  const isFreeShippingEligible = cartTotal >= 10000;
   const getItemSizeStock = (item, productsList) => {
     if (!item || !Array.isArray(productsList)) return -1;
     const matchedProd = productsList.find(p => p.id === item.productId || (p.title || '').toLowerCase() === (item.title || '').toLowerCase()) || productsList[0];
@@ -1550,6 +1575,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   }, [currentCustomer]);
 
   const yalidineRate = useMemo(() => {
+    if (isFreeShippingEligible) return 0;
     if (!wilaya) return 0;
     const codeMatch = wilaya.match(/^(\d{2})/);
     const wilayaCode = codeMatch ? codeMatch[1] : '16';
@@ -1557,9 +1583,10 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     const wilayaData = CHLEF_DELIVERY_RATES.find(w => w.code === wilayaCode);
     const opt = wilayaData?.options?.find(o => o.provider.toLowerCase().includes('yalidine') && o.type === targetType);
     return opt ? Number(opt.price || 0) : 0;
-  }, [wilaya, isBureauDelivery]);
+  }, [wilaya, isBureauDelivery, isFreeShippingEligible]);
 
   const zrRate = useMemo(() => {
+    if (isFreeShippingEligible) return 0;
     if (!wilaya) return 0;
     const codeMatch = wilaya.match(/^(\d{2})/);
     const wilayaCode = codeMatch ? codeMatch[1] : '16';
@@ -1567,9 +1594,10 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     const wilayaData = CHLEF_DELIVERY_RATES.find(w => w.code === wilayaCode);
     const opt = wilayaData?.options?.find(o => o.provider.toLowerCase().includes('zr') && o.type === targetType);
     return opt ? Number(opt.price || 0) : 0;
-  }, [wilaya, isBureauDelivery]);
+  }, [wilaya, isBureauDelivery, isFreeShippingEligible]);
 
   const calculatedDeliveryFee = useMemo(() => {
+    if (isFreeShippingEligible) return 0;
     if (!wilaya || !deliveryMode || !deliveryCompany) return 0;
     const codeMatch = wilaya.match(/^(\d{2})/);
     const wilayaCode = codeMatch ? codeMatch[1] : null;
@@ -1592,7 +1620,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
     const fallbackOption = wilayaData.options.find(opt => opt.type === targetType);
     return fallbackOption ? Number(fallbackOption.price || 0) : Number(wilayaData.options[0]?.price || 500);
-  }, [wilaya, deliveryMode, deliveryCompany]);
+  }, [wilaya, deliveryMode, deliveryCompany, isFreeShippingEligible]);
 
   // Prevent body scroll when cart is open
   useEffect(() => {
@@ -1673,16 +1701,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
     return availableRetail.filter(p => {
       const pCat = (p.category || '').toLowerCase().trim();
-      if (cId.includes('pyjama') || cTitle.includes('pyjama') || cId.includes('satin') || cId.includes('coton')) {
-        return pCat.includes('pyjama') || pCat.includes('satin') || pCat.includes('coton') || pCat.includes('ensemble') || pCat === 'satin' || pCat === 'coton';
-      }
-      if (cId.includes('shoe') || cTitle.includes('shoe') || cTitle.includes('حذاء') || cTitle.includes('أحذية')) {
-        return pCat.includes('shoe') || pCat.includes('chaussure');
-      }
-      if (cId.includes('robe') || cTitle.includes('robe') || cTitle.includes('روب')) {
-        return pCat.includes('robe') || pCat.includes('mariee') || pCat.includes('abayas');
-      }
-      return pCat === cId || pCat.includes(cId) || cId.includes(pCat) || cTitle.includes(pCat);
+      const pCatId = (p.categoryId || '').toLowerCase().trim();
+      return pCat === cId || pCat === cTitle || pCatId === cId || pCatId === cTitle;
     });
   }, [products, computedHotSaleIds]);
 
@@ -1711,34 +1731,28 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       }
 
       if (selectedCategory === 'all') return true;
-      if (selectedCategory === 'promo') return p.oldPrice && Number(p.oldPrice) > Number(p.price || 0);
+      if (selectedCategory === 'promo' || selectedCategory === 'solde') return p.oldPrice && Number(p.oldPrice) > Number(p.price || 0);
       
-      if (selectedCategory === 'hot_sale') {
-        return computedHotSaleIds.includes(p.id);
+      if (selectedCategory === 'hot_sale' || selectedCategory === 'hot') {
+        return computedHotSaleIds.includes(p.id) || p.isHotSale || p.badge === 'HOT SALE';
       }
       
-      // Direct exact match
-      if (p.category === selectedCategory) return true;
+      const pCat = (p.category || '').toLowerCase().trim();
+      const pCatId = (p.categoryId || '').toLowerCase().trim();
+      const selCat = (selectedCategory || '').toLowerCase().trim();
+
+      if (pCat === selCat || pCatId === selCat) return true;
       
-      const selectedCatObj = categoriesList.find(c => c && c.id === selectedCategory);
+      const selectedCatObj = categoriesList.find(c => c && (c.id === selectedCategory || (c.title && c.title.toLowerCase().trim() === selCat)));
       if (selectedCatObj) {
-        const title = (selectedCatObj.title || '').toLowerCase().trim();
-        const pCat = (p.category || '').toLowerCase().trim();
-        
-        if (pCat === selectedCategory || p.category === selectedCatObj.id) return true;
-        
-        if (title.includes('pyjama') || title.includes('بيجاما') || title.includes('بيجامات') || title.includes('ساتان') || title.includes('satin') || title.includes('coton') || title.includes('قطن')) {
-          return pCat === 'satin' || pCat === 'coton' || pCat === 'ensembles' || pCat.includes('pyjama') || pCat.includes('بيجاما') || pCat.includes('ساتان') || pCat.includes('قطن') || pCat === selectedCategory;
-        }
-        if (title.includes('robe') || title.includes('mariée') || title.includes('mariee') || title.includes('روب') || title.includes('أرواب') || title.includes('عرائس') || title.includes('عباي') || title.includes('عبايات')) {
-          return pCat === 'mariee' || pCat === 'abayas' || pCat.includes('robe') || pCat.includes('mari') || pCat.includes('روب') || pCat.includes('عباي') || pCat === selectedCategory;
-        }
-        return pCat === selectedCategory || pCat === title;
+        const title = (selectedCatObj.title || selectedCatObj.name || '').toLowerCase().trim();
+        const id = (selectedCatObj.id || '').toLowerCase().trim();
+        return pCat === id || pCat === title || pCatId === id || pCatId === title;
       }
       
-      return p.category === selectedCategory;
+      return pCat === selCat;
     });
-  }, [products, searchQuery, selectedCategory, categoriesList]);
+  }, [products, searchQuery, selectedCategory, categoriesList, computedHotSaleIds]);
 
   const handleAddToCart = (product, selectedVariantIndex = 0, customOptions = null) => {
     let defaultColor = 'Couleur Standard';
@@ -1841,8 +1855,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     }
   };
 
-  const cartTotal = cartItems.reduce((acc, item) => acc + (getCartItemPrice(item) * item.qty), 0);
-
   const handleSubmitOrder = (e) => {
     e.preventDefault();
     if (!clientName.trim()) {
@@ -1934,77 +1946,116 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     setCartItems([]);
   };
 
-  // Category Showcase Card with static first product image and flame/solde special designs
+  // Warm Editorial & Quiet Luxury Category Card (1 Category Per Row)
   const CategoryShowcaseCard = React.memo(({ cat, catProducts, onSelectCategory, idx }) => {
     const isSolde = cat.id === 'solde' || cat.id === 'promo' || (cat.title || '').toLowerCase().includes('solde');
     const isHot = cat.id === 'hot' || cat.id === 'bestseller' || (cat.title || '').toLowerCase().includes('hot');
 
+    const catProds = useMemo(() => {
+      return getProductsForCategory(cat);
+    }, [cat]);
+
+    const matchingCount = catProds.length;
+
     const categoryImage = useMemo(() => {
-      if (!cat || isHot || isSolde) return null;
+      if (cat.image && typeof cat.image === 'string' && cat.image.trim()) {
+        return cat.image;
+      }
+      if (cat.thumbnail && typeof cat.thumbnail === 'string' && cat.thumbnail.trim()) {
+        return cat.thumbnail;
+      }
 
-      const cId = (cat.id || '').toLowerCase().trim();
-      const cTitle = (cat.title || cat.name || '').toLowerCase().trim();
-
-      const matchingProds = (catProducts || []).filter(p => {
-        const pCat = (p.category || '').toLowerCase().trim();
-        if (cId.includes('pyjama') || cTitle.includes('pyjama') || cId.includes('satin') || cId.includes('coton')) {
-          return pCat.includes('pyjama') || pCat.includes('satin') || pCat.includes('coton') || pCat.includes('ensemble') || pCat === 'satin' || pCat === 'coton';
-        }
-        if (cId.includes('shoe') || cTitle.includes('shoe') || cTitle.includes('حذاء') || cTitle.includes('أحذية')) {
-          return pCat.includes('shoe') || pCat.includes('chaussure');
-        }
-        return pCat === cId || pCat.includes(cId) || cId.includes(pCat) || cTitle.includes(pCat);
-      });
-
-      const firstProd = matchingProds.length > 0 ? matchingProds[0] : (catProducts && catProducts[0] ? catProducts[0] : null);
+      const firstProd = catProds.length > 0 ? catProds[0] : null;
       if (firstProd) {
         if (firstProd.image && typeof firstProd.image === 'string') return firstProd.image;
         if (Array.isArray(firstProd.images) && firstProd.images[0]) return firstProd.images[0];
       }
 
       const fallbacks = [
-        "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800",
-        "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=800",
-        "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=800",
-        "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&q=80&w=800"
+        "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=1200",
+        "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=1200",
+        "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=1200",
+        "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&q=80&w=1200"
       ];
 
-      return cat.image || fallbacks[idx % fallbacks.length];
-    }, [cat, catProducts, idx, isSolde, isHot]);
+      return fallbacks[idx % fallbacks.length];
+    }, [cat, catProds, idx]);
+
+    const getEditorialMeta = () => {
+      const cId = (cat.id || '').toLowerCase();
+      const cTitle = (cat.title || cat.name || '').toLowerCase();
+      if (isHot) return { 
+        tag: 'Édition Spéciale 🔥', 
+        main: 'Ventes Privées & Best-Sellers', 
+        sub: 'التشكيلة الحصرية الأكثر طلباً والأكثر مبيعاً' 
+      };
+      if (isSolde) return { 
+        tag: 'Tarifs Privilèges 🏷️', 
+        main: 'Soldes & Offres Rares', 
+        sub: 'تخفيضات استثنائية على أرقى الموديلات' 
+      };
+      if (cId.includes('satin') || cTitle.includes('satin') || cTitle.includes('ساتان')) return { 
+        tag: 'Collection Soie & Satin ✨', 
+        main: 'Satin & Douceur de Luxe', 
+        sub: 'بيجامات ساتان حريرية تمنحكِ رقياً وسحراً خاصاً' 
+      };
+      if (cId.includes('coton') || cTitle.includes('coton') || cTitle.includes('قطن')) return { 
+        tag: 'Pur Coton Biologique ☁️', 
+        main: 'Coton Confort & Douceur', 
+        sub: 'بيجامات قطنية ناعمة ومريحة لنوم هادئ وفاخر' 
+      };
+      if (cId.includes('robe') || cTitle.includes('robe') || cTitle.includes('روب') || cTitle.includes('mari')) return { 
+        tag: 'Sélection Cérémonie & Nuit 👑', 
+        main: 'Robes & Ensembles Impériaux', 
+        sub: 'أطقم نوم وأرواب عرائس فاخرة بأعلى معايير الجودة' 
+      };
+      return { 
+        tag: 'Édition Exclusive ✨', 
+        main: `${cat.title || cat.name}`, 
+        sub: 'تشكيلة مختارة بعناية لأناقتكِ اليومية' 
+      };
+    };
+
+    const editorialMeta = getEditorialMeta();
 
     return (
       <div 
-        className={`category-showcase-card ${isSolde ? 'card-solde-special' : ''} ${isHot ? 'card-hot-special' : ''}`}
+        className={`mazyoud-framed-category-card ${isSolde ? 'is-solde-promo' : ''} ${isHot ? 'is-hot-sale' : ''}`}
         onClick={() => onSelectCategory(cat.id)}
       >
-        {categoryImage && (
+        {/* Top Header: Badges, Title & Arabic subtitle */}
+        <div className="mazyoud-framed-cat-header">
+          <div className="mazyoud-framed-cat-meta-row">
+            <span className="mazyoud-framed-cat-tag">
+              {editorialMeta.tag}
+            </span>
+            <span className="mazyoud-framed-cat-count">
+              {matchingCount > 0 ? `${matchingCount} موديلات متوفرة` : 'تشكيلة فاخرة'}
+            </span>
+          </div>
+
+          <h3 className="mazyoud-framed-cat-title">
+            {editorialMeta.main}
+          </h3>
+          <p className="mazyoud-framed-cat-arabic" dir="rtl">
+            {editorialMeta.sub}
+          </p>
+        </div>
+
+        {/* Center: Square Frame for Photo (Full Picture Visible Without Dark Overlays) */}
+        <div className="mazyoud-framed-image-box">
           <img 
             src={categoryImage} 
             alt={cat.title || cat.name} 
-            className="category-showcase-img"
+            className="mazyoud-framed-cat-img"
+            loading="lazy"
           />
-        )}
-        
-        {/* Burning Flame in Center for HOT SALE */}
-        {isHot && (
-          <div className="hot-sale-flame-center">
-            <span className="flame-animated-icon" style={{ fontSize: '110px', display: 'inline-block', lineHeight: 1 }}>🔥</span>
-          </div>
-        )}
+        </div>
 
-        {/* Simple Clean Tag for SOLDE */}
-        {isSolde && (
-          <div className="solde-clean-icon" style={{ fontSize: '90px', display: 'inline-block', lineHeight: 1 }}>
-            🏷️
-          </div>
-        )}
-
-        <div className="category-showcase-overlay" style={{ zIndex: 3 }}>
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 900, color: '#FFFFFF', margin: '0 0 4px 0' }}>
-            {cat.icon ? `${cat.icon} ` : ''}{cat.title || cat.name}
-          </h3>
-          <span style={{ fontSize: '0.8rem', fontWeight: 800, color: isHot ? '#FFD700' : (isSolde ? '#FDA4AF' : '#F87171') }}>
-            اكتشفي الآن ←
+        {/* Bottom: Découvrir CTA Button */}
+        <div className="mazyoud-framed-cat-footer">
+          <span className="mazyoud-framed-cta-btn">
+            Découvrir la Collection <ArrowRight size={14} />
           </span>
         </div>
       </div>
@@ -2123,6 +2174,48 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       </Helmet>
       {/* Top Header + Category Bar Layer (Sticky Across Full Page Viewport) */}
       <div className="mazyoud-top-nav-wrapper">
+        {/* Top Animated Free Delivery Announcement Marquee Ticker */}
+        <div className="pyjama-free-shipping-ticker">
+          <div className="pyjama-ticker-track">
+            <span className="ticker-item is-ar" dir="rtl">
+              <span>🚚</span>
+              <strong>توصيل مجاني 100%</strong>
+              <span>لجميع الولايات عند الطلب بـ</span>
+              <strong>10,000 دج</strong>
+              <span>(مليون سنتيم) أو أكثر!</span>
+              <span>✨🎁</span>
+            </span>
+            <span className="ticker-dot">✦</span>
+            <span className="ticker-item is-fr" dir="ltr">
+              <span>⚡</span>
+              <strong>LIVRAISON GRATUITE</strong>
+              <span>pour toute commande dès</span>
+              <strong>10 000 DA</strong>
+              <span>!</span>
+              <span>🛍️</span>
+            </span>
+            <span className="ticker-dot">✦</span>
+            <span className="ticker-item is-ar" dir="rtl">
+              <span>🚚</span>
+              <strong>توصيل مجاني 100%</strong>
+              <span>لجميع الولايات عند الطلب بـ</span>
+              <strong>10,000 دج</strong>
+              <span>(مليون سنتيم) أو أكثر!</span>
+              <span>✨🎁</span>
+            </span>
+            <span className="ticker-dot">✦</span>
+            <span className="ticker-item is-fr" dir="ltr">
+              <span>⚡</span>
+              <strong>LIVRAISON GRATUITE</strong>
+              <span>pour toute commande dès</span>
+              <strong>10 000 DA</strong>
+              <span>!</span>
+              <span>🛍️</span>
+            </span>
+            <span className="ticker-dot">✦</span>
+          </div>
+        </div>
+
         {/* Main Luxury Transparent/Glass Header */}
         <header className="mazyoud-header">
           {/* Mobile Header Controls (Left) */}
@@ -2395,54 +2488,57 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       </div>
 
       <div className="storefront-wrapper animate-fade-up">
-        {/* 1. EXACT MAZYOUD HERO BANNER */}
+        {/* 1. AUTUMN WARM HERO BANNER */}
         <section className={`mazyoud-hero-container ${(selectedCategory !== 'all' || searchQuery.trim() || activeDetailProduct || activePage) ? 'category-page-mode' : ''}`}>
           {(selectedCategory === 'all' && !searchQuery.trim() && !activeDetailProduct && !activePage) && <div className="mazyoud-hero-overlay"></div>}
 
           {/* Hero Brand Content */}
           {(selectedCategory === 'all' && !searchQuery.trim() && !activeDetailProduct && !activePage) && (
-            <div className="mazyoud-hero-content">
-              <p className="mazyoud-hero-subtitle">أناقتك تبدأ من البيت — ملابس نوم فاخرة بجودة عالية</p>
-              <p className="mazyoud-hero-tagline">Livraison partout en Algérie</p>
+            <div className="mazyoud-hero-content" dir="rtl">
+              <span className="hero-season-badge">🍂 تشكيلة خريف 2026 الحصرية</span>
+              <h1 className="hero-main-title">موسم جديد، راحة تدوم</h1>
+              <p className="hero-main-subtitle">أجمل الموديلات الخريفية الفاخرة لمنزلكِ</p>
+              <button 
+                type="button" 
+                className="hero-cta-btn"
+                onClick={() => {
+                  setActivePage('shop');
+                  setSelectedCategory('all');
+                  setVisibleProductCount(12);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              >
+                <span>تسوقي الآن</span>
+                <span className="hero-cta-arrow">←</span>
+              </button>
             </div>
           )}
         </section>
 
-        {/* 2. LUXURY TRUST BENEFITS BAR */}
-        {(selectedCategory === 'all' && !searchQuery.trim() && !activeDetailProduct && !activePage) && (
-          <div className="storefront-trust-benefits">
-            <div className="benefit-card" onClick={() => { setActivePage('tariffs'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ cursor: 'pointer' }}>
-              <div className="benefit-icon-wrapper">🚚</div>
-              <div className="benefit-text">
-                <h4>توصيل لـ 58 ولاية</h4>
-                <p>Découvrir les tarifs de livraison</p>
-              </div>
-            </div>
-            <div className="benefit-card">
-              <div className="benefit-icon-wrapper">💰</div>
-              <div className="benefit-text">
-                <h4>الدفع عند الاستلام</h4>
-                <p>Paiement 100% sécurisé</p>
-              </div>
-            </div>
-            <div className="benefit-card">
-              <div className="benefit-icon-wrapper">👑</div>
-              <div className="benefit-text">
-                <h4>جودة ممتازة مضمونة 100%</h4>
-                <p>Qualité supérieure garantie</p>
-              </div>
-            </div>
-            <div className="benefit-card">
-              <div className="benefit-icon-wrapper">⚡</div>
-              <div className="benefit-text">
-                <h4>دعم ومتابعة 7/7</h4>
-                <p>Service client réactif</p>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {activePage === 'about' ? (
+
+        {activeDetailProduct ? (
+          <ProductDetailPage 
+            product={activeDetailProduct} 
+            products={products}
+            categoriesList={categoriesList}
+            onBack={() => {
+              setActiveDetailProduct(null);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }} 
+            onAddToCart={handleAddToCart}
+            onCategorySelect={(catId) => {
+              setSelectedCategory(catId);
+              setCategoryOrigin('shop');
+              setActivePage('shop');
+              setSearchQuery('');
+              setTempSearchQuery('');
+              setActiveDetailProduct(null);
+              setVisibleProductCount(12);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        ) : activePage === 'about' ? (
           <div className="luxury-about-page animate-fade-in" style={{ background: '#F8FAFC', paddingBottom: '60px', direction: 'rtl' }}>
             {/* Hero Header */}
             <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', padding: '60px 20px 40px', textAlign: 'center', position: 'relative' }}>
@@ -2670,10 +2766,10 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               {/* Section 5 */}
               <div style={{ background: '#FFFFFF', borderRadius: '24px', padding: '32px 28px', boxShadow: '0 10px 30px rgba(0,0,0,0.04)', border: '1px solid #E2E8F0', marginBottom: '20px' }}>
                 <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--burgundy-dark)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span>🔍</span> 5. معاينة الطرد وسياسة الاستبدال (Inspection & Échange)
+                  <span>🔍</span> 5. سياسة الإرجاع، الاستبدال واسترداد الأموال (Remboursement & Échange)
                 </h2>
                 <p style={{ fontSize: '1.02rem', color: '#334155', lineHeight: 1.8, margin: 0 }}>
-                  نحن نضمن لزبائننا <strong>حق فتح ومعاينة الطرد والتأكد من البيجاما والأطقم قبل دفع المبلغ للموزع</strong>. في حالة وجود أي مشكلة في المقاس أو عيب مصنعي، يتكفل متجرنا بمعالجة طلب الاستبدال فوراً عبر التواصل معنا على الواتساب.
+                  نحن نضمن لزبائننا <strong>حق فتح ومعاينة الطرد قبل الدفع</strong>. كما نوفر إمكانية <strong>استبدال المنتج أو استرجاع المبلغ كاملاً (Remboursement)</strong> خلال مدة أقصاها <strong>4 أيام</strong> من تاريخ الاستلام، مع تحمّل الزبون لمصاريف التوصيل (Frais de livraison). لمعالجة أي طلب، يرجى التواصل مباشرة مع خدمة الزبائن عبر الواتساب.
                 </p>
               </div>
 
@@ -2739,67 +2835,234 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               </div>
             </div>
           </div>
-        ) : activeDetailProduct ? (
-        <ProductDetailPage 
-          product={activeDetailProduct} 
-          products={products}
-          categoriesList={categoriesList}
-          onBack={() => setActiveDetailProduct(null)} 
-          onAddToCart={handleAddToCart}
-          onCategorySelect={(catId) => {
-            setSelectedCategory(catId);
-            setSearchQuery('');
-            setTempSearchQuery('');
-            setActiveDetailProduct(null);
-            scrollToProductsGrid(120);
-          }}
-        />
-      ) : (
-        <>
-          {/* 3. VISUAL CATEGORY IMAGE SHOWCASE */}
-          {(selectedCategory === 'all' && !searchQuery.trim()) && (
-            <div className="category-showcase-container">
-              <div className="section-title-wrapper">
-                <h2>الأقسام المميزة / Catégories Vedettes</h2>
-                <p>اكتشفي تشكيلة ملابس النوم والأطقم الأكثر طلباً فـ الجزائر</p>
-              </div>
-              <div className="category-showcase-grid">
-                {categoriesList
-                  .filter(cat => cat && cat.id !== 'all')
-                  .slice()
-                  .sort((a, b) => {
-                    const aId = (a.id || '').toLowerCase().trim();
-                    const aTitle = (a.title || a.name || '').toLowerCase().trim();
-                    const bId = (b.id || '').toLowerCase().trim();
-                    const bTitle = (b.title || b.name || '').toLowerCase().trim();
+        ) : activePage === 'shop' ? (
+          <div className="stitch-shop-catalog-page animate-fade-in" dir="rtl">
+            {/* Top Navigation & Breadcrumb with Contextual Return Buttons */}
+            <div className="stitch-catalog-nav-header">
+              <div className="stitch-catalog-nav-container">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {selectedCategory === 'all' ? (
+                    <button 
+                      type="button"
+                      onClick={() => { setActivePage(null); setSelectedCategory('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className="stitch-back-home-btn"
+                    >
+                      ← العودة للرئيسية (Accueil)
+                    </button>
+                  ) : categoryOrigin === 'home' ? (
+                    <>
+                      <button 
+                        type="button"
+                        onClick={() => { setActivePage(null); setSelectedCategory('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        className="stitch-back-home-btn"
+                        style={{ background: '#800020', color: '#FFFFFF', borderColor: '#800020' }}
+                      >
+                        ← العودة للرئيسية (Accueil)
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => { setSelectedCategory('all'); setCategoryOrigin('shop'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        className="stitch-back-home-btn"
+                        style={{ background: '#FFF1F2', color: '#800020', borderColor: '#FECDD3' }}
+                      >
+                        تصفح كافة الأقسام 🏷️
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button 
+                        type="button"
+                        onClick={() => { setSelectedCategory('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        className="stitch-back-home-btn"
+                        style={{ background: '#800020', color: '#FFFFFF', borderColor: '#800020' }}
+                      >
+                        ← العودة لكافة الأقسام (Toutes les catégories)
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => { setActivePage(null); setSelectedCategory('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        className="stitch-back-home-btn"
+                        style={{ background: '#F8FAFC', color: '#64748B' }}
+                      >
+                        الرئيسية
+                      </button>
+                    </>
+                  )}
+                </div>
 
-                    const isAHot = aId === 'hot' || aId === 'bestseller' || aTitle.includes('hot');
-                    const isBHot = bId === 'hot' || bId === 'bestseller' || bTitle.includes('hot');
-                    const isASolde = aId === 'solde' || aId === 'promo' || aTitle.includes('solde');
-                    const isBSolde = bId === 'solde' || bId === 'promo' || bTitle.includes('solde');
-
-                    if (isAHot) return -1;
-                    if (isBHot) return 1;
-                    if (isASolde) return 1;
-                    if (isBSolde) return -1;
-                    return 0;
-                  })
-                  .map((cat, idx) => (
-                    <CategoryShowcaseCard 
-                      key={cat.id}
-                      cat={cat}
-                      catProducts={products}
-                      onSelectCategory={(catId) => { setSelectedCategory(catId); scrollToProductsGrid(120); }}
-                      idx={idx}
-                    />
-                  ))}
+                <span className="stitch-breadcrumb-text">
+                  الرئيسية / <strong>المتجر والتشكيلات</strong> {selectedCategory !== 'all' && ` / ${categoriesList.find(c => c.id === selectedCategory)?.name || categoriesList.find(c => c.id === selectedCategory)?.title || selectedCategory}`}
+                </span>
               </div>
             </div>
-          )}
 
-          {/* Product Sections Grouped By Category (Confiserie Du Bonheur Style) */}
-          {(selectedCategory === 'all' && !searchQuery.trim()) ? (
-            <div id="products-grid-anchor" style={{ marginTop: '30px' }}>
+            <div className="stitch-catalog-content-container">
+              {/* 1. TOP SECTION: الأقسام والتشكيلات (3-Column Square Grid) - ONLY SHOWN WHEN selectedCategory === 'all' */}
+              {selectedCategory === 'all' && (
+                <section className="stitch-categories-section">
+                  <div className="stitch-section-title-row">
+                    <h2 className="stitch-section-title">الأقسام والتشكيلات</h2>
+                  </div>
+
+                  <div className="stitch-cat-grid-3col">
+                    {/* Real Categories from Admin / Database */}
+                    {categoriesList
+                      .filter(cat => cat && cat.id !== 'all')
+                      .map((cat, idx) => {
+                        const catTitle = cat.name || cat.title || 'قسم';
+                        const catImg = cat.image || cat.thumbnail || (
+                          idx % 4 === 0 ? "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&q=80&w=600" :
+                          idx % 4 === 1 ? "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=600" :
+                          idx % 4 === 2 ? "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=600" :
+                          "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&q=80&w=600"
+                        );
+
+                        return (
+                          <div 
+                            key={cat.id} 
+                            className="stitch-cat-card"
+                            onClick={() => { 
+                              setSelectedCategory(cat.id); 
+                              setCategoryOrigin('shop');
+                              setVisibleProductCount(12); 
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                          >
+                            <div className="stitch-cat-img-box">
+                              <img 
+                                src={catImg} 
+                                alt={catTitle} 
+                                className="stitch-cat-img" 
+                                loading="lazy" 
+                              />
+                            </div>
+                            <span className="stitch-cat-label">{catTitle}</span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </section>
+              )}
+
+              {/* 2. DEDICATED CATEGORY BANNER - ONLY SHOWN WHEN A SPECIFIC CATEGORY IS SELECTED */}
+              {selectedCategory !== 'all' && (() => {
+                const currentCat = categoriesList.find(c => c && c.id === selectedCategory);
+                const currentCatTitle = currentCat?.name || currentCat?.title || (selectedCategory === 'hot_sale' ? 'الأكثر مبيعاً' : selectedCategory === 'promo' ? '% SOLDES' : selectedCategory);
+                const currentCatImg = currentCat?.image || currentCat?.thumbnail;
+
+                return (
+                  <div className="stitch-dedicated-cat-banner animate-fade-in">
+                    <div className="stitch-dedicated-cat-banner-content">
+                      {currentCatImg && (
+                        <div className="stitch-dedicated-cat-thumb-box">
+                          <img src={currentCatImg} alt={currentCatTitle} className="stitch-dedicated-cat-thumb" />
+                        </div>
+                      )}
+                      <div>
+                        <div className="stitch-dedicated-cat-tag">قسم حصري</div>
+                        <h1 className="stitch-dedicated-cat-title">{currentCatTitle}</h1>
+                        <span className="stitch-dedicated-cat-count">
+                          {filteredProducts.length > 0 
+                            ? `عرض ${Math.min(visibleProductCount, filteredProducts.length)} من أصل ${filteredProducts.length} موديل متوفر`
+                            : 'لا توجد موديلات متاحة حالياً في هذا القسم'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 3. PRODUCTS SECTION */}
+              <section id="stitch-products-view" className="stitch-products-section">
+                {selectedCategory === 'all' && (
+                  <div className="stitch-section-title-row">
+                    <div>
+                      <h2 className="stitch-section-title">جميع الموديلات الحصرية</h2>
+                      <span className="stitch-product-count-badge">
+                        {filteredProducts.length > 0 
+                          ? `عرض ${Math.min(visibleProductCount, filteredProducts.length)} من أصل ${filteredProducts.length} موديل`
+                          : '0 موديل متاح'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Products Grid (2 columns on mobile, 3-4 on PC) */}
+                {filteredProducts.length > 0 ? (
+                  <main className="products-grid">
+                    {filteredProducts.slice(0, visibleProductCount).map(product => (
+                      <ProductCardItem 
+                        key={product.id} 
+                        product={product} 
+                        categoriesList={categoriesList}
+                        wishlist={wishlist}
+                        onToggleWishlist={toggleWishlist}
+                        onSelect={(p) => {
+                          setActiveDetailProduct(p);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }} 
+                        onCategorySelect={(catId) => {
+                          setSelectedCategory(catId);
+                          setCategoryOrigin('shop');
+                          setVisibleProductCount(12);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                      />
+                    ))}
+                  </main>
+                ) : (
+                  <div className="stitch-empty-category-card">
+                    <span style={{ fontSize: '3rem', display: 'block', marginBottom: '12px' }}>📭</span>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#334155', margin: '0 0 8px' }}>لا توجد منتجات في هذا القسم حالياً</h3>
+                    <p style={{ fontSize: '0.95rem', color: '#64748B', margin: '0 0 18px' }}>يمكنك تصفح بقية الأقسام أو العودة لعرض كل الموديلات</p>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedCategory('all'); setCategoryOrigin('shop'); setVisibleProductCount(12); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className="stitch-empty-reset-btn"
+                    >
+                      تصفح كافة الأقسام
+                    </button>
+                  </div>
+                )}
+
+                {/* Incremental Loading / Lazy Load Progress Bar & Button */}
+                {filteredProducts.length > 0 && (
+                  <div className="stitch-lazy-load-wrapper">
+                    <div className="stitch-progress-info">
+                      <span>تم تحميل {Math.min(visibleProductCount, filteredProducts.length)} من أصل {filteredProducts.length} منتج</span>
+                      <div className="stitch-progress-bar-track">
+                        <div 
+                          className="stitch-progress-bar-fill" 
+                          style={{ width: `${Math.min(100, Math.round((Math.min(visibleProductCount, filteredProducts.length) / filteredProducts.length) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {visibleProductCount < filteredProducts.length && (
+                      <button 
+                        type="button"
+                        className="stitch-load-more-btn"
+                        onClick={() => setVisibleProductCount(prev => prev + 12)}
+                      >
+                        <span>عرض المزيد من الموديلات</span>
+                        <span className="stitch-load-more-icon">↓</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+        ) : (
+        <>
+          {/* 3. VISUAL CATEGORY IMAGE SHOWCASE (WARM EDITORIAL & QUIET LUXURY VERTICAL STYLE) */}
+          {(selectedCategory === 'all' && !searchQuery.trim()) && (
+            <div className="luxury-editorial-categories-wrapper">
+              <div className="luxury-editorial-header">
+                <span className="luxury-editorial-badge">— SÉLECTION & COLLECTIONS —</span>
+                <h2 className="luxury-editorial-title">L'Art de la Nuit & de l'Élégance</h2>
+                <p className="luxury-editorial-sub">تشكيلات حصرية مصممة لراحتكِ وسحركِ الدائم في المنزل</p>
+              </div>
               {categoriesList
                 .filter(cat => cat && cat.id !== 'all')
                 .slice()
@@ -2820,101 +3083,169 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                   if (isBSolde) return -1;
                   return 0;
                 })
-                .map(cat => {
-                  const catProds = getProductsForCategory(cat);
-                  if (!catProds || catProds.length === 0) return null;
+                .map((cat, idx, arr) => (
+                  <React.Fragment key={cat.id}>
+                    <CategoryShowcaseCard 
+                      cat={cat}
+                      catProducts={products}
+                      onSelectCategory={(catId) => { 
+                        setSelectedCategory(catId); 
+                        setCategoryOrigin('home');
+                        setActivePage('shop'); 
+                        setVisibleProductCount(12); 
+                        window.scrollTo({ top: 0, behavior: 'smooth' }); 
+                      }}
+                      idx={idx}
+                    />
+                    {idx < arr.length - 1 && (
+                      <div className="autumn-cashmere-wave-divider" aria-hidden="true">
+                        <svg width="100%" height="44" viewBox="0 0 600 44" fill="none" xmlns="http://www.w3.org/2000/svg" className="cashmere-wave-svg">
+                          <defs>
+                            <linearGradient id={`cashmereRibbonGrad-${idx}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                              <stop offset="0%" stopColor="#800020" stopOpacity="0" />
+                              <stop offset="15%" stopColor="#C89D7C" stopOpacity="0.3" />
+                              <stop offset="38%" stopColor="#D97706" stopOpacity="0.75" />
+                              <stop offset="50%" stopColor="#800020" stopOpacity="0.9" />
+                              <stop offset="62%" stopColor="#D97706" stopOpacity="0.75" />
+                              <stop offset="85%" stopColor="#C89D7C" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#800020" stopOpacity="0" />
+                            </linearGradient>
 
-                  const limit = categoryLimits[cat.id] || 4;
-                  const visibleProds = catProds.slice(0, limit);
-                  const hasMore = catProds.length > limit;
+                            <linearGradient id={`cashmereThreadGrad-${idx}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                              <stop offset="5%" stopColor="#B45309" stopOpacity="0" />
+                              <stop offset="25%" stopColor="#D99B6A" stopOpacity="0.4" />
+                              <stop offset="50%" stopColor="#9A1D3A" stopOpacity="0.5" />
+                              <stop offset="75%" stopColor="#D99B6A" stopOpacity="0.4" />
+                              <stop offset="95%" stopColor="#B45309" stopOpacity="0" />
+                            </linearGradient>
 
-                  return (
-                    <section key={cat.id} className="category-products-row-section" style={{ marginBottom: '48px' }}>
-                      {/* Category Section Header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 18px', padding: '0 4px', borderBottom: '2px solid #F1F5F9', paddingBottom: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontSize: '1.6rem' }}>{cat.icon || '✨'}</span>
-                          <div>
-                            <h2 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#1E293B', margin: 0 }}>
-                              {cat.title || cat.name}
-                            </h2>
-                            <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700 }}>
-                              {catProds.length} منتج متوفر حالياً
-                            </span>
-                          </div>
-                        </div>
+                            <radialGradient id={`autumnLeafGrad-${idx}`} cx="45%" cy="35%" r="65%">
+                              <stop offset="0%" stopColor="#FBBF24" />
+                              <stop offset="30%" stopColor="#EA580C" />
+                              <stop offset="70%" stopColor="#BE123C" />
+                              <stop offset="100%" stopColor="#650019" />
+                            </radialGradient>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedCategory(cat.id);
-                            scrollToProductsGrid(120);
-                          }}
-                          style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '8px 16px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 800, color: '#800020', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s' }}
-                        >
-                          {cat.title || cat.name} <ArrowRight size={14} />
-                        </button>
-                      </div>
+                            <linearGradient id={`leafVeinGrad-${idx}`} x1="0" y1="20" x2="0" y2="-20" gradientUnits="userSpaceOnUse">
+                              <stop offset="0%" stopColor="#FEF08A" stopOpacity="0.9" />
+                              <stop offset="100%" stopColor="#FFFBEB" stopOpacity="0.75" />
+                            </linearGradient>
 
-                      {/* Products Grid for this category */}
-                      <main className="products-grid">
-                        {visibleProds.map(product => (
-                          <ProductCardItem 
-                            key={product.id} 
-                            product={product} 
-                            categoriesList={categoriesList}
-                            wishlist={wishlist}
-                            onToggleWishlist={toggleWishlist}
-                            onSelect={(p) => {
-                              setActiveDetailProduct(p);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }} 
-                            onCategorySelect={(catId) => {
-                              setSelectedCategory(catId);
-                              setSearchQuery('');
-                              setTempSearchQuery('');
-                              setActiveDetailProduct(null);
-                              scrollToProductsGrid(120);
-                            }}
+                            <filter id={`leafGlow-${idx}`} x="-30%" y="-30%" width="160%" height="160%">
+                              <feDropShadow dx="0" dy="2.5" stdDeviation="3.5" floodColor="#4C0519" floodOpacity="0.35" />
+                            </filter>
+                          </defs>
+
+                          {/* Secondary Woven Thread */}
+                          <path 
+                            d="M 20 25 Q 120 14, 210 24 T 300 25 T 390 24 T 580 25" 
+                            stroke={`url(#cashmereThreadGrad-${idx})`} 
+                            strokeWidth="1.2" 
+                            strokeDasharray="4 3"
+                            fill="none" 
                           />
-                        ))}
-                      </main>
 
-                      {/* Voir Plus / إظهار المزيد Button */}
-                      {hasMore && (
-                        <div style={{ textAlign: 'center', marginTop: '22px' }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCategoryLimits(prev => ({
-                                ...prev,
-                                [cat.id]: (prev[cat.id] || 4) + 4
-                              }));
-                            }}
-                            style={{
-                              background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
-                              color: '#FFFFFF',
-                              border: 'none',
-                              padding: '12px 28px',
-                              borderRadius: '9999px',
-                              fontWeight: 800,
-                              fontSize: '0.9rem',
-                              cursor: 'pointer',
-                              boxShadow: '0 4px 14px rgba(15, 23, 42, 0.15)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-                            }}
-                          >
-                            ➕ إظهار المزيد من {cat.title || cat.name} ({catProds.length - limit} منتجات إضافية)
-                          </button>
-                        </div>
-                      )}
-                    </section>
-                  );
-                })}
+                          {/* Primary Cashmere Ribbon Wave */}
+                          <path 
+                            d="M 10 22 C 80 22, 140 13, 220 22 C 260 27, 280 28, 300 28 C 320 28, 340 27, 380 22 C 460 13, 520 22, 590 22" 
+                            stroke={`url(#cashmereRibbonGrad-${idx})`} 
+                            strokeWidth="2.2" 
+                            strokeLinecap="round"
+                            fill="none" 
+                          />
+
+                          {/* Subtle Micro Accents on Crests */}
+                          <circle cx="170" cy="17" r="1.5" fill="#F59E0B" opacity="0.65" />
+                          <circle cx="430" cy="17" r="1.5" fill="#F59E0B" opacity="0.65" />
+
+                          {/* Floating Botanical Autumn Maple Leaf Resting on Wave */}
+                          <g filter={`url(#leafGlow-${idx})`} transform="translate(300, 18) rotate(11)">
+                            {/* Natural Curved Stem */}
+                            <path d="M 0 16 C 1 20, 3 24, 5.5 28" stroke="#7C2D12" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+                            <path d="M 0 16 C 1 20, 3 24, 5.5 28" stroke="#FDE68A" strokeWidth="0.75" strokeLinecap="round" fill="none" opacity="0.7" />
+
+                            {/* Organic Botanical Maple Leaf Blade */}
+                            <path 
+                              d="M 0 16
+                                 C -4 16, -8 13.5, -12 11
+                                 C -11 9, -9 7.5, -9 6
+                                 C -13 6.5, -17.5 4, -22 1
+                                 C -19.5 -0.5, -16 -1.5, -14 -3
+                                 C -16.5 -5, -17.5 -7, -18 -8.5
+                                 C -14 -7.5, -11.5 -7, -9.5 -8.5
+                                 C -10.5 -12, -10 -14, -9 -15.5
+                                 C -6.5 -13.5, -4.5 -13, -4 -13.5
+                                 C -2.5 -16.5, -1 -19.5, 0 -22
+                                 C 1 -19.5, 2.5 -16.5, 4 -13.5
+                                 C 4.5 -13, 6.5 -13.5, 9 -15.5
+                                 C 10 -14, 10.5 -12, 9.5 -8.5
+                                 C 11.5 -7, 14 -7.5, 18 -8.5
+                                 C 17.5 -7, 16.5 -5, 14 -3
+                                 C 16 -1.5, 19.5 -0.5, 22 1
+                                 C 17.5 4, 13 6.5, 9 6
+                                 C 9 7.5, 11 9, 12 11
+                                 C 8 13.5, 4 16, 0 16 Z"
+                              fill={`url(#autumnLeafGrad-${idx})`}
+                              stroke="#7C2D12"
+                              strokeWidth="0.85"
+                            />
+
+                            {/* Subtle 3D Leaf Highlight */}
+                            <path 
+                              d="M 0 -20 C 3 -13, 10 -6, 12 0 C 6 5, 2 11, 0 15 Z"
+                              fill="white"
+                              opacity="0.09"
+                            />
+
+                            {/* Delicate Organic Leaf Veins */}
+                            {/* Central spine */}
+                            <path d="M 0 16 Q 0.5 0, 0 -20" stroke={`url(#leafVeinGrad-${idx})`} strokeWidth="1.2" strokeLinecap="round" />
+                            
+                            {/* Left primary branch */}
+                            <path d="M 0 10 C -4 5, -11 2, -20 1" stroke={`url(#leafVeinGrad-${idx})`} strokeWidth="0.9" strokeLinecap="round" opacity="0.85" />
+                            <path d="M -9 4 C -12 0, -15 -4, -16.5 -7.5" stroke={`url(#leafVeinGrad-${idx})`} strokeWidth="0.65" strokeLinecap="round" opacity="0.75" />
+                            
+                            {/* Right primary branch */}
+                            <path d="M 0 10 C 4 5, 11 2, 20 1" stroke={`url(#leafVeinGrad-${idx})`} strokeWidth="0.9" strokeLinecap="round" opacity="0.85" />
+                            <path d="M 9 4 C 12 0, 15 -4, 16.5 -7.5" stroke={`url(#leafVeinGrad-${idx})`} strokeWidth="0.65" strokeLinecap="round" opacity="0.75" />
+                            
+                            {/* Upper lobe branches */}
+                            <path d="M 0 2 Q -4 -3, -7.5 -13.5" stroke={`url(#leafVeinGrad-${idx})`} strokeWidth="0.65" strokeLinecap="round" opacity="0.7" />
+                            <path d="M 0 2 Q 4 -3, 7.5 -13.5" stroke={`url(#leafVeinGrad-${idx})`} strokeWidth="0.65" strokeLinecap="round" opacity="0.7" />
+                            
+                            {/* Basal branches */}
+                            <path d="M 0 13 Q -5 12.5, -10 10.5" stroke={`url(#leafVeinGrad-${idx})`} strokeWidth="0.6" strokeLinecap="round" opacity="0.65" />
+                            <path d="M 0 13 Q 5 12.5, 10 10.5" stroke={`url(#leafVeinGrad-${idx})`} strokeWidth="0.6" strokeLinecap="round" opacity="0.65" />
+                          </g>
+                        </svg>
+                      </div>
+                    )}
+                  </React.Fragment>
+                ))}
             </div>
+          )}
+
+          {/* 4. MAZYOUD.COM STYLE EDITORIAL STORY SECTION (SEO BLOCK) ON HOMEPAGE */}
+          {(selectedCategory === 'all' && !searchQuery.trim()) ? (
+            <section className="mazyoud-editorial-story-section animate-fade-in" aria-label="À propos de Pyjama DZ">
+              <div className="mazyoud-editorial-story-card">
+                <h3 className="mazyoud-editorial-title">
+                  {storeNameDisplay || 'Pyjama DZ'} est la boutique N°1 de shopping en ligne de pyjamas et tenues d’intérieur pour femmes en Algérie !
+                </h3>
+
+                <p className="mazyoud-editorial-body">
+                  Explorez les collections exclusives de vêtements de nuit et homewear sur <strong>{storeNameDisplay || 'Pyjama DZ'}</strong>, votre grand magasin en ligne pour le confort et l’élégance à la maison. Chez <strong>{storeNameDisplay || 'Pyjama DZ'}</strong>, nous savons combien chaque femme aspire à s'offrir ce qu’il y a de plus raffiné pour ses moments de détente et de repos. C’est pourquoi nous sélectionnons avec une rigueur absolue des matières nobles et soyeuses : du <strong>satin de soie fluide</strong> au <strong>pur coton naturel respirant</strong>, en passant par nos <strong>ensembles d'automne et d'hiver chaleureux</strong> et nos <strong>trousseaux de mariée prestigieux</strong>.
+                </p>
+
+                <p className="mazyoud-editorial-body">
+                  De la soirée cocooning au coucher paisible, chaque modèle allie coupes flatteuses, finitions de haute couture et douceur incomparable. Nous mettons un point d'honneur à vous faire vivre une expérience de shopping sans pareil : des achats en ligne pratiques, sans tracas et 100% sécurisés, avec un <strong>service de livraison express couvrant l'ensemble des 58 wilayas</strong> d’Algérie, le <strong>paiement en espèces à la livraison</strong> et l'assurance absolue de <strong>pouvoir ouvrir et vérifier votre colis avant de régler</strong> le livreur.
+                </p>
+
+                <p className="mazyoud-editorial-body">
+                  Faites de votre maison un havre de paix et de féminité avec <strong>{storeNameDisplay || 'Pyjama DZ'}</strong>. Découvrez dès maintenant notre gamme complète : pyjamas 2 et 3 pièces, robes de chambre soyeuses, nuisettes romantiques, pantoufles et accessoires d'intérieur, et bien plus encore.
+                </p>
+              </div>
+            </section>
           ) : (
             <>
               {/* Single Category or Search Header */}
@@ -3004,14 +3335,9 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 a: "نعم 100%! نحن نضمن لك حق معاينة وفحص الطلبية قبل دفع المبلغ للموزع للحفاظ على ثقتكم التامة فـ جودة منتجاتنا."
               },
               {
-                id: 3,
-                q: "كيف أختار المقاس المناسب لي؟",
-                a: "مقاساتنا قياسية ومضبوطة (Standard European Sizing). فـ حالة الحيرة بين مقاسين، يمكنك اختيار المقاس الأكبر أو التواصل مع خدمة الزبائن عبر الواتساب لمساعدتك."
-              },
-              {
                 id: 4,
-                q: "ما هي سياسة الإرجاع والاستبدال؟",
-                a: "فـ حالة وجود أي عيب مصنعي أو عيب فـ المقاس، يرجى التواصل معنا فـ غضون 48 ساعة وسنقوم باستبدال المنتج مجاناً وبكل رحابة صدر."
+                q: "ما هي سياسة الإرجاع، الاستبدال واسترداد الأموال (Remboursement)؟",
+                a: "نعم بكل تأكيد! يحق لزبائننا الكرام طلب استبدال المنتج أو استرجاع أموالهم كاملة (Remboursement) في مدة أقصاها 4 أيام من تاريخ استلام الطلبية، مع تحمّل الزبون لمصاريف التوصيل. يرجى فقط التواصل مع فريق خدمة الزبائن عبر الواتساب لتنسيق العملية بكل سهولة."
               }
             ].map((faq) => (
               <div key={faq.id} className={`faq-item ${openFaq === faq.id ? 'active' : ''}`}>
@@ -3647,7 +3973,41 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
             {/* Drawer Footer */}
             {!orderSuccess && cartItems.length > 0 && (
-              <div style={{ background: 'white', padding: '24px', borderTop: '1px solid #E5E5E5', boxShadow: '0 -4px 20px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+              <div style={{ background: 'white', padding: '20px 24px', borderTop: '1px solid #E5E5E5', boxShadow: '0 -4px 20px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+                {/* Free Shipping 10,000 DA Goal Bar */}
+                <div style={{
+                  background: isFreeShippingEligible ? 'linear-gradient(135deg, #F0FDF4, #DCFCE7)' : '#F8FAFC',
+                  border: isFreeShippingEligible ? '1.5px solid #86EFAC' : '1px solid #E2E8F0',
+                  borderRadius: '14px',
+                  padding: '10px 14px',
+                  marginBottom: '16px',
+                  boxShadow: isFreeShippingEligible ? '0 2px 10px rgba(34, 197, 94, 0.12)' : 'none'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '0.84rem', fontWeight: 800 }}>
+                    {isFreeShippingEligible ? (
+                      <span style={{ color: '#15803D', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        🎉 مبروك! حصلت على توصيل مجاني 100%! 🎁
+                      </span>
+                    ) : (
+                      <span style={{ color: '#334155' }}>
+                        أضف <strong style={{ color: '#E11D48' }}>{(10000 - cartTotal).toLocaleString()} DA</strong> للاستفادة من <strong>التوصيل المجاني</strong>! 🚚
+                      </span>
+                    )}
+                    <span style={{ color: isFreeShippingEligible ? '#15803D' : '#64748B', fontSize: '0.78rem' }}>
+                      {Math.min(100, Math.round((cartTotal / 10000) * 100))}%
+                    </span>
+                  </div>
+                  <div style={{ width: '100%', height: '7px', background: '#E2E8F0', borderRadius: '999px', overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${Math.min(100, Math.max(5, (cartTotal / 10000) * 100))}%`,
+                      height: '100%',
+                      background: isFreeShippingEligible ? 'linear-gradient(90deg, #22C55E, #16A34A)' : 'linear-gradient(90deg, #E11D48, #BE123C)',
+                      borderRadius: '999px',
+                      transition: 'width 0.4s ease'
+                    }} />
+                  </div>
+                </div>
+
                 <div style={{ marginBottom: '18px' }}>
                   {checkoutStep ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -3655,9 +4015,15 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                         <span>مجموع السلع:</span>
                         <strong style={{ color: '#1E293B' }}>{cartTotal.toLocaleString()} DA</strong>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#059669' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: isFreeShippingEligible ? '#15803D' : '#059669' }}>
                         <span>سعر التوصيل ({wilaya.split('-')[1]?.trim() || wilaya}):</span>
-                        <strong style={{ color: '#059669' }}>+{calculatedDeliveryFee.toLocaleString()} DA</strong>
+                        {isFreeShippingEligible ? (
+                          <strong style={{ color: '#15803D', background: '#DCFCE7', padding: '2px 8px', borderRadius: '6px', fontSize: '0.85rem' }}>
+                            0 DA (مجاني 🎁)
+                          </strong>
+                        ) : (
+                          <strong style={{ color: '#059669' }}>+{calculatedDeliveryFee.toLocaleString()} DA</strong>
+                        )}
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', borderTop: '1px solid #E2E8F0', paddingTop: '8px' }}>
                         <span style={{ fontSize: '1.05rem', color: '#1E293B', fontWeight: 800 }}>المبلغ الإجمالي الكلي</span>
@@ -3668,7 +4034,9 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <span style={{ fontSize: '1.2rem', color: '#555', fontWeight: 600, display: 'block' }}>Total</span>
-                        <span style={{ fontSize: '0.75rem', color: '#64748B' }}>(سعر التوصيل يضاف عند اختيار الولاية)</span>
+                        <span style={{ fontSize: '0.75rem', color: isFreeShippingEligible ? '#15803D' : '#64748B' }}>
+                          {isFreeShippingEligible ? '🎉 مؤهل للتوصيل المجاني 100%' : '(سعر التوصيل يضاف عند اختيار الولاية)'}
+                        </span>
                       </div>
                       <span style={{ fontSize: '1.6rem', color: 'var(--burgundy-dark)', fontWeight: 900 }}>{(Number(cartTotal) || 0).toLocaleString()} DA</span>
                     </div>
@@ -4521,15 +4889,16 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                   className={`mobile-drawer-item ${isSelected ? 'active' : ''}`}
                   onClick={() => {
                     setSelectedCategory(cat.id);
+                    setActivePage('shop');
+                    setVisibleProductCount(12);
                     setSearchQuery('');
                     setTempSearchQuery('');
                     setActiveDetailProduct(null);
                     setIsMobileMenuOpen(false);
-                    scrollToProductsGrid(100);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                 >
                   <div className="mobile-drawer-item-left">
-                    <span>{cat.icon || '🛍️'}</span>
                     <span>{cat.title}</span>
                     {cat.badge && <span className="mobile-drawer-badge">{cat.badge}</span>}
                   </div>
@@ -4543,6 +4912,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 type="button"
                 className="mobile-drawer-item"
                 onClick={() => {
+                  setActivePage(null);
                   setSelectedCategory('all');
                   setSearchQuery('');
                   setTempSearchQuery('');
@@ -4552,8 +4922,27 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <Home size={18} color="#800020" />
                   <span>ACCUEIL / الرئيسية</span>
+                </div>
+                <ChevronRight size={18} color="#94A3B8" />
+              </button>
+
+              <button 
+                type="button"
+                className="mobile-drawer-item"
+                onClick={() => {
+                  setActivePage('shop');
+                  setSelectedCategory('all');
+                  setVisibleProductCount(12);
+                  setSearchQuery('');
+                  setTempSearchQuery('');
+                  setActiveDetailProduct(null);
+                  setIsMobileMenuOpen(false);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              >
+                <div className="mobile-drawer-item-left">
+                  <span>BOUTIQUE / المتجر والتشكيلات</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -4568,7 +4957,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <ShoppingBag size={18} color="#4338CA" />
                   <span>ESPACE GROS / مبيعات الجملة</span>
                 </div>
                 <span className="mobile-drawer-badge" style={{ background: '#EEF2FF', color: '#4338CA' }}>Gros</span>
@@ -4585,7 +4973,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <Sparkles size={18} color="#0284C7" />
                   <span>À PROPOS DE NOUS / من نحن</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
@@ -4601,7 +4988,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <Truck size={18} color="#D97706" />
                   <span>TARIFS DE LIVRAISON / أسعار التوصيل</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
@@ -4613,7 +4999,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 onClick={scrollToFaqSection}
               >
                 <div className="mobile-drawer-item-left">
-                  <Bell size={18} color="#8B5CF6" />
                   <span>FAQ / الأسئلة الشائعة</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
@@ -4628,7 +5013,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <ShieldCheck size={18} color="#059669" />
                   <span>POLITIQUE DE RETOUR / سياسة الإرجاع</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
@@ -4644,7 +5028,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <ShieldCheck size={18} color="#2563EB" />
                   <span>POLITIQUE DE CONFIDENTIALITÉ / الخصوصية</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
@@ -4660,7 +5043,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <FileText size={18} color="#D97706" />
                   <span>TERMES & CONDITIONS / الشروط والأحكام</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
@@ -4675,7 +5057,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <PhoneCall size={18} color="#25D366" />
                   <span>NOUS CONTACTEZ / تواصل معنا وموقع المحل</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
@@ -4690,7 +5071,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <ShieldCheck size={18} color="#E11D48" />
                   <span>RECLAMATIONS / قسم الشكاوى والملاحظات</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />

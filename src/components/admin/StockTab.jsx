@@ -41,8 +41,9 @@ const getProductCategoryGroupId = (prodCategory, categoriesList) => {
 export default function StockTab({ products, onAddProduct, onUpdateProduct, onDeleteProduct, suppliers, settings, stockMode = 'livraison', onTabChange, isPosOpen }) {
   const categoriesList = Array.isArray(settings?.categories) ? settings.categories : [];
   const selectableCategories = categoriesList.filter(c => {
-    if (c.id === 'all') return false;
-    if ((stockMode === 'gros' || stockMode === 'super_gros') && c.id === 'promo') return false;
+    if (!c || !c.id) return false;
+    const catId = (c.id || '').toLowerCase().trim();
+    if (catId === 'all' || catId === 'hot_sale' || catId === 'hot' || catId === 'promo' || catId === 'solde') return false;
     return true;
   });
 
@@ -785,7 +786,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                     >
                       {selectableCategories.map(cat => (
                         <option key={cat.id} value={cat.id}>
-                          {cat.icon || '📦'} {cat.title}
+                          {cat.title}
                         </option>
                       ))}
                       <option value="__custom__">➕ إضافة صنف آخر مخصص (Autre catégorie)...</option>
@@ -1445,7 +1446,13 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                 onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 8px 15px rgba(0,0,0,0.1)'; }}
                 onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)'; }}
               >
-                <div style={{ fontSize: '3rem' }}>{cat.icon || '📁'}</div>
+                <div style={{ width: '80px', height: '80px', borderRadius: '16px', overflow: 'hidden', border: '1px solid #E2E8F0', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {cat.image ? (
+                    <img src={cat.image} alt={cat.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <Tag size={32} color="#800020" />
+                  )}
+                </div>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-dark)', margin: 0, textAlign: 'center' }}>{cat.title}</h3>
                 <span style={{ background: '#F1F5F9', color: '#475569', padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 700 }}>
                   {count} منتجات
