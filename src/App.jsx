@@ -112,7 +112,7 @@ export default function App() {
         if (payload.eventType === 'UPDATE' && payload.new) {
           // Prevent DB echo from reverting active user edits
           const pending = pendingUpdatesRef.current[payload.new.id];
-          if (pending && (Date.now() - pending.timestamp < 3500)) {
+          if (pending && (Date.now() - pending.timestamp < 6000)) {
             return;
           }
           const incoming = payload.new;
@@ -169,9 +169,20 @@ export default function App() {
         ]);
 
         if (!prodsRes.error && prodsRes.data) {
+          const now = Date.now();
           setProducts(prev => {
-            const isDifferent = JSON.stringify(prev) !== JSON.stringify(prodsRes.data);
-            return isDifferent ? prodsRes.data : prev;
+            return prodsRes.data.map(dbProd => {
+              const pending = pendingUpdatesRef.current[dbProd.id];
+              // If user recently edited or is editing this product, NEVER overwrite with DB data!
+              if (pending && (now - pending.timestamp < 6000)) {
+                return pending.product;
+              }
+              let cvs = dbProd.colorVariants;
+              if (typeof cvs === 'string') {
+                try { cvs = JSON.parse(cvs); } catch(e) { cvs = []; }
+              }
+              return { ...dbProd, colorVariants: cvs };
+            });
           });
         }
 
@@ -262,13 +273,14 @@ export default function App() {
         setter(prev => {
           return data.map(dbProd => {
             const pending = pendingUpdatesRef.current[dbProd.id];
-            if (pending && (now - pending.timestamp < 3500)) {
+            if (pending && (now - pending.timestamp < 6000)) {
               return pending.product;
             }
-            if (typeof dbProd.colorVariants === 'string') {
-              try { dbProd.colorVariants = JSON.parse(dbProd.colorVariants); } catch(e) {}
+            let cvs = dbProd.colorVariants;
+            if (typeof cvs === 'string') {
+              try { cvs = JSON.parse(cvs); } catch(e) { cvs = []; }
             }
-            return dbProd;
+            return { ...dbProd, colorVariants: cvs };
           });
         });
       } else {
@@ -315,15 +327,16 @@ export default function App() {
           if (typeof dbData.colorVariants === 'string') {
             try { dbData.colorVariants = JSON.parse(dbData.colorVariants); } catch(e) {}
           }
-          const finalProduct = { ...latestProd, ...dbData };
+          // User latest edits ALWAYS have precedence over dbData
+          const finalProduct = { ...dbData, ...latestProd };
           pendingUpdatesRef.current[id] = { product: finalProduct, changedVariant: lastChangedVariant, timestamp: Date.now() };
           setProducts(prev => prev.map(p => p.id === id ? finalProduct : p));
 
           setTimeout(() => {
-            if (pendingUpdatesRef.current[id] && (Date.now() - pendingUpdatesRef.current[id].timestamp >= 3500)) {
+            if (pendingUpdatesRef.current[id] && (Date.now() - pendingUpdatesRef.current[id].timestamp >= 5000)) {
               delete pendingUpdatesRef.current[id];
             }
-          }, 4000);
+          }, 6000);
 
           // Single source of truth trigger for low stock check
           fetch('/api/check-low-stock', {

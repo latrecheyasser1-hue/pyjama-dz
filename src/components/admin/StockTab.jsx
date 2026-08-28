@@ -682,11 +682,10 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
   // Direct stock quantity setter (number input box)
   const handleDirectStockChange = (product, colorIdx, size, newQtyVal) => {
-    if (newQtyVal === '') return;
     const colorVariantsArr = getParsedColorVariants(product);
     const targetCv = colorVariantsArr[colorIdx];
     const currentQty = Number(targetCv?.stock?.[size] || 0);
-    const nextQty = Math.max(0, parseInt(newQtyVal, 10) || 0);
+    const nextQty = (newQtyVal === '' || isNaN(Number(newQtyVal))) ? 0 : Math.max(0, parseInt(newQtyVal, 10));
 
     const updatedVariants = colorVariantsArr.map((cv, i) => {
       if (i !== colorIdx) return cv;
@@ -1613,11 +1612,6 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                                 min="0"
                                 value={qty}
                                 onChange={(e) => handleDirectStockChange(p, cIdx, sz, e.target.value)}
-                                onBlur={(e) => {
-                                  if (e.target.value === '' || isNaN(Number(e.target.value))) {
-                                    handleDirectStockChange(p, cIdx, sz, 0);
-                                  }
-                                }}
                                 style={{
                                   width: '46px',
                                   padding: '2px 2px',
