@@ -60,8 +60,35 @@ async function sendWhatsAppMessage(toPhone, textBody, imageUrl = null) {
 
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   
-  // 1. ALWAYS send the text alert FIRST (100% guaranteed delivery, zero media dependency)
-  let textResult = null;
+  // 1. Send as ONE single unified message: Image with text attached as its caption
+  if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: waPhone,
+          type: 'image',
+          image: { link: imageUrl, caption: textBody }
+        })
+      });
+      const data = await res.json();
+      if (!data?.error) {
+        console.log('WhatsApp unified image+caption alert sent successfully:', data);
+        return data;
+      }
+      console.warn('Image alert error, falling back to text:', data.error);
+    } catch (imgErr) {
+      console.warn('Error sending image alert, falling back to text:', imgErr);
+    }
+  }
+
+  // 2. Fallback to 1 single text message if image missing or failed
   try {
     const textRes = await fetch(url, {
       method: 'POST',
@@ -77,37 +104,13 @@ async function sendWhatsAppMessage(toPhone, textBody, imageUrl = null) {
         text: { preview_url: false, body: textBody }
       })
     });
-    textResult = await textRes.json();
-    console.log('WhatsApp text alert result:', textResult);
+    const textData = await textRes.json();
+    console.log('WhatsApp text fallback alert sent:', textData);
+    return textData;
   } catch (err) {
     console.error('Error sending WhatsApp text alert:', err);
+    return null;
   }
-
-  // 2. If imageUrl is present, ALSO send the product photo as a companion message!
-  if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
-    try {
-      const imgRes = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: waPhone,
-          type: 'image',
-          image: { link: imageUrl }
-        })
-      });
-      const imgResult = await imgRes.json();
-      console.log('WhatsApp image companion result:', imgResult);
-    } catch (imgErr) {
-      console.warn('Error sending companion image alert:', imgErr);
-    }
-  }
-
-  return textResult;
 }
 
 async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
@@ -168,7 +171,7 @@ export default async function handler(req, res) {
     const productId = req.query?.productId || bodyData?.productId;
 
     // 1. Parallel fetch for store settings & products for sub-100ms ultra-fast execution
-    const settingsPromise = fetch(`${SUPABASE_URL}/rest/v1/settings?select=*`, {
+    const settingsPromise = fetch(`${SUPABASE_URL}/rest/v1/settings?or=(key.like.alert_state_*,key.in.(storeName,whatsapp,whatsappLivraisonManager,whatsappBoutiqueManager))`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     }).then(r => r.json()).catch(() => []);
 
@@ -306,19 +309,17 @@ export default async function handler(req, res) {
               }
 
               let shouldSendAlert = false;
-              const isManualChange = Boolean(bodyData && bodyData.changedVariant);
               const lastTimestamp = lastAlertState?.timestamp ? Number(lastAlertState.timestamp) : 0;
               const isExpired = lastTimestamp > 0 && (Date.now() - lastTimestamp > 5 * 60 * 1000);
-              const qtyChanged = !lastAlertState || Number(lastAlertState.qty) !== numQty;
 
               if (numQty === 0) {
-                // Send zero stock alert when reaching 0
-                if (isManualChange || !lastAlertState || lastAlertState.alertType !== 'zero' || qtyChanged || isExpired) {
+                // Send zero stock alert ONLY if not already alerted as zero
+                if (!lastAlertState || lastAlertState.alertType !== 'zero' || isExpired) {
                   shouldSendAlert = true;
                 }
               } else if (numQty <= 5 && numQty > 0) {
-                // Send low stock alert when stock drops to <= 5
-                if (isManualChange || !lastAlertState || lastAlertState.alertType === 'cleared' || qtyChanged || isExpired) {
+                // Send low stock alert ONLY if not already alerted as low (and not already zero)
+                if (!lastAlertState || (lastAlertState.alertType !== 'low' && lastAlertState.alertType !== 'zero') || isExpired) {
                   shouldSendAlert = true;
                 }
               }
@@ -382,10 +383,9 @@ export default async function handler(req, res) {
 
       const now = Date.now();
       const validItems = itemsList.filter(item => {
-        if (bodyData && bodyData.changedVariant) return true; // Always send for manual dashboard edits!
-        const lockKey = `${item.alertKey}_q${item.qty}`;
+        const lockKey = `${item.alertKey}_${item.qty === 0 ? 'zero' : 'low'}`;
         const lastSent = global._alertSendTimes[lockKey] || 0;
-        if (now - lastSent < 2000) return false;
+        if (now - lastSent < 10000) return false; // 10s lockout against double-sends
         global._alertSendTimes[lockKey] = now;
         return true;
       });
@@ -403,11 +403,11 @@ export default async function handler(req, res) {
         });
 
         try {
-          fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+          await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
             method: 'POST',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
             body: JSON.stringify({ key: `alert_state_${item.alertKey}`, value: alertStateVal })
-          }).catch(() => {});
+          });
         } catch (e) {}
 
         const alertMsg = item.qty === 0

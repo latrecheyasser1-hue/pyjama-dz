@@ -325,7 +325,7 @@ export default function App() {
       return nextList;
     });
 
-    // 2. Direct fast trigger for low stock alert if stock drops to <= 5 or 0
+    // 2. Single debounced trigger for low stock alert if stock drops to <= 5 or 0 (350ms debounce prevents rapid click spam)
     if (changedVariant && typeof changedVariant.qty === 'number' && changedVariant.qty <= 5) {
       const alertKey = `${id}_${changedVariant.colorIdx}_${changedVariant.size}`;
       if (lowStockDebounceRef.current[alertKey]) {
@@ -337,8 +337,8 @@ export default function App() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ product: updatedProd, changedVariant })
-        }).catch(err => console.error('Direct low stock check error:', err));
-      }, 250);
+        }).catch(err => console.error('Low stock check error:', err));
+      }, 350);
     }
 
     // 3. Clear previous pending DB update for this product
@@ -380,13 +380,6 @@ export default function App() {
               delete pendingUpdatesRef.current[id];
             }
           }, 6000);
-
-          // Single source of truth trigger for low stock check
-          fetch('/api/check-low-stock', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ product: finalProduct, changedVariant: lastChangedVariant })
-          }).catch(err => console.error('Low stock check error:', err));
         }
       } catch (err) {
         console.error('Error in debounced product update:', err);
