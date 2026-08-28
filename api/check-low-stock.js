@@ -60,8 +60,13 @@ async function sendWhatsAppMessage(toPhone, textBody, imageUrl = null) {
 
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   
-  // WhatsApp Cloud API sends text messages reliably with 100% deliverability across all devices
-  const payload = {
+  let payload = (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) ? {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: waPhone,
+    type: 'image',
+    image: { link: imageUrl, caption: textBody }
+  } : {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to: waPhone,
@@ -70,7 +75,7 @@ async function sendWhatsAppMessage(toPhone, textBody, imageUrl = null) {
   };
 
   try {
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -78,7 +83,27 @@ async function sendWhatsAppMessage(toPhone, textBody, imageUrl = null) {
       },
       body: JSON.stringify(payload)
     });
-    return await res.json();
+    let resData = await res.json();
+    if (resData?.error && payload.type === 'image') {
+      console.warn('Image alert send failed, falling back to text:', resData.error);
+      const textPayload = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: waPhone,
+        type: 'text',
+        text: { preview_url: false, body: textBody }
+      };
+      res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(textPayload)
+      });
+      resData = await res.json();
+    }
+    return resData;
   } catch (err) {
     console.error('Send WhatsApp error:', err);
   }
@@ -299,12 +324,13 @@ export default async function handler(req, res) {
 
               if (!shouldSendAlert) continue; // 🛑 ALREADY SENT ALERT FOR THIS EXACT STOCK LEVEL!
 
+              const variantImg = variant.image || null;
               const prodImgs = product.images || [];
-              const rawImg = Array.isArray(prodImgs) && prodImgs[0] ? prodImgs[0] : (typeof prodImgs === 'string' ? prodImgs : null);
+              const rawImg = variantImg || (Array.isArray(prodImgs) && prodImgs[0] ? prodImgs[0] : (typeof prodImgs === 'string' ? prodImgs : null));
               
               const imageUrl = (rawImg && typeof rawImg === 'string' && rawImg.startsWith('http'))
                 ? rawImg
-                : `https://pyjama-dz.vercel.app/api/product-image?id=${product.id}.jpg`;
+                : `https://pyjama-dz.vercel.app/api/product-image?id=${product.id}&idx=${cIdx}.jpg`;
 
               const itemInfo = {
                 productId: product.id,
