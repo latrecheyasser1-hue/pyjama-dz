@@ -634,68 +634,36 @@ export default function AliOwnerDashboard({
         </div>
       )}
 
-      {/* Clean Compact Header (Without Fixed Sticky Cards) */}
-      <header style={{
-        background: 'linear-gradient(135deg, #2D0814 0%, #5B1324 100%)',
-        color: '#FFF',
-        padding: '20px 24px',
-        boxShadow: '0 4px 20px rgba(45, 8, 20, 0.15)'
-      }}>
+      {/* Main Content Area */}
+      <main style={{ maxWidth: '1240px', margin: '0 auto', padding: '24px 16px 60px' }}>
+        
+        {/* Minimal Top Header Bar (Clean Light Design) */}
         <div style={{
-          maxWidth: '1240px',
-          margin: '0 auto',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          marginBottom: '20px',
           flexWrap: 'wrap',
-          gap: '16px'
+          gap: '12px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{
-              width: '46px',
-              height: '46px',
-              borderRadius: '14px',
-              background: 'rgba(255, 255, 255, 0.15)',
-              backdropFilter: 'blur(8px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid rgba(255, 255, 255, 0.2)'
-            }}>
-              <Award size={24} color="#FBBF24" />
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h1 style={{ fontSize: '1.35rem', fontWeight: 900, margin: 0, color: '#FFF' }}>
-                  مرحباً بك يا علي
-                </h1>
-                <span style={{
-                  background: 'rgba(251, 191, 36, 0.2)',
-                  color: '#FDE68A',
-                  border: '1px solid rgba(251, 191, 36, 0.3)',
-                  padding: '2px 10px',
-                  borderRadius: '12px',
-                  fontSize: '0.75rem',
-                  fontWeight: 800
-                }}>
-                  لوحة المالك
-                </span>
-              </div>
-              <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: '#F1F5F9', opacity: 0.85 }}>
-                لوحة التحكم الإدارية لـ Pyjama DZ • متابعة حية ومفصلة
-              </p>
-            </div>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 900, color: '#1E293B' }}>
+              لوحة تحكم المالك
+            </h1>
+            <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: '#64748B' }}>
+              Pyjama DZ • متابعة حية للمبيعات، المنتجات، الطلبيات والتقييمات
+            </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               onClick={() => window.location.reload()}
               title="تحديث البيانات"
               style={{
-                background: 'rgba(255, 255, 255, 0.12)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                color: '#FFF',
-                padding: '9px 14px',
+                background: '#FFF',
+                border: '1px solid #E2E8F0',
+                color: '#334155',
+                padding: '8px 14px',
                 borderRadius: '12px',
                 cursor: 'pointer',
                 display: 'flex',
@@ -703,23 +671,41 @@ export default function AliOwnerDashboard({
                 gap: '6px',
                 fontSize: '0.84rem',
                 fontWeight: 700,
-                backdropFilter: 'blur(8px)',
-                transition: 'all 0.2s ease'
+                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'}
             >
-              <RefreshCw size={15} /> تحديث
+              <RefreshCw size={14} /> تحديث
+            </button>
+
+            <button
+              onClick={onGoToStore || (() => window.location.href = '/')}
+              title="العودة إلى المتجر الرئيسي"
+              style={{
+                background: '#FFF',
+                border: '1px solid #E2E8F0',
+                color: '#334155',
+                padding: '8px 14px',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+              }}
+            >
+              <ShoppingBag size={14} /> المتجر
             </button>
 
             <button
               onClick={handleLogout}
               title="قفل وتسجيل الخروج"
               style={{
-                background: 'rgba(239, 68, 68, 0.2)',
-                border: '1px solid rgba(239, 68, 68, 0.35)',
-                color: '#FECACA',
-                padding: '9px 15px',
+                background: '#FEE2E2',
+                border: '1px solid #FECACA',
+                color: '#DC2626',
+                padding: '8px 14px',
                 borderRadius: '12px',
                 cursor: 'pointer',
                 display: 'flex',
@@ -727,19 +713,13 @@ export default function AliOwnerDashboard({
                 gap: '6px',
                 fontSize: '0.84rem',
                 fontWeight: 800,
-                transition: 'all 0.2s ease'
+                boxShadow: '0 2px 6px rgba(220,38,38,0.05)'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.35)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
             >
-              <LogOut size={15} /> قفل اللوحة
+              <LogOut size={14} /> قفل
             </button>
           </div>
         </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main style={{ maxWidth: '1240px', margin: '0 auto', padding: '24px 16px 60px' }}>
         
         {/* Navigation Tabs Bar with Fluid Pill Transition (Clean Lucide Icons, No Emojis) */}
         <div style={{
