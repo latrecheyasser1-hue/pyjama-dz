@@ -52,18 +52,24 @@ export default async function handler(req, res) {
       return res.redirect(302, imgData);
     }
 
-    let contentType = 'image/jpeg';
     let imageBuffer;
 
     const matches = imgData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
     if (matches && matches.length === 3) {
-      contentType = matches[1];
       imageBuffer = Buffer.from(matches[2], 'base64');
     } else {
       imageBuffer = Buffer.from(imgData, 'base64');
     }
 
-    res.setHeader('Content-Type', contentType);
+    // Convert to 100% compliant progressive JPEG using sharp so Meta WhatsApp Cloud API never drops the image
+    try {
+      const sharp = (await import('sharp')).default;
+      imageBuffer = await sharp(imageBuffer).jpeg({ quality: 85 }).toBuffer();
+    } catch (conversionErr) {
+      console.warn('Sharp conversion fallback:', conversionErr);
+    }
+
+    res.setHeader('Content-Type', 'image/jpeg');
     res.setHeader('Content-Length', imageBuffer.length);
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');

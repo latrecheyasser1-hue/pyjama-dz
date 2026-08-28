@@ -84,6 +84,7 @@ export default function App() {
 
   const pendingUpdatesRef = useRef({});
   const updateDebounceRef = useRef({});
+  const lowStockDebounceRef = useRef({});
   const parcelCreationLockRef = useRef(new Set());
 
   useEffect(() => {
@@ -324,12 +325,28 @@ export default function App() {
       return nextList;
     });
 
-    // 2. Clear previous pending DB update for this product
+    // 2. Direct fast trigger for low stock alert if stock drops to <= 5 or 0
+    if (changedVariant && typeof changedVariant.qty === 'number' && changedVariant.qty <= 5) {
+      const alertKey = `${id}_${changedVariant.colorIdx}_${changedVariant.size}`;
+      if (lowStockDebounceRef.current[alertKey]) {
+        clearTimeout(lowStockDebounceRef.current[alertKey]);
+      }
+      lowStockDebounceRef.current[alertKey] = setTimeout(() => {
+        delete lowStockDebounceRef.current[alertKey];
+        fetch('/api/check-low-stock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product: updatedProd, changedVariant })
+        }).catch(err => console.error('Direct low stock check error:', err));
+      }, 250);
+    }
+
+    // 3. Clear previous pending DB update for this product
     if (updateDebounceRef.current[id]) {
       clearTimeout(updateDebounceRef.current[id]);
     }
 
-    // 3. Fast debounce background Supabase sync (120ms) to ensure rapid persistence
+    // 4. Fast debounce background Supabase sync (120ms) to ensure rapid persistence
     updateDebounceRef.current[id] = setTimeout(async () => {
       try {
         const latestInfo = pendingUpdatesRef.current[id];

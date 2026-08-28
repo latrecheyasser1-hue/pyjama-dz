@@ -381,9 +381,10 @@ export default async function handler(req, res) {
 
       const now = Date.now();
       const validItems = itemsList.filter(item => {
+        if (bodyData && bodyData.changedVariant) return true; // Always send for manual dashboard edits!
         const lockKey = `${item.alertKey}_q${item.qty}`;
         const lastSent = global._alertSendTimes[lockKey] || 0;
-        if (now - lastSent < 5000) return false; // Skip if exact same alert sent within last 5s
+        if (now - lastSent < 2000) return false;
         global._alertSendTimes[lockKey] = now;
         return true;
       });
