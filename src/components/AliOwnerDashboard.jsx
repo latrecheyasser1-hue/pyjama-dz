@@ -4,7 +4,7 @@ import {
   Calendar, Lock, Unlock, LogOut, CheckCircle2, Clock, Truck, 
   AlertCircle, Eye, EyeOff, Search, Filter, Sparkles, RefreshCw, 
   ExternalLink, Phone, MapPin, ChevronRight, X, Layers, ArrowUpRight, ArrowDownRight,
-  ShieldCheck, Award, HeartHandshake, MessageSquare, Star, Trash2
+  ShieldCheck, Award, HeartHandshake, MessageSquare, Star, Trash2, Check
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
@@ -203,14 +203,14 @@ export default function AliOwnerDashboard({
     const willBeHidden = targetRev?.status !== 'hidden';
     const updated = await toggleReviewStatus(reviewId);
     setReviews(updated);
-    showToast(willBeHidden ? '🙈 تم إخفاء التقييم عن زوار المتجر' : '👁️ تم إظهار التقييم في المتجر بنجاح', 'info');
+    showToast(willBeHidden ? 'تم إخفاء التقييم عن زوار المتجر' : 'تم إظهار التقييم في المتجر بنجاح', 'info');
   };
 
   const handleDeleteReview = async (reviewId) => {
     const updated = await deleteReview(reviewId);
     setReviews(updated);
     setDeleteConfirmReviewId(null);
-    showToast('🗑️ تم حذف التقييم نهائياً بنجاح', 'success');
+    showToast('تم حذف التقييم نهائياً بنجاح', 'success');
   };
 
   // Filtered reviews
@@ -397,17 +397,17 @@ export default function AliOwnerDashboard({
   const getStatusBadge = (status) => {
     switch (status) {
       case 'nouvelle':
-        return { label: 'جديدة ✨', bg: '#EDE9FE', color: '#6D28D9', border: '#DDD6FE' };
+        return { label: 'جديدة', bg: '#EDE9FE', color: '#6D28D9', border: '#DDD6FE' };
       case 'confirmee':
-        return { label: 'مؤكدة ⚡', bg: '#FEF3C7', color: '#D97706', border: '#FDE68A' };
+        return { label: 'مؤكدة', bg: '#FEF3C7', color: '#D97706', border: '#FDE68A' };
       case 'expediee':
-        return { label: 'مشحونة 🚚', bg: '#E0F2FE', color: '#0284C7', border: '#BAE6FD' };
+        return { label: 'مشحونة', bg: '#E0F2FE', color: '#0284C7', border: '#BAE6FD' };
       case 'livree':
-        return { label: 'مستلمة ✅', bg: '#DCFCE7', color: '#16A34A', border: '#BBF7D0' };
+        return { label: 'مستلمة', bg: '#DCFCE7', color: '#16A34A', border: '#BBF7D0' };
       case 'annulee':
-        return { label: 'ملغاة ❌', bg: '#FEE2E2', color: '#DC2626', border: '#FECACA' };
+        return { label: 'ملغاة', bg: '#FEE2E2', color: '#DC2626', border: '#FECACA' };
       case 'retour':
-        return { label: 'راجعة 🔄', bg: '#FCE7F3', color: '#DB2777', border: '#FBCFE8' };
+        return { label: 'راجعة', bg: '#FCE7F3', color: '#DB2777', border: '#FBCFE8' };
       default:
         return { label: status || 'أخرى', bg: '#F1F5F9', color: '#475569', border: '#E2E8F0' };
     }
@@ -478,11 +478,11 @@ export default function AliOwnerDashboard({
             fontWeight: 800,
             marginBottom: '12px'
           }}>
-            <Award size={14} /> لوحة المالك الحصرية
+            <Award size={14} /> لوحة المالك
           </div>
 
           <h2 style={{ fontSize: '1.65rem', fontWeight: 900, color: '#1E293B', marginBottom: '8px' }}>
-            مرحباً بك يا علي 👑
+            مرحباً بك يا علي
           </h2>
           <p style={{ color: '#64748B', fontSize: '0.92rem', marginBottom: '28px', lineHeight: 1.5 }}>
             يرجى إدخال رمز الأمان الخاص بك للدخول إلى لوحة التحكم الشاملة لـ <strong>Pyjama DZ</strong>
@@ -634,15 +634,12 @@ export default function AliOwnerDashboard({
         </div>
       )}
 
-      {/* Top VIP Header */}
+      {/* Clean Compact Header (Without Fixed Sticky Cards) */}
       <header style={{
         background: 'linear-gradient(135deg, #2D0814 0%, #5B1324 100%)',
         color: '#FFF',
-        padding: '24px 20px 30px',
-        boxShadow: '0 10px 30px rgba(45, 8, 20, 0.25)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50
+        padding: '20px 24px',
+        boxShadow: '0 4px 20px rgba(45, 8, 20, 0.15)'
       }}>
         <div style={{
           maxWidth: '1240px',
@@ -655,9 +652,9 @@ export default function AliOwnerDashboard({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{
-              width: '52px',
-              height: '52px',
-              borderRadius: '16px',
+              width: '46px',
+              height: '46px',
+              borderRadius: '14px',
               background: 'rgba(255, 255, 255, 0.15)',
               backdropFilter: 'blur(8px)',
               display: 'flex',
@@ -665,12 +662,12 @@ export default function AliOwnerDashboard({
               justifyContent: 'center',
               border: '1px solid rgba(255, 255, 255, 0.2)'
             }}>
-              <Award size={28} color="#FBBF24" />
+              <Award size={24} color="#FBBF24" />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h1 style={{ fontSize: '1.45rem', fontWeight: 900, margin: 0, color: '#FFF' }}>
-                  مرحباً بك يا علي 👑
+                <h1 style={{ fontSize: '1.35rem', fontWeight: 900, margin: 0, color: '#FFF' }}>
+                  مرحباً بك يا علي
                 </h1>
                 <span style={{
                   background: 'rgba(251, 191, 36, 0.2)',
@@ -681,11 +678,11 @@ export default function AliOwnerDashboard({
                   fontSize: '0.75rem',
                   fontWeight: 800
                 }}>
-                  مول المتجر
+                  لوحة المالك
                 </span>
               </div>
-              <p style={{ margin: '4px 0 0', fontSize: '0.84rem', color: '#F1F5F9', opacity: 0.85 }}>
-                لوحة التحكم الإدارية الشاملة لـ Pyjama DZ • متابعة حية لكل التفاصيل
+              <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: '#F1F5F9', opacity: 0.85 }}>
+                لوحة التحكم الإدارية لـ Pyjama DZ • متابعة حية ومفصلة
               </p>
             </div>
           </div>
@@ -698,13 +695,13 @@ export default function AliOwnerDashboard({
                 background: 'rgba(255, 255, 255, 0.12)',
                 border: '1px solid rgba(255, 255, 255, 0.2)',
                 color: '#FFF',
-                padding: '10px 14px',
+                padding: '9px 14px',
                 borderRadius: '12px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                fontSize: '0.86rem',
+                fontSize: '0.84rem',
                 fontWeight: 700,
                 backdropFilter: 'blur(8px)',
                 transition: 'all 0.2s ease'
@@ -712,7 +709,7 @@ export default function AliOwnerDashboard({
               onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'}
             >
-              <RefreshCw size={16} /> تحديث
+              <RefreshCw size={15} /> تحديث
             </button>
 
             <button
@@ -722,105 +719,21 @@ export default function AliOwnerDashboard({
                 background: 'rgba(239, 68, 68, 0.2)',
                 border: '1px solid rgba(239, 68, 68, 0.35)',
                 color: '#FECACA',
-                padding: '10px 16px',
+                padding: '9px 15px',
                 borderRadius: '12px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                fontSize: '0.86rem',
+                fontSize: '0.84rem',
                 fontWeight: 800,
                 transition: 'all 0.2s ease'
               }}
               onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.35)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
             >
-              <LogOut size={16} /> قفل اللوحة
+              <LogOut size={15} /> قفل اللوحة
             </button>
-          </div>
-        </div>
-
-        {/* Executive KPI Bar */}
-        <div style={{
-          maxWidth: '1240px',
-          margin: '22px auto 0',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
-          gap: '14px'
-        }}>
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.08)',
-            backdropFilter: 'blur(12px)',
-            borderRadius: '16px',
-            padding: '14px 18px',
-            border: '1px solid rgba(255, 255, 255, 0.12)'
-          }}>
-            <span style={{ fontSize: '0.78rem', opacity: 0.8, display: 'block', marginBottom: '4px' }}>
-              💰 إجمالي المداخيل (CA)
-            </span>
-            <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#FDE68A' }}>
-              {totalCA.toLocaleString()} <span style={{ fontSize: '0.85rem' }}>دج</span>
-            </div>
-          </div>
-
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.08)',
-            backdropFilter: 'blur(12px)',
-            borderRadius: '16px',
-            padding: '14px 18px',
-            border: '1px solid rgba(255, 255, 255, 0.12)'
-          }}>
-            <span style={{ fontSize: '0.78rem', opacity: 0.8, display: 'block', marginBottom: '4px' }}>
-              📈 الأرباح الصافية التقديرية
-            </span>
-            <div style={{ fontSize: '1.45rem', fontWeight: 900, color: estimatedProfit >= 0 ? '#86EFAC' : '#FCA5A5' }}>
-              {estimatedProfit.toLocaleString()} <span style={{ fontSize: '0.85rem' }}>دج</span>
-            </div>
-          </div>
-
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.08)',
-            backdropFilter: 'blur(12px)',
-            borderRadius: '16px',
-            padding: '14px 18px',
-            border: '1px solid rgba(255, 255, 255, 0.12)'
-          }}>
-            <span style={{ fontSize: '0.78rem', opacity: 0.8, display: 'block', marginBottom: '4px' }}>
-              📦 عدد الطلبيات الإجمالي
-            </span>
-            <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#FFF' }}>
-              {orders.length} <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>طلبية</span>
-            </div>
-          </div>
-
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.08)',
-            backdropFilter: 'blur(12px)',
-            borderRadius: '16px',
-            padding: '14px 18px',
-            border: '1px solid rgba(255, 255, 255, 0.12)'
-          }}>
-            <span style={{ fontSize: '0.78rem', opacity: 0.8, display: 'block', marginBottom: '4px' }}>
-              ⭐ تقييمات الزبائن ({reviewStats.total})
-            </span>
-            <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#FCD34D' }}>
-              {reviewStats.avg} <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>/ 5 ({reviewStats.visible} ظاهر)</span>
-            </div>
-          </div>
-
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.08)',
-            backdropFilter: 'blur(12px)',
-            borderRadius: '16px',
-            padding: '14px 18px',
-            border: '1px solid rgba(255, 255, 255, 0.12)'
-          }}>
-            <span style={{ fontSize: '0.78rem', opacity: 0.8, display: 'block', marginBottom: '4px' }}>
-              👗 إجمالي الموديلات والستوك
-            </span>
-            <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#E9D5FF' }}>
-              {products.length} <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>موديل ({totalStockCount} حبة)</span>
-            </div>
           </div>
         </div>
       </header>
@@ -828,7 +741,7 @@ export default function AliOwnerDashboard({
       {/* Main Content Area */}
       <main style={{ maxWidth: '1240px', margin: '0 auto', padding: '24px 16px 60px' }}>
         
-        {/* Navigation Tabs Bar with Fluid Pill Transition */}
+        {/* Navigation Tabs Bar with Fluid Pill Transition (Clean Lucide Icons, No Emojis) */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -867,7 +780,7 @@ export default function AliOwnerDashboard({
             }}
           >
             <BarChart3 size={19} />
-            <span>📊 الإحصائيات (Analytics)</span>
+            <span>الإحصائيات (Analytics)</span>
           </button>
 
           <button
@@ -895,8 +808,8 @@ export default function AliOwnerDashboard({
               whiteSpace: 'nowrap'
             }}
           >
-            <Sparkles size={19} />
-            <span>✨ آخر المنتجات ({displayedProducts.length})</span>
+            <Package size={19} />
+            <span>آخر المنتجات ({displayedProducts.length})</span>
           </button>
 
           <button
@@ -924,8 +837,8 @@ export default function AliOwnerDashboard({
               whiteSpace: 'nowrap'
             }}
           >
-            <Package size={19} />
-            <span>📦 الطلبيات ({displayedOrders.length})</span>
+            <ShoppingBag size={19} />
+            <span>الطلبيات ({displayedOrders.length})</span>
           </button>
 
           <button
@@ -954,12 +867,12 @@ export default function AliOwnerDashboard({
             }}
           >
             <Star size={19} />
-            <span>⭐ آراء الزبائن ({filteredReviews.length})</span>
+            <span>آراء الزبائن ({filteredReviews.length})</span>
           </button>
         </div>
 
         {/* ---------------------------------------------------- */}
-        {/* TAB 1: 📊 ANALYTICS & BUSINESS METRICS               */}
+        {/* TAB 1: ANALYTICS & BUSINESS METRICS                 */}
         {/* ---------------------------------------------------- */}
         {activeTab === 'analytics' && (
           <div className="tab-pane-fade" key="analytics">
@@ -993,7 +906,7 @@ export default function AliOwnerDashboard({
                       { id: 'yesterday', label: 'البارحة' },
                       { id: 'last_week', label: 'آخر أسبوع' },
                       { id: 'last_month', label: 'آخر شهر' },
-                      { id: 'custom', label: 'فترة محددة 📅' }
+                      { id: 'custom', label: 'فترة محددة' }
                     ].map(btn => (
                       <button
                         key={btn.id}
@@ -1107,11 +1020,99 @@ export default function AliOwnerDashboard({
                         cursor: 'pointer'
                       }}
                     >
-                      إلغاء التحديد ✕
+                      إلغاء التحديد
                     </button>
                   )}
                 </div>
               )}
+            </div>
+
+            {/* KPI Cards inside Analytics Tab (Dynamic & Non-Sticky) */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+              gap: '16px',
+              marginBottom: '24px'
+            }}>
+              <div style={{
+                background: '#FFF',
+                borderRadius: '18px',
+                padding: '20px',
+                border: '1px solid #E2E8F0',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.03)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
+                  <DollarSign size={16} color="#B45309" />
+                  <span>إجمالي المداخيل (CA)</span>
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#6B1D2F' }}>
+                  {totalCA.toLocaleString()} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>دج</span>
+                </div>
+              </div>
+
+              <div style={{
+                background: '#FFF',
+                borderRadius: '18px',
+                padding: '20px',
+                border: '1px solid #E2E8F0',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.03)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
+                  <TrendingUp size={16} color="#16A34A" />
+                  <span>الأرباح الصافية التقديرية</span>
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: estimatedProfit >= 0 ? '#16A34A' : '#DC2626' }}>
+                  {estimatedProfit.toLocaleString()} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>دج</span>
+                </div>
+              </div>
+
+              <div style={{
+                background: '#FFF',
+                borderRadius: '18px',
+                padding: '20px',
+                border: '1px solid #E2E8F0',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.03)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
+                  <ShoppingBag size={16} color="#0284C7" />
+                  <span>عدد الطلبيات</span>
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1E293B' }}>
+                  {filteredOrdersForAnalytics.length} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>طلبية</span>
+                </div>
+              </div>
+
+              <div style={{
+                background: '#FFF',
+                borderRadius: '18px',
+                padding: '20px',
+                border: '1px solid #E2E8F0',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.03)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
+                  <Truck size={16} color="#7C3AED" />
+                  <span>نسبة نجاح التوصيل</span>
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1E293B' }}>
+                  {deliverySuccessRate}%
+                </div>
+              </div>
+
+              <div style={{
+                background: '#FFF',
+                borderRadius: '18px',
+                padding: '20px',
+                border: '1px solid #E2E8F0',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.03)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
+                  <Package size={16} color="#D97706" />
+                  <span>الستوك الإجمالي</span>
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1E293B' }}>
+                  {totalStockCount} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>قطعة ({products.length} موديل)</span>
+                </div>
+              </div>
             </div>
 
             {/* Visual Analytics Charts Grid */}
@@ -1256,7 +1257,7 @@ export default function AliOwnerDashboard({
         )}
 
         {/* ---------------------------------------------------- */}
-        {/* TAB 2: ✨ LATEST PRODUCTS ADDED                     */}
+        {/* TAB 2: LATEST PRODUCTS ADDED                         */}
         {/* ---------------------------------------------------- */}
         {activeTab === 'products' && (
           <div className="tab-pane-fade" key="products">
@@ -1356,7 +1357,7 @@ export default function AliOwnerDashboard({
                     { id: 'yesterday', label: 'البارحة' },
                     { id: 'last_week', label: 'آخر أسبوع' },
                     { id: 'last_month', label: 'آخر شهر' },
-                    { id: 'custom', label: 'فترة محددة 📅' }
+                    { id: 'custom', label: 'فترة محددة' }
                   ].map(btn => (
                     <button
                       key={btn.id}
@@ -1461,7 +1462,7 @@ export default function AliOwnerDashboard({
                           fontWeight: 800,
                           boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
                         }}>
-                          {stockSum === 0 ? 'نفد المخزون 🛑' : (stockSum <= 5 ? `متبقي ${stockSum} قطع ⚠️` : `متوفر: ${stockSum} قطعة`)}
+                          {stockSum === 0 ? 'نفد المخزون' : (stockSum <= 5 ? `متبقي ${stockSum} قطع` : `متوفر: ${stockSum} قطعة`)}
                         </div>
 
                         {/* Category Badge on Top Right */}
@@ -1488,7 +1489,7 @@ export default function AliOwnerDashboard({
                             <h4 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: '#1E293B' }}>
                               {p.title}
                             </h4>
-                            <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>📅 {addedDate}</span>
+                            <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>أضيف: {addedDate}</span>
                           </div>
 
                           {/* Price Breakdown */}
@@ -1604,7 +1605,7 @@ export default function AliOwnerDashboard({
         )}
 
         {/* ---------------------------------------------------- */}
-        {/* TAB 3: 📦 ORDERS FEED                                */}
+        {/* TAB 3: ORDERS FEED                                   */}
         {/* ---------------------------------------------------- */}
         {activeTab === 'orders' && (
           <div className="tab-pane-fade" key="orders">
@@ -1692,7 +1693,7 @@ export default function AliOwnerDashboard({
                     { id: 'yesterday', label: 'البارحة' },
                     { id: 'last_week', label: 'آخر أسبوع' },
                     { id: 'last_month', label: 'آخر شهر' },
-                    { id: 'custom', label: 'فترة محددة 📅' }
+                    { id: 'custom', label: 'فترة محددة' }
                   ].map(btn => (
                     <button
                       key={btn.id}
@@ -1818,7 +1819,7 @@ export default function AliOwnerDashboard({
                           {o.product || 'بيجامات منوعة'}
                         </p>
                         <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
-                          📅 {orderDate}
+                          التاريخ: {orderDate}
                         </span>
                       </div>
 
@@ -1901,11 +1902,11 @@ export default function AliOwnerDashboard({
         )}
 
         {/* ---------------------------------------------------- */}
-        {/* TAB 4: ⭐ CUSTOMER REVIEWS & RATINGS                */}
+        {/* TAB 4: CUSTOMER REVIEWS & RATINGS                   */}
         {/* ---------------------------------------------------- */}
         {activeTab === 'reviews' && (
           <div className="tab-pane-fade" key="reviews">
-            {/* Reviews Summary KPI Cards */}
+            {/* Reviews Summary Cards (Clean Lucide Icons, No Emojis) */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
@@ -1939,7 +1940,7 @@ export default function AliOwnerDashboard({
                     متوسط التقييم العام
                   </span>
                   <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1E293B' }}>
-                    {reviewStats.avg} <span style={{ fontSize: '0.88rem', color: '#F59E0B' }}>⭐⭐⭐⭐⭐</span>
+                    {reviewStats.avg} <span style={{ fontSize: '0.85rem', color: '#64748B' }}>من 5 نجوم</span>
                   </div>
                 </div>
               </div>
@@ -2000,7 +2001,7 @@ export default function AliOwnerDashboard({
                 </div>
                 <div>
                   <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
-                    آراء منشورة وظاهرة للزبائن
+                    آراء منشورة للزبائن
                   </span>
                   <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#16A34A' }}>
                     {reviewStats.visible} <span style={{ fontSize: '0.85rem', color: '#64748B' }}>ظاهر</span>
@@ -2105,7 +2106,7 @@ export default function AliOwnerDashboard({
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  ⭐⭐⭐⭐⭐ (5 نجوم)
+                  5 نجوم
                 </button>
                 <button
                   onClick={() => setReviewsStarFilter('4')}
@@ -2121,7 +2122,7 @@ export default function AliOwnerDashboard({
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  ⭐⭐⭐⭐ (4 نجوم)
+                  4 نجوم
                 </button>
                 <button
                   onClick={() => setReviewsStarFilter('hidden')}
@@ -2196,14 +2197,17 @@ export default function AliOwnerDashboard({
                                   padding: '2px 8px',
                                   borderRadius: '8px',
                                   fontSize: '0.72rem',
-                                  fontWeight: 800
+                                  fontWeight: 800,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
                                 }}>
-                                  ✓ شراء مؤكد
+                                  <Check size={12} /> شراء مؤكد
                                 </span>
                               )}
                             </div>
                             <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
-                              📍 {rev.wilaya || 'الجزائر'} • 📅 {revDate}
+                              الولاية: {rev.wilaya || 'الجزائر'} • التاريخ: {revDate}
                             </span>
                           </div>
                         </div>
@@ -2232,7 +2236,7 @@ export default function AliOwnerDashboard({
                             fontSize: '0.76rem',
                             fontWeight: 800
                           }}>
-                            {isHidden ? '🙈 مخفي عن المتجر' : '👁️ ظاهر في المتجر'}
+                            {isHidden ? 'مخفي عن المتجر' : 'ظاهر في المتجر'}
                           </span>
                         </div>
                       </div>
