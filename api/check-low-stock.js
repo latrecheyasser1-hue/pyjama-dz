@@ -53,60 +53,61 @@ async function sendWhatsAppTemplate(toPhone, templateName = 'hello_world', langu
 
 async function sendWhatsAppMessage(toPhone, textBody, imageUrl = null) {
   const token = await getMetaAccessToken();
-  if (!token || !toPhone) return;
+  if (!token || !toPhone) return null;
   const cleanDigits = String(toPhone).replace(/\D/g, '');
-  if (cleanDigits.length < 8) return;
+  if (cleanDigits.length < 8) return null;
   const waPhone = cleanDigits.startsWith('213') ? cleanDigits : (cleanDigits.startsWith('0') ? '213' + cleanDigits.substring(1) : '213' + cleanDigits);
 
   const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
   
-  let payload = (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) ? {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to: waPhone,
-    type: 'image',
-    image: { link: imageUrl, caption: textBody }
-  } : {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to: waPhone,
-    type: 'text',
-    text: { preview_url: false, body: textBody }
-  };
-
+  // 1. ALWAYS send the text alert FIRST (100% guaranteed delivery, zero media dependency)
+  let textResult = null;
   try {
-    let res = await fetch(url, {
+    const textRes = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload)
-    });
-    let resData = await res.json();
-    if (resData?.error && payload.type === 'image') {
-      console.warn('Image alert send failed, falling back to text:', resData.error);
-      const textPayload = {
+      body: JSON.stringify({
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
         to: waPhone,
         type: 'text',
         text: { preview_url: false, body: textBody }
-      };
-      res = await fetch(url, {
+      })
+    });
+    textResult = await textRes.json();
+    console.log('WhatsApp text alert result:', textResult);
+  } catch (err) {
+    console.error('Error sending WhatsApp text alert:', err);
+  }
+
+  // 2. If imageUrl is present, ALSO send the product photo as a companion message!
+  if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
+    try {
+      const imgRes = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(textPayload)
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: waPhone,
+          type: 'image',
+          image: { link: imageUrl }
+        })
       });
-      resData = await res.json();
+      const imgResult = await imgRes.json();
+      console.log('WhatsApp image companion result:', imgResult);
+    } catch (imgErr) {
+      console.warn('Error sending companion image alert:', imgErr);
     }
-    return resData;
-  } catch (err) {
-    console.error('Send WhatsApp error:', err);
   }
+
+  return textResult;
 }
 
 async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
