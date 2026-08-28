@@ -1763,7 +1763,7 @@ tr:hover {
   max-height: 720px;
   background-image: url('/hero-autumn.png?v=3');
   background-size: cover;
-  background-position: center 25%;
+  background-position: 72% 20%;
   display: flex !important;
   flex-direction: column !important;
   justify-content: center !important;
@@ -1906,7 +1906,7 @@ tr:hover {
     height: 75vh;
     min-height: 580px;
     max-height: 720px;
-    background-position: center 25%;
+    background-position: 65% 22%;
     display: flex !important;
     justify-content: center !important;
     align-items: center !important;
@@ -1944,6 +1944,20 @@ tr:hover {
   .hero-cta-btn {
     padding: 16px 56px;
     font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .mazyoud-hero-container {
+    background-position: 80% 18% !important;
+    min-height: 500px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mazyoud-hero-container {
+    background-position: 85% 15% !important;
+    min-height: 480px;
   }
 }
 
