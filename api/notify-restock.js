@@ -211,28 +211,18 @@ export default async function handler(req, res) {
     const now = Date.now();
     if (!global._recentRestockMap) global._recentRestockMap = new Map();
 
-    // Process Orders
-    // Fetch store settings to identify and exclude manager phone numbers
-    const managerPhones = new Set(['0771335039', '213771335039', '0554128933', '213554128933']);
+    // Fetch store settings to identify notified waitlist entries
+    const notifiedEntryIds = new Set();
     try {
-      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?select=*`, {
+      const setRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=like.notified_waitlist_*`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       const settingsRows = await setRes.json();
-      const notifiedEntryIds = new Set();
       if (Array.isArray(settingsRows)) {
         settingsRows.forEach(r => {
           if (r.key && r.key.startsWith('notified_waitlist_')) {
             const entryIdOrKey = r.key.replace('notified_waitlist_', '');
             notifiedEntryIds.add(entryIdOrKey);
-          }
-          if (r.value && (r.key === 'whatsappLivraisonManager' || r.key === 'whatsappBoutiqueManager' || r.key === 'whatsappAdmin' || r.key === 'whatsapp')) {
-            const rawDigits = String(r.value).replace(/\D/g, '');
-            if (rawDigits) {
-              managerPhones.add(rawDigits);
-              managerPhones.add(rawDigits.replace(/^0/, '213'));
-              managerPhones.add('0' + rawDigits.slice(-9));
-            }
           }
         });
       }

@@ -341,6 +341,29 @@ export default function App() {
       }, 350);
     }
 
+    // 2b. Debounced trigger for customer restock waitlist notification if stock increases (> 0)
+    if (changedVariant && typeof changedVariant.qty === 'number' && changedVariant.qty > 0) {
+      const restockKey = `restock_${id}_${changedVariant.colorIdx}_${changedVariant.size}`;
+      if (lowStockDebounceRef.current[restockKey]) {
+        clearTimeout(lowStockDebounceRef.current[restockKey]);
+      }
+      lowStockDebounceRef.current[restockKey] = setTimeout(() => {
+        delete lowStockDebounceRef.current[restockKey];
+        const targetCv = (updatedProd.colorVariants || [])[changedVariant.colorIdx];
+        fetch('/api/notify-restock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: id,
+            productTitle: updatedProd.title,
+            size: changedVariant.size,
+            color: targetCv?.color || targetCv?.name,
+            newQty: changedVariant.qty
+          })
+        }).catch(err => console.error('Restock notify error:', err));
+      }, 400);
+    }
+
     // 3. Clear previous pending DB update for this product
     if (updateDebounceRef.current[id]) {
       clearTimeout(updateDebounceRef.current[id]);
