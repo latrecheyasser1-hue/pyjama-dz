@@ -82,6 +82,10 @@ export default function App() {
     } catch(e) { return true; }
   });
 
+  const pendingUpdatesRef = useRef({});
+  const updateDebounceRef = useRef({});
+  const parcelCreationLockRef = useRef(new Set());
+
   useEffect(() => {
     const handlePopState = () => setCurrentPath(window.location.pathname);
     window.addEventListener('popstate', handlePopState);
@@ -106,9 +110,22 @@ export default function App() {
     const productsSub = supabase.channel('products_realtime_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
         if (payload.eventType === 'UPDATE' && payload.new) {
-          setProducts(prev => prev.map(p => p.id === payload.new.id ? { ...p, ...payload.new } : p));
+          // Prevent DB echo from reverting active user edits
+          const pending = pendingUpdatesRef.current[payload.new.id];
+          if (pending && (Date.now() - pending.timestamp < 3500)) {
+            return;
+          }
+          const incoming = payload.new;
+          if (typeof incoming.colorVariants === 'string') {
+            try { incoming.colorVariants = JSON.parse(incoming.colorVariants); } catch(e) {}
+          }
+          setProducts(prev => prev.map(p => p.id === incoming.id ? { ...p, ...incoming } : p));
         } else if (payload.eventType === 'INSERT' && payload.new) {
-          setProducts(prev => [payload.new, ...prev]);
+          const incoming = payload.new;
+          if (typeof incoming.colorVariants === 'string') {
+            try { incoming.colorVariants = JSON.parse(incoming.colorVariants); } catch(e) {}
+          }
+          setProducts(prev => [incoming, ...prev]);
         } else if (payload.eventType === 'DELETE' && payload.old) {
           setProducts(prev => prev.filter(p => p.id !== payload.old.id));
         } else {
@@ -236,10 +253,6 @@ export default function App() {
     };
   }, []);
 
-  const pendingUpdatesRef = useRef({});
-  const updateDebounceRef = useRef({});
-  const parcelCreationLockRef = useRef(new Set());
-
   const fetchData = async (table, setter) => {
     const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
     if (!error && data) {
@@ -249,8 +262,11 @@ export default function App() {
         setter(prev => {
           return data.map(dbProd => {
             const pending = pendingUpdatesRef.current[dbProd.id];
-            if (pending && (now - pending.timestamp < 1000)) {
+            if (pending && (now - pending.timestamp < 3500)) {
               return pending.product;
+            }
+            if (typeof dbProd.colorVariants === 'string') {
+              try { dbProd.colorVariants = JSON.parse(dbProd.colorVariants); } catch(e) {}
             }
             return dbProd;
           });
@@ -279,15 +295,25 @@ export default function App() {
       clearTimeout(updateDebounceRef.current[id]);
     }
 
-    // 3. Debounce background Supabase sync (250ms) to combine rapid + / - clicks into 1 single DB query
+    // 3. Debounce background Supabase sync (300ms) to combine rapid + / - clicks into 1 single DB query
     updateDebounceRef.current[id] = setTimeout(async () => {
       try {
-        const sanitizedProd = sanitizeProductForDb(updatedProd);
+        const latestProd = pendingUpdatesRef.current[id]?.product || updatedProd;
+        const sanitizedProd = sanitizeProductForDb(latestProd);
         const { data, error } = await supabase.from('products').update(sanitizedProd).eq('id', id).select();
         if (error) {
           console.error('Error updating product:', error);
         } else if (data && data.length > 0) {
-          const finalProduct = { ...updatedProd, ...data[0] };
+          const currentPending = pendingUpdatesRef.current[id];
+          // If user made a newer edit while this request was running, do not overwrite!
+          if (currentPending && currentPending.timestamp > now) {
+            return;
+          }
+          const dbData = data[0];
+          if (typeof dbData.colorVariants === 'string') {
+            try { dbData.colorVariants = JSON.parse(dbData.colorVariants); } catch(e) {}
+          }
+          const finalProduct = { ...latestProd, ...dbData };
           pendingUpdatesRef.current[id] = { product: finalProduct, timestamp: Date.now() };
           setProducts(prev => prev.map(p => p.id === id ? finalProduct : p));
 
@@ -307,7 +333,7 @@ export default function App() {
       } catch (err) {
         console.error('Error in debounced product update:', err);
       }
-    }, 250);
+    }, 300);
   };
 
   const fetchSettings = async () => {

@@ -219,8 +219,13 @@ export default async function handler(req, res) {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       const settingsRows = await setRes.json();
+      const notifiedEntryIds = new Set();
       if (Array.isArray(settingsRows)) {
         settingsRows.forEach(r => {
+          if (r.key && r.key.startsWith('notified_waitlist_')) {
+            const entryIdOrKey = r.key.replace('notified_waitlist_', '');
+            notifiedEntryIds.add(entryIdOrKey);
+          }
           if (r.value && (r.key === 'whatsappLivraisonManager' || r.key === 'whatsappBoutiqueManager' || r.key === 'whatsappAdmin' || r.key === 'whatsapp')) {
             const rawDigits = String(r.value).replace(/\D/g, '');
             if (rawDigits) {
@@ -233,20 +238,9 @@ export default async function handler(req, res) {
       }
     } catch (e) {}
 
-    const isManagerPhone = (phoneStr) => {
-      if (!phoneStr) return false;
-      const clean = String(phoneStr).replace(/\D/g, '');
-      if (!clean) return false;
-      const last8 = clean.slice(-8);
-      for (const mPhone of managerPhones) {
-        if (mPhone.endsWith(last8)) return true;
-      }
-      return false;
-    };
-
     // Process Waitlist Entries (only process customers who explicitly signed up for waitlist)
     for (const entry of waitlistEntries) {
-      if (entry.status === 'notified') {
+      if (entry.status === 'notified' || (entry.id && notifiedEntryIds.has(entry.id))) {
         continue;
       }
 
@@ -254,25 +248,6 @@ export default async function handler(req, res) {
       const cleanPhone = entryPhone ? entryPhone.replace(/\D/g, '') : '';
       const waPhone = formatWhatsAppPhone(entryPhone);
       const last8 = cleanPhone.slice(-8);
-
-      // Check if phone already notified in current run or within last 15 seconds
-      if (!waPhone || notifiedPhones.has(waPhone) || (last8 && notifiedPhones.has(last8))) {
-        continue;
-      }
-      const lastSentTime = global._recentRestockMap.get(waPhone) || (last8 ? global._recentRestockMap.get(last8) : 0) || 0;
-      if (lastSentTime > 0 && (now - lastSentTime < 15000)) {
-        continue; // 🛑 PREVENT CONCURRENT DUP MESSAGES ACROSS PARALLEL REQUESTS!
-      }
-
-      const notifiedTime = (last8 ? notifiedLocksMap.get(last8) : 0) || (entry.id ? notifiedLocksMap.get(entry.id) : 0) || 0;
-      const entryTime = entry.created_at ? new Date(entry.created_at).getTime() : 0;
-      const reqTime = (last8 ? waitlistReqsMap.get(last8) : 0) || entryTime;
-      const latestReqTime = Math.max(reqTime, entryTime);
-
-      // If customer was already notified FOR OR AFTER their latest waitlist request, skip!
-      if (notifiedTime > 0 && notifiedTime >= latestReqTime) {
-        continue;
-      }
 
       const entrySize = entry.size || '';
       const entryProdId = entry.product_id || entry.productId;
@@ -282,79 +257,64 @@ export default async function handler(req, res) {
       const prodMatches = isProductMatch(productId, productTitle, entryProdId, entryProdText);
       const colorMatches = isColorMatch(targetColor, entry.color);
 
-      if (sizeMatches && prodMatches && colorMatches) {
-        notifiedPhones.add(waPhone);
-        if (last8) notifiedPhones.add(last8);
-        global._recentRestockMap.set(waPhone, now);
-        if (last8) global._recentRestockMap.set(last8, now);
-
-        // Save persistent per-phone and per-entry lock keys with current numeric timestamp in value
-        const nowMsStr = String(Date.now());
-        try {
-          if (last8) {
-            await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-              method: 'POST',
-              headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'resolution=merge-duplicates'
-              },
-              body: JSON.stringify({ key: `notified_waitlist_${last8}`, value: nowMsStr })
-            });
-          }
-          if (entry.id) {
-            await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-              method: 'POST',
-              headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'resolution=merge-duplicates'
-              },
-              body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: nowMsStr })
-            });
-          }
-        } catch (e) {}
-
-        // Patch ALL pending waitlist entries for this phone (by last8 digits) to notified so NO duplicate messages are EVER sent!
-        try {
-          if (last8) {
-            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?whatsapp_number=ilike.*${last8}*`, {
-              method: 'PATCH',
-              headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ status: 'notified' })
-            });
-          }
-          if (entry.id) {
-            await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
-              method: 'PATCH',
-              headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ status: 'notified' })
-            });
-          }
-        } catch (e) {}
-
-        const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب' && entry.client_name !== 'زبون المحادثة')
-          ? entry.client_name : '';
-        const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
-        const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
-        const sizeDesc = targetSize ? ` (${targetSize})` : '';
-
-        const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك${sizeDesc} مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
-
-        await sendWhatsAppMessage(waPhone, restockMsg);
-        notifiedCount++;
-        availableQty = Math.max(0, availableQty - 1);
+      if (!sizeMatches || !prodMatches || !colorMatches) {
+        continue;
       }
+
+      // Specific lock key for this client + product + size to prevent concurrent dup messages
+      const variantLockKey = `${last8 || waPhone}_${entryProdId || cleanTitle(entryProdText)}_${entrySize}`;
+      if (notifiedPhones.has(variantLockKey) || (entry.id && notifiedPhones.has(entry.id))) {
+        continue;
+      }
+
+      const lastSentTime = global._recentRestockMap.get(variantLockKey) || (entry.id ? global._recentRestockMap.get(entry.id) : 0) || 0;
+      if (lastSentTime > 0 && (now - lastSentTime < 15000)) {
+        continue; // 🛑 PREVENT CONCURRENT DUP MESSAGES ACROSS PARALLEL REQUESTS!
+      }
+
+      notifiedPhones.add(variantLockKey);
+      if (entry.id) notifiedPhones.add(entry.id);
+      global._recentRestockMap.set(variantLockKey, now);
+      if (entry.id) global._recentRestockMap.set(entry.id, now);
+
+      // Patch THIS specific waitlist entry to notified
+      try {
+        if (entry.id) {
+          await fetch(`${SUPABASE_URL}/rest/v1/waitlist?id=eq.${entry.id}`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: 'notified' })
+          });
+
+          // Record persistent notified status in settings table (works reliably under anon key)
+          fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({ key: `notified_waitlist_${entry.id}`, value: String(Date.now()) })
+          }).catch(() => {});
+        }
+      } catch (e) {}
+
+      const clientNameStr = (entry.client_name && entry.client_name !== 'زبون الواتساب' && entry.client_name !== 'زبون المحادثة')
+        ? entry.client_name : '';
+      const nameGreeting = clientNameStr ? ` ${clientNameStr}` : '';
+      const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
+      const sizeDesc = targetSize ? ` (${targetSize})` : '';
+
+      const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك${sizeDesc} مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
+
+      await sendWhatsAppMessage(waPhone, restockMsg);
+      notifiedCount++;
+      availableQty = Math.max(0, availableQty - 1);
     }
 
     return res.status(200).json({ success: true, notifiedCount });

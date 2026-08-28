@@ -270,19 +270,23 @@ export default async function handler(req, res) {
               }
 
               let shouldSendAlert = false;
+              const lastTimestamp = lastAlertState?.timestamp ? Number(lastAlertState.timestamp) : 0;
+              const isExpired = lastTimestamp > 0 && (Date.now() - lastTimestamp > 15 * 60 * 1000);
+              const qtyChanged = lastAlertState && Number(lastAlertState.qty) !== numQty;
+
               if (numQty === 0) {
-                // Send zero stock alert ONCE when reaching 0
-                if (!lastAlertState || lastAlertState.alertType !== 'zero') {
+                // Send zero stock alert when reaching 0 (if never sent, or previous alert wasn't zero, or qty changed, or expired)
+                if (!lastAlertState || lastAlertState.alertType !== 'zero' || qtyChanged || isExpired) {
                   shouldSendAlert = true;
                 }
               } else if (numQty <= 5 && numQty > 0) {
-                // Send low stock alert ONCE when stock is <= 5 (does NOT re-trigger at 4, 3, 2, 1)
-                if (!lastAlertState || (lastAlertState.alertType !== 'low' && lastAlertState.alertType !== 'zero')) {
+                // Send low stock alert when stock drops to <= 5 (if never sent, or cleared, or was 0, or qty changed, or expired)
+                if (!lastAlertState || lastAlertState.alertType === 'cleared' || (lastAlertState.alertType === 'zero' && qtyChanged) || isExpired) {
                   shouldSendAlert = true;
                 }
               }
 
-              if (!shouldSendAlert) continue; // 🛑 ALREADY SENT ALERT FOR THIS STOCK LEVEL!
+              if (!shouldSendAlert) continue; // 🛑 ALREADY SENT ALERT FOR THIS EXACT STOCK LEVEL!
 
               const prodImgs = product.images || [];
               const rawImg = Array.isArray(prodImgs) && prodImgs[0] ? prodImgs[0] : (typeof prodImgs === 'string' ? prodImgs : null);
