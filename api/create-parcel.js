@@ -1,5 +1,6 @@
 import { YALIDINE_AGENCIES } from '../src/data/yalidineAgencies.js';
 import { ZR_AGENCIES } from '../src/data/zrAgencies.js';
+import { ZR_TERRITORIES } from '../src/data/zrTerritories.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
@@ -212,7 +213,15 @@ export default async function handler(req, res) {
       order.is_stopdesk
     );
 
-    const codProductPrice = Number(order.price || order.totalPrice || 0);
+    const isFreeShipping = Boolean(
+      order.isFreeShipping === true ||
+      Number(order.totalPrice || order.price || 0) >= 10000 ||
+      Number(order.deliveryFee) === 0
+    );
+
+    const codProductPrice = isFreeShipping 
+      ? Number(order.price || order.totalPrice || 0)
+      : Number(order.totalPrice || (order.price + (order.deliveryFee || 0)));
 
     // Prevent duplicate parcel creation if already created by WhatsApp or another action
     if (order.id) {
@@ -326,7 +335,7 @@ export default async function handler(req, res) {
         width: 20,
         height: 5,
         weight: 1,
-        freeshipping: false,
+        freeshipping: isFreeShipping,
         is_stopdesk: isStopdesk,
         ...(stopdeskId ? { stopdesk_id: stopdeskId } : {}),
         has_exchange: false
@@ -448,37 +457,87 @@ export default async function handler(req, res) {
       let productSku = 'SKU-PYJAMA-01';
 
       // C. Resolve Territory IDs (Commune & Wilaya)
-      let cityTerritoryId = 'bcb30485-37b5-4135-a508-acad8a8a9cf8';
-      let districtTerritoryId = '7f6c89b5-2e84-4e6f-b32b-0024d0022c79';
-      let postalCode = '02000';
+      const wilayaCode = String(toWilayaId).padStart(2, '0');
+      const wilayaTerritory = ZR_TERRITORIES[wilayaCode];
+      const cityTerritoryId = wilayaTerritory?.cityTerritoryId || 'd134c182-7dac-4655-9d9b-bbdb62aa2ec4';
 
-      try {
-        const searchCommune = cleanCommune || toWilaya;
-        const terrRes = await fetch('https://api.zrexpress.app/api/v1/territories/search', {
-          method: 'POST',
-          headers: zrHeaders,
-          body: JSON.stringify({ search: searchCommune, limit: 10 })
+      let districtTerritoryId = null;
+      let postalCode = `${wilayaCode}000`;
+      let streetAddress = order.address || `${cleanCommune}, ${toWilaya}`;
+      let targetHubId = null;
+      let targetHubName = null;
+
+      if (isStopdesk) {
+        // Bureau / Stop Desk delivery
+        const wilayaAgencies = ZR_AGENCIES[wilayaCode] || [];
+        const bracketMatch = String(order.commune || '').match(/\[(.*?)\]/) || String(order.deliveryMode || '').match(/\((.*?)\)/);
+        const searchPhrase = bracketMatch ? bracketMatch[1].toLowerCase() : String(order.commune || order.deliveryMode || '').toLowerCase();
+
+        let matchedAgency = wilayaAgencies.find(a => {
+          const aName = (a.name || '').toLowerCase();
+          return searchPhrase.includes(aName) || aName.includes(searchPhrase);
         });
-        const terrData = await terrRes.json();
-        if (terrData.items && terrData.items.length > 0) {
-          const matched = terrData.items.find(t => {
-            const tName = (t.name || '').toLowerCase();
-            const tNameAr = (t.nameArabic || '');
-            return tName.includes(searchCommune.toLowerCase()) || searchCommune.includes(tName) || tNameAr.includes(searchCommune) || searchCommune.includes(tNameAr);
-          }) || terrData.items[0];
 
-          if (matched) {
-            districtTerritoryId = matched.id;
-            cityTerritoryId = matched.parentId || matched.id;
-            postalCode = matched.postalCode || postalCode;
+        if (!matchedAgency) {
+          matchedAgency = wilayaAgencies.find(a => {
+            const aComm = (a.commune || '').toLowerCase();
+            return searchPhrase.includes(aComm);
+          });
+        }
+
+        if (!matchedAgency && wilayaAgencies.length > 0) {
+          matchedAgency = wilayaAgencies[0];
+        }
+
+        if (matchedAgency) {
+          targetHubId = matchedAgency.id;
+          targetHubName = matchedAgency.name;
+          streetAddress = matchedAgency.street || matchedAgency.name;
+          postalCode = matchedAgency.postalCode || postalCode;
+
+          // Resolve district territory for this agency's commune
+          if (wilayaTerritory?.communes) {
+            const commKey = (matchedAgency.commune || '').toLowerCase();
+            const matchedComm = wilayaTerritory.communes[commKey] || Object.values(wilayaTerritory.communes)[0];
+            if (matchedComm) {
+              districtTerritoryId = matchedComm.id;
+              postalCode = matchedComm.postalCode || postalCode;
+            }
           }
         }
-      } catch (terrErr) {
-        console.warn('Territory lookup error, using default:', terrErr);
+      } else {
+        // Home delivery (À domicile)
+        if (wilayaTerritory?.communes) {
+          const cleanCommLower = cleanCommune.toLowerCase();
+          let matchedComm = wilayaTerritory.communes[cleanCommLower];
+          if (!matchedComm) {
+            matchedComm = Object.values(wilayaTerritory.communes).find(c => 
+              c.name.toLowerCase().includes(cleanCommLower) || cleanCommLower.includes(c.name.toLowerCase()) ||
+              (c.nameArabic && (c.nameArabic.includes(cleanCommune) || cleanCommune.includes(c.nameArabic)))
+            );
+          }
+          if (matchedComm) {
+            districtTerritoryId = matchedComm.id;
+            postalCode = matchedComm.postalCode || postalCode;
+          } else {
+            const firstComm = Object.values(wilayaTerritory.communes)[0];
+            if (firstComm) {
+              districtTerritoryId = firstComm.id;
+              postalCode = firstComm.postalCode || postalCode;
+            }
+          }
+        }
+      }
+
+      if (!districtTerritoryId && wilayaTerritory?.communes) {
+        const firstComm = Object.values(wilayaTerritory.communes)[0];
+        districtTerritoryId = firstComm?.id || '7f6c89b5-2e84-4e6f-b32b-0024d0022c79';
       }
 
       // D. Build Parcel Payload
       const supplierHubId = '46a61165-5378-484d-a0c9-f5c1df785df9'; // Hub Chlef 02
+      // For Stopdesk / pickup-point in ZR Express, root hubId must be the destination hub!
+      const effectiveHubId = (isStopdesk && targetHubId) ? targetHubId : supplierHubId;
 
       const parcelPayload = {
         customer: {
@@ -486,12 +545,13 @@ export default async function handler(req, res) {
           name: rawName,
           phone: { number1: intlPhone }
         },
-        hubId: supplierHubId,
+        hubId: effectiveHubId,
         deliveryAddress: {
           cityTerritoryId: cityTerritoryId,
           districtTerritoryId: districtTerritoryId,
-          street: order.address || (cleanCommune + ', ' + toWilaya),
-          postalCode: postalCode
+          street: streetAddress,
+          postalCode: postalCode,
+          ...(targetHubId ? { hubId: targetHubId, hubName: targetHubName } : {})
         },
         orderedProducts: [
           {
