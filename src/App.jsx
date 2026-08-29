@@ -208,12 +208,13 @@ export default function App() {
       }
     };
 
-    // Auto-sync every 6 seconds in background
-    const pollInterval = setInterval(syncFreshData, 6000);
-
-    // Auto-sync immediately when tab/window becomes active or gains focus
+    // NOTE: Continuous setInterval polling REMOVED to protect Supabase bandwidth (prevents 20GB egress leak).
+    // Realtime WebSocket channels above already push all live updates instantly!
+    let lastFocusSync = Date.now();
     const handleFocusOrVisible = () => {
-      if (!document.hidden) {
+      // Only re-sync if the tab was away/hidden for more than 15 minutes
+      if (!document.hidden && (Date.now() - lastFocusSync > 15 * 60 * 1000)) {
+        lastFocusSync = Date.now();
         syncFreshData();
       }
     };
@@ -241,7 +242,6 @@ export default function App() {
       supabase.removeChannel(suppliersSub);
       supabase.removeChannel(expensesSub);
       supabase.removeChannel(settingsSub);
-      clearInterval(pollInterval);
       window.removeEventListener('focus', handleFocusOrVisible);
       document.removeEventListener('visibilitychange', handleFocusOrVisible);
       window.removeEventListener('beforeunload', handleBeforeUnload);
