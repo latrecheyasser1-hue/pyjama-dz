@@ -2445,45 +2445,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               <MapPin size={20} />
             </a>
           </div>
-          {/* Live Search Dropdown Panel (Full Width) */}
-          {tempSearchQuery.trim().length > 0 && isSearchFocused && (
-            <div className="mazyoud-search-results-panel">
-              {liveSearchResults.length > 0 ? (
-                <>
-                  <div className="mazyoud-search-results-grid">
-                    {liveSearchResults.map((prod) => (
-                      <div 
-                        key={prod.id} 
-                        className="mazyoud-search-prod-card"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                        }}
-                        onClick={() => {
-                          setActiveDetailProduct(prod);
-                          setIsSearchFocused(false);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                      >
-                        <img loading="lazy" decoding="async" src={(prod.images && prod.images[0]) || prod.image || ''} alt={prod.title} className="mazyoud-search-prod-img" />
-                        <div className="mazyoud-search-prod-info">
-                          <h4 className="mazyoud-search-prod-title">
-                            {prod.title}
-                          </h4>
-                          <span className="mazyoud-search-prod-price">
-                            {prod.price ? Number(prod.price).toLocaleString() : '0'} DA
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="mazyoud-search-no-results">
-                  Aucun produit trouvé pour "{searchQuery}" / لا يوجد أي منتج بهذا الاسم
-                </div>
-              )}
-            </div>
-          )}
         </header>
       </div>
 
