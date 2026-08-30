@@ -110,6 +110,11 @@ export default function App() {
     fetchInitialData();
     
     // 1. Subscribe to real-time database changes with instant in-memory state updates
+    const isAdmin = window.location.pathname.startsWith('/admin') || 
+                    window.location.pathname.startsWith('/ali') || 
+                    window.location.pathname.startsWith('/pos') || 
+                    window.location.pathname.startsWith('/emballage');
+
     const productsSub = supabase.channel('products_realtime_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
         if (payload.eventType === 'UPDATE' && payload.new) {
@@ -122,91 +127,65 @@ export default function App() {
           if (typeof incoming.colorVariants === 'string') {
             try { incoming.colorVariants = JSON.parse(incoming.colorVariants); } catch(e) {}
           }
-          setProducts(prev => prev.map(p => p.id === incoming.id ? { ...p, ...incoming } : p));
+          setProducts(prev => {
+            const nextList = prev.map(p => p.id === incoming.id ? { ...p, ...incoming } : p);
+            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
+            return nextList;
+          });
         } else if (payload.eventType === 'INSERT' && payload.new) {
           const incoming = payload.new;
           if (typeof incoming.colorVariants === 'string') {
             try { incoming.colorVariants = JSON.parse(incoming.colorVariants); } catch(e) {}
           }
-          setProducts(prev => [incoming, ...prev]);
+          setProducts(prev => {
+            const nextList = [incoming, ...prev];
+            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
+            return nextList;
+          });
         } else if (payload.eventType === 'DELETE' && payload.old) {
-          setProducts(prev => prev.filter(p => p.id !== payload.old.id));
+          setProducts(prev => {
+            const nextList = prev.filter(p => p.id !== payload.old.id);
+            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
+            return nextList;
+          });
         } else {
           fetchData('products', setProducts);
         }
       }).subscribe();
 
-    const ordersSub = supabase.channel('orders_realtime_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
-        if (payload.eventType === 'UPDATE' && payload.new) {
-          setOrders(prev => prev.map(o => o.id === payload.new.id ? { ...o, ...payload.new } : o));
-        } else if (payload.eventType === 'INSERT' && payload.new) {
-          setOrders(prev => [payload.new, ...prev]);
-          playNotificationSound();
-        } else {
-          fetchData('orders', setOrders);
-        }
-      }).subscribe();
+    let ordersSub = null;
+    let suppliersSub = null;
+    let expensesSub = null;
 
-    const suppliersSub = supabase.channel('suppliers_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, payload => {
-        fetchData('suppliers', setSuppliers);
-      }).subscribe();
+    // Only subscribe to private backoffice data if on an admin/staff route (saves massive client bandwidth)
+    if (isAdmin) {
+      ordersSub = supabase.channel('orders_realtime_channel')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            setOrders(prev => prev.map(o => o.id === payload.new.id ? { ...o, ...payload.new } : o));
+          } else if (payload.eventType === 'INSERT' && payload.new) {
+            setOrders(prev => [payload.new, ...prev]);
+            playNotificationSound();
+          } else {
+            fetchData('orders', setOrders);
+          }
+        }).subscribe();
 
-    const expensesSub = supabase.channel('expenses_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, payload => {
-        fetchData('expenses', setExpenses);
-      }).subscribe();
+      suppliersSub = supabase.channel('suppliers_channel')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, payload => {
+          fetchData('suppliers', setSuppliers);
+        }).subscribe();
+
+      expensesSub = supabase.channel('expenses_channel')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, payload => {
+          fetchData('expenses', setExpenses);
+        }).subscribe();
+    }
 
     const settingsSub = supabase.channel('settings_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, payload => {
         fetchSettings();
       }).subscribe();
-
-    // 2. High-reliability background sync function for orders & products (stock updates from WhatsApp)
-    const syncFreshData = async () => {
-      try {
-        const [prodsRes, ordsRes] = await Promise.all([
-          supabase.from('products').select('*').order('created_at', { ascending: false }),
-          supabase.from('orders').select('*').order('created_at', { ascending: false })
-        ]);
-
-        if (!prodsRes.error && prodsRes.data) {
-          const now = Date.now();
-          setProducts(prev => {
-            const nextList = prodsRes.data.map(dbProd => {
-              const pending = pendingUpdatesRef.current[dbProd.id];
-              // If user recently edited or is editing this product, NEVER overwrite with DB data!
-              if (pending && (now - pending.timestamp < 6000)) {
-                return pending.product;
-              }
-              let cvs = dbProd.colorVariants;
-              if (typeof cvs === 'string') {
-                try { cvs = JSON.parse(cvs); } catch(e) { cvs = []; }
-              }
-              return { ...dbProd, colorVariants: cvs };
-            });
-            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
-            return nextList;
-          });
-        }
-
-        if (!ordsRes.error && ordsRes.data) {
-          setOrders(prev => {
-            if (JSON.stringify(prev) !== JSON.stringify(ordsRes.data)) {
-              if (prev.length > 0 && ordsRes.data.length > prev.length) {
-                playNotificationSound();
-              }
-              try { localStorage.setItem('pyjama_orders_cache', JSON.stringify(ordsRes.data)); } catch(e) {}
-              return ordsRes.data;
-            }
-            return prev;
-          });
-        }
-      } catch (err) {
-        console.error('Background sync error:', err);
-      }
-    };
 
     // NOTE: Continuous setInterval polling REMOVED to protect Supabase bandwidth (prevents 20GB egress leak).
     // Realtime WebSocket channels above already push all live updates instantly!
@@ -215,7 +194,7 @@ export default function App() {
       // Only re-sync if the tab was away/hidden for more than 15 minutes
       if (!document.hidden && (Date.now() - lastFocusSync > 15 * 60 * 1000)) {
         lastFocusSync = Date.now();
-        syncFreshData();
+        // Removed heavy background sync syncFreshData()
       }
     };
 
@@ -238,9 +217,9 @@ export default function App() {
 
     return () => {
       supabase.removeChannel(productsSub);
-      supabase.removeChannel(ordersSub);
-      supabase.removeChannel(suppliersSub);
-      supabase.removeChannel(expensesSub);
+      if (ordersSub) supabase.removeChannel(ordersSub);
+      if (suppliersSub) supabase.removeChannel(suppliersSub);
+      if (expensesSub) supabase.removeChannel(expensesSub);
       supabase.removeChannel(settingsSub);
       window.removeEventListener('focus', handleFocusOrVisible);
       document.removeEventListener('visibilitychange', handleFocusOrVisible);
@@ -252,17 +231,42 @@ export default function App() {
     // Instant unblock loading screen if cached data exists or in max 100ms
     setTimeout(() => setLoading(false), 100);
 
-    // Fetch fresh data in parallel in background
-    Promise.all([
+    const isAdmin = window.location.pathname.startsWith('/admin') || 
+                    window.location.pathname.startsWith('/ali') || 
+                    window.location.pathname.startsWith('/pos') || 
+                    window.location.pathname.startsWith('/emballage');
+
+    // Public shoppers only load products & settings (saves ~300KB orders & expenses payload on every visit!)
+    const initialFetches = [
       fetchData('products', setProducts),
-      fetchSettings(),
-      fetchData('orders', setOrders),
-      fetchData('suppliers', setSuppliers),
-      fetchData('expenses', setExpenses)
-    ]).then(() => setLoading(false)).catch(err => {
+      fetchSettings()
+    ];
+
+    if (isAdmin) {
+      initialFetches.push(
+        fetchData('orders', setOrders),
+        fetchData('suppliers', setSuppliers),
+        fetchData('expenses', setExpenses)
+      );
+    }
+
+    Promise.all(initialFetches).then(() => setLoading(false)).catch(err => {
       console.error('Initial data fetch error:', err);
     });
   };
+
+  // On-demand loader for admin routes when navigating client-side
+  useEffect(() => {
+    const isAdmin = currentPath.startsWith('/admin') || 
+                    currentPath.startsWith('/ali') || 
+                    currentPath.startsWith('/pos') || 
+                    currentPath.startsWith('/emballage');
+    if (isAdmin && orders.length === 0) {
+      fetchData('orders', setOrders);
+      fetchData('suppliers', setSuppliers);
+      fetchData('expenses', setExpenses);
+    }
+  }, [currentPath]);
 
   useEffect(() => {
     const channel = supabase
@@ -286,6 +290,32 @@ export default function App() {
   }, []);
 
   const fetchData = async (table, setter) => {
+    // Smart lightweight cache check for products: only fetch 300 bytes of metadata first!
+    if (table === 'products') {
+      const cached = localStorage.getItem('pyjama_products_cache');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const { data: meta, error: metaErr } = await supabase
+              .from('products')
+              .select('id, created_at')
+              .order('created_at', { ascending: false });
+
+            if (!metaErr && Array.isArray(meta)) {
+              const cachedIds = parsed.map(p => p.id).sort().join(',');
+              const freshIds = meta.map(p => p.id).sort().join(',');
+              if (cachedIds === freshIds && parsed.length === meta.length) {
+                // Products haven't changed! Use cached products with ZERO heavy download (~1.15MB saved!)
+                setter(parsed);
+                return;
+              }
+            }
+          }
+        } catch(e) {}
+      }
+    }
+
     const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
     if (!error && data) {
       if (table === 'products') {
