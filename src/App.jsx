@@ -185,16 +185,22 @@ export default function App() {
     const settingsSub = supabase.channel('settings_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, payload => {
         fetchSettings();
+        if (payload?.new?.key === 'products_last_updated') {
+          fetchData('products', setProducts);
+        }
       }).subscribe();
 
-    // NOTE: Continuous setInterval polling REMOVED to protect Supabase bandwidth (prevents 20GB egress leak).
-    // Realtime WebSocket channels above already push all live updates instantly!
     let lastFocusSync = Date.now();
     const handleFocusOrVisible = () => {
-      // Only re-sync if the tab was away/hidden for more than 15 minutes
-      if (!document.hidden && (Date.now() - lastFocusSync > 15 * 60 * 1000)) {
-        lastFocusSync = Date.now();
-        // Removed heavy background sync syncFreshData()
+      if (!document.hidden) {
+        const timeSinceSync = Date.now() - lastFocusSync;
+        // For admin/backoffice pages, when user returns to tab after > 4 seconds, refresh products automatically
+        if (isAdmin && timeSinceSync > 4000) {
+          lastFocusSync = Date.now();
+          fetchData('products', setProducts);
+        } else if (timeSinceSync > 15 * 60 * 1000) {
+          lastFocusSync = Date.now();
+        }
       }
     };
 
