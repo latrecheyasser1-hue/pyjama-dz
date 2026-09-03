@@ -87,44 +87,19 @@ export default function CustomerAccountPage({ onBackToStore, onAuthSuccess }) {
 
       const messageText = `رمز تأكيد حسابكِ في متجر Pyjama DZ - بيجامات الجزائر هو: ${code} 🔒\n\n⏱️ الرمز صالـح لمدة دقيقة واحدة (1 MIN) فقط.\nيرجى إدخاله في المتجر لإتمام إنشاء الحساب بنجاح ✨`;
 
-      // 1. Direct Meta WhatsApp Cloud API call (Same as order confirmations)
+      // Send WhatsApp OTP securely via backend serverless endpoint (no tokens exposed in frontend)
       try {
-        const token = 'EAAguaWHGlf8BSKaHVaNhbDcXWvirUZCAtEQwuHus3c6VCPYV6BzJhJMGZBv0y7LPe2UTWP1KOFKngJCRqiumnd6R27VNOZABQlmGzzbl87arKbPuvgZBag148noX6nLxjkKMO7Ue0hiLUDRS4spYopCGpuwHTZCnPW4Deyzivxg3xlphgLBdUZAWWRD5Y0HwZDZD';
-        const phoneId = '1280420541815907';
-
-        const apiRes = await fetch(`https://graph.facebook.com/v25.0/${phoneId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            recipient_type: 'individual',
-            to: formattedPhone,
-            type: 'text',
-            text: { preview_url: false, body: messageText }
-          })
-        });
-
-        const resJson = await apiRes.json();
-        console.log('📱 Meta WhatsApp API OTP Response:', resJson);
-        if (!apiRes.ok && resJson.error) {
-          console.warn('Meta API message:', resJson.error.message);
-        }
-      } catch (e1) {
-        console.error('Direct Meta API fetch error:', e1);
-      }
-
-      // 2. Local Vercel endpoint call fallback
-      try {
-        await fetch('/api/send-otp-whatsapp', {
+        const otpRes = await fetch('/api/send-otp-whatsapp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phone: formattedPhone, code })
         });
-      } catch (e2) {
-        console.log('Local API send note:', e2);
+        const otpData = await otpRes.json();
+        if (!otpRes.ok && otpData.error) {
+          console.warn('OTP API response:', otpData.error);
+        }
+      } catch (e) {
+        console.error('API send OTP error:', e);
       }
 
       setStep('otp');
