@@ -73,7 +73,23 @@ export default function App() {
   const [settings, setSettings] = useState(() => {
     try {
       const cached = localStorage.getItem('pyjama_settings_cache');
-      return cached ? JSON.parse(cached) : {};
+      if (!cached) return {};
+      const parsed = JSON.parse(cached);
+      const isAdmin = window.location.pathname.startsWith('/admin') || 
+                      window.location.pathname.startsWith('/ali') || 
+                      window.location.pathname.startsWith('/pos') || 
+                      window.location.pathname.startsWith('/emballage');
+      if (!isAdmin && typeof parsed === 'object') {
+        delete parsed.zr_express_api_key;
+        delete parsed.zr_express_token;
+        delete parsed.yalidine_api_token;
+        delete parsed.yalidine_api_id;
+        delete parsed.meta_access_token;
+        Object.keys(parsed).forEach(k => {
+          if (k.startsWith('alert_') || k.startsWith('active_msgs_') || k.startsWith('notified_')) delete parsed[k];
+        });
+      }
+      return parsed;
     } catch(e) { return {}; }
   });
   const [loading, setLoading] = useState(() => {
@@ -469,20 +485,54 @@ export default function App() {
       }
     } catch (e) {}
 
-    const { data, error } = await supabase.from('settings').select('*').limit(500);
+    const isAdmin = window.location.pathname.startsWith('/admin') || 
+                    window.location.pathname.startsWith('/ali') || 
+                    window.location.pathname.startsWith('/pos') || 
+                    window.location.pathname.startsWith('/emballage');
+
+    let settingsQuery = supabase.from('settings').select('key,value');
+    
+    // Always exclude backend-only internal message logs from frontend memory
+    settingsQuery = settingsQuery
+      .not('key', 'like', 'alert_%')
+      .not('key', 'like', 'active_msgs_%')
+      .not('key', 'like', 'notified_%')
+      .not('key', 'like', 'lock_%')
+      .not('key', 'like', 'meta_%')
+      .not('key', 'like', 'groq_%');
+
+    // On public storefront (non-admin), also strictly exclude delivery credentials
+    if (!isAdmin) {
+      settingsQuery = settingsQuery
+        .not('key', 'like', 'zr_express_%')
+        .not('key', 'like', 'yalidine_%');
+    }
+
+    const { data, error } = await settingsQuery.limit(100);
     const obj = {};
     if (!error && data) {
       data.forEach(item => {
-        if (item && item.key) {
-          if (typeof item.value === 'string' && (item.value.trim().startsWith('[') || item.value.trim().startsWith('{'))) {
-            try {
-              obj[item.key] = JSON.parse(item.value);
-            } catch (e) {
-              obj[item.key] = item.value;
-            }
-          } else {
+        if (!item || !item.key) return;
+
+        // Security shield: Never inject private tokens into public client state or localStorage
+        if (!isAdmin && (
+          item.key.startsWith('zr_express_') || 
+          item.key.startsWith('yalidine_') || 
+          item.key.startsWith('meta_') || 
+          item.key.startsWith('alert_') ||
+          item.key.startsWith('active_msgs_')
+        )) {
+          return;
+        }
+
+        if (typeof item.value === 'string' && (item.value.trim().startsWith('[') || item.value.trim().startsWith('{'))) {
+          try {
+            obj[item.key] = JSON.parse(item.value);
+          } catch (e) {
             obj[item.key] = item.value;
           }
+        } else {
+          obj[item.key] = item.value;
         }
       });
       setSettings(prev => {
