@@ -2301,9 +2301,15 @@ async function processIncomingPayload(body) {
                   const size = refMatch[3];
                   const alertKey = `${productId}_${colorIdx}_${size}`;
 
-                // Fetch current product stock and check if this item was ALREADY restocked
-                const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
-                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                // Fetch fresh current product stock (bypassing any serverless cache)
+                const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}&_t=${Date.now()}`, {
+                  headers: { 
+                    'apikey': SUPABASE_KEY, 
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                  },
+                  cache: 'no-store'
                 });
                 const prods = await prodRes.json();
                 const product = Array.isArray(prods) ? prods[0] : null;
@@ -2385,6 +2391,21 @@ async function processIncomingPayload(body) {
                         'Prefer': 'return=minimal'
                       },
                       body: JSON.stringify({ colorVariants: updatedVariants })
+                    });
+
+                    // Update products_last_updated in settings so dashboard & clients invalidate cache
+                    await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+                      method: 'POST',
+                      headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates'
+                      },
+                      body: JSON.stringify({
+                        key: 'products_last_updated',
+                        value: String(Date.now())
+                      })
                     });
 
                     // Attempt to auto-delete previous active alert messages for this item from WhatsApp chat

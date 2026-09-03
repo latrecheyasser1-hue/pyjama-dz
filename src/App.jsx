@@ -290,26 +290,30 @@ export default function App() {
   }, []);
 
   const fetchData = async (table, setter) => {
-    // Smart lightweight cache check for products: only fetch 300 bytes of metadata first!
-    if (table === 'products') {
+    const isAdmin = window.location.pathname.startsWith('/admin') || 
+                    window.location.pathname.startsWith('/ali') || 
+                    window.location.pathname.startsWith('/pos') || 
+                    window.location.pathname.startsWith('/emballage');
+
+    // Smart lightweight cache check for products (ONLY on public storefront - admins ALWAYS get fresh real stock!)
+    if (table === 'products' && !isAdmin) {
       const cached = localStorage.getItem('pyjama_products_cache');
-      if (cached) {
+      const cachedTime = localStorage.getItem('pyjama_products_cache_time');
+      if (cached && cachedTime) {
         try {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const { data: meta, error: metaErr } = await supabase
-              .from('products')
-              .select('id, created_at')
-              .order('created_at', { ascending: false });
+            // Check lightweight last_updated setting (~50 bytes)
+            const { data: verData } = await supabase
+              .from('settings')
+              .select('value')
+              .eq('key', 'products_last_updated')
+              .maybeSingle();
 
-            if (!metaErr && Array.isArray(meta)) {
-              const cachedIds = parsed.map(p => p.id).sort().join(',');
-              const freshIds = meta.map(p => p.id).sort().join(',');
-              if (cachedIds === freshIds && parsed.length === meta.length) {
-                // Products haven't changed! Use cached products with ZERO heavy download (~1.15MB saved!)
-                setter(parsed);
-                return;
-              }
+            const lastUpdated = verData?.value ? parseInt(verData.value) : 0;
+            if (lastUpdated && parseInt(cachedTime) >= lastUpdated) {
+              setter(parsed);
+              return;
             }
           }
         } catch(e) {}
@@ -319,7 +323,10 @@ export default function App() {
     const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
     if (!error && data) {
       if (table === 'products') {
-        try { localStorage.setItem('pyjama_products_cache', JSON.stringify(data)); } catch(e) {}
+        try { 
+          localStorage.setItem('pyjama_products_cache', JSON.stringify(data)); 
+          localStorage.setItem('pyjama_products_cache_time', String(Date.now()));
+        } catch(e) {}
         const now = Date.now();
         setter(prev => {
           return data.map(dbProd => {
