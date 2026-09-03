@@ -2262,7 +2262,6 @@ async function processIncomingPayload(body) {
               console.log(`Received message from ${fromPhone}: ${messageText}`);
 
               // A. WORKER STOCK RESTOCK via DIRECT REPLY or EXPLICIT MANAGER QUANTITY
-              const storeSettings = await getStoreSettings();
               const mgrPhones = extractCleanPhonesList(
                 storeSettings.whatsappBoutiqueManager,
                 storeSettings.whatsappLivraisonManager,
