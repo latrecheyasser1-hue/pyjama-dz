@@ -2261,7 +2261,21 @@ async function processIncomingPayload(body) {
               const rawLower = String(messageText).toLowerCase().trim();
               console.log(`Received message from ${fromPhone}: ${messageText}`);
 
-              // A. WORKER STOCK RESTOCK via DIRECT REPLY ONLY
+              // A. WORKER STOCK RESTOCK via DIRECT REPLY or EXPLICIT MANAGER QUANTITY
+              const storeSettings = await getStoreSettings();
+              const mgrPhones = extractCleanPhonesList(
+                storeSettings.whatsappBoutiqueManager,
+                storeSettings.whatsappLivraisonManager,
+                storeSettings.whatsapp,
+                storeSettings.phoneOrders
+              );
+
+              const fromDigits = fromPhone.replace(/\D/g, '').slice(-8);
+              const isManager = mgrPhones.some(p => {
+                const pDigits = p.replace(/\D/g, '').slice(-8);
+                return pDigits === fromDigits;
+              });
+
               let refMatch = messageText.match(/\[REF:([^:]+):([^:]+):([^:]+)\]/);
               let alertContextId = message.context?.id || null;
 
@@ -2272,28 +2286,66 @@ async function processIncomingPayload(body) {
                 }
               }
 
+              const textWithoutTag = messageText.replace(/\[REF:[^\]]+\]/gi, '').trim();
+              const isExplicitQty = /^(\+)?\d{1,4}(\s+[a-zA-Z0-9]+)?$/.test(textWithoutTag) || 
+                                    /(اضافة|إضافة|تزويد|زِد|زيد|ستوك|restock)\s*(\+)?\s*\d+/i.test(textWithoutTag);
+
+              // BULLETPROOF FALLBACK FOR MANAGERS:
+              // If context was not linked by Meta, but the sender is an authorized manager sending a quantity (e.g. "10", "10 M", "+10")
+              if (!refMatch && isManager && isExplicitQty) {
+                const sizeMatch = textWithoutTag.match(/\b(S|M|L|XL|2XL|3XL|4XL|36|37|38|39|40|41|42)\b/i);
+                const specifiedSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
+
+                try {
+                  const recentAlertsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=like.alert_msg_%&select=key,value,created_at&order=created_at.desc&limit=15`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                  });
+                  const alertRows = await recentAlertsRes.json();
+                  if (Array.isArray(alertRows) && alertRows.length > 0) {
+                    for (const row of alertRows) {
+                      try {
+                        const parsed = JSON.parse(row.value);
+                        if (parsed && parsed.productId && parsed.size) {
+                          if (specifiedSize) {
+                            if (String(parsed.size).toUpperCase() === specifiedSize) {
+                              refMatch = [null, parsed.productId, String(parsed.colorIdx || 0), parsed.size];
+                              alertContextId = row.key.replace('alert_msg_', '');
+                              break;
+                            }
+                          } else {
+                            // Automatically link to the latest pending alert sent
+                            refMatch = [null, parsed.productId, String(parsed.colorIdx || 0), parsed.size];
+                            alertContextId = row.key.replace('alert_msg_', '');
+                            break;
+                          }
+                        }
+                      } catch(e) {}
+                    }
+                  }
+                } catch(e) {}
+
+                if (!refMatch) {
+                  const alertObj = await getLatestStockAlertForPhone(fromPhone);
+                  if (alertObj && alertObj.productId && alertObj.size) {
+                    refMatch = [null, alertObj.productId, String(alertObj.colorIdx || 0), alertObj.size];
+                  }
+                }
+              }
+
+              // GUARD: If a manager sent a quantity, NEVER let it fall through to retail sales AI!
+              if (isManager && isExplicitQty && !refMatch) {
+                await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\n⚠️ تم استقبال رقم التزويد (*${textWithoutTag}*)، ولكن لم نتمكن من تحديد المنتج تلقائياً.\n\nيرجى الرد بالاقتباس (Reply) على رسالة التنبيه، أو كتابة المقاس مع الرقم (مثال: *10 M* أو *10 XL*). 🌸`);
+                continue;
+              }
+
               if (refMatch) {
-                // SECURITY GUARD: Strictly verify that sender phone is an AUTHORIZED STORE MANAGER in Settings!
-                const storeSettings = await getStoreSettings();
-                const mgrPhones = extractCleanPhonesList(
-                  storeSettings.whatsappBoutiqueManager,
-                  storeSettings.whatsappLivraisonManager,
-                  storeSettings.whatsapp,
-                  storeSettings.phoneOrders
-                );
+                let addedQty = 0;
+                const qtyMatch = textWithoutTag.match(/\d{1,4}/);
+                if (qtyMatch) {
+                  addedQty = parseInt(qtyMatch[0]);
+                }
 
-                const fromDigits = fromPhone.replace(/\D/g, '').slice(-8);
-                const isManager = mgrPhones.some(p => {
-                  const pDigits = p.replace(/\D/g, '').slice(-8);
-                  return pDigits === fromDigits;
-                });
-
-                // Accept pure numbers like "10" or "+10" or "تزويد 10" when replying to a stock alert message
-                const textWithoutTag = messageText.replace(/\[REF:[^\]]+\]/gi, '').trim();
-                const isExplicitQty = /^(\+)?\d{1,4}$/.test(textWithoutTag) || /(اضافة|إضافة|تزويد|زِد|زيد|ستوك|restock)\s*(\+)?\s*\d+/i.test(textWithoutTag);
-
-                if (!isExplicitQty) {
-                  // Ignore restock attempt if message is not an explicit quantity!
+                if (isNaN(addedQty) || addedQty <= 0) {
                   console.log(`Blocked non-explicit restock attempt from ${fromPhone}: ${messageText}`);
                 } else {
                   const productId = refMatch[1];
@@ -2337,13 +2389,6 @@ async function processIncomingPayload(body) {
                   const prodTitle = product ? product.title : 'المنتج';
                   await sendWhatsAppMessage(fromPhone, `*متجر Pyjama DZ*\n\nℹ️ *صايي، تم إعادة تزويد هذا التنبيه المحدد سابقاً!*\n• المنتج: ${prodTitle}\n• المقاس: ${size}\n• المخزون الحالي بالمحل/التوصيل: *${currentQty} حبة*.\n\nلم يتم تكرار الإضافة لتفادي دبلجة الكميات بالخطأ. 🌸`);
                   continue;
-                }
-
-                let addedQty = 0;
-                const textWithoutTag = messageText.replace(/\[REF:[^\]]+\]/gi, '').trim();
-                const qtyMatch = textWithoutTag.match(/^(\+)?(\d{1,4})$/);
-                if (qtyMatch) {
-                  addedQty = parseInt(qtyMatch[2]);
                 }
 
                 if (!isNaN(addedQty) && addedQty > 0) {
