@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { ALGERIA_WILAYAS, DEFAULT_CATEGORIES } from '../data/mockData';
 import { ALGERIA_WILAYAS_COMMUNES, getCommunesForWilaya } from '../data/algeriaCities';
 import { CHLEF_DELIVERY_RATES } from '../data/algeriaDeliveryRates';
@@ -1118,6 +1118,181 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [activePage, setActivePage] = useState(null); // 'about', 'shop', etc.
   const [categoryOrigin, setCategoryOrigin] = useState('shop'); // 'shop' or 'home'
+  // Mobile Phone Hardware / Gesture Back Button Support (History API)
+  const savedScrollPosRef = useRef(0);
+  const productBackPushedRef = useRef(false);
+  const pageBackPushedRef = useRef(false);
+  const menuBackPushedRef = useRef(false);
+  const tariffsBackPushedRef = useRef(false);
+  const authBackPushedRef = useRef(false);
+  const custDashBackPushedRef = useRef(false);
+  const reclamationBackPushedRef = useRef(false);
+
+  // 1. Product Detail Page History Handler
+  useEffect(() => {
+    if (activeDetailProduct) {
+      if (!productBackPushedRef.current) {
+        savedScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
+        window.history.pushState({ pyjama_modal: 'product' }, '');
+        productBackPushedRef.current = true;
+      }
+
+      const handlePopState = () => {
+        productBackPushedRef.current = false;
+        setActiveDetailProduct(null);
+        setTimeout(() => {
+          window.scrollTo({ top: savedScrollPosRef.current, behavior: 'instant' });
+        }, 20);
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+        if (productBackPushedRef.current && window.history.state?.pyjama_modal === 'product') {
+          productBackPushedRef.current = false;
+          window.history.back();
+        }
+      };
+    }
+  }, [activeDetailProduct]);
+
+  // 2. Active Page (About / Shop / etc.) History Handler
+  useEffect(() => {
+    if (activePage) {
+      if (!pageBackPushedRef.current) {
+        savedScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
+        window.history.pushState({ pyjama_modal: 'page' }, '');
+        pageBackPushedRef.current = true;
+      }
+
+      const handlePopState = () => {
+        pageBackPushedRef.current = false;
+        setActivePage(null);
+        setTimeout(() => {
+          window.scrollTo({ top: savedScrollPosRef.current, behavior: 'instant' });
+        }, 20);
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+        if (pageBackPushedRef.current && window.history.state?.pyjama_modal === 'page') {
+          pageBackPushedRef.current = false;
+          window.history.back();
+        }
+      };
+    }
+  }, [activePage]);
+
+  // 3. Mobile Hamburger Menu History Handler
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      window.history.pushState({ pyjama_modal: 'menu' }, '');
+      menuBackPushedRef.current = true;
+
+      const handlePopState = () => {
+        menuBackPushedRef.current = false;
+        setIsMobileMenuOpen(false);
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+        if (menuBackPushedRef.current && window.history.state?.pyjama_modal === 'menu') {
+          menuBackPushedRef.current = false;
+          window.history.back();
+        }
+      };
+    }
+  }, [isMobileMenuOpen]);
+
+  // 4. Delivery Tariffs Modal History Handler
+  useEffect(() => {
+    if (isTariffsModalOpen) {
+      window.history.pushState({ pyjama_modal: 'tariffs' }, '');
+      tariffsBackPushedRef.current = true;
+
+      const handlePopState = () => {
+        tariffsBackPushedRef.current = false;
+        setIsTariffsModalOpen(false);
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+        if (tariffsBackPushedRef.current && window.history.state?.pyjama_modal === 'tariffs') {
+          tariffsBackPushedRef.current = false;
+          window.history.back();
+        }
+      };
+    }
+  }, [isTariffsModalOpen]);
+
+  // 5. Customer Login / OTP Modal History Handler
+  useEffect(() => {
+    if (isAuthModalOpen) {
+      window.history.pushState({ pyjama_modal: 'auth' }, '');
+      authBackPushedRef.current = true;
+
+      const handlePopState = () => {
+        authBackPushedRef.current = false;
+        setIsAuthModalOpen(false);
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+        if (authBackPushedRef.current && window.history.state?.pyjama_modal === 'auth') {
+          authBackPushedRef.current = false;
+          window.history.back();
+        }
+      };
+    }
+  }, [isAuthModalOpen]);
+
+  // 6. Customer Dashboard Modal History Handler
+  useEffect(() => {
+    if (isCustomerDashboardOpen) {
+      window.history.pushState({ pyjama_modal: 'cust_dash' }, '');
+      custDashBackPushedRef.current = true;
+
+      const handlePopState = () => {
+        custDashBackPushedRef.current = false;
+        setIsCustomerDashboardOpen(false);
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+        if (custDashBackPushedRef.current && window.history.state?.pyjama_modal === 'cust_dash') {
+          custDashBackPushedRef.current = false;
+          window.history.back();
+        }
+      };
+    }
+  }, [isCustomerDashboardOpen]);
+
+  // 7. Reclamation Modal History Handler
+  useEffect(() => {
+    if (isReclamationOpen) {
+      window.history.pushState({ pyjama_modal: 'reclamation' }, '');
+      reclamationBackPushedRef.current = true;
+
+      const handlePopState = () => {
+        reclamationBackPushedRef.current = false;
+        setIsReclamationOpen(false);
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+        if (reclamationBackPushedRef.current && window.history.state?.pyjama_modal === 'reclamation') {
+          reclamationBackPushedRef.current = false;
+          window.history.back();
+        }
+      };
+    }
+  }, [isReclamationOpen]);
 
   useEffect(() => {
     if (activeDetailProduct || activePage) {
@@ -1347,6 +1522,30 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   };
 
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const cartBackPushedRef = useRef(false);
+
+  // 8. Cart Slide-over Drawer History Handler
+  useEffect(() => {
+    if (isCartOpen) {
+      window.history.pushState({ pyjama_modal: 'cart' }, '');
+      cartBackPushedRef.current = true;
+
+      const handlePopState = () => {
+        cartBackPushedRef.current = false;
+        setIsCartOpen(false);
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+        if (cartBackPushedRef.current && window.history.state?.pyjama_modal === 'cart') {
+          cartBackPushedRef.current = false;
+          window.history.back();
+        }
+      };
+    }
+  }, [isCartOpen]);
+
   const [checkoutStep, setCheckoutStep] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [categoryLimits, setCategoryLimits] = useState({});
@@ -2485,7 +2684,9 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
             categoriesList={categoriesList}
             onBack={() => {
               setActiveDetailProduct(null);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              setTimeout(() => {
+                window.scrollTo({ top: savedScrollPosRef.current, behavior: 'instant' });
+              }, 20);
             }} 
             onAddToCart={handleAddToCart}
             onCategorySelect={(catId) => {
