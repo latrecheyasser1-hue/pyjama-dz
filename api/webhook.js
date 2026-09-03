@@ -507,6 +507,7 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   const formattedPhone = rawDigits.startsWith('213') ? rawDigits : rawDigits.replace(/^0/, '213');
 
   const cleanBody = removeEmojis(textBody);
+  console.log(`[WHATSAPP_SEND] To: ${formattedPhone} | Body: ${cleanBody}`);
   const url = `https://graph.facebook.com/v21.0/${META_PHONE_NUMBER_ID}/messages`;
   try {
     const res = await fetch(url, {
@@ -2296,7 +2297,7 @@ async function processIncomingPayload(body) {
                 const specifiedSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
 
                 try {
-                  const recentAlertsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=like.alert_msg_%&select=key,value,created_at&order=created_at.desc&limit=15`, {
+                  const recentAlertsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=like.alert_msg_%25&select=key,value,created_at&order=created_at.desc&limit=15`, {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
                   });
                   const alertRows = await recentAlertsRes.json();
@@ -2337,7 +2338,15 @@ async function processIncomingPayload(body) {
                 continue;
               }
 
+              // ABSOLUTE MANAGER SHIELD: Managers never get routed to customer retail AI!
+              if (isManager && !refMatch && !isExplicitQty) {
+                console.log(`Bypassing retail AI sales agent for store manager ${fromPhone}`);
+                // Only allow specific manager chat or ignore, never retail AI
+                continue;
+              }
+
               if (refMatch) {
+                console.log(`[RESTOCK_DEBUG] Inside if (refMatch): refMatch=`, refMatch);
                 let addedQty = 0;
                 const qtyMatch = textWithoutTag.match(/\d{1,4}/);
                 if (qtyMatch) {
@@ -2353,7 +2362,7 @@ async function processIncomingPayload(body) {
                   const alertKey = `${productId}_${colorIdx}_${size}`;
 
                 // Fetch fresh current product stock (bypassing any serverless cache)
-                const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}&_t=${Date.now()}`, {
+                const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?id=eq.${productId}`, {
                   headers: { 
                     'apikey': SUPABASE_KEY, 
                     'Authorization': `Bearer ${SUPABASE_KEY}`,
@@ -2374,7 +2383,8 @@ async function processIncomingPayload(body) {
                 // 1. Check message-level resolution to PREVENT DOUBLE RESTOCK
                 if (alertContextId) {
                   try {
-                    const msgRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_resolved_${alertContextId}&select=value`, {
+                    const encodedCtxId = encodeURIComponent(alertContextId);
+                    const msgRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.alert_resolved_${encodedCtxId}&select=value`, {
                       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
                     });
                     const msgRows = await msgRes.json();
