@@ -7,12 +7,13 @@ import { ZR_AGENCIES, getZRAgenciesForWilaya } from '../data/zrAgencies';
 import { showToast } from '../utils/toast';
 import { sanitizeAlgerianPhone, isValidAlgerianPhone } from '../utils/phoneUtils';
 import { supabase } from '../lib/supabaseClient';
-import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2, Check, Heart, Star, Search, User, Bell, AlertTriangle, Menu, ChevronRight, Home, Grid, MessageCircle, FileText, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
+import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2, Check, Heart, Star, Search, User, Bell, AlertTriangle, Menu, ChevronRight, Home, Grid, MessageCircle, FileText, ChevronDown, ChevronUp, Building2, Camera, Image as ImageIcon } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import DeliveryTariffsModal from './DeliveryTariffsModal';
 import CustomerAccountPage from './CustomerAccountPage';
 import CustomerDashboardPage from './CustomerDashboardPage';
 import ProductReviewsSection from './ProductReviewsSection';
+import VirtualTryOnModal from './VirtualTryOnModal';
 import { getCurrentCustomer } from '../services/customerService';
 const getProductDisplayCategory = (prodCategory, categoriesList) => {
   if (!Array.isArray(categoriesList)) return prodCategory || 'Pyjama DZ';
@@ -363,6 +364,22 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
 }
 
 function ProductDetailPage({ product, products, categoriesList, onBack, onAddToCart, onCategorySelect }) {
+  const [isTryOnOpen, setIsTryOnOpen] = useState(false);
+  const [tryOnImage, setTryOnImage] = useState(null);
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
+
+  const handleTryOnFileSelected = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUri = e.target.result;
+      setTryOnImage(dataUri);
+      setIsTryOnOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -864,14 +881,96 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
             }
 
             return (
-              <button 
-                type="button" 
-                className="mazyoud-pdp-add-btn" 
-                onClick={handleAdd}
-              >
-                <ShoppingCart size={20} style={{ marginLeft: '8px' }} />
-                <span>إضافة إلى السلة / Ajouter au Panier</span>
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button 
+                  type="button" 
+                  className="mazyoud-pdp-add-btn" 
+                  onClick={handleAdd}
+                >
+                  <ShoppingCart size={20} style={{ marginLeft: '8px' }} />
+                  <span>إضافة إلى السلة / Ajouter au Panier</span>
+                </button>
+                {/* Hidden Native File Inputs for direct phone camera & gallery */}
+                <input 
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    handleTryOnFileSelected(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+                <input 
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    handleTryOnFileSelected(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#FFFFFF',
+                      color: 'var(--burgundy, #6B1D2F)',
+                      border: '2px solid var(--burgundy, #6B1D2F)',
+                      borderRadius: '14px',
+                      padding: '12px 14px',
+                      fontSize: '0.95rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      boxShadow: '0 2px 8px rgba(107, 29, 47, 0.08)',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--burgundy, #6B1D2F)';
+                      e.currentTarget.style.color = '#FFFFFF';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.backgroundColor = '#FFFFFF';
+                      e.currentTarget.style.color = 'var(--burgundy, #6B1D2F)';
+                    }}
+                  >
+                    <Sparkles size={18} />
+                    <span>Try On</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => galleryInputRef.current?.click()}
+                    style={{
+                      backgroundColor: '#F8FAFC',
+                      color: '#475569',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '14px',
+                      padding: '12px 14px',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                    title="اختيار صورة من المعرض"
+                  >
+                    <ImageIcon size={18} />
+                    <span>المعرض</span>
+                  </button>
+                </div>
+              </div>
             );
           })()}
 
@@ -989,6 +1088,19 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
 
       {/* Product Ratings & Customer Reviews Section (آراء وتقييمات الزبائن) */}
       <ProductReviewsSection product={product} />
+
+      {/* Virtual Try-On Modal */}
+      <VirtualTryOnModal
+        isOpen={isTryOnOpen}
+        onClose={() => {
+          setIsTryOnOpen(false);
+          setTryOnImage(null);
+        }}
+        product={product}
+        selectedVariantIdx={selectedVariantIdx !== null ? selectedVariantIdx : 0}
+        initialImage={tryOnImage}
+        onAddToCart={onAddToCart}
+      />
     </div>
   );
 }

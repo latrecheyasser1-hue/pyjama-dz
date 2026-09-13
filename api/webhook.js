@@ -2338,12 +2338,6 @@ async function processIncomingPayload(body) {
                 continue;
               }
 
-              // ABSOLUTE MANAGER SHIELD: Managers never get routed to customer retail AI!
-              if (isManager && !refMatch && !isExplicitQty) {
-                console.log(`Bypassing retail AI sales agent for store manager ${fromPhone}`);
-                // Only allow specific manager chat or ignore, never retail AI
-                continue;
-              }
 
               if (refMatch) {
                 console.log(`[RESTOCK_DEBUG] Inside if (refMatch): refMatch=`, refMatch);

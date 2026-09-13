@@ -41,11 +41,12 @@ async function sendWhatsAppMessage(toPhone, textBody) {
         to: waPhone,
         type: 'text',
         text: { preview_url: false, body: textBody }
-      })
+      }),
+      signal: AbortSignal.timeout(4000)
     });
     return await res.json();
   } catch (err) {
-    console.error('Send WhatsApp error:', err);
+    console.error('Send WhatsApp error:', err.message || err);
   }
 }
 
@@ -73,11 +74,12 @@ async function sendWhatsAppImage(toPhone, imageUrl, captionText) {
           link: imageUrl,
           caption: captionText || ''
         }
-      })
+      }),
+      signal: AbortSignal.timeout(4000)
     });
     return await res.json();
   } catch (err) {
-    console.error('Send WhatsApp Image error:', err);
+    console.error('Send WhatsApp Image error:', err.message || err);
   }
 }
 
@@ -218,31 +220,39 @@ export default async function handler(req, res) {
         });
       }
 
+      const topItemsList = top10Products.map((it, idx) => {
+        const numEmoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'][idx] || `•`;
+        return `${numEmoji} *${it.title}* — ${it.price} دج`;
+      }).join('\n');
+
+      const heroProduct = top10Products[0] || null;
+      const secondProduct = top10Products[1] || null;
+
       const clientEntries = Array.from(uniqueClients.entries());
       let sentCount = 0;
 
-      // Process in concurrent batches of 3 clients for high speed
-      const batchSize = 3;
+      // Process in concurrent batches of 8 clients for high speed and 0 timeouts
+      const batchSize = 8;
       for (let i = 0; i < clientEntries.length; i += batchSize) {
         const batch = clientEntries.slice(i, i + batchSize);
-        await Promise.all(batch.map(async ([phone, rawName]) => {
+        await Promise.allSettled(batch.map(async ([phone, rawName]) => {
           try {
             const firstName = cleanClientName(rawName);
             const greeting = firstName ? `أهلاً وسهلاً بك ${firstName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
 
-            // Send Top 10 Product Images
-            for (const item of top10Products) {
-              if (item.imageUrl) {
-                const caption = `🔥 *${item.title}*\n💰 السعر: ${item.price} دج`;
-                await sendWhatsAppImage(phone, item.imageUrl, caption);
-                await new Promise(r => setTimeout(r, 60));
-              }
+            const captionText = `🔥 *عروض الأكثر طلباً لهذا الأسبوع (HOT SALE) ✨*\n\n${greeting}! 🌸\nجمعنالك الموديلات الأكثر طلباً ومبيعاً هذا الأسبوع في متجر Pyjama DZ:\n\n${topItemsList}\n\n🚚 التوصيل متوفر لـ 58 ولاية حتى لباب الدار والدفع عند الاستلام بعد المعاينة.\n🛒 تفضل بالطلب وتصفح كافة الموديلات والمقاسات عبر موقعنا الرسمي:\n👉 https://pyjama-dz.vercel.app`;
+
+            if (heroProduct?.imageUrl) {
+              await sendWhatsAppImage(phone, heroProduct.imageUrl, captionText);
+            } else {
+              await sendWhatsAppMessage(phone, captionText);
             }
 
-            // Final summary message with official website link
-            const textMsg = `*متجر Pyjama DZ ✨*\n\n${greeting}! 🌸\nهذو هما أفضل 10 منتجات الأكثر طلباً ومبيعاً هذا الأسبوع في متجرنا! 🔥✨\n\nتفضل بتصفح كافة الصور والموديلات والطلب مباشرة عبر موقعنا الرسمي:\nhttps://pyjama-dz.vercel.app`;
+            if (secondProduct?.imageUrl) {
+              const secondCaption = `✨ *${secondProduct.title}* — ${secondProduct.price} دج\nاطلبها الآن عبر موقعنا:\n👉 https://pyjama-dz.vercel.app`;
+              await sendWhatsAppImage(phone, secondProduct.imageUrl, secondCaption);
+            }
 
-            await sendWhatsAppMessage(phone, textMsg);
             sentCount++;
           } catch(e) {
             console.error('Error sending to client:', phone, e);
