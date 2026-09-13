@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 /**
  * Optional Fashn.ai model runner (if store owner adds FASHN_API_KEY later)
  */
@@ -45,11 +42,6 @@ async function runFashnModel(apiKey, modelImage, garmentImage, category = 'all')
 }
 
 function getEnv(key) {
-  try {
-    const envContent = fs.readFileSync('.env', 'utf-8');
-    const match = envContent.match(new RegExp(`^${key}=(.*)$`, 'm'));
-    if (match) return match[1].trim();
-  } catch (e) {}
   return process.env[key];
 }
 
@@ -61,31 +53,31 @@ function resolveStudioModel(color = '', bodyType = 'regular') {
 
   // 1. Check Color Matches
   if (lowerColor.includes('أزرق') || lowerColor.includes('bleu') || lowerColor.includes('navy') || lowerColor.includes('nuit')) {
-    return 'public/models/satin_navy.jpg';
+    return '/models/satin_navy.jpg';
   }
   if (lowerColor.includes('وردي') || lowerColor.includes('rose') || lowerColor.includes('pink') || lowerColor.includes('زهري')) {
-    return 'public/models/satin_pink.jpg';
+    return '/models/satin_pink.jpg';
   }
   if (lowerColor.includes('بيج') || lowerColor.includes('cream') || lowerColor.includes('blanc') || lowerColor.includes('أبيض') || lowerColor.includes('فضي') || lowerColor.includes('argent')) {
-    return 'public/models/satin_cream.jpg';
+    return '/models/satin_cream.jpg';
   }
   if (lowerColor.includes('بني') || lowerColor.includes('marron') || lowerColor.includes('brown') || lowerColor.includes('شوكولا')) {
-    return 'public/models/perfect_brown_tryon.jpg';
+    return '/models/perfect_brown_tryon.jpg';
   }
 
   // 2. Check Body Type Fallback
-  if (bodyType === 'slim' && fs.existsSync('public/models/slim.jpg')) {
-    return 'public/models/slim.jpg';
+  if (bodyType === 'slim') {
+    return '/models/slim.jpg';
   }
-  if (bodyType === 'curvy' && fs.existsSync('public/models/curvy.jpg')) {
-    return 'public/models/curvy.jpg';
+  if (bodyType === 'curvy') {
+    return '/models/curvy.jpg';
   }
-  if (bodyType === 'plus' && fs.existsSync('public/models/plus.jpg')) {
-    return 'public/models/plus.jpg';
+  if (bodyType === 'plus') {
+    return '/models/plus.jpg';
   }
 
   // Default high-end photoshoot
-  return 'public/models/satin_navy.jpg';
+  return '/models/satin_navy.jpg';
 }
 
 export default async function handler(req, res) {
@@ -124,16 +116,7 @@ export default async function handler(req, res) {
     if (fashnApiKey && garmentImage) {
       try {
         console.log(`[Try-On] Using Fashn.ai Cloud API for ${productTitle} (${color})...`);
-        let resolvedGarment = garmentImage;
-        if (typeof garmentImage === 'string' && !garmentImage.startsWith('http') && !garmentImage.startsWith('data:')) {
-          const localGarmentPath = path.resolve('public' + (garmentImage.startsWith('/') ? garmentImage : '/' + garmentImage));
-          if (fs.existsSync(localGarmentPath)) {
-            const ext = path.extname(localGarmentPath).slice(1) || 'jpeg';
-            const buf = fs.readFileSync(localGarmentPath);
-            resolvedGarment = `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${buf.toString('base64')}`;
-          }
-        }
-        const dressedUrl = await runFashnModel(fashnApiKey, customerImage, resolvedGarment, 'all');
+        const dressedUrl = await runFashnModel(fashnApiKey, customerImage, garmentImage, 'all');
         if (dressedUrl) {
           return res.status(200).json({
             success: true,
@@ -150,23 +133,14 @@ export default async function handler(req, res) {
     }
 
     // 2. High-performance, 100% autonomous local studio engine
-    // Pick the matching studio model photo for the selected color & body
-    const modelFilePath = resolveStudioModel(color, bodyType);
-    const resolvedPath = path.resolve(modelFilePath);
-
-    if (!fs.existsSync(resolvedPath)) {
-      throw new Error(`تعذر العثور على صورة النموذج: ${modelFilePath}`);
-    }
-
-    const imageBuffer = fs.readFileSync(resolvedPath);
-    const resultDataUri = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+    const modelUrl = resolveStudioModel(color, bodyType);
 
     // Add a slight realistic processing pause (simulating AI fitting pipeline)
     await new Promise((r) => setTimeout(r, 600));
 
     return res.status(200).json({
       success: true,
-      resultImage: resultDataUri,
+      resultImage: modelUrl,
       bodyType,
       productTitle,
       color,

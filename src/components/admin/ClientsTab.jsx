@@ -107,14 +107,14 @@ export default function ClientsTab({ orders = [], products = [] }) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000);
-      const res = await fetch('/api/send-weekly-hotsale', {
+      const res = await fetch('/api/cron-notifications?action=weekly_hot_sale', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal
       });
       clearTimeout(timeoutId);
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (res.ok && (data.success || data.status === 'success')) {
         showToast(`🎉 تم إرسال عروض Hot Sale بنجاح إلى ${data.sentCount || 0} زبون عبر الواتساب!`, 'success');
       } else {
         showToast(`⚠️ تم إرسال الحملة لـ ${data.sentCount || 0} زبائن (${data.error || 'تمت المعالجة'})`, 'info');
@@ -132,7 +132,7 @@ export default function ClientsTab({ orders = [], products = [] }) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000);
-      const res = await fetch('/api/send-14day-followup', {
+      const res = await fetch('/api/cron-notifications?action=followup_14_days', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal
