@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, Package, MapPin, Heart, LogOut, ExternalLink, CheckCircle2, Clock, Truck, ShieldAlert, RefreshCw, ShoppingBag, Building2 } from 'lucide-react';
+import { ArrowRight, Package, MapPin, Heart, LogOut, ExternalLink, CheckCircle2, Clock, Truck, ShieldAlert, RefreshCw, ShoppingBag, Building2, Phone } from 'lucide-react';
 import { getCustomerOrders, updateCustomerProfile, setCustomerSession } from '../services/customerService';
 import { ALGERIA_WILAYAS } from '../data/mockData';
 import { getCommunesForWilaya } from '../data/algeriaCities';
+import { UserButton } from '@clerk/clerk-react';
 
 export default function CustomerDashboardPage({ customer, onBackToStore, onLogout, onReorder, wishlist = [], onToggleWishlist, onSelectProduct }) {
   const [activeTab, setActiveTab] = useState('orders'); // 'orders', 'address', 'favorites'
@@ -10,6 +11,8 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
   // Orders & Loading
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [phoneInput, setPhoneInput] = useState(customer?.phone || '');
+  const [isLinkingPhone, setIsLinkingPhone] = useState(false);
 
   // Address fields
   const [wilaya, setWilaya] = useState(customer?.wilaya || '');
@@ -98,16 +101,19 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
           <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 700 }}>لوحة حسابي الشخصية</span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setCustomerSession(null);
-            if (onLogout) onLogout();
-          }}
-          style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', padding: '8px 16px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          <LogOut size={16} /> تسجيل الخروج
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {customer?.isClerk && <UserButton afterSignOutUrl="/" />}
+          <button
+            type="button"
+            onClick={() => {
+              setCustomerSession(null);
+              if (onLogout) onLogout();
+            }}
+            style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', padding: '8px 16px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <LogOut size={16} /> تسجيل الخروج
+          </button>
+        </div>
       </header>
 
       {/* Main Container */}
@@ -116,12 +122,64 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
           
           {/* Header User Profile Banner */}
           <div style={{ background: 'linear-gradient(135deg, #881337 0%, #BE123C 100%)', padding: '28px 24px 20px', color: '#FFFFFF' }}>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 900, margin: '0 0 6px' }}>
-              مرحباً بكِ، {customer.full_name || 'زبوننا العزيز'} 👋
-            </h2>
-            <p style={{ margin: 0, fontSize: '0.88rem', color: '#FFE4E6', opacity: 0.95 }}>
-              📱 رقم الهاتف: {customer.phone}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+              {customer?.imageUrl && (
+                <img
+                  src={customer.imageUrl}
+                  alt={customer.full_name}
+                  style={{ width: '48px', height: '48px', borderRadius: '50%', border: '2px solid #FFFFFF' }}
+                />
+              )}
+              <div>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 900, margin: '0 0 4px' }}>
+                  مرحباً بكِ، {customer.full_name || 'زبوننا العزيز'} 👋
+                </h2>
+                {customer?.email && (
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: '#FFE4E6', opacity: 0.9 }}>
+                    ✉️ {customer.email}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {customer?.phone ? (
+              <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: '#FFE4E6', opacity: 0.95 }}>
+                📱 رقم الهاتف: {customer.phone}
+              </p>
+            ) : (
+              <div style={{ marginTop: '12px', background: 'rgba(255,255,255,0.15)', borderRadius: '12px', padding: '10px 14px' }}>
+                <p style={{ margin: '0 0 8px', fontSize: '0.82rem', color: '#FFFFFF', fontWeight: 700 }}>
+                  💡 اربطي رقم هاتفكِ لعرض ومتابعة طلبياتكِ في المتجر:
+                </p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="tel"
+                    placeholder="مثال: 0770123456"
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value)}
+                    style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: 'none', fontSize: '0.9rem', color: '#0F172A' }}
+                  />
+                  <button
+                    type="button"
+                    disabled={isLinkingPhone}
+                    onClick={async () => {
+                      if (!phoneInput || phoneInput.trim().length < 9) return;
+                      setIsLinkingPhone(true);
+                      const updated = { ...customer, phone: phoneInput.trim() };
+                      setCustomerSession(updated);
+                      try {
+                        const data = await getCustomerOrders(phoneInput.trim());
+                        setOrders(data);
+                      } catch (err) {}
+                      setIsLinkingPhone(false);
+                    }}
+                    style={{ backgroundColor: '#FFFFFF', color: '#881337', fontWeight: 800, border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: 'pointer' }}
+                  >
+                    {isLinkingPhone ? 'جاري الربط...' : 'ربط الهاتف'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Dashboard Tabs (3 Tabs ONLY: Orders, Address, Favorites) */}
             <div style={{ display: 'flex', gap: '8px', marginTop: '20px', background: 'rgba(0, 0, 0, 0.15)', padding: '4px', borderRadius: '14px' }}>

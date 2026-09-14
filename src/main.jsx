@@ -4,6 +4,9 @@ import './index.css'
 import App from './App.jsx'
 
 import { HelmetProvider } from 'react-helmet-async'
+import { ClerkProvider } from '@clerk/clerk-react'
+
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_bmljZS1hbnRlYXRlci05OTYwLmNsZXJrLmFjY291bnRzLmRldiQ';
 
 // 🧹 Auto-clear PWA Service Worker & Cache Storage to force immediate fresh bundle load
 if (typeof window !== 'undefined') {
@@ -58,7 +61,20 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
       <HelmetProvider>
-        <App />
+        <ClerkProvider
+          publishableKey={CLERK_PUBLISHABLE_KEY}
+          afterSignOutUrl="/"
+          appearance={{
+            variables: {
+              colorPrimary: '#8B1818',
+              colorTextOnPrimaryBackground: '#FFFFFF',
+              borderRadius: '14px',
+              fontFamily: 'Cairo, sans-serif'
+            }
+          }}
+        >
+          <App />
+        </ClerkProvider>
       </HelmetProvider>
     </ErrorBoundary>
   </StrictMode>,

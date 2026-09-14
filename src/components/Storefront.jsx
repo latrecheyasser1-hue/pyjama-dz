@@ -14,7 +14,8 @@ import CustomerAccountPage from './CustomerAccountPage';
 import CustomerDashboardPage from './CustomerDashboardPage';
 import ProductReviewsSection from './ProductReviewsSection';
 import VirtualTryOnModal from './VirtualTryOnModal';
-import { getCurrentCustomer } from '../services/customerService';
+import { getCurrentCustomer, setCustomerSession } from '../services/customerService';
+import { useUser, useClerk } from '@clerk/clerk-react';
 const getProductDisplayCategory = (prodCategory, categoriesList) => {
   if (!Array.isArray(categoriesList)) return prodCategory || 'Pyjama DZ';
   const exact = categoriesList.find(c => c && typeof c === 'object' && c.id === prodCategory);
@@ -1109,6 +1110,28 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const [currentCustomer, setCurrentCustomerState] = useState(() => getCurrentCustomer());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCustomerDashboardOpen, setIsCustomerDashboardOpen] = useState(false);
+
+  // Clerk Auth state integration
+  const { isSignedIn: isClerkSignedIn, user: clerkUser, isLoaded: isClerkLoaded } = useUser();
+  const { signOut: clerkSignOut } = useClerk();
+
+  useEffect(() => {
+    if (isClerkLoaded && isClerkSignedIn && clerkUser) {
+      const activeClerkCust = {
+        id: clerkUser.id,
+        full_name: clerkUser.fullName || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'زبون المتجر',
+        email: clerkUser.primaryEmailAddress?.emailAddress || '',
+        phone: clerkUser.primaryPhoneNumber?.phoneNumber || currentCustomer?.phone || '',
+        imageUrl: clerkUser.imageUrl,
+        isClerk: true
+      };
+      setCurrentCustomerState(activeClerkCust);
+      setCustomerSession(activeClerkCust);
+    } else if (isClerkLoaded && !isClerkSignedIn && currentCustomer?.isClerk) {
+      setCurrentCustomerState(null);
+      setCustomerSession(null);
+    }
+  }, [isClerkLoaded, isClerkSignedIn, clerkUser]);
 
   const [realtimeCategories, setRealtimeCategories] = useState(() => {
     try {
@@ -2462,7 +2485,11 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         customer={currentCustomer}
         onBackToStore={() => setIsCustomerDashboardOpen(false)}
         onLogout={() => {
+          if (currentCustomer?.isClerk && clerkSignOut) {
+            clerkSignOut();
+          }
           setCurrentCustomerState(null);
+          setCustomerSession(null);
           setIsCustomerDashboardOpen(false);
         }}
         wishlist={wishlist}
