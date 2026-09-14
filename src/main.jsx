@@ -6,12 +6,7 @@ import App from './App.jsx'
 import { HelmetProvider } from 'react-helmet-async'
 import { ClerkProvider } from '@clerk/clerk-react'
 
-const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || (
-  isLocalhost
-    ? 'pk_test_bmljZS1hbnRlYXRlci05OTYwLmNsZXJrLmFjY291bnRzLmRldiQ'
-    : 'pk_live_Y2xlcmsucHlqYW1hLWR6LnZlcmNlbC5hcHAk'
-);
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_bmljZS1hbnRlYXRlci05OTYwLmNsZXJrLmFjY291bnRzLmRldiQ';
 
 // 🧹 Auto-clear PWA Service Worker & Cache Storage to force immediate fresh bundle load
 if (typeof window !== 'undefined') {
