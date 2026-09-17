@@ -205,9 +205,45 @@ const getProductTotalStock = (product) => {
 function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, wishlist = [], onToggleWishlist, isHotSale = false }) {
   const isWishlisted = Array.isArray(wishlist) && wishlist.some(item => String(item.id) === String(product?.id));
 
-  const allProductImages = Array.isArray(product?.images) && product.images.length > 0 
-    ? product.images 
-    : [product?.image || ''];
+  const allProductImages = useMemo(() => {
+    let imgs = [];
+    if (Array.isArray(product?.images)) {
+      imgs = [...product.images];
+    } else if (typeof product?.images === 'string') {
+      try {
+        const parsed = JSON.parse(product.images);
+        if (Array.isArray(parsed)) imgs = parsed;
+      } catch (e) {
+        if (product.images.trim()) imgs = [product.images.trim()];
+      }
+    }
+    
+    // Include primary product.image if valid and not already in array
+    if (product?.image && typeof product.image === 'string' && product.image.trim()) {
+      const trimmedMain = product.image.trim();
+      if (!imgs.includes(trimmedMain)) {
+        imgs.unshift(trimmedMain);
+      }
+    }
+    
+    // Include color variants images if available
+    let variants = product?.colorVariants;
+    if (typeof variants === 'string') {
+      try { variants = JSON.parse(variants); } catch (e) { variants = []; }
+    }
+    if (Array.isArray(variants)) {
+      variants.forEach(cv => {
+        if (cv && typeof cv.image === 'string' && cv.image.trim() && !imgs.includes(cv.image.trim())) {
+          imgs.push(cv.image.trim());
+        }
+      });
+    }
+
+    // Clean up empty strings and deduplicate
+    imgs = Array.from(new Set(imgs.filter(url => url && typeof url === 'string' && url.trim().length > 0)));
+
+    return imgs.length > 0 ? imgs : [product?.image || ''];
+  }, [product?.images, product?.image, product?.colorVariants]);
 
   const [currentImgIdx, setCurrentImgIdx] = useState(0);
   const touchStartXRef = useRef(0);
@@ -250,8 +286,11 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
     if (!el) return;
     const width = el.offsetWidth;
     if (width > 0) {
-      const idx = Math.round(el.scrollLeft / width);
-      if (idx !== currentImgIdx && idx >= 0 && idx < allProductImages.length) {
+      const idx = Math.min(
+        allProductImages.length - 1,
+        Math.max(0, Math.round(Math.abs(el.scrollLeft) / width))
+      );
+      if (idx !== currentImgIdx) {
         setCurrentImgIdx(idx);
       }
     }
@@ -307,6 +346,7 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
           <>
             <div 
               className="product-images-slider"
+              dir="ltr"
               onScroll={handleSliderScroll}
               style={{ 
                 display: 'flex', 
