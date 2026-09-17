@@ -96,8 +96,7 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
 
 
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {customer?.isClerk && <UserButton afterSignOutUrl="/" />}
+        <div>
           <button
             type="button"
             onClick={() => {
