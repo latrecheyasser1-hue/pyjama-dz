@@ -202,23 +202,24 @@ const getProductTotalStock = (product) => {
   return Number(product.stock || 0);
 };
 
-function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, wishlist = [], onToggleWishlist }) {
-  const [selectedVariantIdx, setSelectedVariantIdx] = useState(null);
+function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, wishlist = [], onToggleWishlist, isHotSale = false }) {
   const isWishlisted = Array.isArray(wishlist) && wishlist.some(item => String(item.id) === String(product?.id));
 
-  const activeVariant = (selectedVariantIdx !== null && Array.isArray(product?.colorVariants) && product.colorVariants.length > selectedVariantIdx) 
-    ? product.colorVariants[selectedVariantIdx] 
-    : (Array.isArray(product?.colorVariants) && product.colorVariants.length > 0 ? product.colorVariants[0] : null);
+  const allProductImages = Array.isArray(product?.images) && product.images.length > 0 
+    ? product.images 
+    : [product?.image || ''];
 
-  const allProductImages = Array.isArray(product?.images) && product.images.length > 0 ? product.images : [product?.image || ''];
-  const displayImages = (selectedVariantIdx !== null && activeVariant?.image)
-    ? [activeVariant.image]
-    : allProductImages;
+  const hasPromo = Boolean(product?.oldPrice && Number(product.oldPrice) > Number(product?.price || 0));
 
-  const rawSizes = activeVariant?.stock && typeof activeVariant.stock === 'object'
-    ? Object.keys(activeVariant.stock)
-    : (Array.isArray(product?.sizes) ? product.sizes : (typeof product?.sizes === 'string' ? product.sizes.split(/[,/-]/).map(s => s.trim()).filter(Boolean) : ["Standard"]));
-  const availableSizes = Array.isArray(rawSizes) && rawSizes.length > 0 ? rawSizes : ["Standard"];
+  const isHotSaleItem = Boolean(
+    isHotSale ||
+    product?.isHotSale ||
+    product?.is_hot_sale ||
+    product?.hot_sale ||
+    (typeof product?.badge === 'string' && /hot\s*sale|top\s*vente|الأكثر\s*مبيع/i.test(product.badge)) ||
+    product?.category === 'hot_sale' ||
+    product?.category === 'hot'
+  );
 
   return (
     <div className="wd-product product-card" onClick={() => onSelect(product)} style={{ cursor: 'pointer' }}>
@@ -236,18 +237,24 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
           <Heart size={18} fill={isWishlisted ? "#E53935" : "none"} color={isWishlisted ? "#E53935" : "#666666"} />
         </button>
 
-        {product?.oldPrice && Number(product.oldPrice) > Number(product?.price || 0) && (
+        {/* Top-Left Badge: Animated Hot Sale ("trooh oo tjii") or Promo */}
+        {isHotSaleItem ? (
+          <div className="badge-hot-sale-animated" style={{ position: 'absolute', top: 14, left: 14, zIndex: 10 }}>
+            <span className="hot-sale-flame">🔥</span>
+            <span>HOT SALE</span>
+          </div>
+        ) : hasPromo ? (
           <span className="badge-tag badge-promo" style={{ position: 'absolute', top: 14, left: 14, zIndex: 10 }}>
             Promo
           </span>
-        )}
+        ) : null}
         <div style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch', width: '100%', height: '100%', scrollbarWidth: 'none' }}>
-          {Array.isArray(displayImages) && displayImages.map((img, idx) => (
+          {allProductImages.map((img, idx) => (
             <div key={idx} style={{ flex: '0 0 100%', scrollSnapAlign: 'start', height: '100%', position: 'relative' }}>
               <img src={img || ''} alt={product?.title || ''} loading="lazy" decoding="async" className="product-image" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              {displayImages.length > 1 && (
+              {allProductImages.length > 1 && (
                 <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: '6px', pointerEvents: 'none' }}>
-                  {displayImages.map((_, dotIdx) => (
+                  {allProductImages.map((_, dotIdx) => (
                     <div key={dotIdx} style={{ width: 6, height: 6, borderRadius: '50%', background: idx === dotIdx ? 'white' : 'rgba(255,255,255,0.5)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
                   ))}
                 </div>
@@ -258,94 +265,18 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
       </div>
 
       <div className="product-info">
-        <span 
-          className="product-cat"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onCategorySelect) {
-              const matchedId = getProductCategoryGroupId(product?.category, categoriesList);
-              onCategorySelect(matchedId);
-            }
-          }}
-          style={{ 
-            cursor: 'pointer',
-            transition: 'color 0.2s',
-          }}
-          onMouseOver={(e) => e.currentTarget.style.color = 'var(--burgundy)'}
-          onMouseOut={(e) => e.currentTarget.style.color = '#888'}
-        >
-          {getProductDisplayCategory(product?.category, categoriesList)}
-        </span>
-        <h3 className="product-title" style={{ fontSize: '1.15rem', marginBottom: '6px' }}>{product?.title || ''}</h3>
-        
-        {/* WoodMart 5-Star Golden Rating */}
-        <div className="star-rating">
-          <Star size={15} fill="#F59E0B" color="#F59E0B" />
-          <Star size={15} fill="#F59E0B" color="#F59E0B" />
-          <Star size={15} fill="#F59E0B" color="#F59E0B" />
-          <Star size={15} fill="#F59E0B" color="#F59E0B" />
-          <Star size={15} fill="#F59E0B" color="#F59E0B" />
-          <span>(4.8 / 5)</span>
-        </div>
-        
-        {/* Urgency Warning */}
-        {product?.stock > 0 && product.stock <= 5 && (
-          <div style={{ fontSize: '0.8rem', color: '#D32F2F', fontWeight: 800, margin: '4px 0 8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            ⏳ Il ne reste que {product.stock} {product.stock > 1 ? 'pièces' : 'pièce'} !
-          </div>
-        )}
+        <h3 className="product-title" style={{ fontSize: '1.15rem', marginBottom: '8px', fontWeight: 800 }}>
+          {product?.title || ''}
+        </h3>
 
-        {/* Clickable Colored Squares (moraba3aat mlwliin) - strict image variant binding */}
-        {Array.isArray(product?.colorVariants) && product.colorVariants.length > 0 && (
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-              🎨 الألوان (Couleurs) : <strong style={{ color: 'var(--burgundy)' }}>{activeVariant?.color || 'Sélectionner'}</strong>
-            </div>
-            <div className="color-swatches-row">
-              {product.colorVariants.map((cv, cvIdx) => {
-                const isSelected = selectedVariantIdx === cvIdx;
-                return (
-                  <button
-                    key={cvIdx}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedVariantIdx(cvIdx);
-                    }}
-                    onMouseEnter={() => setSelectedVariantIdx(cvIdx)}
-                    title={`${cv?.color || ''}`}
-                    className={`color-swatch-square ${isSelected ? 'active' : ''}`}
-                    style={{
-                      background: cv?.colorHex || '#CBD5E1',
-                      border: isSelected ? '2px solid var(--burgundy)' : '1px solid #CBD5E1',
-                      boxShadow: isSelected ? '0 0 0 2px rgba(128,0,32,0.25)' : 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    {isSelected && <Check size={14} color={cv?.colorHex && (cv.colorHex.toLowerCase() === '#ffffff' || cv.colorHex.toLowerCase() === '#fff') ? '#000' : '#FFF'} style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <div className="sizes-list" style={{ marginBottom: '12px' }}>
-          {availableSizes.map(size => (
-            <span key={size} className="size-pill">{size}</span>
-          ))}
-        </div>
-
-        <p style={{ fontSize: '0.85rem', color: '#7D6B70', marginBottom: '16px', flex: 1, lineClamp: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {(product?.description || '').split('|||')[0]}
-        </p>
-
-        <div className="price-container" style={{ marginBottom: '14px' }}>
-          <span className="price-current" style={{ fontSize: '1.3rem', fontWeight: 900, color: '#C8102E' }}>{(Number(product?.price) || 0).toLocaleString()} DA</span>
-          {product?.oldPrice && Number(product.oldPrice) > Number(product?.price || 0) && (
-            <span className="price-old" style={{ fontSize: '0.92rem', color: '#888888', textDecoration: 'line-through' }}>{(Number(product.oldPrice) || 0).toLocaleString()} DA</span>
+        <div className="price-container" style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className="price-current" style={{ fontSize: '1.3rem', fontWeight: 900, color: '#C8102E' }}>
+            {(Number(product?.price) || 0).toLocaleString()} DA
+          </span>
+          {hasPromo && (
+            <span className="price-old" style={{ fontSize: '0.92rem', color: '#888888', textDecoration: 'line-through' }}>
+              {(Number(product.oldPrice) || 0).toLocaleString()} DA
+            </span>
           )}
         </div>
 
@@ -364,7 +295,17 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
   );
 }
 
-function ProductDetailPage({ product, products, categoriesList, onBack, onAddToCart, onCategorySelect }) {
+function ProductDetailPage({ product, products, categoriesList, onBack, onAddToCart, onCategorySelect, isHotSale = false }) {
+  const isHotSaleItem = Boolean(
+    isHotSale ||
+    product?.isHotSale ||
+    product?.is_hot_sale ||
+    product?.hot_sale ||
+    (typeof product?.badge === 'string' && /hot\s*sale|top\s*vente|الأكثر\s*مبيع/i.test(product.badge)) ||
+    product?.category === 'hot_sale' ||
+    product?.category === 'hot'
+  );
+
   const [isTryOnOpen, setIsTryOnOpen] = useState(false);
   const [tryOnImage, setTryOnImage] = useState(null);
   const cameraInputRef = useRef(null);
@@ -541,9 +482,14 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
               alt={product.title} 
               className="mazyoud-pdp-main-image" 
             />
-            {product.oldPrice && Number(product.oldPrice) > Number(product.price) && (
+            {isHotSaleItem ? (
+              <div className="badge-hot-sale-animated" style={{ position: 'absolute', top: 16, left: 16, zIndex: 10 }}>
+                <span className="hot-sale-flame">🔥</span>
+                <span>HOT SALE</span>
+              </div>
+            ) : Boolean(product.oldPrice && Number(product.oldPrice) > Number(product.price)) ? (
               <span className="mazyoud-pdp-promo-badge">Promo</span>
-            )}
+            ) : null}
           </div>
           {allImages.length > 1 && (
             <div className="mazyoud-pdp-thumbnails">
@@ -661,7 +607,7 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
 
           <div className="mazyoud-pdp-price-box">
             <span className="current-price">{(Number(product.price) || 0).toLocaleString()} DA</span>
-            {product.oldPrice && Number(product.oldPrice) > Number(product.price) && (
+            {Boolean(product.oldPrice && Number(product.oldPrice) > Number(product.price)) && (
               <span className="old-price">{(Number(product.oldPrice) || 0).toLocaleString()} DA</span>
             )}
           </div>
@@ -1254,7 +1200,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const [activePage, setActivePage] = useState(null); // 'about', 'shop', etc.
   const [categoryOrigin, setCategoryOrigin] = useState('shop'); // 'shop' or 'home'
   // Mobile Phone Hardware / Gesture Back Button Support (History API)
-  const savedScrollPosRef = useRef(0);
+  const savedHomeScrollPosRef = useRef(0);
+  const savedCatalogScrollPosRef = useRef(0);
   const productBackPushedRef = useRef(false);
   const pageBackPushedRef = useRef(false);
   const menuBackPushedRef = useRef(false);
@@ -1267,7 +1214,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   useEffect(() => {
     if (activeDetailProduct) {
       if (!productBackPushedRef.current) {
-        savedScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
+        savedCatalogScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
         window.history.pushState({ pyjama_modal: 'product' }, '');
         productBackPushedRef.current = true;
       }
@@ -1275,18 +1222,18 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       const handlePopState = () => {
         productBackPushedRef.current = false;
         setActiveDetailProduct(null);
+        const restoreY = savedCatalogScrollPosRef.current || 0;
         setTimeout(() => {
-          window.scrollTo({ top: savedScrollPosRef.current, behavior: 'instant' });
-        }, 20);
+          window.scrollTo({ top: restoreY, behavior: 'instant' });
+          setTimeout(() => {
+            window.scrollTo({ top: restoreY, behavior: 'instant' });
+          }, 60);
+        }, 30);
       };
 
       window.addEventListener('popstate', handlePopState);
       return () => {
         window.removeEventListener('popstate', handlePopState);
-        if (productBackPushedRef.current && window.history.state?.pyjama_modal === 'product') {
-          productBackPushedRef.current = false;
-          window.history.back();
-        }
       };
     }
   }, [activeDetailProduct]);
@@ -1295,17 +1242,28 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   useEffect(() => {
     if (activePage) {
       if (!pageBackPushedRef.current) {
-        savedScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
+        if (!savedHomeScrollPosRef.current) {
+          savedHomeScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
+        }
         window.history.pushState({ pyjama_modal: 'page' }, '');
         pageBackPushedRef.current = true;
       }
 
-      const handlePopState = () => {
+      const handlePopState = (e) => {
+        // If product modal is open, this popstate belongs to product, do not close activePage!
+        if (productBackPushedRef.current || e.state?.pyjama_modal === 'page' || e.state?.pyjama_modal === 'product') {
+          return;
+        }
         pageBackPushedRef.current = false;
         setActivePage(null);
+        setSelectedCategory('all');
+        const restoreHomeY = savedHomeScrollPosRef.current || 0;
         setTimeout(() => {
-          window.scrollTo({ top: savedScrollPosRef.current, behavior: 'instant' });
-        }, 20);
+          window.scrollTo({ top: restoreHomeY, behavior: 'instant' });
+          setTimeout(() => {
+            window.scrollTo({ top: restoreHomeY, behavior: 'instant' });
+          }, 60);
+        }, 30);
       };
 
       window.addEventListener('popstate', handlePopState);
@@ -2319,14 +2277,14 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       const cId = (cat.id || '').toLowerCase();
       const cTitle = (cat.title || cat.name || '').toLowerCase();
       if (isHot) return { 
-        tag: 'Édition Spéciale 🔥', 
-        main: 'Ventes Privées & Best-Sellers', 
-        sub: 'التشكيلة الحصرية الأكثر طلباً والأكثر مبيعاً' 
+        tag: 'Hot Sale 🔥', 
+        main: 'Hot Sale', 
+        sub: 'عروض وتخفيضات حصرية' 
       };
       if (isSolde) return { 
-        tag: 'Tarifs Privilèges 🏷️', 
-        main: 'Soldes & Offres Rares', 
-        sub: 'تخفيضات استثنائية على أرقى الموديلات' 
+        tag: 'Promotion 🏷️', 
+        main: 'Promotion', 
+        sub: 'تخفيضات استثنائية' 
       };
       if (cId.includes('satin') || cTitle.includes('satin') || cTitle.includes('ساتان')) return { 
         tag: 'Collection Soie & Satin ✨', 
@@ -2578,7 +2536,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
             style={{ cursor: 'pointer' }}
           >
             <img 
-              src="/favicon.svg?v=3" 
+              src="/favicon.svg?v=4" 
               alt="Pyjama DZ" 
               style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #FFFFFF', boxShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
             />
@@ -2795,7 +2753,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
           {(selectedCategory === 'all' && !searchQuery.trim() && !activeDetailProduct && !activePage) && (
             <div className="mazyoud-hero-content" dir="rtl">
               <span className="hero-season-badge">🍂 تشكيلة خريف 2026 الحصرية</span>
-              <h1 className="hero-main-title">موسم جديد، راحة تدوم</h1>
+              <h1 className="hero-main-title">دفء الخريف.. بلمسة ناعمة</h1>
               <p className="hero-main-subtitle">أجمل الموديلات الخريفية الفاخرة لمنزلكِ</p>
               <button 
                 type="button" 
@@ -2821,11 +2779,30 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
             product={activeDetailProduct} 
             products={products}
             categoriesList={categoriesList}
+            isHotSale={Boolean(
+              selectedCategory === 'hot_sale' || 
+              selectedCategory === 'hot' || 
+              (Array.isArray(computedHotSaleIds) && computedHotSaleIds.includes(activeDetailProduct?.id)) ||
+              activeDetailProduct?.isHotSale || 
+              activeDetailProduct?.is_hot_sale || 
+              activeDetailProduct?.hot_sale ||
+              (typeof activeDetailProduct?.badge === 'string' && /hot\s*sale|top\s*vente|الأكثر\s*مبيع/i.test(activeDetailProduct.badge)) ||
+              activeDetailProduct?.category === 'hot_sale' ||
+              activeDetailProduct?.category === 'hot'
+            )}
             onBack={() => {
+              if (productBackPushedRef.current && window.history.state?.pyjama_modal === 'product') {
+                productBackPushedRef.current = false;
+                window.history.back();
+              }
               setActiveDetailProduct(null);
+              const restoreY = savedCatalogScrollPosRef.current || 0;
               setTimeout(() => {
-                window.scrollTo({ top: savedScrollPosRef.current, behavior: 'instant' });
-              }, 20);
+                window.scrollTo({ top: restoreY, behavior: 'instant' });
+                setTimeout(() => {
+                  window.scrollTo({ top: restoreY, behavior: 'instant' });
+                }, 60);
+              }, 30);
             }} 
             onAddToCart={handleAddToCart}
             onCategorySelect={(catId) => {
@@ -3136,12 +3113,16 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               </div>
             </div>
           </div>
-        ) : activePage === 'shop' ? (
+        ) : (activePage === 'shop' || (selectedCategory && selectedCategory !== 'all' && !searchQuery.trim())) ? (
           <div className="stitch-shop-catalog-page animate-fade-in" dir="rtl">
             {/* Top Navigation & Breadcrumb with Contextual Return Buttons */}
             <div className="stitch-catalog-nav-header">
               <div className="stitch-catalog-nav-container">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span className="stitch-breadcrumb-text">
+                  الرئيسية / <strong>المتجر والتشكيلات</strong> {selectedCategory !== 'all' && ` / ${categoriesList.find(c => c.id === selectedCategory)?.name || categoriesList.find(c => c.id === selectedCategory)?.title || selectedCategory}`}
+                </span>
+
+                <div className="stitch-catalog-nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', direction: 'ltr' }}>
                   {selectedCategory === 'all' ? (
                     <button 
                       type="button"
@@ -3150,11 +3131,22 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                     >
                       ← العودة للرئيسية (Accueil)
                     </button>
-                  ) : categoryOrigin === 'home' ? (
+                  ) : (
                     <>
                       <button 
                         type="button"
-                        onClick={() => { setActivePage(null); setSelectedCategory('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        onClick={() => { 
+                          setActivePage(null); 
+                          setSelectedCategory('all'); 
+                          setSearchQuery(''); 
+                          const restoreHomeY = savedHomeScrollPosRef.current || 0;
+                          setTimeout(() => {
+                            window.scrollTo({ top: restoreHomeY, behavior: 'instant' });
+                            setTimeout(() => {
+                              window.scrollTo({ top: restoreHomeY, behavior: 'instant' });
+                            }, 60);
+                          }, 30);
+                        }}
                         className="stitch-back-home-btn"
                         style={{ background: '#800020', color: '#FFFFFF', borderColor: '#800020' }}
                       >
@@ -3162,38 +3154,15 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       </button>
                       <button 
                         type="button"
-                        onClick={() => { setSelectedCategory('all'); setCategoryOrigin('shop'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                        onClick={() => { setSelectedCategory('all'); setCategoryOrigin('shop'); setActivePage('shop'); setSearchQuery(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                         className="stitch-back-home-btn"
                         style={{ background: '#FFF1F2', color: '#800020', borderColor: '#FECDD3' }}
                       >
                         تصفح كافة الأقسام 🏷️
                       </button>
                     </>
-                  ) : (
-                    <>
-                      <button 
-                        type="button"
-                        onClick={() => { setSelectedCategory('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                        className="stitch-back-home-btn"
-                        style={{ background: '#800020', color: '#FFFFFF', borderColor: '#800020' }}
-                      >
-                        ← العودة لكافة الأقسام (Toutes les catégories)
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => { setActivePage(null); setSelectedCategory('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                        className="stitch-back-home-btn"
-                        style={{ background: '#F8FAFC', color: '#64748B' }}
-                      >
-                        الرئيسية
-                      </button>
-                    </>
                   )}
                 </div>
-
-                <span className="stitch-breadcrumb-text">
-                  الرئيسية / <strong>المتجر والتشكيلات</strong> {selectedCategory !== 'all' && ` / ${categoriesList.find(c => c.id === selectedCategory)?.name || categoriesList.find(c => c.id === selectedCategory)?.title || selectedCategory}`}
-                </span>
               </div>
             </div>
 
@@ -3245,33 +3214,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 </section>
               )}
 
-              {/* 2. DEDICATED CATEGORY BANNER - ONLY SHOWN WHEN A SPECIFIC CATEGORY IS SELECTED */}
-              {selectedCategory !== 'all' && (() => {
-                const currentCat = categoriesList.find(c => c && c.id === selectedCategory);
-                const currentCatTitle = currentCat?.name || currentCat?.title || (selectedCategory === 'hot_sale' ? 'الأكثر مبيعاً' : selectedCategory === 'promo' ? '% SOLDES' : selectedCategory);
-                const currentCatImg = currentCat?.image || currentCat?.thumbnail;
-
-                return (
-                  <div className="stitch-dedicated-cat-banner animate-fade-in">
-                    <div className="stitch-dedicated-cat-banner-content">
-                      {currentCatImg && (
-                        <div className="stitch-dedicated-cat-thumb-box">
-                          <img src={currentCatImg} alt={currentCatTitle} className="stitch-dedicated-cat-thumb" />
-                        </div>
-                      )}
-                      <div>
-                        <div className="stitch-dedicated-cat-tag">قسم حصري</div>
-                        <h1 className="stitch-dedicated-cat-title">{currentCatTitle}</h1>
-                        <span className="stitch-dedicated-cat-count">
-                          {filteredProducts.length > 0 
-                            ? `عرض ${Math.min(visibleProductCount, filteredProducts.length)} من أصل ${filteredProducts.length} موديل متوفر`
-                            : 'لا توجد موديلات متاحة حالياً في هذا القسم'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
 
               {/* 3. PRODUCTS SECTION */}
               <section id="stitch-products-view" className="stitch-products-section">
@@ -3291,25 +3233,39 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 {/* Products Grid (2 columns on mobile, 3-4 on PC) */}
                 {filteredProducts.length > 0 ? (
                   <main className="products-grid">
-                    {filteredProducts.slice(0, visibleProductCount).map(product => (
-                      <ProductCardItem 
-                        key={product.id} 
-                        product={product} 
-                        categoriesList={categoriesList}
-                        wishlist={wishlist}
-                        onToggleWishlist={toggleWishlist}
-                        onSelect={(p) => {
-                          setActiveDetailProduct(p);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }} 
-                        onCategorySelect={(catId) => {
-                          setSelectedCategory(catId);
-                          setCategoryOrigin('shop');
-                          setVisibleProductCount(12);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                      />
-                    ))}
+                    {filteredProducts.slice(0, visibleProductCount).map(product => {
+                      const isProductHotSale = Boolean(
+                        selectedCategory === 'hot_sale' || 
+                        selectedCategory === 'hot' || 
+                        (Array.isArray(computedHotSaleIds) && computedHotSaleIds.includes(product.id)) ||
+                        product?.isHotSale || 
+                        product?.is_hot_sale || 
+                        product?.hot_sale ||
+                        (typeof product?.badge === 'string' && /hot\s*sale|top\s*vente|الأكثر\s*مبيع/i.test(product.badge)) ||
+                        product?.category === 'hot_sale' ||
+                        product?.category === 'hot'
+                      );
+                      return (
+                        <ProductCardItem 
+                          key={product.id} 
+                          product={product} 
+                          categoriesList={categoriesList}
+                          wishlist={wishlist}
+                          onToggleWishlist={toggleWishlist}
+                          isHotSale={isProductHotSale}
+                          onSelect={(p) => {
+                            setActiveDetailProduct(p);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }} 
+                          onCategorySelect={(catId) => {
+                            setSelectedCategory(catId);
+                            setCategoryOrigin('shop');
+                            setVisibleProductCount(12);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                        />
+                      );
+                    })}
                   </main>
                 ) : (
                   <div className="stitch-empty-category-card">
@@ -3390,6 +3346,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       cat={cat}
                       catProducts={products}
                       onSelectCategory={(catId) => { 
+                        savedHomeScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
                         setSelectedCategory(catId); 
                         setCategoryOrigin('home');
                         setActivePage('shop'); 
@@ -3547,17 +3504,15 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 </p>
               </div>
             </section>
-          ) : (
+          ) : searchQuery.trim() ? (
             <>
-              {/* Single Category or Search Header */}
+              {/* Search Results Header */}
               <div id="products-grid-anchor" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '24px 0 16px', padding: '0 8px', borderBottom: '2px solid #F1F5F9', paddingBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '1.6rem' }}>
-                    {searchQuery.trim() ? '🔍' : (categoriesList.find(c => c && c.id === selectedCategory)?.icon || '✨')}
-                  </span>
+                  <span style={{ fontSize: '1.6rem' }}>🔍</span>
                   <div>
                     <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#1E293B', margin: 0 }}>
-                      {searchQuery.trim() ? `نتائج البحث عن: "${searchQuery}"` : (categoriesList.find(c => c && c.id === selectedCategory)?.title || 'المنتجات')}
+                      نتائج البحث عن: "{searchQuery}"
                     </h2>
                     <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 700 }}>
                       {filteredProducts.length} منتج متاح حالياً
@@ -3569,50 +3524,65 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                   onClick={() => { setSelectedCategory('all'); setSearchQuery(''); setTempSearchQuery(''); scrollToProductsGrid(120); }}
                   style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '8px 16px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 800, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                  عرض جميع الأقسام <ArrowRight size={14} />
+                  عرض جميع المنتجات <ArrowRight size={14} />
                 </button>
               </div>
 
-              {/* Single Category Grid */}
+              {/* Search Results Grid */}
               <main className="products-grid">
                 {filteredProducts.length > 0 ? (
-                  filteredProducts.map(product => (
-                    <ProductCardItem 
-                      key={product.id} 
-                      product={product} 
-                      categoriesList={categoriesList}
-                      wishlist={wishlist}
-                      onToggleWishlist={toggleWishlist}
-                      onSelect={(p) => {
-                        setActiveDetailProduct(p);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }} 
-                      onCategorySelect={(catId) => {
-                        setSelectedCategory(catId);
-                        setSearchQuery('');
-                        setTempSearchQuery('');
-                        setActiveDetailProduct(null);
-                        scrollToProductsGrid(120);
-                      }}
-                    />
-                  ))
+                  filteredProducts.map(product => {
+                    const isProductHotSale = Boolean(
+                      selectedCategory === 'hot_sale' || 
+                      selectedCategory === 'hot' || 
+                      (Array.isArray(computedHotSaleIds) && computedHotSaleIds.includes(product.id)) ||
+                      product?.isHotSale || 
+                      product?.is_hot_sale || 
+                      product?.hot_sale ||
+                      (typeof product?.badge === 'string' && /hot\s*sale|top\s*vente|الأكثر\s*مبيع/i.test(product.badge)) ||
+                      product?.category === 'hot_sale' ||
+                      product?.category === 'hot'
+                    );
+                    return (
+                      <ProductCardItem 
+                        key={product.id} 
+                        product={product} 
+                        categoriesList={categoriesList}
+                        wishlist={wishlist}
+                        onToggleWishlist={toggleWishlist}
+                        isHotSale={isProductHotSale}
+                        onSelect={(p) => {
+                          setActiveDetailProduct(p);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }} 
+                        onCategorySelect={(catId) => {
+                          setSelectedCategory(catId);
+                          setSearchQuery('');
+                          setTempSearchQuery('');
+                          setActiveDetailProduct(null);
+                          setActivePage('shop');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                      />
+                    );
+                  })
                 ) : (
                   <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px', background: '#FFFFFF', borderRadius: '20px', border: '1px dashed #CBD5E1', margin: '20px 0' }}>
                     <span style={{ fontSize: '3rem', display: 'block', marginBottom: '12px' }}>📭</span>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#334155', margin: '0 0 8px' }}>لا توجد منتجات في هذا القسم حالياً</h3>
-                    <p style={{ fontSize: '0.95rem', color: '#64748B', margin: '0 0 18px' }}>يمكنك تصفح بقية الأقسام أو العودة للكل</p>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#334155', margin: '0 0 8px' }}>لا توجد منتجات مطابقة لبحثك</h3>
+                    <p style={{ fontSize: '0.95rem', color: '#64748B', margin: '0 0 18px' }}>يرجى التحقق من الكلمات أو تصفح كافة الأقسام</p>
                     <button
                       type="button"
-                      onClick={() => setSelectedCategory('all')}
+                      onClick={() => { setSearchQuery(''); setTempSearchQuery(''); }}
                       style={{ background: 'linear-gradient(135deg, #800020, #E11D48)', color: '#FFF', border: 'none', padding: '10px 24px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' }}
                     >
-                      عرض كل الأقسام
+                      مسح البحث وعرض كل المنتجات
                     </button>
                   </div>
                 )}
               </main>
             </>
-          )}
+          ) : null}
         </>
       )}
 
@@ -3692,7 +3662,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         {/* Centered Luxury Brand Footer Block */}
         <div className="whb-footer-columns" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '20px', maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <img src="/favicon.svg?v=3" alt="Pyjama DZ" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', background: '#fff', padding: 2 }} />
+            <img src="/favicon.svg?v=4" alt="Pyjama DZ" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', background: '#fff', padding: 2 }} />
             <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#FFFFFF' }}>{storeNameDisplay}</span>
           </div>
           <p style={{ margin: 0, color: '#94A3B8', fontSize: '0.92rem', maxWidth: '600px', lineHeight: 1.6 }}>
@@ -5148,7 +5118,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         {/* Drawer Top Header */}
         <div className="mobile-drawer-top-bar">
           <div className="mobile-drawer-brand">
-            <img src="/favicon.svg?v=3" alt="Logo" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
+            <img src="/favicon.svg?v=4" alt="Logo" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
             <span>{storeNameDisplay || 'PYJAMA DZ'}</span>
           </div>
           <button 

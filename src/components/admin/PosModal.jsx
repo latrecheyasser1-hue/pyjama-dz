@@ -514,6 +514,7 @@ export default function PosModal({
             
             {/* Header */}
             <div style={{ textAlign: 'center', borderBottom: '2px dashed #000', paddingBottom: '14px', marginBottom: '14px' }}>
+              <img src="/favicon.svg?v=4" alt="Pyjama DZ" style={{ width: 48, height: 48, margin: '0 auto 6px', display: 'block' }} />
               <h2 style={{ margin: '0 0 6px 0', fontSize: '1.4rem', fontWeight: 900, letterSpacing: '1px', textTransform: 'uppercase' }}>PYJAMA DZ</h2>
               <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>تذكرة بيع حضوري (Ticket POS)</div>
               <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '4px' }}>{new Date().toLocaleString('ar-DZ')}</div>

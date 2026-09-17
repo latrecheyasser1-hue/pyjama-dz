@@ -48,9 +48,11 @@ export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, recla
       <div>
         {/* Brand Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 12px 24px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ width: 42, height: 42, borderRadius: 12, background: 'var(--rose-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.4rem', color: 'white' }}>
-            P
-          </div>
+          <img 
+            src="/favicon.svg?v=4" 
+            alt="Pyjama DZ" 
+            style={{ width: 42, height: 42, borderRadius: 12, objectFit: 'cover', background: '#FFFFFF', padding: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
+          />
           <div>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>Pyjama DZ</h2>
             <span style={{ fontSize: '0.75rem', color: 'var(--champagne)', fontWeight: 600 }}>Pro Admin OS v2.5</span>

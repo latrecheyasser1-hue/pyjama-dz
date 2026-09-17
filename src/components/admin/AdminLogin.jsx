@@ -97,9 +97,11 @@ export default function AdminLogin({ onLoginSuccess, onSwitchToClient }) {
   return (
     <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at top, #4A0E17 0%, #1A0508 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: 'var(--font-primary)' }}>
       <div className={`animate-fade-up ${error ? 'shake' : ''}`} style={{ background: 'white', padding: '40px', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)', maxWidth: '380px', width: '100%', textAlign: 'center' }}>
-        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--rose-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'var(--burgundy)' }}>
-          <Lock size={30} />
-        </div>
+        <img 
+          src="/favicon.svg?v=4" 
+          alt="Pyjama DZ" 
+          style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 16px', display: 'block', background: '#FFFFFF', padding: 3, boxShadow: '0 4px 14px rgba(0,0,0,0.1)' }}
+        />
         <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--burgundy-dark)', marginBottom: 6 }}>Espace Administrateur</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 18 }}>Utilisez votre clavier pour taper le code PIN à 6 chiffres</p>
         

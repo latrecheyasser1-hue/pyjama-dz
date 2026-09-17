@@ -643,6 +643,7 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
                 <>
                   {/* Ticket Header */}
                   <div style={{ textAlign: 'center', borderBottom: '2px dashed #333', paddingBottom: '12px', marginBottom: '12px' }}>
+                    <img src="/favicon.svg?v=4" alt="Pyjama DZ" style={{ width: 48, height: 48, margin: '0 auto 6px', display: 'block' }} />
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 900, margin: '0 0 4px', color: '#000' }}>
                       Pyjama DZ
                     </h2>
