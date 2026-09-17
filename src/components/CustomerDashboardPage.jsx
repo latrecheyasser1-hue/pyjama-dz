@@ -94,12 +94,7 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
           العودة للمتجر / Retour
         </button>
 
-        <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#881337', margin: 0 }}>
-            Pyjama DZ - بيجامات الجزائر
-          </h1>
-          <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 700 }}>لوحة حسابي الشخصية</span>
-        </div>
+
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {customer?.isClerk && <UserButton afterSignOutUrl="/" />}
