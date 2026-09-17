@@ -209,6 +209,54 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
     ? product.images 
     : [product?.image || ''];
 
+  const [currentImgIdx, setCurrentImgIdx] = useState(0);
+  const touchStartXRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  const isDraggingRef = useRef(false);
+
+  const handleTouchStart = (e) => {
+    if (e.touches && e.touches[0]) {
+      touchStartXRef.current = e.touches[0].clientX;
+      touchStartYRef.current = e.touches[0].clientY;
+      isDraggingRef.current = false;
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches && e.touches[0]) {
+      const diffX = Math.abs(e.touches[0].clientX - touchStartXRef.current);
+      if (diffX > 10) {
+        isDraggingRef.current = true;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 120);
+  };
+
+  const handleCardClick = (e) => {
+    if (isDraggingRef.current) {
+      e.stopPropagation();
+      return;
+    }
+    onSelect(product);
+  };
+
+  const handleSliderScroll = (e) => {
+    const el = e.currentTarget;
+    if (!el) return;
+    const width = el.offsetWidth;
+    if (width > 0) {
+      const idx = Math.round(el.scrollLeft / width);
+      if (idx !== currentImgIdx && idx >= 0 && idx < allProductImages.length) {
+        setCurrentImgIdx(idx);
+      }
+    }
+  };
+
   const hasPromo = Boolean(product?.oldPrice && Number(product.oldPrice) > Number(product?.price || 0));
 
   const isHotSaleItem = Boolean(
@@ -222,8 +270,14 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
   );
 
   return (
-    <div className="wd-product product-card" onClick={() => onSelect(product)} style={{ cursor: 'pointer' }}>
-      <div className="product-image-container" style={{ position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}>
+    <div className="wd-product product-card" onClick={handleCardClick} style={{ cursor: 'pointer' }}>
+      <div 
+        className="product-image-container" 
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ position: 'relative', overflow: 'hidden', touchAction: allProductImages.length > 1 ? 'pan-x pan-y' : 'pan-y' }}
+      >
         {/* Wishlist Button (Mazyoud style) */}
         <button 
           type="button"
@@ -250,68 +304,77 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
         ) : null}
 
         {allProductImages.length > 1 ? (
-          <div 
-            style={{ 
-              display: 'flex', 
-              overflowX: 'auto', 
-              overflowY: 'hidden',
-              touchAction: 'pan-y', 
-              overscrollBehaviorX: 'contain',
-              overscrollBehaviorY: 'none',
-              scrollSnapType: 'x mandatory', 
-              scrollBehavior: 'smooth', 
-              WebkitOverflowScrolling: 'touch', 
-              width: '100%', 
-              height: '100%', 
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none'
-            }}
-          >
-            {allProductImages.map((img, idx) => (
-              <div 
-                key={idx} 
-                style={{ 
-                  flex: '0 0 100%', 
-                  scrollSnapAlign: 'start', 
-                  height: '100%', 
-                  position: 'relative',
-                  touchAction: 'pan-y',
-                  userSelect: 'none'
-                }}
-              >
-                <img 
-                  src={img || ''} 
-                  alt={product?.title || ''} 
-                  loading="lazy" 
-                  decoding="async" 
-                  className="product-image" 
-                  draggable={false}
+          <>
+            <div 
+              className="product-images-slider"
+              onScroll={handleSliderScroll}
+              style={{ 
+                display: 'flex', 
+                overflowX: 'auto', 
+                overflowY: 'hidden',
+                touchAction: 'pan-x pan-y', 
+                overscrollBehaviorX: 'contain',
+                overscrollBehaviorY: 'none',
+                scrollSnapType: 'x mandatory', 
+                scrollBehavior: 'smooth', 
+                WebkitOverflowScrolling: 'touch', 
+                width: '100%', 
+                height: '100%', 
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
+              }}
+            >
+              {allProductImages.map((img, idx) => (
+                <div 
+                  key={idx} 
                   style={{ 
-                    width: '100%', 
+                    flex: '0 0 100%', 
+                    minWidth: '100%',
+                    maxWidth: '100%',
+                    scrollSnapAlign: 'start', 
+                    scrollSnapStop: 'always',
                     height: '100%', 
-                    objectFit: 'cover',
-                    pointerEvents: 'none',
-                    userSelect: 'none',
-                    WebkitUserDrag: 'none'
+                    position: 'relative',
+                    touchAction: 'pan-x pan-y',
+                    userSelect: 'none'
+                  }}
+                >
+                  <img 
+                    src={img || ''} 
+                    alt={product?.title || ''} 
+                    loading="lazy" 
+                    decoding="async" 
+                    className="product-image" 
+                    draggable={false}
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover',
+                      userSelect: 'none',
+                      WebkitUserDrag: 'none'
+                    }} 
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Persistent Floating Indicator Dots */}
+            <div style={{ position: 'absolute', bottom: 12, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', pointerEvents: 'none', zIndex: 6 }}>
+              {allProductImages.map((_, dotIdx) => (
+                <div 
+                  key={dotIdx} 
+                  style={{ 
+                    width: currentImgIdx === dotIdx ? 16 : 6, 
+                    height: 6, 
+                    borderRadius: 3, 
+                    background: currentImgIdx === dotIdx ? '#FFFFFF' : 'rgba(255,255,255,0.5)', 
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                    transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
                   }} 
                 />
-                <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: '6px', pointerEvents: 'none' }}>
-                  {allProductImages.map((_, dotIdx) => (
-                    <div 
-                      key={dotIdx} 
-                      style={{ 
-                        width: 6, 
-                        height: 6, 
-                        borderRadius: '50%', 
-                        background: idx === dotIdx ? 'white' : 'rgba(255,255,255,0.5)', 
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)' 
-                      }} 
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         ) : (
           <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}>
             <img 
@@ -325,7 +388,6 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
                 width: '100%', 
                 height: '100%', 
                 objectFit: 'cover',
-                pointerEvents: 'none',
                 userSelect: 'none',
                 WebkitUserDrag: 'none'
               }} 

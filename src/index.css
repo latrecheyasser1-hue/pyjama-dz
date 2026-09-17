@@ -582,7 +582,29 @@ body {
   height: 540px;
   overflow: hidden;
   background: #F7F5F2;
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
+}
+
+.product-images-slider {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: none;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  height: 100%;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.product-images-slider::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Design Spells: Sheen Light Sweep across Image on Card Hover */
