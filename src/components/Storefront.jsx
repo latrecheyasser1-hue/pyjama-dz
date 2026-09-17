@@ -223,7 +223,7 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
 
   return (
     <div className="wd-product product-card" onClick={() => onSelect(product)} style={{ cursor: 'pointer' }}>
-      <div className="product-image-container" style={{ position: 'relative', overflow: 'hidden' }}>
+      <div className="product-image-container" style={{ position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}>
         {/* Wishlist Button (Mazyoud style) */}
         <button 
           type="button"
@@ -248,20 +248,90 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
             Promo
           </span>
         ) : null}
-        <div style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch', width: '100%', height: '100%', scrollbarWidth: 'none' }}>
-          {allProductImages.map((img, idx) => (
-            <div key={idx} style={{ flex: '0 0 100%', scrollSnapAlign: 'start', height: '100%', position: 'relative' }}>
-              <img src={img || ''} alt={product?.title || ''} loading="lazy" decoding="async" className="product-image" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              {allProductImages.length > 1 && (
+
+        {allProductImages.length > 1 ? (
+          <div 
+            style={{ 
+              display: 'flex', 
+              overflowX: 'auto', 
+              overflowY: 'hidden',
+              touchAction: 'pan-y', 
+              overscrollBehaviorX: 'contain',
+              overscrollBehaviorY: 'none',
+              scrollSnapType: 'x mandatory', 
+              scrollBehavior: 'smooth', 
+              WebkitOverflowScrolling: 'touch', 
+              width: '100%', 
+              height: '100%', 
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none'
+            }}
+          >
+            {allProductImages.map((img, idx) => (
+              <div 
+                key={idx} 
+                style={{ 
+                  flex: '0 0 100%', 
+                  scrollSnapAlign: 'start', 
+                  height: '100%', 
+                  position: 'relative',
+                  touchAction: 'pan-y',
+                  userSelect: 'none'
+                }}
+              >
+                <img 
+                  src={img || ''} 
+                  alt={product?.title || ''} 
+                  loading="lazy" 
+                  decoding="async" 
+                  className="product-image" 
+                  draggable={false}
+                  style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    objectFit: 'cover',
+                    pointerEvents: 'none',
+                    userSelect: 'none',
+                    WebkitUserDrag: 'none'
+                  }} 
+                />
                 <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: '6px', pointerEvents: 'none' }}>
                   {allProductImages.map((_, dotIdx) => (
-                    <div key={dotIdx} style={{ width: 6, height: 6, borderRadius: '50%', background: idx === dotIdx ? 'white' : 'rgba(255,255,255,0.5)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                    <div 
+                      key={dotIdx} 
+                      style={{ 
+                        width: 6, 
+                        height: 6, 
+                        borderRadius: '50%', 
+                        background: idx === dotIdx ? 'white' : 'rgba(255,255,255,0.5)', 
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)' 
+                      }} 
+                    />
                   ))}
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}>
+            <img 
+              src={allProductImages[0] || ''} 
+              alt={product?.title || ''} 
+              loading="lazy" 
+              decoding="async" 
+              className="product-image" 
+              draggable={false}
+              style={{ 
+                width: '100%', 
+                height: '100%', 
+                objectFit: 'cover',
+                pointerEvents: 'none',
+                userSelect: 'none',
+                WebkitUserDrag: 'none'
+              }} 
+            />
+          </div>
+        )}
       </div>
 
       <div className="product-info">
