@@ -84,17 +84,41 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
     <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-arabic, system-ui, sans-serif)', color: '#0F172A' }}>
       
       {/* Top Standalone Navigation Header */}
-      <header style={{ background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
+      <header style={{ 
+        background: '#FFFFFF', 
+        borderBottom: '1px solid #E2E8F0', 
+        padding: '10px 16px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        gap: '16px',
+        position: 'sticky', 
+        top: 0, 
+        zIndex: 10 
+      }}>
         <button
           type="button"
           onClick={onBackToStore}
-          style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#334155', padding: '10px 18px', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
+          style={{ 
+            background: '#F1F5F9', 
+            border: '1px solid #CBD5E1', 
+            color: '#334155', 
+            padding: '7px 14px', 
+            borderRadius: '10px', 
+            fontSize: '0.8rem', 
+            fontWeight: 700, 
+            cursor: 'pointer', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px', 
+            whiteSpace: 'nowrap',
+            transition: 'all 0.2s',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+          }}
         >
-          <ArrowRight size={18} />
-          العودة للمتجر / Retour
+          <ArrowRight size={15} />
+          <span>العودة للمتجر</span>
         </button>
-
-
 
         <div>
           <button
@@ -103,9 +127,25 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
               setCustomerSession(null);
               if (onLogout) onLogout();
             }}
-            style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', padding: '8px 16px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ 
+              background: '#FEF2F2', 
+              border: '1px solid #FECDD3', 
+              color: '#991B1B', 
+              padding: '7px 14px', 
+              borderRadius: '10px', 
+              fontSize: '0.8rem', 
+              fontWeight: 700, 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px', 
+              whiteSpace: 'nowrap',
+              transition: 'all 0.2s',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+            }}
           >
-            <LogOut size={16} /> تسجيل الخروج
+            <LogOut size={15} />
+            <span>تسجيل الخروج</span>
           </button>
         </div>
       </header>
