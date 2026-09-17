@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, Package, MapPin, Heart, LogOut, ExternalLink, CheckCircle2, Clock, Truck, ShieldAlert, RefreshCw, ShoppingBag, Building2, Phone } from 'lucide-react';
-import { getCustomerOrders, updateCustomerProfile, setCustomerSession } from '../services/customerService';
+import { ArrowRight, Package, MapPin, Heart, LogOut, ExternalLink, CheckCircle2, Clock, Truck, ShieldAlert, RefreshCw, ShoppingBag, Building2, Phone, Edit2 } from 'lucide-react';
+import { getCustomerOrders, updateCustomerProfile, setCustomerSession, fetchCustomerProfile, formatPhoneNumber } from '../services/customerService';
 import { ALGERIA_WILAYAS } from '../data/mockData';
 import { getCommunesForWilaya } from '../data/algeriaCities';
-import { UserButton } from '@clerk/clerk-react';
 
-export default function CustomerDashboardPage({ customer, onBackToStore, onLogout, onReorder, wishlist = [], onToggleWishlist, onSelectProduct }) {
+export default function CustomerDashboardPage({ customer, onBackToStore, onLogout, onReorder, wishlist = [], onToggleWishlist, onSelectProduct, onCustomerUpdate }) {
   const [activeTab, setActiveTab] = useState('orders'); // 'orders', 'address', 'favorites'
   
+  // Internal customer state that reflects instant updates
+  const [currCustomer, setCurrCustomer] = useState(customer);
+
   // Orders & Loading
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [phoneInput, setPhoneInput] = useState(customer?.phone || '');
   const [isLinkingPhone, setIsLinkingPhone] = useState(false);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [phoneMsg, setPhoneMsg] = useState('');
+  const [phoneSuccess, setPhoneSuccess] = useState(false);
 
   // Address fields
   const [wilaya, setWilaya] = useState(customer?.wilaya || '');
@@ -20,19 +25,51 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressMsg, setAddressMsg] = useState('');
 
+  // Sync with incoming customer prop
   useEffect(() => {
-    if (customer?.phone) {
-      setWilaya(customer.wilaya || '');
-      setCommune(customer.commune || '');
-      fetchOrders();
+    if (customer) {
+      setCurrCustomer(prev => ({ ...prev, ...customer }));
+      if (customer.phone && !phoneInput) setPhoneInput(customer.phone);
+      if (customer.wilaya && !wilaya) setWilaya(customer.wilaya);
+      if (customer.commune && !commune) setCommune(customer.commune);
     }
   }, [customer]);
 
-  const fetchOrders = async () => {
-    if (!customer?.phone) return;
+  // Load persistent remote profile from Supabase on mount
+  useEffect(() => {
+    let isMounted = true;
+    const initProfile = async () => {
+      const ident = currCustomer?.phone || currCustomer?.email || currCustomer?.id;
+      if (ident) {
+        const remote = await fetchCustomerProfile(ident);
+        if (remote && isMounted) {
+          const merged = { ...currCustomer, ...remote };
+          setCurrCustomer(merged);
+          if (merged.phone) setPhoneInput(merged.phone);
+          if (merged.wilaya) setWilaya(merged.wilaya);
+          if (merged.commune) setCommune(merged.commune);
+          if (onCustomerUpdate) onCustomerUpdate(merged);
+        }
+      }
+    };
+    initProfile();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Fetch orders whenever phone is set or updated
+  useEffect(() => {
+    const phoneToQuery = currCustomer?.phone || formatPhoneNumber(phoneInput);
+    if (phoneToQuery && phoneToQuery.length >= 9) {
+      fetchOrders(phoneToQuery);
+    }
+  }, [currCustomer?.phone]);
+
+  const fetchOrders = async (targetPhone) => {
+    const phoneToUse = targetPhone || currCustomer?.phone || formatPhoneNumber(phoneInput);
+    if (!phoneToUse || phoneToUse.length < 9) return;
     setLoadingOrders(true);
     try {
-      const data = await getCustomerOrders(customer.phone);
+      const data = await getCustomerOrders(phoneToUse);
       setOrders(data);
     } catch (e) {
       console.warn('Error fetching orders:', e);
@@ -41,22 +78,60 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
     }
   };
 
+  const handleLinkPhone = async (e) => {
+    if (e) e.preventDefault();
+    const clean = formatPhoneNumber(phoneInput);
+    if (!clean || clean.length < 9) {
+      setPhoneMsg('يرجى إدخال رقم هاتف جزائري صحيح (مثال: 0770123456)');
+      return;
+    }
+    setIsLinkingPhone(true);
+    setPhoneMsg('');
+    try {
+      const ident = clean || currCustomer?.email || currCustomer?.id;
+      const updated = await updateCustomerProfile(ident, { phone: clean });
+      const merged = { ...currCustomer, ...updated, phone: clean };
+      setCurrCustomer(merged);
+      if (onCustomerUpdate) onCustomerUpdate(merged);
+      setIsEditingPhone(false);
+      setPhoneSuccess(true);
+      setTimeout(() => setPhoneSuccess(false), 4000);
+
+      // Immediately fetch orders
+      await fetchOrders(clean);
+    } catch (err) {
+      console.error('Error linking phone:', err);
+      setPhoneMsg('حدث خطأ أثناء ربط الهاتف، يرجى المحاولة مرة أخرى');
+    } finally {
+      setIsLinkingPhone(false);
+    }
+  };
+
   const handleSaveAddress = async (e) => {
     e.preventDefault();
+    if (!wilaya) {
+      setAddressMsg('يرجى اختيار الولاية أولاً');
+      return;
+    }
     setSavingAddress(true);
     setAddressMsg('');
     try {
-      await updateCustomerProfile(customer.phone, { wilaya, commune });
+      const ident = currCustomer?.phone || formatPhoneNumber(phoneInput) || currCustomer?.email || currCustomer?.id;
+      const updated = await updateCustomerProfile(ident, { wilaya, commune });
+      const merged = { ...currCustomer, ...updated, wilaya, commune };
+      setCurrCustomer(merged);
+      if (onCustomerUpdate) onCustomerUpdate(merged);
       setAddressMsg('تم حفظ العنوان بنجاح! سيتم تعبئته تلقائياً عند الطلب 🎉');
-      setTimeout(() => setAddressMsg(''), 3000);
+      setTimeout(() => setAddressMsg(''), 4000);
     } catch (e) {
+      console.error('Error saving address:', e);
       setAddressMsg('حدث خطأ أثناء حفظ العنوان');
     } finally {
       setSavingAddress(false);
     }
   };
 
-  if (!customer) return null;
+  if (!currCustomer) return null;
 
   const communesList = wilaya ? getCommunesForWilaya(wilaya) : [];
 
@@ -157,61 +232,85 @@ export default function CustomerDashboardPage({ customer, onBackToStore, onLogou
           {/* Header User Profile Banner */}
           <div style={{ background: 'linear-gradient(135deg, #881337 0%, #BE123C 100%)', padding: '28px 24px 20px', color: '#FFFFFF' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-              {customer?.imageUrl && (
+              {currCustomer?.imageUrl && (
                 <img
-                  src={customer.imageUrl}
-                  alt={customer.full_name}
+                  src={currCustomer.imageUrl}
+                  alt={currCustomer.full_name}
                   style={{ width: '48px', height: '48px', borderRadius: '50%', border: '2px solid #FFFFFF' }}
                 />
               )}
               <div>
                 <h2 style={{ fontSize: '1.35rem', fontWeight: 900, margin: '0 0 4px' }}>
-                  مرحباً بكِ، {customer.full_name || 'زبوننا العزيز'} 👋
+                  مرحباً بكِ، {currCustomer.full_name || 'زبوننا العزيز'} 👋
                 </h2>
-                {customer?.email && (
+                {currCustomer?.email && (
                   <p style={{ margin: 0, fontSize: '0.82rem', color: '#FFE4E6', opacity: 0.9 }}>
-                    ✉️ {customer.email}
+                    ✉️ {currCustomer.email}
                   </p>
                 )}
               </div>
             </div>
 
-            {customer?.phone ? (
-              <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: '#FFE4E6', opacity: 0.95 }}>
-                📱 رقم الهاتف: {customer.phone}
-              </p>
-            ) : (
-              <div style={{ marginTop: '12px', background: 'rgba(255,255,255,0.15)', borderRadius: '12px', padding: '10px 14px' }}>
-                <p style={{ margin: '0 0 8px', fontSize: '0.82rem', color: '#FFFFFF', fontWeight: 700 }}>
-                  💡 اربطي رقم هاتفكِ لعرض ومتابعة طلبياتكِ في المتجر:
+            {currCustomer?.phone && !isEditingPhone ? (
+              <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.15)', borderRadius: '12px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{ margin: 0, fontSize: '0.92rem', color: '#FFFFFF', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>📱 رقم الهاتف المرتبط:</span>
+                  <span dir="ltr" style={{ letterSpacing: '1px' }}>{currCustomer.phone}</span>
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingPhone(true)}
+                  style={{ background: '#FFFFFF', border: 'none', color: '#881337', padding: '5px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Edit2 size={13} />
+                  تعديل
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleLinkPhone} style={{ marginTop: '12px', background: 'rgba(255,255,255,0.15)', borderRadius: '12px', padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <p style={{ margin: 0, fontSize: '0.84rem', color: '#FFFFFF', fontWeight: 800 }}>
+                    💡 اربطي رقم هاتفكِ لعرض ومتابعة كل طلبياتكِ:
+                  </p>
+                  {isEditingPhone && currCustomer?.phone && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingPhone(false)}
+                      style={{ background: 'transparent', border: 'none', color: '#FFE4E6', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      إلغاء
+                    </button>
+                  )}
+                </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input
                     type="tel"
                     placeholder="مثال: 0770123456"
                     value={phoneInput}
                     onChange={(e) => setPhoneInput(e.target.value)}
-                    style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: 'none', fontSize: '0.9rem', color: '#0F172A' }}
+                    dir="ltr"
+                    style={{ flex: 1, padding: '9px 12px', borderRadius: '8px', border: 'none', fontSize: '0.95rem', color: '#0F172A', fontWeight: 700, outline: 'none' }}
                   />
                   <button
-                    type="button"
+                    type="submit"
                     disabled={isLinkingPhone}
-                    onClick={async () => {
-                      if (!phoneInput || phoneInput.trim().length < 9) return;
-                      setIsLinkingPhone(true);
-                      const updated = { ...customer, phone: phoneInput.trim() };
-                      setCustomerSession(updated);
-                      try {
-                        const data = await getCustomerOrders(phoneInput.trim());
-                        setOrders(data);
-                      } catch (err) {}
-                      setIsLinkingPhone(false);
-                    }}
-                    style={{ backgroundColor: '#FFFFFF', color: '#881337', fontWeight: 800, border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: 'pointer' }}
+                    style={{ backgroundColor: '#FFFFFF', color: '#881337', fontWeight: 900, border: 'none', borderRadius: '8px', padding: '9px 18px', cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
                   >
+                    {isLinkingPhone ? <RefreshCw size={14} className="spin" /> : <Phone size={14} />}
                     {isLinkingPhone ? 'جاري الربط...' : 'ربط الهاتف'}
                   </button>
                 </div>
+                {phoneMsg && (
+                  <p style={{ margin: '6px 0 0', fontSize: '0.8rem', color: '#FECDD3', fontWeight: 700 }}>
+                    ⚠️ {phoneMsg}
+                  </p>
+                )}
+              </form>
+            )}
+
+            {phoneSuccess && (
+              <div style={{ marginTop: '8px', background: '#DCFCE7', border: '1px solid #86EFAC', color: '#15803D', padding: '8px 12px', borderRadius: '10px', fontSize: '0.82rem', fontWeight: 800 }}>
+                ✅ تم ربط رقم هاتفكِ بنجاح وتم تحميل طلبياتكِ!
               </div>
             )}
 

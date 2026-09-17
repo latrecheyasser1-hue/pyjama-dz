@@ -14,7 +14,7 @@ import CustomerAccountPage from './CustomerAccountPage';
 import CustomerDashboardPage from './CustomerDashboardPage';
 import ProductReviewsSection from './ProductReviewsSection';
 import VirtualTryOnModal from './VirtualTryOnModal';
-import { getCurrentCustomer, setCustomerSession } from '../services/customerService';
+import { getCurrentCustomer, setCustomerSession, fetchCustomerProfile, saveCustomerWishlist, fetchCustomerWishlist } from '../services/customerService';
 import { useUser, useClerk } from '@clerk/clerk-react';
 const getProductDisplayCategory = (prodCategory, categoriesList) => {
   if (!Array.isArray(categoriesList)) return prodCategory || 'Pyjama DZ';
@@ -1280,16 +1280,33 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
   useEffect(() => {
     if (isClerkLoaded && isClerkSignedIn && clerkUser) {
+      const email = clerkUser.primaryEmailAddress?.emailAddress || '';
+      const existingSession = getCurrentCustomer() || {};
       const activeClerkCust = {
         id: clerkUser.id,
-        full_name: clerkUser.fullName || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'زبون المتجر',
-        email: clerkUser.primaryEmailAddress?.emailAddress || '',
-        phone: clerkUser.primaryPhoneNumber?.phoneNumber || currentCustomer?.phone || '',
+        full_name: clerkUser.fullName || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || existingSession.full_name || 'زبون المتجر',
+        email: email,
+        phone: clerkUser.primaryPhoneNumber?.phoneNumber || existingSession.phone || currentCustomer?.phone || localStorage.getItem('customer_phone') || '',
+        wilaya: existingSession.wilaya || currentCustomer?.wilaya || localStorage.getItem('customer_wilaya') || '',
+        commune: existingSession.commune || currentCustomer?.commune || localStorage.getItem('customer_commune') || '',
         imageUrl: clerkUser.imageUrl,
         isClerk: true
       };
       setCurrentCustomerState(activeClerkCust);
       setCustomerSession(activeClerkCust);
+
+      // Async fetch from Supabase to load any remote saved profile
+      const fetchRemote = async () => {
+        const remote = await fetchCustomerProfile(activeClerkCust.phone || email || clerkUser.id);
+        if (remote) {
+          setCurrentCustomerState(prev => {
+            const merged = { ...prev, ...remote };
+            setCustomerSession(merged);
+            return merged;
+          });
+        }
+      };
+      fetchRemote();
     } else if (isClerkLoaded && !isClerkSignedIn && currentCustomer?.isClerk) {
       setCurrentCustomerState(null);
       setCustomerSession(null);
@@ -2637,9 +2654,33 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       try {
         localStorage.setItem('pyjama_customer_wishlist', JSON.stringify(updated));
       } catch (e) {}
+
+      const ident = currentCustomer?.phone || currentCustomer?.email || currentCustomer?.id;
+      if (ident) {
+        saveCustomerWishlist(ident, updated);
+      }
       return updated;
     });
-  }, []);
+  }, [currentCustomer]);
+
+  // Load customer wishlist from Supabase on mount / customer change
+  useEffect(() => {
+    const ident = currentCustomer?.phone || currentCustomer?.email || currentCustomer?.id;
+    if (ident) {
+      fetchCustomerWishlist(ident).then(remoteList => {
+        if (Array.isArray(remoteList) && remoteList.length > 0) {
+          setWishlist(prev => {
+            const map = new Map();
+            prev.forEach(item => map.set(String(item.id), item));
+            remoteList.forEach(item => map.set(String(item.id), item));
+            const merged = Array.from(map.values());
+            try { localStorage.setItem('pyjama_customer_wishlist', JSON.stringify(merged)); } catch(e){}
+            return merged;
+          });
+        }
+      });
+    }
+  }, [currentCustomer?.phone, currentCustomer?.email, currentCustomer?.id]);
 
   if (isAuthModalOpen) {
     return (
@@ -2658,6 +2699,10 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     return (
       <CustomerDashboardPage
         customer={currentCustomer}
+        onCustomerUpdate={(updatedCust) => {
+          setCurrentCustomerState(updatedCust);
+          setCustomerSession(updatedCust);
+        }}
         onBackToStore={() => setIsCustomerDashboardOpen(false)}
         onLogout={() => {
           if (currentCustomer?.isClerk && clerkSignOut) {
