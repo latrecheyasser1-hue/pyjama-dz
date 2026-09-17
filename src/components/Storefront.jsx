@@ -246,9 +246,39 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
   }, [product?.images, product?.image, product?.colorVariants]);
 
   const [currentImgIdx, setCurrentImgIdx] = useState(0);
+  const sliderRef = useRef(null);
   const touchStartXRef = useRef(0);
   const touchStartYRef = useRef(0);
   const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    if (allProductImages.length <= 1 || !sliderRef.current) return;
+    const container = sliderRef.current;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const idx = Number(entry.target.getAttribute('data-slide-index'));
+            if (!isNaN(idx)) {
+              setCurrentImgIdx(idx);
+            }
+          }
+        });
+      },
+      {
+        root: container,
+        threshold: 0.51
+      }
+    );
+
+    const slides = container.querySelectorAll('[data-slide-index]');
+    slides.forEach((slide) => observer.observe(slide));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [allProductImages.length]);
 
   const handleTouchStart = (e) => {
     if (e.touches && e.touches[0]) {
@@ -286,9 +316,10 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
     if (!el) return;
     const width = el.offsetWidth;
     if (width > 0) {
+      const scrollPos = Math.abs(el.scrollLeft);
       const idx = Math.min(
         allProductImages.length - 1,
-        Math.max(0, Math.round(Math.abs(el.scrollLeft) / width))
+        Math.max(0, Math.round(scrollPos / width))
       );
       if (idx !== currentImgIdx) {
         setCurrentImgIdx(idx);
@@ -345,8 +376,8 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
         {allProductImages.length > 1 ? (
           <>
             <div 
+              ref={sliderRef}
               className="product-images-slider"
-              dir="ltr"
               onScroll={handleSliderScroll}
               style={{ 
                 display: 'flex', 
@@ -367,6 +398,7 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
               {allProductImages.map((img, idx) => (
                 <div 
                   key={idx} 
+                  data-slide-index={idx}
                   style={{ 
                     flex: '0 0 100%', 
                     minWidth: '100%',
@@ -394,22 +426,37 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
                       WebkitUserDrag: 'none'
                     }} 
                   />
-                  <div style={{ position: 'absolute', bottom: 12, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', pointerEvents: 'none', zIndex: 6 }}>
-                    {allProductImages.map((_, dotIdx) => (
-                      <div 
-                        key={dotIdx} 
-                        style={{ 
-                          width: idx === dotIdx ? 16 : 6, 
-                          height: 6, 
-                          borderRadius: 3, 
-                          background: idx === dotIdx ? '#FFFFFF' : 'rgba(255,255,255,0.5)', 
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
-                          transition: 'all 0.2s ease'
-                        }} 
-                      />
-                    ))}
-                  </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Fixed Persistent Indicator Dots - Stays fixed in place, only active dot changes */}
+            <div 
+              style={{ 
+                position: 'absolute', 
+                bottom: 12, 
+                left: 0, 
+                right: 0, 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                gap: '6px', 
+                pointerEvents: 'none', 
+                zIndex: 10 
+              }}
+            >
+              {allProductImages.map((_, dotIdx) => (
+                <div 
+                  key={dotIdx} 
+                  style={{ 
+                    width: currentImgIdx === dotIdx ? 18 : 6, 
+                    height: 6, 
+                    borderRadius: 3, 
+                    background: currentImgIdx === dotIdx ? '#FFFFFF' : 'rgba(255,255,255,0.45)', 
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.5)', 
+                    transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)' 
+                  }} 
+                />
               ))}
             </div>
           </>
