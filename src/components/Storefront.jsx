@@ -357,23 +357,6 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
                 </div>
               ))}
             </div>
-
-            {/* Persistent Floating Indicator Dots */}
-            <div style={{ position: 'absolute', bottom: 12, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', pointerEvents: 'none', zIndex: 6 }}>
-              {allProductImages.map((_, dotIdx) => (
-                <div 
-                  key={dotIdx} 
-                  style={{ 
-                    width: currentImgIdx === dotIdx ? 16 : 6, 
-                    height: 6, 
-                    borderRadius: 3, 
-                    background: currentImgIdx === dotIdx ? '#FFFFFF' : 'rgba(255,255,255,0.5)', 
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
-                    transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
-                  }} 
-                />
-              ))}
-            </div>
           </>
         ) : (
           <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', touchAction: 'pan-y' }}>
