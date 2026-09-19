@@ -2213,8 +2213,11 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
           const key = cleanTitle.toLowerCase();
           if (!seenProducts.has(key)) {
             seenProducts.add(key);
-            const barcodePart = barcode ? ` - الكود: *${barcode}*` : '';
-            lines.push(`• ${cleanTitle}${barcodePart}`);
+            if (barcode) {
+              lines.push(`• ${cleanTitle} - CODE :\n*${barcode}*`);
+            } else {
+              lines.push(`• ${cleanTitle}`);
+            }
           }
         }
       } else if (orderToConfirm.product) {
@@ -2236,14 +2239,17 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
           const key = cleanPart.toLowerCase();
           if (!seenProducts.has(key)) {
             seenProducts.add(key);
-            const barcodePart = barcode ? ` - الكود: *${barcode}*` : '';
-            lines.push(`• ${cleanPart}${barcodePart}`);
+            if (barcode) {
+              lines.push(`• ${cleanPart} - CODE :\n*${barcode}*`);
+            } else {
+              lines.push(`• ${cleanPart}`);
+            }
           }
         }
       }
 
       if (lines.length > 0) {
-        productLinesStr = `\n\n🛍️ *المنتجات:*\n${lines.join('\n')}`;
+        productLinesStr = `\n\n🛍️ *المنتجات:*\n${lines.join('\n\n')}`;
       }
     } catch (buildErr) {
       console.error('Error building product barcode text:', buildErr);
