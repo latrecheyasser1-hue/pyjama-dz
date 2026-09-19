@@ -2266,7 +2266,7 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
                  String(orderToConfirm.commune || '').includes('Hub');
     const companyDisplayName = isZR ? 'ZR Express' : 'Yalidine';
 
-    const trackingNotice = trackingCreated ? `\n🏷️ رقم تتبع الشحنة: *${trackingCreated}*` : '';
+    const trackingNotice = trackingCreated ? `\n\n🏷️ رقم تتبع الشحنة:\n*${trackingCreated}*` : '';
     const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨${trackingNotice}${productLinesStr}\n\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل مع ${companyDisplayName}. شكراً لثقتك بمتجرنا! ❤️`;
 
     await sendWhatsAppMessage(fromPhone, confirmMsg);
