@@ -2320,6 +2320,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         cartItemId: Date.now() + Math.random(),
         productId: product.id,
         product: product.title,
+        barcode: product.barcode || '',
         image: defaultImage,
         price: product.price,
         color: defaultColor,
@@ -2434,7 +2435,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       color: item.color,
       size: item.size,
       qty: item.qty,
-      price: getCartItemPrice(item)
+      price: getCartItemPrice(item),
+      barcode: item.barcode || item._productRef?.barcode || ''
     }));
 
     const productTitles = orderItems.map(i => `${i.product} (x${i.qty})`).join(' + ');

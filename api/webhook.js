@@ -2169,6 +2169,86 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
       console.error('Error triggering delivery on WhatsApp confirm:', deliveryErr);
     }
 
+    // Build simple product barcode list (e.g. • اسم المنتج - الكود: xxxxxxxx)
+    let productLinesStr = '';
+    try {
+      let itemsList = orderToConfirm.items;
+      if (typeof itemsList === 'string') {
+        try { itemsList = JSON.parse(itemsList); } catch (e) { itemsList = []; }
+      }
+
+      // Fetch products to map barcodes if not directly stored in order items
+      let productsMap = new Map();
+      try {
+        const pRes = await fetch(`${SUPABASE_URL}/rest/v1/products?select=id,title,barcode`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const pData = await pRes.json();
+        if (Array.isArray(pData)) {
+          pData.forEach(p => {
+            if (p.id) productsMap.set(String(p.id), p);
+            if (p.title) productsMap.set(p.title.trim().toLowerCase(), p);
+          });
+        }
+      } catch (pe) {
+        console.error('Error fetching products for barcode lookup:', pe);
+      }
+
+      const seenProducts = new Set();
+      const lines = [];
+
+      if (Array.isArray(itemsList) && itemsList.length > 0) {
+        for (const it of itemsList) {
+          let title = it.product || it.title || '';
+          let cleanTitle = title.replace(/\s*\([^\)]+\)\s*$/, '').trim() || title.trim();
+
+          let barcode = it.barcode || '';
+          if (!barcode && it.productId && productsMap.has(String(it.productId))) {
+            barcode = productsMap.get(String(it.productId)).barcode || '';
+          }
+          if (!barcode && productsMap.has(cleanTitle.toLowerCase())) {
+            barcode = productsMap.get(cleanTitle.toLowerCase()).barcode || '';
+          }
+
+          const key = cleanTitle.toLowerCase();
+          if (!seenProducts.has(key)) {
+            seenProducts.add(key);
+            const barcodePart = barcode ? ` - الكود: *${barcode}*` : '';
+            lines.push(`• ${cleanTitle}${barcodePart}`);
+          }
+        }
+      } else if (orderToConfirm.product) {
+        const parts = String(orderToConfirm.product).split(/\s*\+\s*/);
+        for (const part of parts) {
+          const cleanPart = part.replace(/\(x\d+\)/g, '').replace(/\s*\([^\)]+\)\s*$/, '').trim();
+          if (!cleanPart) continue;
+          let barcode = '';
+          if (productsMap.has(cleanPart.toLowerCase())) {
+            barcode = productsMap.get(cleanPart.toLowerCase()).barcode || '';
+          } else {
+            for (const [k, p] of productsMap.entries()) {
+              if (cleanPart.toLowerCase().includes(k) || k.includes(cleanPart.toLowerCase())) {
+                barcode = p.barcode || '';
+                break;
+              }
+            }
+          }
+          const key = cleanPart.toLowerCase();
+          if (!seenProducts.has(key)) {
+            seenProducts.add(key);
+            const barcodePart = barcode ? ` - الكود: *${barcode}*` : '';
+            lines.push(`• ${cleanPart}${barcodePart}`);
+          }
+        }
+      }
+
+      if (lines.length > 0) {
+        productLinesStr = `\n\n🛍️ *المنتجات:*\n${lines.join('\n')}`;
+      }
+    } catch (buildErr) {
+      console.error('Error building product barcode text:', buildErr);
+    }
+
     const orderNumStr = await getSequentialOrderNum(orderToConfirm);
     const rawName = orderToConfirm.clientName || '';
     const cleanName = (rawName && !rawName.includes('زبون الواتساب') && !rawName.includes('زبون المحادثة'))
@@ -2177,7 +2257,7 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
     const clientNameStr = cleanName ? ` ${cleanName}` : '';
 
     const trackingNotice = trackingCreated ? `\n🏷️ رقم تتبع الشحنة: *${trackingCreated}*` : '';
-    const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨${trackingNotice}\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل مع Yalidine. شكراً لثقتك بمتجرنا! ❤️`;
+    const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨${trackingNotice}${productLinesStr}\n\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل مع Yalidine. شكراً لثقتك بمتجرنا! ❤️`;
 
     await sendWhatsAppMessage(fromPhone, confirmMsg);
     return true;
