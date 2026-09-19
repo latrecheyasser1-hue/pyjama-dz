@@ -1906,7 +1906,7 @@ async function createZRExpressParcelDirectly(order) {
     let targetHubName = null;
 
     if (isStopdesk) {
-      const wilayaAgencies = ZR_AGENCIES[wilayaCode] || [];
+      const wilayaAgencies = (ZR_AGENCIES[wilayaCode] || []).filter(a => a.isPickupPoint !== false && a.type !== 'sorting-center-hub');
       const bracketMatch = String(order.commune || '').match(/\[(.*?)\]/) || String(order.deliveryMode || '').match(/\((.*?)\)/);
       const searchPhrase = bracketMatch ? bracketMatch[1].toLowerCase() : String(order.commune || order.deliveryMode || '').toLowerCase();
 
@@ -2256,8 +2256,18 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
       : '';
     const clientNameStr = cleanName ? ` ${cleanName}` : '';
 
+    if (!trackingCreated && (orderToConfirm.trackingNumber || orderToConfirm.tracking_number)) {
+      trackingCreated = orderToConfirm.trackingNumber || orderToConfirm.tracking_number;
+    }
+
+    const rawCompany = String(orderToConfirm.deliveryCompany || '').toLowerCase();
+    const isZR = rawCompany.includes('zr') || 
+                 String(orderToConfirm.deliveryMode || '').includes('Hub') || 
+                 String(orderToConfirm.commune || '').includes('Hub');
+    const companyDisplayName = isZR ? 'ZR Express' : 'Yalidine';
+
     const trackingNotice = trackingCreated ? `\n🏷️ رقم تتبع الشحنة: *${trackingCreated}*` : '';
-    const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨${trackingNotice}${productLinesStr}\n\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل مع Yalidine. شكراً لثقتك بمتجرنا! ❤️`;
+    const confirmMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\nتم تأكيد طلبيتك رقم #${orderNumStr} بنجاح. 📦✨${trackingNotice}${productLinesStr}\n\nطلبيتك الآن مؤكدة وجاري تجهيزها للشحن والتوصيل مع ${companyDisplayName}. شكراً لثقتك بمتجرنا! ❤️`;
 
     await sendWhatsAppMessage(fromPhone, confirmMsg);
     return true;

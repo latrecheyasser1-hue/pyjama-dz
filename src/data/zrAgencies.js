@@ -1062,7 +1062,8 @@ export function getZRAgenciesForWilaya(wilayaInput) {
   if (!wilayaInput) return [];
   const codeMatch = String(wilayaInput).match(/^(\d{2})/);
   const code = codeMatch ? codeMatch[1] : "16";
-  const agencies = ZR_AGENCIES[code] || [];
+  const rawAgencies = ZR_AGENCIES[code] || [];
+  const agencies = rawAgencies.filter(a => a.isPickupPoint !== false && a.type !== 'sorting-center-hub');
   if (agencies.length > 0) return agencies;
   const nameAr = String(wilayaInput).split("-")[1]?.trim() || wilayaInput;
   return [{

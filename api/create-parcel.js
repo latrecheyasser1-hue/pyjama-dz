@@ -469,7 +469,7 @@ export default async function handler(req, res) {
 
       if (isStopdesk) {
         // Bureau / Stop Desk delivery
-        const wilayaAgencies = ZR_AGENCIES[wilayaCode] || [];
+        const wilayaAgencies = (ZR_AGENCIES[wilayaCode] || []).filter(a => a.isPickupPoint !== false && a.type !== 'sorting-center-hub');
         const bracketMatch = String(order.commune || '').match(/\[(.*?)\]/) || String(order.deliveryMode || '').match(/\((.*?)\)/);
         const searchPhrase = bracketMatch ? bracketMatch[1].toLowerCase() : String(order.commune || order.deliveryMode || '').toLowerCase();
 
