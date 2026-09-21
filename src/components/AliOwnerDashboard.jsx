@@ -246,69 +246,6 @@ export default function AliOwnerDashboard({
       });
     }
 
-    // If no real exchange refund orders exist yet, provide illustrative samples showing both automated states
-    // If no real exchange refund orders exist yet, provide illustrative samples showing active & historique states
-    if (refunds.length === 0) {
-      const demoId1 = 'CMD-EX-8492';
-      const demoId2 = 'CMD-EX-9104';
-      const demoId3 = 'CMD-EX-7721';
-      refunds.push({
-        orderId: demoId1,
-        clientName: 'أمينة بن علي',
-        phone: '0555 12 34 56',
-        wilaya: 'الشلف (Chlef)',
-        date: new Date().toLocaleDateString('fr-FR'),
-        oldProductTitle: 'بيجامة قطيفة ملكية نبيذي (XL)',
-        reason: 'استبدال بموديل صيفي (فارق سعر مستحق للزبونة)',
-        refundDue: 1200,
-        baridiMobRip: '007999990023456789',
-        isPaid: paidRefundOrderIds.includes(demoId1),
-        isParcelReceived: true,
-        receivedAt: new Date().toISOString(),
-        courierCompany: 'Yalidine Express',
-        courierStatus: 'Retourné au vendeur',
-        isDemo: true,
-        order: null
-      });
-      refunds.push({
-        orderId: demoId2,
-        clientName: 'سارة بلقاسم',
-        phone: '0661 98 76 54',
-        wilaya: 'وهران (Oran)',
-        date: new Date().toLocaleDateString('fr-FR'),
-        oldProductTitle: 'بيجامة قطيفة شتوية (L)',
-        reason: 'استبدال بمقاس أصغر (فارق سعر مستحق للزبونة)',
-        refundDue: 800,
-        baridiMobRip: '007999990098765432',
-        isPaid: paidRefundOrderIds.includes(demoId2),
-        isParcelReceived: false,
-        receivedAt: null,
-        courierCompany: 'ZR Express',
-        courierStatus: 'En cours de retour au centre',
-        isDemo: true,
-        order: null
-      });
-      refunds.push({
-        orderId: demoId3,
-        clientName: 'فاطمة الزهراء منصوري',
-        phone: '0770 45 67 89',
-        wilaya: 'الجزائر العاصمة (Alger)',
-        date: new Date(Date.now() - 86400000).toLocaleDateString('fr-FR'),
-        oldProductTitle: 'بيجامة تركي 3 قطع (M)',
-        reason: 'استبدال بموديل آخر مع فارق السعر',
-        refundDue: 1500,
-        baridiMobRip: '007999990055443322',
-        isPaid: !paidRefundOrderIds.includes('UNSET_' + demoId3), // defaulted to paid for Historique showcase
-        isParcelReceived: true,
-        paidAt: new Date(Date.now() - 86400000).toISOString(),
-        receivedAt: new Date(Date.now() - 172800000).toISOString(),
-        courierCompany: 'Yalidine Express',
-        courierStatus: 'Retourné au vendeur',
-        isDemo: true,
-        order: null
-      });
-    }
-
     return refunds;
   }, [orders, paidRefundOrderIds]);
 
@@ -398,12 +335,7 @@ export default function AliOwnerDashboard({
     const willBePaid = !item.isPaid;
 
     setPaidRefundOrderIds(prev => {
-      let next;
-      if (item.isDemo && orderId === 'CMD-EX-7721') {
-        next = willBePaid ? prev.filter(id => id !== 'UNSET_' + orderId) : [...prev, 'UNSET_' + orderId];
-      } else {
-        next = willBePaid ? [...prev, orderId] : prev.filter(id => id !== orderId);
-      }
+      const next = willBePaid ? [...prev, orderId] : prev.filter(id => id !== orderId);
       try {
         localStorage.setItem('pyjama_ali_paid_refunds', JSON.stringify(next));
       } catch (e) {}
