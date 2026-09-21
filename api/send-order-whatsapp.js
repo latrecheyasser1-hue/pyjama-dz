@@ -107,7 +107,13 @@ export default async function handler(req, res) {
     } else {
       // Order confirmations are INSTANT (فَمْ فَمْ)
       orderNum = await getSequentialOrderNum(id);
-      messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك عبر الموقع بنجاح:\n\n• رقم الطلب: #${orderNum}\n• المنتجات: ${cleanProduct}\n• الولاية: ${wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* (أو *إلغاء*) لتأكيد طلبك وتجهيز شحنتك.`;
+      const isExchangeOrder = Boolean(req.body?.isExchange || cleanProduct.includes('استبدال'));
+
+      if (isExchangeOrder) {
+        messageText = `*متجر Pyjama DZ - طلب استبدال 🔄*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك لاستبدال المنتج بنجاح:\n\n• رقم الطلب: #${orderNum}\n• تفاصيل الاستبدال: ${cleanProduct}\n• الولاية: ${wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* لتثبيت طلب الاستبدال وتجهيز الشحنة البديلة (سيقوم موزع التوصيل باستلام السلعة القديمة منك عند تسليم البديل).`;
+      } else {
+        messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك عبر الموقع بنجاح:\n\n• رقم الطلب: #${orderNum}\n• المنتجات: ${cleanProduct}\n• الولاية: ${wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* (أو *إلغاء*) لتأكيد طلبك وتجهيز شحنتك.`;
+      }
 
       const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
       const messageBody = {

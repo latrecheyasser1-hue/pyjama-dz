@@ -254,6 +254,14 @@ export default async function handler(req, res) {
     const toWilayaId = WILAYA_IDS[normalizedToWilaya] || 16;
     const orderRef = 'CMD-' + String(order.ticketNumber || order.id || Date.now()).slice(0, 8);
 
+    const isExchange = Boolean(
+      order.isExchange === true ||
+      String(order.clientName || '').includes('استبدال') ||
+      String(order.product || '').includes('استبدال')
+    );
+    const exchangeMeta = Array.isArray(order.items) ? order.items.find(it => it.isExchangeMeta) : null;
+    const productToCollect = exchangeMeta?.oldProductTitle || order.exchangeDetails?.oldProductTitle || 'السلعة القديمة المراد استبدالها';
+
     // ==========================================
     // 1. YALIDINE / GUEPEX INTEGRATION
     // ==========================================
@@ -338,7 +346,8 @@ export default async function handler(req, res) {
         freeshipping: isFreeShipping,
         is_stopdesk: isStopdesk,
         ...(stopdeskId ? { stopdesk_id: stopdeskId } : {}),
-        has_exchange: false
+        has_exchange: isExchange ? 1 : 0,
+        ...(isExchange ? { product_to_collect: productToCollect } : {})
       }];
 
       console.log('Sending Yalidine Parcel payload:', JSON.stringify(parcelPayload, null, 2));
@@ -568,7 +577,10 @@ export default async function handler(req, res) {
           }
         ],
         deliveryType: isStopdesk ? 'pickup-point' : 'home',
-        description: order.product || 'بيجامات وملابس نوم فاخرة',
+        isExchange: isExchange ? true : false,
+        description: isExchange 
+          ? `[ECHANGE/استبدال] استرجاع: ${productToCollect} | البديل: ${order.product || 'بيجامات وملابس نوم'}` 
+          : (order.product || 'بيجامات وملابس نوم فاخرة'),
         amount: codProductPrice,
         externalId: orderRef
       };

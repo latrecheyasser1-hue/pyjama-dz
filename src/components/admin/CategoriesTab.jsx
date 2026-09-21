@@ -22,7 +22,7 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
     }
     if (!list.some(c => c.id === 'hot_sale')) {
       const allIndex = list.findIndex(c => c.id === 'all');
-      list.splice(allIndex + 1, 0, { id: 'hot_sale', title: 'الأكثر مبيعاً (HOT SALE)', icon: '', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&q=80' });
+      list.splice(allIndex + 1, 0, { id: 'hot_sale', title: 'HOT SALE / الأكثر مبيعاً', icon: '', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&q=80' });
     }
     if (!list.some(c => c.id === 'promo')) {
       list.push({ id: 'promo', title: '% SOLDES', icon: '', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' });

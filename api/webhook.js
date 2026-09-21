@@ -1768,6 +1768,14 @@ async function createYalidineParcelDirectly(order) {
       }
     }
 
+    const isExchange = Boolean(
+      order.isExchange === true ||
+      String(order.clientName || '').includes('استبدال') ||
+      String(order.product || '').includes('استبدال')
+    );
+    const exchangeMeta = Array.isArray(order.items) ? order.items.find(it => it.isExchangeMeta) : null;
+    const productToCollect = exchangeMeta?.oldProductTitle || order.exchangeDetails?.oldProductTitle || 'السلعة القديمة للاستبدال';
+
     const orderRef = 'CMD-' + String(order.ticketNumber || order.id || Date.now()).slice(0, 8);
     const payload = [{
       order_id: orderRef,
@@ -1789,7 +1797,8 @@ async function createYalidineParcelDirectly(order) {
       freeshipping: isFreeShipping,
       is_stopdesk: isStopdesk,
       ...(stopdeskId ? { stopdesk_id: stopdeskId } : {}),
-      has_exchange: false
+      has_exchange: isExchange ? 1 : 0,
+      ...(isExchange ? { product_to_collect: productToCollect } : {})
     }];
 
     const res = await fetch('https://api.guepex.app/v1/parcels/', {
@@ -1887,6 +1896,14 @@ async function createZRExpressParcelDirectly(order) {
         customerId = '5b4191cf-b08b-4990-bde5-119ac532df51';
       }
     }
+
+    const isExchange = Boolean(
+      order.isExchange === true ||
+      String(order.clientName || '').includes('استبدال') ||
+      String(order.product || '').includes('استبدال')
+    );
+    const exchangeMeta = Array.isArray(order.items) ? order.items.find(it => it.isExchangeMeta) : null;
+    const productToCollect = exchangeMeta?.oldProductTitle || order.exchangeDetails?.oldProductTitle || 'السلعة القديمة للاستبدال';
 
     const orderRef = 'CMD-' + String(order.ticketNumber || order.id || Date.now()).slice(0, 8);
     const supplierHubId = '46a61165-5378-484d-a0c9-f5c1df785df9'; // Hub Chlef 02
@@ -2000,7 +2017,10 @@ async function createZRExpressParcelDirectly(order) {
         }
       ],
       deliveryType: isStopdesk ? 'pickup-point' : 'home',
-      description: order.product || 'بيجامات وملابس نوم فاخرة',
+      isExchange: isExchange ? true : false,
+      description: isExchange 
+        ? `[ECHANGE/استبدال] استرجاع: ${productToCollect} | البديل: ${order.product || 'بيجامات وملابس نوم'}` 
+        : (order.product || 'بيجامات وملابس نوم فاخرة'),
       amount: codPrice,
       externalId: orderRef
     };

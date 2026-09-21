@@ -22,6 +22,19 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
   // Active orders: orders where archived is false, OR (archived is undefined and status is 'nouvelle')
   const activeOrders = orders.filter(o => o.archived === false || (o.archived === undefined && o.status === 'nouvelle'));
 
+  const isExchangeOrder = (order) => {
+    if (!order) return false;
+    return Boolean(
+      order.isExchange === true ||
+      (order.clientName && order.clientName.includes('استبدال')) ||
+      (order.product && order.product.includes('استبدال')) ||
+      order.exchangeDetails ||
+      (Array.isArray(order.items) && order.items.some(it => it.isExchangeItem || it.isExchangeMeta))
+    );
+  };
+
+  const exchangeOrders = activeOrders.filter(o => isExchangeOrder(o));
+
   const grosOrders = activeOrders.filter(o => {
     return (o.product && o.product.includes('(جملة -')) || 
            (o.clientName && o.clientName.includes('(واتساب:')) ||
@@ -31,10 +44,14 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
   const hanoutOrders = activeOrders.filter(o => o.isPos === true || o.clientName === 'زبون المحل (بيع حضوري)' || o.commune === 'المتجر الحضوري');
 
   const livraisonOrders = activeOrders.filter(o => 
-    !grosOrders.some(go => go.id === o.id) && !hanoutOrders.some(ho => ho.id === o.id)
+    !grosOrders.some(go => go.id === o.id) && !hanoutOrders.some(ho => ho.id === o.id) && !isExchangeOrder(o)
   );
 
-  const displayOrders = orderFilter === 'gros' ? grosOrders : (orderFilter === 'hanout' ? hanoutOrders : livraisonOrders);
+  const displayOrders = orderFilter === 'gros' 
+    ? grosOrders 
+    : (orderFilter === 'hanout' 
+      ? hanoutOrders 
+      : (orderFilter === 'exchange' ? exchangeOrders : livraisonOrders));
 
   const handleConfirmAction = (order) => {
     if (order.status === 'confirmee') {
@@ -207,6 +224,36 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
             {grosOrders.length}
           </span>
         </button>
+
+        <button
+          onClick={() => setOrderFilter('exchange')}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '10px',
+            border: 'none',
+            fontWeight: 800,
+            fontSize: '0.92rem',
+            cursor: 'pointer',
+            background: orderFilter === 'exchange' ? '#BE123C' : '#F1F5F9',
+            color: orderFilter === 'exchange' ? 'white' : '#64748B',
+            transition: 'all 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          <span>🔄 طلبات الاستبدال (Échange)</span>
+          <span style={{
+            background: orderFilter === 'exchange' ? 'white' : '#BE123C',
+            color: orderFilter === 'exchange' ? '#BE123C' : 'white',
+            padding: '2px 8px',
+            borderRadius: '12px',
+            fontSize: '0.78rem',
+            fontWeight: 900
+          }}>
+            {exchangeOrders.length}
+          </span>
+        </button>
       </div>
 
       <div className="table-container">
@@ -250,7 +297,26 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                         {order.date || (order.created_at ? new Date(order.created_at).toLocaleDateString('fr-FR') : "À l'instant")}
                       </div>
                     </td>
-                    <td style={{ fontWeight: 700, color: 'var(--text-dark)' }}>{order.clientName}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
+                      <div>{order.clientName}</div>
+                      {isExchangeOrder(order) && (
+                        <span style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '4px', 
+                          background: '#FFF1F2', 
+                          color: '#BE123C', 
+                          border: '1px solid #FECDD3', 
+                          padding: '2px 8px', 
+                          borderRadius: '6px', 
+                          fontSize: '0.72rem', 
+                          fontWeight: 900,
+                          marginTop: '4px'
+                        }}>
+                          🔄 طلب استبدال (Échange)
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <a 
                         onClick={(e) => e.stopPropagation()}
@@ -660,6 +726,97 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
               </div>
             </div>
 
+            {/* Exchange Details Special Card */}
+            {(() => {
+              const exchangeDetails = selectedOrderDetails.exchangeDetails || 
+                (Array.isArray(selectedOrderDetails.items) ? selectedOrderDetails.items.find(it => it.isExchangeMeta) : null);
+
+              if (!exchangeDetails && !isExchangeOrder(selectedOrderDetails)) return null;
+
+              return (
+                <div style={{ background: '#FFF1F2', padding: '18px', borderRadius: '16px', border: '1.5px solid #FECDD3', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid #FFE4E6', paddingBottom: '8px' }}>
+                    <h4 style={{ margin: 0, color: '#9F1239', fontSize: '1.05rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      🔄 تفاصيل طلب الاستبدال (Détails de l'Échange)
+                    </h4>
+                    <span style={{ background: '#BE123C', color: 'white', fontSize: '0.75rem', fontWeight: 800, padding: '3px 10px', borderRadius: '20px' }}>
+                      طلب استبدال رسمي
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.78rem', color: '#881337', display: 'block', fontWeight: 700 }}>السلعة القديمة المراد استبدالها:</span>
+                      <strong style={{ fontSize: '0.92rem', color: '#1E293B' }}>{exchangeDetails?.oldProductTitle || 'غير محدد'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.78rem', color: '#881337', display: 'block', fontWeight: 700 }}>باركود السلعة القديمة (Code Barres):</span>
+                      <code style={{ fontSize: '0.88rem', color: '#BE123C', fontWeight: 800, background: '#FFE4E6', padding: '2px 8px', borderRadius: '6px' }}>
+                        {exchangeDetails?.oldProductBarcode || 'غير مسجل'}
+                      </code>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.78rem', color: '#881337', display: 'block', fontWeight: 700 }}>سعر السلعة القديمة:</span>
+                      <strong style={{ fontSize: '0.92rem', color: '#1E293B' }}>{(Number(exchangeDetails?.oldProductPrice) || 0).toLocaleString()} DA</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.78rem', color: '#881337', display: 'block', fontWeight: 700 }}>سبب الاستبدال:</span>
+                      <strong style={{ fontSize: '0.88rem', color: '#1E293B' }}>{exchangeDetails?.reason || 'غير محدد'}</strong>
+                    </div>
+                  </div>
+
+                  {/* Photo Preview of Old Product */}
+                  {exchangeDetails?.productPhoto && (
+                    <div style={{ marginBottom: '14px', background: 'white', padding: '12px', borderRadius: '12px', border: '1px solid #FECDD3' }}>
+                      <span style={{ fontSize: '0.78rem', color: '#881337', display: 'block', fontWeight: 800, marginBottom: '6px' }}>
+                        📸 صورة السلعة المرفقة من الزبونة للمعاينة:
+                      </span>
+                      <a href={exchangeDetails.productPhoto} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                        <img 
+                          src={exchangeDetails.productPhoto} 
+                          alt="صورة السلعة" 
+                          style={{ maxWidth: '180px', maxHeight: '180px', objectFit: 'cover', borderRadius: '10px', border: '2px solid #FDA4AF', cursor: 'zoom-in' }} 
+                        />
+                      </a>
+                      <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '4px' }}>اضغط على الصورة لفتحها بالحجم الكامل</div>
+                    </div>
+                  )}
+
+                  {/* BaridiMob RIP Refund Section if store owes client money */}
+                  {(exchangeDetails?.refundDue > 0 || exchangeDetails?.baridiMobRip) && (
+                    <div style={{ background: '#FEF3C7', border: '1.5px solid #FDE68A', padding: '14px', borderRadius: '14px', marginTop: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <strong style={{ color: '#92400E', fontSize: '0.9rem' }}>⚠️ مستحقات يجب إرجاعها للزبونة (Remboursement):</strong>
+                        <span style={{ background: '#D97706', color: 'white', fontWeight: 900, padding: '2px 10px', borderRadius: '12px', fontSize: '0.85rem' }}>
+                          {(Number(exchangeDetails?.refundDue) || 0).toLocaleString()} DA
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.78rem', color: '#78350F', display: 'block', fontWeight: 700 }}>رقم حساب بريدي موب (BaridiMob RIP):</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                          <code style={{ fontSize: '1rem', fontWeight: 900, letterSpacing: '1px', background: 'white', padding: '6px 12px', borderRadius: '8px', border: '1px solid #FCD34D', color: '#B45309', direction: 'ltr' }}>
+                            {exchangeDetails?.baridiMobRip ? exchangeDetails.baridiMobRip.replace(/(\d{4})(?=\d)/g, '$1 ') : 'غير متوفر'}
+                          </code>
+                          {exchangeDetails?.baridiMobRip && (
+                            <button 
+                              type="button" 
+                              onClick={() => {
+                                navigator.clipboard.writeText(exchangeDetails.baridiMobRip);
+                                alert('✅ تم نسخ رقم الـ RIP بنجاح!');
+                              }}
+                              style={{ background: '#B45309', color: 'white', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+                            >
+                              نسخ RIP
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Order Items Section */}
             <div style={{ marginBottom: '20px' }}>
               <h4 style={{ margin: '0 0 12px 0', color: '#1E293B', fontSize: '1rem', fontWeight: 800 }}>
@@ -668,7 +825,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
               
               {selectedOrderDetails.items && selectedOrderDetails.items.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {selectedOrderDetails.items.map((item, idx) => (
+                  {selectedOrderDetails.items.filter(it => !it.isExchangeMeta).map((item, idx) => (
                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
                       <div>
                         <strong style={{ fontSize: '0.9rem', color: '#1E293B', display: 'block' }}>{item.product}</strong>

@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabaseClient';
 import { ShoppingBag, Sparkles, ShieldCheck, Truck, PhoneCall, CheckCircle2, ArrowRight, Lock, MapPin, ShoppingCart, X, Plus, Minus, Trash2, Check, Heart, Star, Search, User, Bell, AlertTriangle, Menu, ChevronRight, Home, Grid, MessageCircle, FileText, ChevronDown, ChevronUp, Building2, Camera, Image as ImageIcon } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import DeliveryTariffsModal from './DeliveryTariffsModal';
+import ExchangeModal from './ExchangeModal';
 import CustomerAccountPage from './CustomerAccountPage';
 import CustomerDashboardPage from './CustomerDashboardPage';
 import ProductReviewsSection from './ProductReviewsSection';
@@ -1392,7 +1393,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       list.unshift({ id: 'all', title: 'TOUT VOIR', icon: '', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' });
     }
     if (!list.some(c => c.id === 'hot_sale')) {
-      list.splice(1, 0, { id: 'hot_sale', title: 'الأكثر مبيعاً (HOT SALE)', icon: '', badge: '🔥 Tendance' });
+      list.splice(1, 0, { id: 'hot_sale', title: 'HOT SALE / الأكثر مبيعاً', icon: '', badge: '🔥 Tendance' });
     }
     if (!list.some(c => c.id === 'promo')) {
       list.push({ id: 'promo', title: '% SOLDES', icon: '🔥', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' });
@@ -1403,7 +1404,10 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         return { ...c, title: c.title || 'TOUT VOIR', icon: '' };
       }
       if (c.id === 'hot_sale') {
-        return { ...c, title: c.title || 'الأكثر مبيعاً (HOT SALE)', icon: '', image: c.image || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&q=80' };
+        const title = (!c.title || c.title === 'الأكثر مبيعاً (HOT SALE)' || c.title === '(HOT SALE) الأكثر مبيعاً') 
+          ? 'HOT SALE / الأكثر مبيعاً' 
+          : c.title;
+        return { ...c, title, icon: '', image: c.image || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&q=80' };
       }
       if (c.id === 'promo') {
         return { ...c, title: c.title || '% SOLDES', icon: '', image: c.image || 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' };
@@ -1429,6 +1433,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [activePage, setActivePage] = useState(null); // 'about', 'shop', etc.
@@ -1599,27 +1604,17 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     }
   }, [isCustomerDashboardOpen]);
 
-  // 7. Reclamation Modal History Handler
+  // 7. Auto-fill customer details in Reclamation if logged in
   useEffect(() => {
-    if (isReclamationOpen) {
-      window.history.pushState({ pyjama_modal: 'reclamation' }, '');
-      reclamationBackPushedRef.current = true;
-
-      const handlePopState = () => {
-        reclamationBackPushedRef.current = false;
-        setIsReclamationOpen(false);
-      };
-
-      window.addEventListener('popstate', handlePopState);
-      return () => {
-        window.removeEventListener('popstate', handlePopState);
-        if (reclamationBackPushedRef.current && window.history.state?.pyjama_modal === 'reclamation') {
-          reclamationBackPushedRef.current = false;
-          window.history.back();
-        }
-      };
+    if (isReclamationOpen && currentCustomer) {
+      if (!reclamationName && currentCustomer.full_name) {
+        setReclamationName(currentCustomer.full_name);
+      }
+      if (!reclamationWhatsapp && currentCustomer.phone) {
+        setReclamationWhatsapp(currentCustomer.phone);
+      }
     }
-  }, [isReclamationOpen]);
+  }, [isReclamationOpen, currentCustomer]);
 
   useEffect(() => {
     if (activeDetailProduct || activePage) {
@@ -2929,6 +2924,17 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 <span style={{ position: 'absolute', top: '2px', right: '2px', width: '8px', height: '8px', background: '#25D366', borderRadius: '50%', border: '2px solid white' }} />
               )}
             </button>
+            {/* Reclamation / تقديم شكوى Button */}
+            <button
+              type="button"
+              className="mazyoud-circle-btn"
+              onClick={() => setIsReclamationOpen(true)}
+              title="تقديم شكوى أو اقتراح / Réclamation"
+              style={{ position: 'relative' }}
+            >
+              <span style={{ fontSize: '1.15rem', lineHeight: 1 }}>📢</span>
+            </button>
+
             {/* Wholesale Portal Button */}
             <a 
               href="/gros"
@@ -4844,13 +4850,14 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
           onClick={() => setIsReclamationOpen(false)}
           style={{ 
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-            background: 'rgba(0,0,0,0.6)', 
+            background: 'rgba(15, 23, 42, 0.75)', 
             backdropFilter: 'blur(8px)',
-            zIndex: 10000, 
+            zIndex: 10020, 
             display: 'flex', 
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '20px'
+            padding: '16px',
+            boxSizing: 'border-box'
           }}
         >
           <div 
@@ -4859,43 +4866,45 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
             style={{ 
               background: 'white', 
               borderRadius: '24px', 
-              padding: '32px 28px', 
+              padding: '28px 24px', 
               width: '100%', 
-              maxWidth: '450px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              maxWidth: '480px',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
               position: 'relative',
-              direction: 'rtl'
+              direction: 'rtl',
+              boxSizing: 'border-box'
             }}
           >
             <button 
-              type="button"
+              type="button" 
               onClick={() => setIsReclamationOpen(false)}
-              style={{ position: 'absolute', top: '20px', left: '20px', background: '#F5F5F5', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#666', transition: 'background 0.2s' }}
+              style={{ position: 'absolute', top: '18px', left: '18px', background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569', transition: 'all 0.2s' }}
             >
               <X size={20} />
             </button>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#FEF2F2', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#FEF2F2', color: '#BE123C', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span style={{ fontSize: '1.5rem' }}>📢</span>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--burgundy-dark)', margin: 0 }}>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--burgundy-dark)', margin: 0 }}>
                   تقديم شكوى أو اقتراح
                 </h3>
-                <p style={{ fontSize: '0.82rem', color: '#64748B', margin: '4px 0 0' }}>
-                  نهتم برأيكم ونبذل قصارى جهدنا لحل مشاكلكم
+                <p style={{ fontSize: '0.82rem', color: '#64748B', margin: '3px 0 0' }}>
+                  نهتم برأيكم ونتصل بكم مباشرة لحل أي مشكلة
                 </p>
               </div>
             </div>
 
-            <form onSubmit={handleReclamationSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleReclamationSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ textAlign: 'right' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>الاسم الكامل *</label>
+                <label style={{ display: 'block', fontSize: '0.86rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>الاسم واللقب *</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="مثال: محمد بن محمد"
                   value={reclamationName}
                   onChange={(e) => setReclamationName(e.target.value)}
                   style={{ width: '100%', padding: '12px 16px', border: '1px solid #CBD5E1', borderRadius: '12px', fontSize: '0.92rem', outline: 'none', boxSizing: 'border-box' }}
@@ -4903,26 +4912,26 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               </div>
 
               <div style={{ textAlign: 'right' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>رقم الواتساب *</label>
+                <label style={{ display: 'block', fontSize: '0.86rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  رقم الهاتف / الواتساب *
+                </label>
                 <input 
                   type="tel" 
                   required
-                  placeholder="مثال: 0555123456"
                   value={reclamationWhatsapp}
                   onChange={(e) => setReclamationWhatsapp(e.target.value)}
-                  style={{ width: '100%', padding: '12px 16px', border: '1px solid #CBD5E1', borderRadius: '12px', fontSize: '0.92rem', outline: 'none', textAlign: 'left', direction: 'ltr', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '12px 16px', border: '1.5px solid #BE123C', borderRadius: '12px', fontSize: '1rem', fontWeight: 700, outline: 'none', textAlign: 'left', direction: 'ltr', boxSizing: 'border-box', background: '#FFFDFD' }}
                 />
               </div>
 
               <div style={{ textAlign: 'right' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>تفاصيل الشكوى أو الاقتراح *</label>
+                <label style={{ display: 'block', fontSize: '0.86rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>تفاصيل الشكوى أو المشكلة بالتفصيل *</label>
                 <textarea 
                   required
                   rows="4"
-                  placeholder="اكتب رسالتك أو تفاصيل الشكوى بالتفصيل هنا..."
                   value={reclamationMessage}
                   onChange={(e) => setReclamationMessage(e.target.value)}
-                  style={{ width: '100%', padding: '12px 16px', border: '1px solid #CBD5E1', borderRadius: '12px', fontSize: '0.92rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '12px 16px', border: '1px solid #CBD5E1', borderRadius: '12px', fontSize: '0.92rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.5 }}
                 />
               </div>
 
@@ -4930,28 +4939,30 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 type="submit"
                 disabled={isSubmittingReclamation}
                 style={{ 
-                  background: 'var(--burgundy)', 
+                  background: 'linear-gradient(135deg, #800020, #BE123C)', 
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '12px', 
                   padding: '14px', 
-                  fontSize: '0.95rem', 
+                  fontSize: '0.98rem', 
                   fontWeight: 800, 
                   cursor: 'pointer', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center', 
                   gap: '8px',
-                  boxShadow: '0 4px 12px rgba(136, 19, 55, 0.15)',
-                  transition: 'opacity 0.2s' 
+                  boxShadow: '0 4px 14px rgba(190, 18, 60, 0.25)',
+                  transition: 'opacity 0.2s',
+                  marginTop: '4px'
                 }}
               >
-                {isSubmittingReclamation ? 'جاري الإرسال...' : 'إرسال الشكوى 📢'}
+                {isSubmittingReclamation ? 'جاري الإرسال...' : 'إرسال الشكوى الآن 📢'}
               </button>
             </form>
           </div>
         </div>
       )}
+
       {/* Waitlist Out-of-Stock Modal Popup */}
       {waitlistModalItem && (
         <div 
@@ -5433,8 +5444,17 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                 >
-                  <div className="mobile-drawer-item-left">
-                    <span>{cat.title}</span>
+                  <div className="mobile-drawer-item-left" style={{ display: 'flex', alignItems: 'center', gap: '8px', direction: 'ltr', textAlign: 'left' }}>
+                    <span style={{ color: 'inherit', fontWeight: 800, flexShrink: 0 }}>-</span>
+                    <span style={{ direction: 'ltr', textAlign: 'left' }}>
+                      {(() => {
+                        let t = (cat.title || '').replace(/^[\s\-_*•]+/, '').trim();
+                        if (t === 'الأكثر مبيعاً (HOT SALE)' || t === '(HOT SALE) الأكثر مبيعاً') {
+                          return 'HOT SALE / الأكثر مبيعاً';
+                        }
+                        return t;
+                      })()}
+                    </span>
                     {cat.badge && <span className="mobile-drawer-badge">{cat.badge}</span>}
                   </div>
                   <ChevronRight size={18} color="#94A3B8" />
@@ -5457,7 +5477,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span>ACCUEIL / الرئيسية</span>
+                  <span>- ACCUEIL / الرئيسية</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5477,7 +5497,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span>BOUTIQUE / المتجر والتشكيلات</span>
+                  <span>- BOUTIQUE / المتجر والتشكيلات</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5492,7 +5512,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span>ESPACE GROS / مبيعات الجملة</span>
+                  <span>- ESPACE GROS / مبيعات الجملة</span>
                 </div>
                 <span className="mobile-drawer-badge" style={{ background: '#EEF2FF', color: '#4338CA' }}>Gros</span>
               </a>
@@ -5508,7 +5528,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span>À PROPOS DE NOUS / من نحن</span>
+                  <span>- À PROPOS DE NOUS / من نحن</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5523,7 +5543,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span>TARIFS DE LIVRAISON / أسعار التوصيل</span>
+                  <span>- TARIFS DE LIVRAISON / أسعار التوصيل</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5534,7 +5554,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 onClick={scrollToFaqSection}
               >
                 <div className="mobile-drawer-item-left">
-                  <span>FAQ / الأسئلة الشائعة</span>
+                  <span>- FAQ / الأسئلة الشائعة</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5548,7 +5568,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span>POLITIQUE DE RETOUR / سياسة الإرجاع</span>
+                  <span>- POLITIQUE DE RETOUR / سياسة الإرجاع</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5563,7 +5583,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span>POLITIQUE DE CONFIDENTIALITÉ / الخصوصية</span>
+                  <span>- POLITIQUE DE CONFIDENTIALITÉ / الخصوصية</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5578,7 +5598,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span>TERMES & CONDITIONS / الشروط والأحكام</span>
+                  <span>- TERMES & CONDITIONS / الشروط والأحكام</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5592,7 +5612,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span>NOUS CONTACTEZ / تواصل معنا وموقع المحل</span>
+                  <span>- NOUS CONTACTEZ / تواصل معنا وموقع المحل</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5601,12 +5621,28 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 type="button"
                 className="mobile-drawer-item"
                 onClick={() => {
+                  menuBackPushedRef.current = false;
+                  setIsMobileMenuOpen(false);
+                  setIsExchangeModalOpen(true);
+                }}
+              >
+                <div className="mobile-drawer-item-left">
+                  <span style={{ color: 'var(--burgundy)', fontWeight: 800 }}>- DEMANDE D'ÉCHANGE / طلب استبدال منتج</span>
+                </div>
+                <ChevronRight size={18} color="#94A3B8" />
+              </button>
+
+              <button 
+                type="button"
+                className="mobile-drawer-item"
+                onClick={() => {
+                  menuBackPushedRef.current = false;
                   setIsMobileMenuOpen(false);
                   setIsReclamationOpen(true);
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span>RECLAMATIONS / قسم الشكاوى والملاحظات</span>
+                  <span style={{ color: '#BE123C', fontWeight: 800 }}>- RECLAMATIONS / قسم الشكاوى والملاحظات</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5774,6 +5810,21 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
       {/* DELIVERY TARIFFS MODAL (58 WILAYAS CHLEF DEPARTURE) */}
       <DeliveryTariffsModal isOpen={isTariffsModalOpen} onClose={() => setIsTariffsModalOpen(false)} />
+
+      {/* PRODUCT EXCHANGE MODAL (طلب استبدال منتج) */}
+      <ExchangeModal
+        isOpen={isExchangeModalOpen}
+        onClose={() => setIsExchangeModalOpen(false)}
+        products={products}
+        categories={categoriesList}
+        currentCustomer={currentCustomer}
+        onOpenAuth={() => {
+          setIsExchangeModalOpen(false);
+          setIsAuthModalOpen(true);
+        }}
+        onPlaceOrder={onPlaceOrder}
+        showToast={showToast}
+      />
 
     </>
   );
