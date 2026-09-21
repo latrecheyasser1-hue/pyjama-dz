@@ -312,8 +312,7 @@ export default function AliOwnerDashboard({
     return refunds;
   }, [orders, paidRefundOrderIds]);
 
-  // View mode: 'active' (المستحقات الحالية) vs 'historique' (سجل الأرشيف)
-  const [refundViewMode, setRefundViewMode] = useState('active'); // 'active' | 'historique'
+  // State for search and filters
   const [refundSearch, setRefundSearch] = useState('');
   const [historiqueSearch, setHistoriqueSearch] = useState('');
   const [refundFilter, setRefundFilter] = useState('all'); // 'all' | 'ready' | 'in_transit'
@@ -344,6 +343,7 @@ export default function AliOwnerDashboard({
   const activeRefundsCount = useMemo(() => {
     return exchangeRefundsList.filter(item => !item.isPaid).length;
   }, [exchangeRefundsList]);
+  const pendingRefundsCount = activeRefundsCount;
 
   const completedRefundsCount = useMemo(() => {
     return exchangeRefundsList.filter(item => item.isPaid).length;
@@ -1024,6 +1024,35 @@ export default function AliOwnerDashboard({
           >
             <CreditCard size={19} />
             <span>مستحقات بريدي موب ({pendingRefundsCount})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('refunds_history')}
+            style={{
+              flex: 1,
+              minWidth: '210px',
+              padding: '14px 16px',
+              borderRadius: '16px',
+              border: 'none',
+              background: activeTab === 'refunds_history' 
+                ? 'linear-gradient(135deg, #15803D 0%, #16A34A 100%)' 
+                : 'transparent',
+              color: activeTab === 'refunds_history' ? '#FFF' : '#64748B',
+              fontSize: '0.96rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: activeTab === 'refunds_history' ? '0 8px 18px rgba(22, 163, 74, 0.28)' : 'none',
+              transform: activeTab === 'refunds_history' ? 'scale(1.01)' : 'scale(1)',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <History size={19} />
+            <span>سجل التحويلات (Historique) ({completedRefundsCount})</span>
           </button>
 
           <button
@@ -2538,102 +2567,11 @@ export default function AliOwnerDashboard({
         )}
 
         {/* ---------------------------------------------------- */}
-        {/* TAB 5: BARIDIMOB REFUNDS (EXCHANGES & HISTORIQUE)    */}
+        {/* TAB 4: BARIDIMOB PENDING REFUNDS (المستحقات المعلقة) */}
         {/* ---------------------------------------------------- */}
         {activeTab === 'refunds' && (
           <div className="tab-pane-fade" key="refunds" style={{ width: '100%' }}>
-            
-            {/* 1. TOP VIEW SELECTOR: ACTIVE PENDING VS L'HISTORIQUE */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: '#F1F5F9',
-              padding: '6px',
-              borderRadius: '16px',
-              marginBottom: '22px',
-              border: '1.5px solid #E2E8F0',
-              flexWrap: 'wrap',
-              gap: '10px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1', minWidth: '320px' }}>
-                <button
-                  type="button"
-                  onClick={() => setRefundViewMode('active')}
-                  style={{
-                    flex: '1',
-                    padding: '12px 22px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background: refundViewMode === 'active' ? '#FFFFFF' : 'transparent',
-                    color: refundViewMode === 'active' ? '#1E293B' : '#64748B',
-                    fontWeight: 900,
-                    fontSize: '0.96rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    cursor: 'pointer',
-                    boxShadow: refundViewMode === 'active' ? '0 3px 10px rgba(0,0,0,0.06)' : 'none',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <Clock size={18} color={refundViewMode === 'active' ? '#B45309' : '#94A3B8'} />
-                  <span>المستحقات المعلقة (قيد الانتظار)</span>
-                  <span style={{
-                    background: refundViewMode === 'active' ? '#FEF3C7' : '#E2E8F0',
-                    color: refundViewMode === 'active' ? '#B45309' : '#64748B',
-                    padding: '2px 10px',
-                    borderRadius: '20px',
-                    fontSize: '0.82rem',
-                    fontWeight: 900
-                  }}>
-                    {activeRefundsCount}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setRefundViewMode('historique')}
-                  style={{
-                    flex: '1',
-                    padding: '12px 22px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background: refundViewMode === 'historique' ? '#FFFFFF' : 'transparent',
-                    color: refundViewMode === 'historique' ? '#15803D' : '#64748B',
-                    fontWeight: 900,
-                    fontSize: '0.96rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    cursor: 'pointer',
-                    boxShadow: refundViewMode === 'historique' ? '0 3px 10px rgba(0,0,0,0.06)' : 'none',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <History size={18} color={refundViewMode === 'historique' ? '#16A34A' : '#94A3B8'} />
-                  <span>سجل التحويلات (L'Historique)</span>
-                  <span style={{
-                    background: refundViewMode === 'historique' ? '#DCFCE7' : '#E2E8F0',
-                    color: refundViewMode === 'historique' ? '#15803D' : '#64748B',
-                    padding: '2px 10px',
-                    borderRadius: '20px',
-                    fontSize: '0.82rem',
-                    fontWeight: 900
-                  }}>
-                    {completedRefundsCount}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* ==================================================== */}
-            {/* VIEW A: ACTIVE PENDING REFUNDS (EN COURS)            */}
-            {/* ==================================================== */}
-            {refundViewMode === 'active' && (
-              <div>
+            <div>
                 {/* Header banner */}
                 <div style={{
                   background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
@@ -2937,6 +2875,27 @@ export default function AliOwnerDashboard({
                               <div style={{ fontSize: '0.85rem', color: '#64748B', marginTop: '4px' }}>
                                 جميع التحويلات تم إنجازها ونقلها إلى سجل الأرشيف (L'Historique) بنجاح
                               </div>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('refunds_history')}
+                                style={{
+                                  marginTop: '14px',
+                                  padding: '8px 18px',
+                                  background: '#DCFCE7',
+                                  color: '#15803D',
+                                  border: '1.5px solid #86EFAC',
+                                  borderRadius: '12px',
+                                  fontSize: '0.88rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px'
+                                }}
+                              >
+                                <History size={16} />
+                                <span>الانتقال إلى خانة سجل التحويلات (L'Historique) ←</span>
+                              </button>
                             </td>
                           </tr>
                         ) : (
@@ -3156,13 +3115,15 @@ export default function AliOwnerDashboard({
                   </div>
                 </div>
               </div>
-            )}
+          </div>
+        )}
 
-            {/* ==================================================== */}
-            {/* VIEW B: DEDICATED HISTORIQUE ARCHIVE (L'HISTORIQUE)  */}
-            {/* ==================================================== */}
-            {refundViewMode === 'historique' && (
-              <div>
+        {/* ---------------------------------------------------- */}
+        {/* TAB 5: BARIDIMOB DEDICATED HISTORIQUE (L'HISTORIQUE) */}
+        {/* ---------------------------------------------------- */}
+        {activeTab === 'refunds_history' && (
+          <div className="tab-pane-fade" key="refunds_history" style={{ width: '100%' }}>
+            <div>
                 {/* Historique banner */}
                 <div style={{
                   background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
@@ -3487,8 +3448,6 @@ export default function AliOwnerDashboard({
                   </div>
                 </div>
               </div>
-            )}
-
           </div>
         )}
 
