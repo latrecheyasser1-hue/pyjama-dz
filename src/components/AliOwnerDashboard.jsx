@@ -5,7 +5,7 @@ import {
   AlertCircle, Eye, EyeOff, Search, Filter, Sparkles, RefreshCw, 
   ExternalLink, Phone, MapPin, ChevronRight, X, Layers, ArrowUpRight, ArrowDownRight,
   ShieldCheck, Award, HeartHandshake, MessageSquare, Star, Trash2, Check,
-  CreditCard, Copy, ArrowRightLeft
+  CreditCard, Copy, ArrowRightLeft, History
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
@@ -247,9 +247,11 @@ export default function AliOwnerDashboard({
     }
 
     // If no real exchange refund orders exist yet, provide illustrative samples showing both automated states
+    // If no real exchange refund orders exist yet, provide illustrative samples showing active & historique states
     if (refunds.length === 0) {
       const demoId1 = 'CMD-EX-8492';
       const demoId2 = 'CMD-EX-9104';
+      const demoId3 = 'CMD-EX-7721';
       refunds.push({
         orderId: demoId1,
         clientName: 'أمينة بن علي',
@@ -286,28 +288,51 @@ export default function AliOwnerDashboard({
         isDemo: true,
         order: null
       });
+      refunds.push({
+        orderId: demoId3,
+        clientName: 'فاطمة الزهراء منصوري',
+        phone: '0770 45 67 89',
+        wilaya: 'الجزائر العاصمة (Alger)',
+        date: new Date(Date.now() - 86400000).toLocaleDateString('fr-FR'),
+        oldProductTitle: 'بيجامة تركي 3 قطع (M)',
+        reason: 'استبدال بموديل آخر مع فارق السعر',
+        refundDue: 1500,
+        baridiMobRip: '007999990055443322',
+        isPaid: !paidRefundOrderIds.includes('UNSET_' + demoId3), // defaulted to paid for Historique showcase
+        isParcelReceived: true,
+        paidAt: new Date(Date.now() - 86400000).toISOString(),
+        receivedAt: new Date(Date.now() - 172800000).toISOString(),
+        courierCompany: 'Yalidine Express',
+        courierStatus: 'Retourné au vendeur',
+        isDemo: true,
+        order: null
+      });
     }
 
     return refunds;
   }, [orders, paidRefundOrderIds]);
 
-  // Total ready for payout (strictly only if parcel has been received back from the courier!)
+  // View mode: 'active' (المستحقات الحالية) vs 'historique' (سجل الأرشيف)
+  const [refundViewMode, setRefundViewMode] = useState('active'); // 'active' | 'historique'
+  const [refundSearch, setRefundSearch] = useState('');
+  const [historiqueSearch, setHistoriqueSearch] = useState('');
+  const [refundFilter, setRefundFilter] = useState('all'); // 'all' | 'ready' | 'in_transit'
+
+  // Total ready for payout (strictly only active unpaid items where parcel is received)
   const totalRefundsDue = useMemo(() => {
     return exchangeRefundsList
       .filter(item => !item.isPaid && item.isParcelReceived)
       .reduce((sum, item) => sum + (Number(item.refundDue) || 0), 0);
   }, [exchangeRefundsList]);
 
-  // Total still locked awaiting courier return
-  const totalAwaitingParcelRefunds = useMemo(() => {
+  // Total completed payouts in archive
+  const totalCompletedRefundsAmount = useMemo(() => {
     return exchangeRefundsList
-      .filter(item => !item.isPaid && !item.isParcelReceived)
+      .filter(item => item.isPaid)
       .reduce((sum, item) => sum + (Number(item.refundDue) || 0), 0);
   }, [exchangeRefundsList]);
 
-  const [refundSearch, setRefundSearch] = useState('');
-  const [refundFilter, setRefundFilter] = useState('all'); // 'all' | 'ready' | 'in_transit' | 'completed'
-
+  // Counts
   const readyRefundsCount = useMemo(() => {
     return exchangeRefundsList.filter(item => !item.isPaid && item.isParcelReceived).length;
   }, [exchangeRefundsList]);
@@ -316,15 +341,21 @@ export default function AliOwnerDashboard({
     return exchangeRefundsList.filter(item => !item.isPaid && !item.isParcelReceived).length;
   }, [exchangeRefundsList]);
 
+  const activeRefundsCount = useMemo(() => {
+    return exchangeRefundsList.filter(item => !item.isPaid).length;
+  }, [exchangeRefundsList]);
+
   const completedRefundsCount = useMemo(() => {
     return exchangeRefundsList.filter(item => item.isPaid).length;
   }, [exchangeRefundsList]);
 
-  const filteredRefunds = useMemo(() => {
+  // 1. Filtered active refunds (ONLY UNPAID - disappears immediately when paid!)
+  const filteredActiveRefunds = useMemo(() => {
     return exchangeRefundsList.filter(item => {
-      if (refundFilter === 'ready' && (item.isPaid || !item.isParcelReceived)) return false;
-      if (refundFilter === 'in_transit' && (item.isPaid || item.isParcelReceived)) return false;
-      if (refundFilter === 'completed' && !item.isPaid) return false;
+      if (item.isPaid) return false; // Must be unpaid
+
+      if (refundFilter === 'ready' && !item.isParcelReceived) return false;
+      if (refundFilter === 'in_transit' && item.isParcelReceived) return false;
 
       if (!refundSearch.trim()) return true;
       const q = refundSearch.toLowerCase().trim();
@@ -339,6 +370,23 @@ export default function AliOwnerDashboard({
     });
   }, [exchangeRefundsList, refundFilter, refundSearch]);
 
+  // 2. Filtered Historique refunds (ONLY PAID, strictly searchable by RIP and Phone)
+  const filteredHistoriqueRefunds = useMemo(() => {
+    return exchangeRefundsList.filter(item => {
+      if (!item.isPaid) return false; // Must be paid
+
+      if (!historiqueSearch.trim()) return true;
+      const cleanSearch = historiqueSearch.trim().replace(/\s+/g, '').toLowerCase();
+      const cleanRip = String(item.baridiMobRip || '').replace(/\s+/g, '').toLowerCase();
+      const cleanPhone = String(item.phone || '').replace(/\s+/g, '').toLowerCase();
+      const cleanName = String(item.clientName || '').toLowerCase();
+      const cleanOrderId = String(item.orderId || '').toLowerCase();
+
+      // Prioritize search on RIP and Phone number as requested
+      return cleanRip.includes(cleanSearch) || cleanPhone.includes(cleanSearch) || cleanName.includes(cleanSearch) || cleanOrderId.includes(cleanSearch);
+    });
+  }, [exchangeRefundsList, historiqueSearch]);
+
   const handleCopyRip = (rip) => {
     if (!rip) return;
     navigator.clipboard.writeText(rip);
@@ -350,7 +398,12 @@ export default function AliOwnerDashboard({
     const willBePaid = !item.isPaid;
 
     setPaidRefundOrderIds(prev => {
-      const next = willBePaid ? [...prev, orderId] : prev.filter(id => id !== orderId);
+      let next;
+      if (item.isDemo && orderId === 'CMD-EX-7721') {
+        next = willBePaid ? prev.filter(id => id !== 'UNSET_' + orderId) : [...prev, 'UNSET_' + orderId];
+      } else {
+        next = willBePaid ? [...prev, orderId] : prev.filter(id => id !== orderId);
+      }
       try {
         localStorage.setItem('pyjama_ali_paid_refunds', JSON.stringify(next));
       } catch (e) {}
@@ -361,7 +414,8 @@ export default function AliOwnerDashboard({
       try {
         const updatedDetails = {
           ...(item.order.exchangeDetails || {}),
-          isRefundPaid: willBePaid
+          isRefundPaid: willBePaid,
+          refund_paid_at: willBePaid ? new Date().toISOString() : null
         };
         await supabase.from('orders').update({
           exchangeDetails: updatedDetails,
@@ -372,7 +426,12 @@ export default function AliOwnerDashboard({
       }
     }
 
-    showToast(willBePaid ? '✅ تم تأكيد تحويل المبلغ للزبون بنجاح!' : 'تم التراجع عن تأكيد التحويل', 'info');
+    showToast(
+      willBePaid 
+        ? '✅ تم تأكيد التحويل ونقل العملية فوراً إلى سجل الأرشيف (L\'Historique)!' 
+        : '↩️ تم إلغاء التحويل وإرجاع الطلبية إلى قائمة المستحقات النشطة بنجاح', 
+      'info'
+    );
   };
 
   const handleLogin = (e) => {
@@ -2479,595 +2538,956 @@ export default function AliOwnerDashboard({
         )}
 
         {/* ---------------------------------------------------- */}
-        {/* TAB 5: BARIDIMOB REFUNDS (EXCHANGES)                 */}
+        {/* TAB 5: BARIDIMOB REFUNDS (EXCHANGES & HISTORIQUE)    */}
         {/* ---------------------------------------------------- */}
         {activeTab === 'refunds' && (
           <div className="tab-pane-fade" key="refunds" style={{ width: '100%' }}>
             
-            {/* Header banner */}
+            {/* 1. TOP VIEW SELECTOR: ACTIVE PENDING VS L'HISTORIQUE */}
             <div style={{
-              background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
-              border: '1.5px solid #FDE68A',
-              borderRadius: '20px',
-              padding: '24px 28px',
-              marginBottom: '24px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              background: '#F1F5F9',
+              padding: '6px',
+              borderRadius: '16px',
+              marginBottom: '22px',
+              border: '1.5px solid #E2E8F0',
               flexWrap: 'wrap',
-              gap: '16px'
+              gap: '10px'
             }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '44px',
-                    height: '44px',
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1', minWidth: '320px' }}>
+                <button
+                  type="button"
+                  onClick={() => setRefundViewMode('active')}
+                  style={{
+                    flex: '1',
+                    padding: '12px 22px',
                     borderRadius: '12px',
-                    background: '#B45309',
-                    display: 'flex',
+                    border: 'none',
+                    background: refundViewMode === 'active' ? '#FFFFFF' : 'transparent',
+                    color: refundViewMode === 'active' ? '#1E293B' : '#64748B',
+                    fontWeight: 900,
+                    fontSize: '0.96rem',
+                    display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#FFF'
+                    gap: '10px',
+                    cursor: 'pointer',
+                    boxShadow: refundViewMode === 'active' ? '0 3px 10px rgba(0,0,0,0.06)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Clock size={18} color={refundViewMode === 'active' ? '#B45309' : '#94A3B8'} />
+                  <span>المستحقات المعلقة (قيد الانتظار)</span>
+                  <span style={{
+                    background: refundViewMode === 'active' ? '#FEF3C7' : '#E2E8F0',
+                    color: refundViewMode === 'active' ? '#B45309' : '#64748B',
+                    padding: '2px 10px',
+                    borderRadius: '20px',
+                    fontSize: '0.82rem',
+                    fontWeight: 900
                   }}>
-                    <CreditCard size={24} />
-                  </div>
+                    {activeRefundsCount}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRefundViewMode('historique')}
+                  style={{
+                    flex: '1',
+                    padding: '12px 22px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: refundViewMode === 'historique' ? '#FFFFFF' : 'transparent',
+                    color: refundViewMode === 'historique' ? '#15803D' : '#64748B',
+                    fontWeight: 900,
+                    fontSize: '0.96rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    boxShadow: refundViewMode === 'historique' ? '0 3px 10px rgba(0,0,0,0.06)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <History size={18} color={refundViewMode === 'historique' ? '#16A34A' : '#94A3B8'} />
+                  <span>سجل التحويلات (L'Historique)</span>
+                  <span style={{
+                    background: refundViewMode === 'historique' ? '#DCFCE7' : '#E2E8F0',
+                    color: refundViewMode === 'historique' ? '#15803D' : '#64748B',
+                    padding: '2px 10px',
+                    borderRadius: '20px',
+                    fontSize: '0.82rem',
+                    fontWeight: 900
+                  }}>
+                    {completedRefundsCount}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* ==================================================== */}
+            {/* VIEW A: ACTIVE PENDING REFUNDS (EN COURS)            */}
+            {/* ==================================================== */}
+            {refundViewMode === 'active' && (
+              <div>
+                {/* Header banner */}
+                <div style={{
+                  background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+                  border: '1.5px solid #FDE68A',
+                  borderRadius: '20px',
+                  padding: '24px 28px',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '16px'
+                }}>
                   <div>
-                    <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 900, color: '#78350F' }}>
-                      مستحقات استرجاع بريدي موب (طلبات الاستبدال)
-                    </h2>
-                    <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: '#92400E', fontWeight: 600 }}>
-                      نظام أوتوماتيكي 100%: تظهر الطلبيات جاهزة للتحويل فقط بعد تأكيد شركة التوصيل (Yalidine / ZR) استرجاع كولي الاستبدال للمركز
-                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '12px',
+                        background: '#B45309',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#FFF'
+                      }}>
+                        <CreditCard size={24} />
+                      </div>
+                      <div>
+                        <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 900, color: '#78350F' }}>
+                          مستحقات استرجاع بريدي موب (الطلبيات النشطة)
+                        </h2>
+                        <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: '#92400E', fontWeight: 600 }}>
+                          تظهر جاهزة للتحويل فقط بعد وصول كولي الاستبدال للمركز أوتوماتيكياً. بمجرد تأكيد التحويل تنتقل فوراً إلى سجل الـ Historique.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total due badge */}
+                  <div style={{
+                    background: '#B45309',
+                    color: '#FFF',
+                    padding: '12px 24px',
+                    borderRadius: '16px',
+                    textAlign: 'center',
+                    boxShadow: '0 4px 14px rgba(180, 83, 9, 0.25)'
+                  }}>
+                    <span style={{ fontSize: '0.8rem', opacity: 0.9, display: 'block', fontWeight: 700 }}>
+                      المستحق الجاهز للتحويل (الكولي وصل) 📦:
+                    </span>
+                    <span style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.5px' }}>
+                      {totalRefundsDue.toLocaleString('ar-DZ')} دج
+                    </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Total due badge */}
-              <div style={{
-                background: '#B45309',
-                color: '#FFF',
-                padding: '12px 24px',
-                borderRadius: '16px',
-                textAlign: 'center',
-                boxShadow: '0 4px 14px rgba(180, 83, 9, 0.25)'
-              }}>
-                <span style={{ fontSize: '0.8rem', opacity: 0.9, display: 'block', fontWeight: 700 }}>
-                  المستحق الجاهز للتحويل (الكولي وصل) 📦:
-                </span>
-                <span style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.5px' }}>
-                  {totalRefundsDue.toLocaleString('ar-DZ')} دج
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Metrics Cards */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
-              gap: '16px',
-              marginBottom: '24px'
-            }}>
-              <div style={{
-                background: '#FFF',
-                borderRadius: '18px',
-                padding: '20px 22px',
-                border: '1px solid #E2E8F0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.03)'
-              }}>
+                {/* Quick Metrics Cards */}
                 <div style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '14px',
-                  background: '#DCFCE7',
-                  color: '#16A34A',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+                  gap: '16px',
+                  marginBottom: '24px'
                 }}>
-                  <CheckCircle2 size={24} />
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
-                    جاهزة للتحويل (الكولي وصل) 📦
-                  </span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#16A34A' }}>
-                    {readyRefundsCount} زبون
-                  </div>
-                </div>
-              </div>
-
-              <div style={{
-                background: '#FFF',
-                borderRadius: '18px',
-                padding: '20px 22px',
-                border: '1px solid #E2E8F0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.03)'
-              }}>
-                <div style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '14px',
-                  background: '#FEF3C7',
-                  color: '#B45309',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Truck size={24} />
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
-                    في طريق العودة مع التوصيل 🚚
-                  </span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#B45309' }}>
-                    {inTransitRefundsCount} طلبية
-                  </div>
-                </div>
-              </div>
-
-              <div style={{
-                background: '#FFF',
-                borderRadius: '18px',
-                padding: '20px 22px',
-                border: '1px solid #E2E8F0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.03)'
-              }}>
-                <div style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '14px',
-                  background: '#F1F5F9',
-                  color: '#475569',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Check size={24} />
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
-                    تحويلات مكتملة (تم الدفع) 💳
-                  </span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#475569' }}>
-                    {completedRefundsCount} زبون
-                  </div>
-                </div>
-              </div>
-
-              <div style={{
-                background: '#FFF',
-                borderRadius: '18px',
-                padding: '20px 22px',
-                border: '1px solid #E2E8F0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.03)'
-              }}>
-                <div style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '14px',
-                  background: '#EFF6FF',
-                  color: '#2563EB',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <ArrowRightLeft size={24} />
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
-                    إجمالي طلبات الاستبدال
-                  </span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#1E293B' }}>
-                    {exchangeRefundsList.length} طلبية
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Search & Filter Bar */}
-            <div style={{
-              background: '#FFF',
-              padding: '18px 22px',
-              borderRadius: '18px',
-              border: '1px solid #E2E8F0',
-              marginBottom: '20px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '16px'
-            }}>
-              <div style={{ position: 'relative', flex: '1', minWidth: '280px' }}>
-                <Search size={18} color="#94A3B8" style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)' }} />
-                <input
-                  type="text"
-                  value={refundSearch}
-                  onChange={(e) => setRefundSearch(e.target.value)}
-                  placeholder="ابحث برقم الطلبية، اسم الزبون، رقم الهاتف، أو الـ RIP..."
-                  style={{
-                    width: '100%',
-                    padding: '11px 42px 11px 14px',
-                    borderRadius: '12px',
-                    border: '1.5px solid #CBD5E1',
-                    fontSize: '0.92rem',
-                    outline: 'none',
-                    background: '#F8FAFC',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => setRefundFilter('all')}
-                  style={{
-                    padding: '9px 18px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background: refundFilter === 'all' ? '#1E293B' : '#F1F5F9',
-                    color: refundFilter === 'all' ? '#FFF' : '#475569',
-                    fontSize: '0.86rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  الكل ({exchangeRefundsList.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRefundFilter('ready')}
-                  style={{
-                    padding: '9px 18px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background: refundFilter === 'ready' ? '#15803D' : '#DCFCE7',
-                    color: refundFilter === 'ready' ? '#FFF' : '#166534',
-                    fontSize: '0.86rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  جاهزة للتحويل ({readyRefundsCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRefundFilter('in_transit')}
-                  style={{
-                    padding: '9px 18px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background: refundFilter === 'in_transit' ? '#B45309' : '#FEF3C7',
-                    color: refundFilter === 'in_transit' ? '#FFF' : '#92400E',
-                    fontSize: '0.86rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  مع شركة التوصيل ({inTransitRefundsCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRefundFilter('completed')}
-                  style={{
-                    padding: '9px 18px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    background: refundFilter === 'completed' ? '#475569' : '#F1F5F9',
-                    color: refundFilter === 'completed' ? '#FFF' : '#475569',
-                    fontSize: '0.86rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  تم التحويل ({completedRefundsCount})
-                </button>
-              </div>
-            </div>
-
-            {/* ULTRA-WIDE TABLE - EVERY ROW STRICTLY FITS ON ONE SINGLE LINE */}
-            <div style={{
-              background: '#FFF',
-              borderRadius: '20px',
-              border: '1px solid #E2E8F0',
-              boxShadow: '0 4px 18px rgba(0,0,0,0.03)',
-              overflow: 'hidden'
-            }}>
-              <div style={{ overflowX: 'auto', width: '100%' }}>
-                <table style={{
-                  width: '100%',
-                  minWidth: '980px',
-                  borderCollapse: 'collapse',
-                  textAlign: 'right'
-                }}>
-                  <thead>
-                    <tr style={{
-                      background: '#F8FAFC',
-                      borderBottom: '2px solid #E2E8F0'
+                  <div style={{
+                    background: '#FFF',
+                    borderRadius: '18px',
+                    padding: '20px 22px',
+                    border: '1px solid #E2E8F0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '14px',
+                      background: '#DCFCE7',
+                      color: '#16A34A',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}>
-                      <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap' }}>
-                        الزبون(ة) & الهاتف & الولاية
-                      </th>
-                      <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                        حالة كولي الاستبدال (أوتوماتيكي 100% عبر التوصيل)
-                      </th>
-                      <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                        المبلغ المستحق (Remboursement)
-                      </th>
-                      <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                        رقم حساب بريدي موب (BaridiMob RIP)
-                      </th>
-                      <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                        الإجراء / تحويل بريدي موب
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRefunds.length === 0 ? (
-                      <tr>
-                        <td colSpan="5" style={{ padding: '50px 20px', textAlign: 'center', color: '#94A3B8' }}>
-                          <CheckCircle2 size={40} color="#CBD5E1" style={{ marginBottom: '10px' }} />
-                          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E293B' }}>
-                            لا توجد مستحقات مطابقة للبحث
-                          </div>
-                          <div style={{ fontSize: '0.85rem', color: '#64748B', marginTop: '4px' }}>
-                            جميع الحسابات مدفوعة أو لا توجد نتائج للفلتر المحدد
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredRefunds.map((item, idx) => {
-                        const rawRip = String(item.baridiMobRip || '').replace(/\s+/g, '');
-                        // Format into 4-digit groups for clean single-line readability: 0079 9999 0023 4567 89
-                        const formattedRip = rawRip.length === 20
-                          ? `${rawRip.slice(0, 4)} ${rawRip.slice(4, 8)} ${rawRip.slice(8, 12)} ${rawRip.slice(12, 16)} ${rawRip.slice(16, 20)}`
-                          : (rawRip || '0079 9999 0023 4567 89');
+                      <CheckCircle2 size={24} />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
+                        جاهزة للتحويل (الكولي وصل) 📦
+                      </span>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#16A34A' }}>
+                        {readyRefundsCount} زبون
+                      </div>
+                    </div>
+                  </div>
 
-                        return (
-                          <tr
-                            key={item.orderId || idx}
-                            style={{
-                              borderBottom: '1px solid #F1F5F9',
-                              backgroundColor: item.isPaid ? '#F0FDF4' : idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA',
-                              transition: 'background-color 0.15s ease'
-                            }}
-                          >
-                            {/* 1. Client info - strictly 1 line */}
-                            <td style={{ padding: '18px 20px', whiteSpace: 'nowrap' }}>
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-                                <strong style={{ color: '#1E293B', fontSize: '1rem', fontWeight: 800 }}>
-                                  {item.clientName}
-                                </strong>
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  color: '#334155',
-                                  fontSize: '0.9rem',
-                                  direction: 'ltr',
-                                  fontFamily: 'monospace',
-                                  fontWeight: 700,
-                                  background: '#F1F5F9',
-                                  padding: '4px 10px',
-                                  borderRadius: '8px'
-                                }}>
-                                  <Phone size={13} color="#64748B" />
-                                  {item.phone}
-                                </span>
-                                {item.wilaya && (
-                                  <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600 }}>
-                                    ({item.wilaya})
-                                  </span>
-                                )}
+                  <div style={{
+                    background: '#FFF',
+                    borderRadius: '18px',
+                    padding: '20px 22px',
+                    border: '1px solid #E2E8F0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '14px',
+                      background: '#FEF3C7',
+                      color: '#B45309',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Truck size={24} />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
+                        في طريق العودة مع التوصيل 🚚
+                      </span>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#B45309' }}>
+                        {inTransitRefundsCount} طلبية
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => setRefundViewMode('historique')}
+                    style={{
+                      background: '#FFF',
+                      borderRadius: '18px',
+                      padding: '20px 22px',
+                      border: '1.5px dashed #CBD5E1',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '16px',
+                      boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#16A34A'; e.currentTarget.style.background = '#F0FDF4'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.background = '#FFFFFF'; }}
+                  >
+                    <div style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '14px',
+                      background: '#EFF6FF',
+                      color: '#2563EB',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <History size={24} />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
+                        عرض سجل الأرشيف 📜
+                      </span>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#1E293B' }}>
+                        {completedRefundsCount} تحويل مكتمل ➔
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Search & Filter Bar */}
+                <div style={{
+                  background: '#FFF',
+                  padding: '18px 22px',
+                  borderRadius: '18px',
+                  border: '1px solid #E2E8F0',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '16px'
+                }}>
+                  <div style={{ position: 'relative', flex: '1', minWidth: '280px' }}>
+                    <Search size={18} color="#94A3B8" style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+                    <input
+                      type="text"
+                      value={refundSearch}
+                      onChange={(e) => setRefundSearch(e.target.value)}
+                      placeholder="ابحث برقم الطلبية، اسم الزبون، رقم الهاتف، أو الـ RIP..."
+                      style={{
+                        width: '100%',
+                        padding: '11px 42px 11px 14px',
+                        borderRadius: '12px',
+                        border: '1.5px solid #CBD5E1',
+                        fontSize: '0.92rem',
+                        outline: 'none',
+                        background: '#F8FAFC',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setRefundFilter('all')}
+                      style={{
+                        padding: '9px 18px',
+                        borderRadius: '12px',
+                        border: 'none',
+                        background: refundFilter === 'all' ? '#1E293B' : '#F1F5F9',
+                        color: refundFilter === 'all' ? '#FFF' : '#475569',
+                        fontSize: '0.86rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      الكل النشطة ({activeRefundsCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRefundFilter('ready')}
+                      style={{
+                        padding: '9px 18px',
+                        borderRadius: '12px',
+                        border: 'none',
+                        background: refundFilter === 'ready' ? '#15803D' : '#DCFCE7',
+                        color: refundFilter === 'ready' ? '#FFF' : '#166534',
+                        fontSize: '0.86rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      جاهزة للتحويل ({readyRefundsCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRefundFilter('in_transit')}
+                      style={{
+                        padding: '9px 18px',
+                        borderRadius: '12px',
+                        border: 'none',
+                        background: refundFilter === 'in_transit' ? '#B45309' : '#FEF3C7',
+                        color: refundFilter === 'in_transit' ? '#FFF' : '#92400E',
+                        fontSize: '0.86rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      مع شركة التوصيل ({inTransitRefundsCount})
+                    </button>
+                  </div>
+                </div>
+
+                {/* ULTRA-WIDE TABLE - EVERY ROW STRICTLY FITS ON ONE SINGLE LINE */}
+                <div style={{
+                  background: '#FFF',
+                  borderRadius: '20px',
+                  border: '1px solid #E2E8F0',
+                  boxShadow: '0 4px 18px rgba(0,0,0,0.03)',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{ overflowX: 'auto', width: '100%' }}>
+                    <table style={{
+                      width: '100%',
+                      minWidth: '980px',
+                      borderCollapse: 'collapse',
+                      textAlign: 'right'
+                    }}>
+                      <thead>
+                        <tr style={{
+                          background: '#F8FAFC',
+                          borderBottom: '2px solid #E2E8F0'
+                        }}>
+                          <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap' }}>
+                            الزبون(ة) & الهاتف & الولاية
+                          </th>
+                          <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            حالة كولي الاستبدال (أوتوماتيكي 100% عبر التوصيل)
+                          </th>
+                          <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            المبلغ المستحق (Remboursement)
+                          </th>
+                          <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            رقم حساب بريدي موب (BaridiMob RIP)
+                          </th>
+                          <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            الإجراء / تأكيد التحويل
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredActiveRefunds.length === 0 ? (
+                          <tr>
+                            <td colSpan="5" style={{ padding: '50px 20px', textAlign: 'center', color: '#94A3B8' }}>
+                              <CheckCircle2 size={40} color="#CBD5E1" style={{ marginBottom: '10px' }} />
+                              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E293B' }}>
+                                لا توجد مستحقات معلقة حالياً
                               </div>
-                            </td>
-
-                            {/* 2. Automated Parcel Status from Courier */}
-                            <td style={{ padding: '18px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                              {item.isParcelReceived ? (
-                                <span style={{
-                                  background: '#DCFCE7',
-                                  color: '#166534',
-                                  border: '1.5px solid #86EFAC',
-                                  padding: '6px 14px',
-                                  borderRadius: '10px',
-                                  fontSize: '0.83rem',
-                                  fontWeight: 800,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  boxShadow: '0 1px 3px rgba(22, 101, 52, 0.08)'
-                                }}>
-                                  <CheckCircle2 size={15} color="#16A34A" />
-                                  <span>تم استرجاع الكولي للمركز أوتوماتيكياً 📦</span>
-                                </span>
-                              ) : (
-                                <span style={{
-                                  background: '#FEF3C7',
-                                  color: '#92400E',
-                                  border: '1.5px solid #FCD34D',
-                                  padding: '6px 14px',
-                                  borderRadius: '10px',
-                                  fontSize: '0.83rem',
-                                  fontWeight: 800,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px'
-                                }}>
-                                  <Truck size={15} color="#D97706" />
-                                  <span>في طريق العودة مع شركة التوصيل 🚚</span>
-                                </span>
-                              )}
-                            </td>
-
-                            {/* 3. Refund Amount - strictly 1 line */}
-                            <td style={{ padding: '18px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                              <span style={{
-                                background: '#FEE2E2',
-                                color: '#B91C1C',
-                                border: '1.5px solid #FCA5A5',
-                                padding: '8px 16px',
-                                borderRadius: '12px',
-                                fontSize: '1.05rem',
-                                fontWeight: 900,
-                                display: 'inline-block',
-                                letterSpacing: '0.3px'
-                              }}>
-                                {Number(item.refundDue || 0).toLocaleString('ar-DZ')} دج
-                              </span>
-                            </td>
-
-                            {/* 4. BaridiMob RIP - ULTRA CLEAN, STRICTLY 1 SINGLE LINE */}
-                            <td style={{ padding: '16px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                              <div style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '10px',
-                                background: '#F8FAFC',
-                                border: '1.5px solid #CBD5E1',
-                                padding: '6px 14px',
-                                borderRadius: '12px',
-                                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.04)'
-                              }}>
-                                <span style={{
-                                  fontFamily: 'Consolas, monospace',
-                                  fontWeight: 900,
-                                  fontSize: '1.02rem',
-                                  letterSpacing: '1.5px',
-                                  color: '#0F172A',
-                                  direction: 'ltr',
-                                  userSelect: 'all'
-                                }}>
-                                  {formattedRip}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopyRip(rawRip || formattedRip)}
-                                  title="نسخ رقم الـ RIP بنقرة واحدة"
-                                  style={{
-                                    border: '1px solid #CBD5E1',
-                                    background: '#FFFFFF',
-                                    color: '#1E293B',
-                                    cursor: 'pointer',
-                                    padding: '5px 10px',
-                                    borderRadius: '8px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 800,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '5px',
-                                    transition: 'all 0.15s ease',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.background = '#F1F5F9';
-                                    e.currentTarget.style.borderColor = '#94A3B8';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.background = '#FFFFFF';
-                                    e.currentTarget.style.borderColor = '#CBD5E1';
-                                  }}
-                                >
-                                  <Copy size={13} color="#2563EB" />
-                                  <span>نسخ</span>
-                                </button>
+                              <div style={{ fontSize: '0.85rem', color: '#64748B', marginTop: '4px' }}>
+                                جميع التحويلات تم إنجازها ونقلها إلى سجل الأرشيف (L'Historique) بنجاح
                               </div>
-                            </td>
-
-                            {/* 5. Action / Payment confirmation */}
-                            <td style={{ padding: '16px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                              {item.isPaid ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleRefundStatus(item)}
-                                  style={{
-                                    border: '1.5px solid #86EFAC',
-                                    background: '#DCFCE7',
-                                    color: '#15803D',
-                                    padding: '8px 16px',
-                                    borderRadius: '12px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 800,
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
-                                  }}
-                                >
-                                  <CheckCircle2 size={15} />
-                                  <span>تم التحويل بنجاح ✅</span>
-                                </button>
-                              ) : item.isParcelReceived ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleRefundStatus(item)}
-                                  style={{
-                                    border: '1.5px solid #B45309',
-                                    background: '#B45309',
-                                    color: '#FFFFFF',
-                                    padding: '8px 18px',
-                                    borderRadius: '12px',
-                                    fontSize: '0.86rem',
-                                    fontWeight: 800,
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    boxShadow: '0 2px 8px rgba(180, 83, 9, 0.25)',
-                                    transition: 'all 0.15s ease'
-                                  }}
-                                  onMouseEnter={(e) => { e.currentTarget.style.background = '#92400E'; }}
-                                  onMouseLeave={(e) => { e.currentTarget.style.background = '#B45309'; }}
-                                >
-                                  <CreditCard size={15} />
-                                  <span>تأكيد التحويل الآن 💳</span>
-                                </button>
-                              ) : (
-                                <div
-                                  title="مغلق أوتوماتيكياً: يتم التفعيل تلقائياً فور تأكيد شركة التوصيل استلام كولي الاستبدال في المركز بدون أي تدخل يدوي"
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    background: '#F1F5F9',
-                                    border: '1.5px dashed #CBD5E1',
-                                    color: '#64748B',
-                                    padding: '8px 14px',
-                                    borderRadius: '12px',
-                                    fontSize: '0.83rem',
-                                    fontWeight: 800,
-                                    cursor: 'not-allowed'
-                                  }}
-                                >
-                                  <Lock size={14} color="#94A3B8" />
-                                  <span>في انتظار وصول الكولي ⏳</span>
-                                </div>
-                              )}
                             </td>
                           </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+                        ) : (
+                          filteredActiveRefunds.map((item, idx) => {
+                            const rawRip = String(item.baridiMobRip || '').replace(/\s+/g, '');
+                            const formattedRip = rawRip.length === 20
+                              ? `${rawRip.slice(0, 4)} ${rawRip.slice(4, 8)} ${rawRip.slice(8, 12)} ${rawRip.slice(12, 16)} ${rawRip.slice(16, 20)}`
+                              : (rawRip || '0079 9999 0023 4567 89');
+
+                            return (
+                              <tr
+                                key={item.orderId || idx}
+                                style={{
+                                  borderBottom: '1px solid #F1F5F9',
+                                  backgroundColor: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA',
+                                  transition: 'background-color 0.15s ease'
+                                }}
+                              >
+                                {/* 1. Client info - strictly 1 line */}
+                                <td style={{ padding: '18px 20px', whiteSpace: 'nowrap' }}>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+                                    <strong style={{ color: '#1E293B', fontSize: '1rem', fontWeight: 800 }}>
+                                      {item.clientName}
+                                    </strong>
+                                    <span style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      color: '#334155',
+                                      fontSize: '0.9rem',
+                                      direction: 'ltr',
+                                      fontFamily: 'monospace',
+                                      fontWeight: 700,
+                                      background: '#F1F5F9',
+                                      padding: '4px 10px',
+                                      borderRadius: '8px'
+                                    }}>
+                                      <Phone size={13} color="#64748B" />
+                                      {item.phone}
+                                    </span>
+                                    {item.wilaya && (
+                                      <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600 }}>
+                                        ({item.wilaya})
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+
+                                {/* 2. Automated Parcel Status from Courier */}
+                                <td style={{ padding: '18px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                  {item.isParcelReceived ? (
+                                    <span style={{
+                                      background: '#DCFCE7',
+                                      color: '#166534',
+                                      border: '1.5px solid #86EFAC',
+                                      padding: '6px 14px',
+                                      borderRadius: '10px',
+                                      fontSize: '0.83rem',
+                                      fontWeight: 800,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      boxShadow: '0 1px 3px rgba(22, 101, 52, 0.08)'
+                                    }}>
+                                      <CheckCircle2 size={15} color="#16A34A" />
+                                      <span>تم استرجاع الكولي للمركز أوتوماتيكياً 📦</span>
+                                    </span>
+                                  ) : (
+                                    <span style={{
+                                      background: '#FEF3C7',
+                                      color: '#92400E',
+                                      border: '1.5px solid #FCD34D',
+                                      padding: '6px 14px',
+                                      borderRadius: '10px',
+                                      fontSize: '0.83rem',
+                                      fontWeight: 800,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '6px'
+                                    }}>
+                                      <Truck size={15} color="#D97706" />
+                                      <span>في طريق العودة مع شركة التوصيل 🚚</span>
+                                    </span>
+                                  )}
+                                </td>
+
+                                {/* 3. Refund Amount - strictly 1 line */}
+                                <td style={{ padding: '18px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                  <span style={{
+                                    background: '#FEE2E2',
+                                    color: '#B91C1C',
+                                    border: '1.5px solid #FCA5A5',
+                                    padding: '8px 16px',
+                                    borderRadius: '12px',
+                                    fontSize: '1.05rem',
+                                    fontWeight: 900,
+                                    display: 'inline-block',
+                                    letterSpacing: '0.3px'
+                                  }}>
+                                    {Number(item.refundDue || 0).toLocaleString('ar-DZ')} دج
+                                  </span>
+                                </td>
+
+                                {/* 4. BaridiMob RIP - ULTRA CLEAN, STRICTLY 1 SINGLE LINE */}
+                                <td style={{ padding: '16px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                  <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
+                                    background: '#F8FAFC',
+                                    border: '1.5px solid #CBD5E1',
+                                    padding: '6px 14px',
+                                    borderRadius: '12px',
+                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.04)'
+                                  }}>
+                                    <span style={{
+                                      fontFamily: 'Consolas, monospace',
+                                      fontWeight: 900,
+                                      fontSize: '1.02rem',
+                                      letterSpacing: '1.5px',
+                                      color: '#0F172A',
+                                      direction: 'ltr',
+                                      userSelect: 'all'
+                                    }}>
+                                      {formattedRip}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyRip(rawRip || formattedRip)}
+                                      title="نسخ رقم الـ RIP بنقرة واحدة"
+                                      style={{
+                                        border: '1px solid #CBD5E1',
+                                        background: '#FFFFFF',
+                                        color: '#1E293B',
+                                        cursor: 'pointer',
+                                        padding: '5px 10px',
+                                        borderRadius: '8px',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 800,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        transition: 'all 0.15s ease',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = '#F1F5F9';
+                                        e.currentTarget.style.borderColor = '#94A3B8';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = '#FFFFFF';
+                                        e.currentTarget.style.borderColor = '#CBD5E1';
+                                      }}
+                                    >
+                                      <Copy size={13} color="#2563EB" />
+                                      <span>نسخ</span>
+                                    </button>
+                                  </div>
+                                </td>
+
+                                {/* 5. Action / Payment confirmation */}
+                                <td style={{ padding: '16px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                  {item.isParcelReceived ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleRefundStatus(item)}
+                                      title="تأكيد تحويل المبلغ للزبون ونقله فوراً لسجل الأرشيف"
+                                      style={{
+                                        border: '1.5px solid #B45309',
+                                        background: '#B45309',
+                                        color: '#FFFFFF',
+                                        padding: '8px 18px',
+                                        borderRadius: '12px',
+                                        fontSize: '0.86rem',
+                                        fontWeight: 800,
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        boxShadow: '0 2px 8px rgba(180, 83, 9, 0.25)',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.background = '#92400E'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = '#B45309'; }}
+                                    >
+                                      <CreditCard size={15} />
+                                      <span>تأكيد التحويل الآن 💳</span>
+                                    </button>
+                                  ) : (
+                                    <div
+                                      title="مغلق أوتوماتيكياً: يتم التفعيل تلقائياً فور تأكيد شركة التوصيل استلام كولي الاستبدال في المركز بدون أي تدخل يدوي"
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        background: '#F1F5F9',
+                                        border: '1.5px dashed #CBD5E1',
+                                        color: '#64748B',
+                                        padding: '8px 14px',
+                                        borderRadius: '12px',
+                                        fontSize: '0.83rem',
+                                        fontWeight: 800,
+                                        cursor: 'not-allowed'
+                                      }}
+                                    >
+                                      <Lock size={14} color="#94A3B8" />
+                                      <span>في انتظار وصول الكولي ⏳</span>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* ==================================================== */}
+            {/* VIEW B: DEDICATED HISTORIQUE ARCHIVE (L'HISTORIQUE)  */}
+            {/* ==================================================== */}
+            {refundViewMode === 'historique' && (
+              <div>
+                {/* Historique banner */}
+                <div style={{
+                  background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
+                  border: '1.5px solid #86EFAC',
+                  borderRadius: '20px',
+                  padding: '24px 28px',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '16px'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '12px',
+                        background: '#15803D',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#FFF'
+                      }}>
+                        <History size={24} />
+                      </div>
+                      <div>
+                        <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 900, color: '#14532D' }}>
+                          سجل أرشيف التحويلات المكتملة (L'Historique BaridiMob)
+                        </h2>
+                        <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: '#166534', fontWeight: 600 }}>
+                          الأرشيف الشامل لجميع المبالغ المحولة للزبائن. يمكنك البحث المباشر برقم الـ RIP أو رقم الهاتف في أي وقت.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total Completed Payouts */}
+                  <div style={{
+                    background: '#15803D',
+                    color: '#FFF',
+                    padding: '12px 24px',
+                    borderRadius: '16px',
+                    textAlign: 'center',
+                    boxShadow: '0 4px 14px rgba(21, 128, 61, 0.25)'
+                  }}>
+                    <span style={{ fontSize: '0.8rem', opacity: 0.9, display: 'block', fontWeight: 700 }}>
+                      إجمالي المبالغ المحولة في الأرشيف:
+                    </span>
+                    <span style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.5px' }}>
+                      {totalCompletedRefundsAmount.toLocaleString('ar-DZ')} دج
+                    </span>
+                  </div>
+                </div>
+
+                {/* DEDICATED SEARCH BAR FOR RIP AND PHONE NUMBER */}
+                <div style={{
+                  background: '#FFF',
+                  padding: '18px 24px',
+                  borderRadius: '18px',
+                  border: '1.5px solid #86EFAC',
+                  marginBottom: '20px',
+                  boxShadow: '0 2px 12px rgba(22, 101, 52, 0.04)'
+                }}>
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <Search size={20} color="#15803D" style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)' }} />
+                    <input
+                      type="text"
+                      value={historiqueSearch}
+                      onChange={(e) => setHistoriqueSearch(e.target.value)}
+                      placeholder="ابحث في السجل برقم الـ RIP (بريدي موب) أو برقم هاتف الزبون (05... / 06... / 07...)..."
+                      style={{
+                        width: '100%',
+                        padding: '13px 48px 13px 40px',
+                        borderRadius: '14px',
+                        border: '1.5px solid #86EFAC',
+                        fontSize: '0.96rem',
+                        outline: 'none',
+                        background: '#F0FDF4',
+                        boxSizing: 'border-box',
+                        fontWeight: 700,
+                        color: '#0F172A'
+                      }}
+                    />
+                    {historiqueSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setHistoriqueSearch('')}
+                        style={{
+                          position: 'absolute',
+                          left: '14px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#64748B'
+                        }}
+                      >
+                        <X size={18} />
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', fontSize: '0.83rem', color: '#166534', fontWeight: 700 }}>
+                    <span>💡 البحث فوري برقم حساب بريدي موب (BaridiMob RIP) أو برقم الهاتف</span>
+                  </div>
+                </div>
+
+                {/* HISTORIQUE ARCHIVE TABLE */}
+                <div style={{
+                  background: '#FFF',
+                  borderRadius: '20px',
+                  border: '1px solid #E2E8F0',
+                  boxShadow: '0 4px 18px rgba(0,0,0,0.03)',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{ overflowX: 'auto', width: '100%' }}>
+                    <table style={{
+                      width: '100%',
+                      minWidth: '980px',
+                      borderCollapse: 'collapse',
+                      textAlign: 'right'
+                    }}>
+                      <thead>
+                        <tr style={{
+                          background: '#F0FDF4',
+                          borderBottom: '2px solid #DCFCE7'
+                        }}>
+                          <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#166534', whiteSpace: 'nowrap' }}>
+                            الزبون(ة) & الهاتف & الولاية
+                          </th>
+                          <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#166534', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            رقم حساب بريدي موب (BaridiMob RIP)
+                          </th>
+                          <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#166534', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            المبلغ المحول
+                          </th>
+                          <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#166534', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            تاريخ التحويل
+                          </th>
+                          <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#166534', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            الحالة / تراجع
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredHistoriqueRefunds.length === 0 ? (
+                          <tr>
+                            <td colSpan="5" style={{ padding: '50px 20px', textAlign: 'center', color: '#94A3B8' }}>
+                              <History size={40} color="#CBD5E1" style={{ marginBottom: '10px' }} />
+                              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E293B' }}>
+                                {historiqueSearch ? 'لا توجد نتائج مطابقة لرقم الـ RIP أو رقم الهاتف المدخل' : 'سجل الأرشيف فارغ حالياً'}
+                              </div>
+                              <div style={{ fontSize: '0.85rem', color: '#64748B', marginTop: '4px' }}>
+                                {historiqueSearch ? 'تأكد من كتابة رقم الـ RIP أو الهاتف بشكل صحيح' : 'ستظهر هنا جميع العمليات فور الضغط على تأكيد التحويل في الجدول النشط'}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredHistoriqueRefunds.map((item, idx) => {
+                            const rawRip = String(item.baridiMobRip || '').replace(/\s+/g, '');
+                            const formattedRip = rawRip.length === 20
+                              ? `${rawRip.slice(0, 4)} ${rawRip.slice(4, 8)} ${rawRip.slice(8, 12)} ${rawRip.slice(12, 16)} ${rawRip.slice(16, 20)}`
+                              : (rawRip || '0079 9999 0023 4567 89');
+
+                            return (
+                              <tr
+                                key={item.orderId || idx}
+                                style={{
+                                  borderBottom: '1px solid #F1F5F9',
+                                  backgroundColor: '#F0FDF4',
+                                  transition: 'background-color 0.15s ease'
+                                }}
+                              >
+                                {/* 1. Client info */}
+                                <td style={{ padding: '18px 20px', whiteSpace: 'nowrap' }}>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+                                    <strong style={{ color: '#1E293B', fontSize: '1rem', fontWeight: 800 }}>
+                                      {item.clientName}
+                                    </strong>
+                                    <span style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      color: '#166534',
+                                      fontSize: '0.9rem',
+                                      direction: 'ltr',
+                                      fontFamily: 'monospace',
+                                      fontWeight: 700,
+                                      background: '#DCFCE7',
+                                      padding: '4px 10px',
+                                      borderRadius: '8px'
+                                    }}>
+                                      <Phone size={13} color="#16A34A" />
+                                      {item.phone}
+                                    </span>
+                                    {item.wilaya && (
+                                      <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600 }}>
+                                        ({item.wilaya})
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+
+                                {/* 2. RIP */}
+                                <td style={{ padding: '16px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                  <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
+                                    background: '#FFFFFF',
+                                    border: '1.5px solid #86EFAC',
+                                    padding: '6px 14px',
+                                    borderRadius: '12px',
+                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
+                                  }}>
+                                    <span style={{
+                                      fontFamily: 'Consolas, monospace',
+                                      fontWeight: 900,
+                                      fontSize: '1.02rem',
+                                      letterSpacing: '1.5px',
+                                      color: '#0F172A',
+                                      direction: 'ltr',
+                                      userSelect: 'all'
+                                    }}>
+                                      {formattedRip}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyRip(rawRip || formattedRip)}
+                                      title="نسخ رقم الـ RIP بنقرة واحدة"
+                                      style={{
+                                        border: '1px solid #CBD5E1',
+                                        background: '#F8FAFC',
+                                        color: '#1E293B',
+                                        cursor: 'pointer',
+                                        padding: '5px 10px',
+                                        borderRadius: '8px',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 800,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                    >
+                                      <Copy size={13} color="#16A34A" />
+                                      <span>نسخ</span>
+                                    </button>
+                                  </div>
+                                </td>
+
+                                {/* 3. Transferred Amount */}
+                                <td style={{ padding: '18px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                  <span style={{
+                                    background: '#DCFCE7',
+                                    color: '#15803D',
+                                    border: '1.5px solid #86EFAC',
+                                    padding: '8px 16px',
+                                    borderRadius: '12px',
+                                    fontSize: '1.05rem',
+                                    fontWeight: 900,
+                                    display: 'inline-block',
+                                    letterSpacing: '0.3px'
+                                  }}>
+                                    {Number(item.refundDue || 0).toLocaleString('ar-DZ')} دج
+                                  </span>
+                                </td>
+
+                                {/* 4. Date */}
+                                <td style={{ padding: '18px 20px', whiteSpace: 'nowrap', textAlign: 'center', color: '#475569', fontSize: '0.88rem', fontWeight: 700 }}>
+                                  {item.paidAt ? new Date(item.paidAt).toLocaleDateString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : item.date}
+                                </td>
+
+                                {/* 5. Status & Undo */}
+                                <td style={{ padding: '16px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{
+                                      background: '#DCFCE7',
+                                      color: '#15803D',
+                                      border: '1px solid #86EFAC',
+                                      padding: '6px 12px',
+                                      borderRadius: '10px',
+                                      fontSize: '0.82rem',
+                                      fontWeight: 800,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px'
+                                    }}>
+                                      <CheckCircle2 size={14} />
+                                      <span>تم التحويل بنجاح ✅</span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleRefundStatus(item)}
+                                      title="إلغاء التحويل وإرجاع الطلبية للمستحقات النشطة"
+                                      style={{
+                                        border: '1px solid #CBD5E1',
+                                        background: '#FFFFFF',
+                                        color: '#64748B',
+                                        padding: '6px 10px',
+                                        borderRadius: '8px',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.color = '#B91C1C'; e.currentTarget.style.borderColor = '#FCA5A5'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.color = '#64748B'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+                                    >
+                                      تراجع
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
         )}
