@@ -208,6 +208,22 @@ export default function AliOwnerDashboard({
         if (isEx && (refundDue > 0 || rip)) {
           const orderId = String(order.ticketNumber || order.id || '');
           const isPaid = paidRefundOrderIds.includes(orderId) || Boolean(order.isRefundPaid || details?.isRefundPaid);
+
+          // 100% AUTOMATED: Detect courier return receipt (Yalidine / ZR Express) - NO MANUAL BUTTON CLICK
+          const courierLastStatus = String(order.exchange_return_courier_status || order.yalidine_last_status || order.zrStatus || order.status || '').toLowerCase();
+          const isCourierConfirmed = [
+            'retourné au vendeur', 'retourne au vendeur',
+            'livré au vendeur', 'livre au vendeur',
+            'retour récupéré', 'retour recupere',
+            'retour retiré', 'retour retire',
+            'échange reçu', 'echange recu',
+            'colis récupéré par l\'expéditeur', 'colis recupere par l\'expediteur',
+            'returned_to_merchant', 'received_by_merchant',
+            'return_delivered_to_sender', 'return_collected'
+          ].some(s => courierLastStatus.includes(s));
+
+          const isParcelReceived = Boolean(order.isExchangeParcelReceived === true || order.exchange_parcel_received_at || isCourierConfirmed);
+
           refunds.push({
             orderId,
             clientName: String(order.clientName || 'الزبون').replace(/\[.*?\]/g, '').trim(),
@@ -219,6 +235,10 @@ export default function AliOwnerDashboard({
             refundDue: refundDue > 0 ? refundDue : (Number(details?.oldProductPrice) || 1200),
             baridiMobRip: rip || '007999990012345678',
             isPaid,
+            isParcelReceived,
+            receivedAt: order.exchange_parcel_received_at,
+            courierCompany: order.deliveryCompany || (order.yalidine_last_status ? 'Yalidine Express' : 'ZR Express'),
+            courierStatus: order.exchange_return_courier_status || order.yalidine_last_status || order.zrStatus || null,
             isDemo: false,
             order
           });
@@ -226,11 +246,12 @@ export default function AliOwnerDashboard({
       });
     }
 
-    // If no real exchange refund orders exist yet, provide illustrative sample so Ali can review the table
+    // If no real exchange refund orders exist yet, provide illustrative samples showing both automated states
     if (refunds.length === 0) {
-      const demoId = 'CMD-EX-8492';
+      const demoId1 = 'CMD-EX-8492';
+      const demoId2 = 'CMD-EX-9104';
       refunds.push({
-        orderId: demoId,
+        orderId: demoId1,
         clientName: 'أمينة بن علي',
         phone: '0555 12 34 56',
         wilaya: 'الشلف (Chlef)',
@@ -239,7 +260,29 @@ export default function AliOwnerDashboard({
         reason: 'استبدال بموديل صيفي (فارق سعر مستحق للزبونة)',
         refundDue: 1200,
         baridiMobRip: '007999990023456789',
-        isPaid: paidRefundOrderIds.includes(demoId),
+        isPaid: paidRefundOrderIds.includes(demoId1),
+        isParcelReceived: true,
+        receivedAt: new Date().toISOString(),
+        courierCompany: 'Yalidine Express',
+        courierStatus: 'Retourné au vendeur',
+        isDemo: true,
+        order: null
+      });
+      refunds.push({
+        orderId: demoId2,
+        clientName: 'سارة بلقاسم',
+        phone: '0661 98 76 54',
+        wilaya: 'وهران (Oran)',
+        date: new Date().toLocaleDateString('fr-FR'),
+        oldProductTitle: 'بيجامة قطيفة شتوية (L)',
+        reason: 'استبدال بمقاس أصغر (فارق سعر مستحق للزبونة)',
+        refundDue: 800,
+        baridiMobRip: '007999990098765432',
+        isPaid: paidRefundOrderIds.includes(demoId2),
+        isParcelReceived: false,
+        receivedAt: null,
+        courierCompany: 'ZR Express',
+        courierStatus: 'En cours de retour au centre',
         isDemo: true,
         order: null
       });
@@ -248,18 +291,39 @@ export default function AliOwnerDashboard({
     return refunds;
   }, [orders, paidRefundOrderIds]);
 
+  // Total ready for payout (strictly only if parcel has been received back from the courier!)
   const totalRefundsDue = useMemo(() => {
     return exchangeRefundsList
-      .filter(item => !item.isPaid)
+      .filter(item => !item.isPaid && item.isParcelReceived)
+      .reduce((sum, item) => sum + (Number(item.refundDue) || 0), 0);
+  }, [exchangeRefundsList]);
+
+  // Total still locked awaiting courier return
+  const totalAwaitingParcelRefunds = useMemo(() => {
+    return exchangeRefundsList
+      .filter(item => !item.isPaid && !item.isParcelReceived)
       .reduce((sum, item) => sum + (Number(item.refundDue) || 0), 0);
   }, [exchangeRefundsList]);
 
   const [refundSearch, setRefundSearch] = useState('');
-  const [refundFilter, setRefundFilter] = useState('all'); // 'all' | 'pending' | 'completed'
+  const [refundFilter, setRefundFilter] = useState('all'); // 'all' | 'ready' | 'in_transit' | 'completed'
+
+  const readyRefundsCount = useMemo(() => {
+    return exchangeRefundsList.filter(item => !item.isPaid && item.isParcelReceived).length;
+  }, [exchangeRefundsList]);
+
+  const inTransitRefundsCount = useMemo(() => {
+    return exchangeRefundsList.filter(item => !item.isPaid && !item.isParcelReceived).length;
+  }, [exchangeRefundsList]);
+
+  const completedRefundsCount = useMemo(() => {
+    return exchangeRefundsList.filter(item => item.isPaid).length;
+  }, [exchangeRefundsList]);
 
   const filteredRefunds = useMemo(() => {
     return exchangeRefundsList.filter(item => {
-      if (refundFilter === 'pending' && item.isPaid) return false;
+      if (refundFilter === 'ready' && (item.isPaid || !item.isParcelReceived)) return false;
+      if (refundFilter === 'in_transit' && (item.isPaid || item.isParcelReceived)) return false;
       if (refundFilter === 'completed' && !item.isPaid) return false;
 
       if (!refundSearch.trim()) return true;
@@ -274,14 +338,6 @@ export default function AliOwnerDashboard({
       );
     });
   }, [exchangeRefundsList, refundFilter, refundSearch]);
-
-  const pendingRefundsCount = useMemo(() => {
-    return exchangeRefundsList.filter(item => !item.isPaid).length;
-  }, [exchangeRefundsList]);
-
-  const completedRefundsCount = useMemo(() => {
-    return exchangeRefundsList.filter(item => item.isPaid).length;
-  }, [exchangeRefundsList]);
 
   const handleCopyRip = (rip) => {
     if (!rip) return;
@@ -2460,7 +2516,7 @@ export default function AliOwnerDashboard({
                       مستحقات استرجاع بريدي موب (طلبات الاستبدال)
                     </h2>
                     <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: '#92400E', fontWeight: 600 }}>
-                      قائمة الزبائن المطلوب تحويل فارق الاستبدال إلى حساباتهم BaridiMob RIP - جدول واسع في سطر واحد
+                      نظام أوتوماتيكي 100%: تظهر الطلبيات جاهزة للتحويل فقط بعد تأكيد شركة التوصيل (Yalidine / ZR) استرجاع كولي الاستبدال للمركز
                     </p>
                   </div>
                 </div>
@@ -2476,7 +2532,7 @@ export default function AliOwnerDashboard({
                 boxShadow: '0 4px 14px rgba(180, 83, 9, 0.25)'
               }}>
                 <span style={{ fontSize: '0.8rem', opacity: 0.9, display: 'block', fontWeight: 700 }}>
-                  المجموع المستحق للتحويل:
+                  المستحق الجاهز للتحويل (الكولي وصل) 📦:
                 </span>
                 <span style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.5px' }}>
                   {totalRefundsDue.toLocaleString('ar-DZ')} دج
@@ -2487,42 +2543,10 @@ export default function AliOwnerDashboard({
             {/* Quick Metrics Cards */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
               gap: '16px',
               marginBottom: '24px'
             }}>
-              <div style={{
-                background: '#FFF',
-                borderRadius: '18px',
-                padding: '20px 22px',
-                border: '1px solid #E2E8F0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.03)'
-              }}>
-                <div style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '14px',
-                  background: '#FEF3C7',
-                  color: '#B45309',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Clock size={24} />
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
-                    تحويلات معلقة (في الانتظار)
-                  </span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#B45309' }}>
-                    {pendingRefundsCount} زبون
-                  </div>
-                </div>
-              </div>
-
               <div style={{
                 background: '#FFF',
                 borderRadius: '18px',
@@ -2547,9 +2571,73 @@ export default function AliOwnerDashboard({
                 </div>
                 <div>
                   <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
-                    تحويلات مكتملة (تم الدفع)
+                    جاهزة للتحويل (الكولي وصل) 📦
                   </span>
                   <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#16A34A' }}>
+                    {readyRefundsCount} زبون
+                  </div>
+                </div>
+              </div>
+
+              <div style={{
+                background: '#FFF',
+                borderRadius: '18px',
+                padding: '20px 22px',
+                border: '1px solid #E2E8F0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.03)'
+              }}>
+                <div style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '14px',
+                  background: '#FEF3C7',
+                  color: '#B45309',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Truck size={24} />
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
+                    في طريق العودة مع التوصيل 🚚
+                  </span>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#B45309' }}>
+                    {inTransitRefundsCount} طلبية
+                  </div>
+                </div>
+              </div>
+
+              <div style={{
+                background: '#FFF',
+                borderRadius: '18px',
+                padding: '20px 22px',
+                border: '1px solid #E2E8F0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.03)'
+              }}>
+                <div style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '14px',
+                  background: '#F1F5F9',
+                  color: '#475569',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Check size={24} />
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
+                    تحويلات مكتملة (تم الدفع) 💳
+                  </span>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#475569' }}>
                     {completedRefundsCount} زبون
                   </div>
                 </div>
@@ -2579,7 +2667,7 @@ export default function AliOwnerDashboard({
                 </div>
                 <div>
                   <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, display: 'block' }}>
-                    إجمالي طلبات الاستبدال بفارق
+                    إجمالي طلبات الاستبدال
                   </span>
                   <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#1E293B' }}>
                     {exchangeRefundsList.length} طلبية
@@ -2621,7 +2709,7 @@ export default function AliOwnerDashboard({
                 />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={() => setRefundFilter('all')}
@@ -2641,20 +2729,37 @@ export default function AliOwnerDashboard({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRefundFilter('pending')}
+                  onClick={() => setRefundFilter('ready')}
                   style={{
                     padding: '9px 18px',
                     borderRadius: '12px',
                     border: 'none',
-                    background: refundFilter === 'pending' ? '#B45309' : '#FEF3C7',
-                    color: refundFilter === 'pending' ? '#FFF' : '#92400E',
+                    background: refundFilter === 'ready' ? '#15803D' : '#DCFCE7',
+                    color: refundFilter === 'ready' ? '#FFF' : '#166534',
                     fontSize: '0.86rem',
                     fontWeight: 800,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  معلق فقط ({pendingRefundsCount})
+                  جاهزة للتحويل ({readyRefundsCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRefundFilter('in_transit')}
+                  style={{
+                    padding: '9px 18px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: refundFilter === 'in_transit' ? '#B45309' : '#FEF3C7',
+                    color: refundFilter === 'in_transit' ? '#FFF' : '#92400E',
+                    fontSize: '0.86rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  مع شركة التوصيل ({inTransitRefundsCount})
                 </button>
                 <button
                   type="button"
@@ -2663,8 +2768,8 @@ export default function AliOwnerDashboard({
                     padding: '9px 18px',
                     borderRadius: '12px',
                     border: 'none',
-                    background: refundFilter === 'completed' ? '#16A34A' : '#DCFCE7',
-                    color: refundFilter === 'completed' ? '#FFF' : '#166534',
+                    background: refundFilter === 'completed' ? '#475569' : '#F1F5F9',
+                    color: refundFilter === 'completed' ? '#FFF' : '#475569',
                     fontSize: '0.86rem',
                     fontWeight: 800,
                     cursor: 'pointer',
@@ -2687,7 +2792,7 @@ export default function AliOwnerDashboard({
               <div style={{ overflowX: 'auto', width: '100%' }}>
                 <table style={{
                   width: '100%',
-                  minWidth: '850px',
+                  minWidth: '980px',
                   borderCollapse: 'collapse',
                   textAlign: 'right'
                 }}>
@@ -2700,20 +2805,23 @@ export default function AliOwnerDashboard({
                         الزبون(ة) & الهاتف & الولاية
                       </th>
                       <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                        حالة كولي الاستبدال (أوتوماتيكي 100% عبر التوصيل)
+                      </th>
+                      <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
                         المبلغ المستحق (Remboursement)
                       </th>
                       <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
                         رقم حساب بريدي موب (BaridiMob RIP)
                       </th>
                       <th style={{ padding: '16px 20px', fontSize: '0.88rem', fontWeight: 800, color: '#475569', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                        الإجراء / تأكيد التحويل
+                        الإجراء / تحويل بريدي موب
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredRefunds.length === 0 ? (
                       <tr>
-                        <td colSpan="4" style={{ padding: '50px 20px', textAlign: 'center', color: '#94A3B8' }}>
+                        <td colSpan="5" style={{ padding: '50px 20px', textAlign: 'center', color: '#94A3B8' }}>
                           <CheckCircle2 size={40} color="#CBD5E1" style={{ marginBottom: '10px' }} />
                           <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E293B' }}>
                             لا توجد مستحقات مطابقة للبحث
@@ -2741,7 +2849,7 @@ export default function AliOwnerDashboard({
                             }}
                           >
                             {/* 1. Client info - strictly 1 line */}
-                            <td style={{ padding: '18px 24px', whiteSpace: 'nowrap' }}>
+                            <td style={{ padding: '18px 20px', whiteSpace: 'nowrap' }}>
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
                                 <strong style={{ color: '#1E293B', fontSize: '1rem', fontWeight: 800 }}>
                                   {item.clientName}
@@ -2770,15 +2878,53 @@ export default function AliOwnerDashboard({
                               </div>
                             </td>
 
-                            {/* 2. Refund Amount - strictly 1 line */}
-                            <td style={{ padding: '18px 24px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            {/* 2. Automated Parcel Status from Courier */}
+                            <td style={{ padding: '18px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                              {item.isParcelReceived ? (
+                                <span style={{
+                                  background: '#DCFCE7',
+                                  color: '#166534',
+                                  border: '1.5px solid #86EFAC',
+                                  padding: '6px 14px',
+                                  borderRadius: '10px',
+                                  fontSize: '0.83rem',
+                                  fontWeight: 800,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  boxShadow: '0 1px 3px rgba(22, 101, 52, 0.08)'
+                                }}>
+                                  <CheckCircle2 size={15} color="#16A34A" />
+                                  <span>تم استرجاع الكولي للمركز أوتوماتيكياً 📦</span>
+                                </span>
+                              ) : (
+                                <span style={{
+                                  background: '#FEF3C7',
+                                  color: '#92400E',
+                                  border: '1.5px solid #FCD34D',
+                                  padding: '6px 14px',
+                                  borderRadius: '10px',
+                                  fontSize: '0.83rem',
+                                  fontWeight: 800,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px'
+                                }}>
+                                  <Truck size={15} color="#D97706" />
+                                  <span>في طريق العودة مع شركة التوصيل 🚚</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* 3. Refund Amount - strictly 1 line */}
+                            <td style={{ padding: '18px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                               <span style={{
                                 background: '#FEE2E2',
                                 color: '#B91C1C',
                                 border: '1.5px solid #FCA5A5',
-                                padding: '8px 18px',
+                                padding: '8px 16px',
                                 borderRadius: '12px',
-                                fontSize: '1.08rem',
+                                fontSize: '1.05rem',
                                 fontWeight: 900,
                                 display: 'inline-block',
                                 letterSpacing: '0.3px'
@@ -2787,7 +2933,7 @@ export default function AliOwnerDashboard({
                               </span>
                             </td>
 
-                            {/* 5. BaridiMob RIP - ULTRA CLEAN, STRICTLY 1 SINGLE LINE */}
+                            {/* 4. BaridiMob RIP - ULTRA CLEAN, STRICTLY 1 SINGLE LINE */}
                             <td style={{ padding: '16px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                               <div style={{
                                 display: 'inline-flex',
@@ -2802,7 +2948,7 @@ export default function AliOwnerDashboard({
                                 <span style={{
                                   fontFamily: 'Consolas, monospace',
                                   fontWeight: 900,
-                                  fontSize: '1.05rem',
+                                  fontSize: '1.02rem',
                                   letterSpacing: '1.5px',
                                   color: '#0F172A',
                                   direction: 'ltr',
@@ -2844,39 +2990,75 @@ export default function AliOwnerDashboard({
                               </div>
                             </td>
 
-                            {/* 6. Action / Payment confirmation */}
+                            {/* 5. Action / Payment confirmation */}
                             <td style={{ padding: '16px 20px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleToggleRefundStatus(item)}
-                                style={{
-                                  border: item.isPaid ? '1.5px solid #86EFAC' : '1.5px solid #FCD34D',
-                                  background: item.isPaid ? '#DCFCE7' : '#FEF3C7',
-                                  color: item.isPaid ? '#15803D' : '#B45309',
-                                  padding: '8px 18px',
-                                  borderRadius: '12px',
-                                  fontSize: '0.86rem',
-                                  fontWeight: 800,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '7px',
-                                  transition: 'all 0.2s ease',
-                                  boxShadow: item.isPaid ? 'none' : '0 2px 6px rgba(180, 83, 9, 0.12)'
-                                }}
-                              >
-                                {item.isPaid ? (
-                                  <>
-                                    <CheckCircle2 size={16} />
-                                    <span>تم التحويل بنجاح ✅</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Clock size={16} />
-                                    <span>تأكيد التحويل</span>
-                                  </>
-                                )}
-                              </button>
+                              {item.isPaid ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleRefundStatus(item)}
+                                  style={{
+                                    border: '1.5px solid #86EFAC',
+                                    background: '#DCFCE7',
+                                    color: '#15803D',
+                                    padding: '8px 16px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                  }}
+                                >
+                                  <CheckCircle2 size={15} />
+                                  <span>تم التحويل بنجاح ✅</span>
+                                </button>
+                              ) : item.isParcelReceived ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleRefundStatus(item)}
+                                  style={{
+                                    border: '1.5px solid #B45309',
+                                    background: '#B45309',
+                                    color: '#FFFFFF',
+                                    padding: '8px 18px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.86rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 2px 8px rgba(180, 83, 9, 0.25)',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = '#92400E'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = '#B45309'; }}
+                                >
+                                  <CreditCard size={15} />
+                                  <span>تأكيد التحويل الآن 💳</span>
+                                </button>
+                              ) : (
+                                <div
+                                  title="مغلق أوتوماتيكياً: يتم التفعيل تلقائياً فور تأكيد شركة التوصيل استلام كولي الاستبدال في المركز بدون أي تدخل يدوي"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    background: '#F1F5F9',
+                                    border: '1.5px dashed #CBD5E1',
+                                    color: '#64748B',
+                                    padding: '8px 14px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.83rem',
+                                    fontWeight: 800,
+                                    cursor: 'not-allowed'
+                                  }}
+                                >
+                                  <Lock size={14} color="#94A3B8" />
+                                  <span>في انتظار وصول الكولي ⏳</span>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         );

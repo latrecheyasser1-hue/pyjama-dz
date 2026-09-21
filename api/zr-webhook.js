@@ -108,6 +108,23 @@ export default async function handler(req, res) {
         updateData.status = mappedStatus;
       }
 
+      const normZrState = String(stateName).toLowerCase();
+      const isZrReturnReceived = [
+        'returned_to_merchant',
+        'received_by_merchant',
+        'return_delivered_to_sender',
+        'return_collected',
+        'recupere_vendeur',
+        'retourne_au_vendeur',
+        'retour_recupere'
+      ].some(s => normZrState.includes(s));
+
+      if (isZrReturnReceived) {
+        updateData.isExchangeParcelReceived = true;
+        updateData.exchange_parcel_received_at = new Date().toISOString();
+        updateData.exchange_return_courier_status = stateName;
+      }
+
       // Instant WhatsApp Notifications for ZR Express Events
       const isBureau = String(targetOrder.deliveryMode || '').toLowerCase().includes('bureau') || 
                        String(targetOrder.deliveryMode || '').includes('مكتب') || 

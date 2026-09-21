@@ -2865,18 +2865,37 @@ export default async function handler(req, res) {
             if (['Retour vers vendeur', 'Retourné au vendeur', 'Echèc livraison', 'Retour groupé'].includes(status)) internalStatus = 'retour';
             if (['Annulé', 'Annule'].includes(status)) internalStatus = 'annulee';
 
-            await fetch(`${SUPABASE_URL}/rest/v1/orders?tracking_number=eq.${tracking}`, {
+            const normStatus = String(status).toLowerCase();
+            const isReturnReceivedBySeller = [
+              'retourné au vendeur', 'retourne au vendeur',
+              'livré au vendeur', 'livre au vendeur',
+              'retour récupéré', 'retour recupere',
+              'retour retiré', 'retour retire',
+              'échange reçu', 'echange recu',
+              'colis récupéré par l\'expéditeur', 'colis recupere par l\'expediteur',
+              'retour reçu', 'retour recu'
+            ].some(s => normStatus.includes(s));
+
+            const patchPayload = {
+              status: internalStatus,
+              yalidine_last_status: status,
+              delivery_last_update: new Date().toISOString()
+            };
+
+            if (isReturnReceivedBySeller) {
+              patchPayload.isExchangeParcelReceived = true;
+              patchPayload.exchange_parcel_received_at = new Date().toISOString();
+              patchPayload.exchange_return_courier_status = status;
+            }
+
+            await fetch(`${SUPABASE_URL}/rest/v1/orders?or=(tracking_number.eq.${encodeURIComponent(tracking)},trackingNumber.eq.${encodeURIComponent(tracking)})`, {
               method: 'PATCH',
               headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': `Bearer ${SUPABASE_KEY}`,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({
-                status: internalStatus,
-                yalidine_last_status: status,
-                delivery_last_update: new Date().toISOString()
-              })
+              body: JSON.stringify(patchPayload)
             });
           }
         }

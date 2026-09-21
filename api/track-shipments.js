@@ -260,6 +260,33 @@ export default async function handler(req, res) {
             shouldUpdateOrder = true;
           }
         }
+
+        // B2. AUTOMATED DETECTION: EXCHANGE PARCEL ARRIVED AT HUB/COLLECTED BY SENDER
+        const isExchangeReturnReceived = [
+          'retourné au vendeur',
+          'retourne au vendeur',
+          'livré au vendeur',
+          'livre au vendeur',
+          'retour récupéré',
+          'retour recupere',
+          'retour retiré',
+          'retour retire',
+          'échange reçu',
+          'echange recu',
+          'returned_to_merchant',
+          'received_by_merchant',
+          'return_delivered_to_sender',
+          'return_collected',
+          'colis récupéré par l\'expéditeur',
+          'colis recupere par l\'expediteur'
+        ].some(s => normStatus.includes(s));
+
+        if (isExchangeReturnReceived && !order.isExchangeParcelReceived) {
+          patchData.isExchangeParcelReceived = true;
+          patchData.exchange_parcel_received_at = new Date().toISOString();
+          patchData.exchange_return_courier_status = currentStatus;
+          shouldUpdateOrder = true;
+        }
         // C. STOP DESK / BUREAU ARRIVAL & MULTI-STAGE REMINDERS
         else if (isBureau) {
           const isAtBureau = normStatus.includes('bureau') || normStatus.includes('centre') || normStatus.includes('disponible') || normStatus.includes('reçu au centre') || normStatus.includes('arrived');
