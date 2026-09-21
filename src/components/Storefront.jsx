@@ -1108,8 +1108,8 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                       e.currentTarget.style.color = 'var(--burgundy, #6B1D2F)';
                     }}
                   >
+                    <span>جرّبي الآن</span>
                     <Sparkles size={18} />
-                    <span>Try On</span>
                   </button>
 
                   <button
