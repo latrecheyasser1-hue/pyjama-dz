@@ -185,14 +185,15 @@ export default function AdminDashboard({
   const isOrderRetour = (order) => {
     if (!order) return false;
     if (order.isRetour === true || order.orderType === 'retour' || order.orderType === 'return') return true;
-    const clientName = String(order.clientName || '').toLowerCase();
-    const product = String(order.product || '').toLowerCase();
-    if (clientName.includes('استرجاع') || clientName.includes('retour') || 
-        product.includes('استرجاع') || product.includes('إرجاع') || product.includes('retour')) {
+    if (order.exchangeDetails?.type === 'retour' || order.exchangeDetails?.isRetour === true) return true;
+    if (Array.isArray(order.items) && order.items.some(it => it && (it.isRetour === true || it.isReturnMeta === true))) {
       return true;
     }
-    if (order.exchangeDetails?.type === 'retour') return true;
-    if (order.status === 'retour') return true;
+    const clientName = String(order.clientName || '').toLowerCase();
+    const product = String(order.product || '').toLowerCase();
+    if (clientName.includes('طلب استرجاع') || product.includes('طلب استرجاع') || product.includes('طلب إرجاع')) {
+      return true;
+    }
     return false;
   };
 
