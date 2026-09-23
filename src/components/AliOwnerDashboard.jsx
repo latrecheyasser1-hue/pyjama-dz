@@ -79,12 +79,53 @@ const filterByDateRange = (items, dateField, periodType, customStart, customEnd)
 };
 
 export default function AliOwnerDashboard({ 
-  orders = [], 
+  orders: propOrders = [], 
   products = [], 
   expenses = [], 
   settings = {},
   onGoToStore
 }) {
+  // Direct live orders fetching to prevent any stale cache issues
+  const [liveOrders, setLiveOrders] = useState(() => {
+    if (Array.isArray(propOrders) && propOrders.length > 0) return propOrders;
+    try {
+      const cached = localStorage.getItem('pyjama_orders_cache');
+      return cached ? JSON.parse(cached) : [];
+    } catch(e) { return []; }
+  });
+
+  useEffect(() => {
+    if (Array.isArray(propOrders) && propOrders.length > 0) {
+      setLiveOrders(propOrders);
+    }
+  }, [propOrders]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFreshOrders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error && data && isMounted) {
+          setLiveOrders(data);
+          try { localStorage.setItem('pyjama_orders_cache', JSON.stringify(data)); } catch(e) {}
+        }
+      } catch(err) {
+        console.error('AliOwnerDashboard: error fetching live orders', err);
+      }
+    };
+    fetchFreshOrders();
+    return () => { isMounted = false; };
+  }, []);
+
+  const orders = useMemo(() => {
+    return Array.isArray(liveOrders) && liveOrders.length > 0 
+      ? liveOrders 
+      : (Array.isArray(propOrders) ? propOrders : []);
+  }, [liveOrders, propOrders]);
+
   // 1. Password Protection Gate
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     try {
@@ -198,6 +239,12 @@ export default function AliOwnerDashboard({
           return;
         }
 
+        let itemsArr = order.items;
+        if (typeof itemsArr === 'string') {
+          try { itemsArr = JSON.parse(itemsArr); } catch(e) { itemsArr = []; }
+        }
+        if (!Array.isArray(itemsArr)) itemsArr = [];
+
         // 1. Detect if order is a pure Retour (Return & Refund)
         const isRetour = Boolean(
           order.isRetour === true ||
@@ -205,7 +252,7 @@ export default function AliOwnerDashboard({
           order.orderType === 'return' ||
           order.exchangeDetails?.type === 'retour' ||
           order.exchangeDetails?.isRetour === true ||
-          (Array.isArray(order.items) && order.items.some(it => it && (it.isRetour === true || it.isReturnMeta === true))) ||
+          itemsArr.some(it => it && (it.isRetour === true || it.isReturnMeta === true)) ||
           String(order.clientName || '').toLowerCase().includes('استرجاع') ||
           String(order.product || '').toLowerCase().includes('استرجاع') ||
           String(order.product || '').toLowerCase().includes('إرجاع')
@@ -217,7 +264,7 @@ export default function AliOwnerDashboard({
             order.isExchange === true ||
             order.orderType === 'exchange' ||
             Boolean(order.exchangeDetails) ||
-            (Array.isArray(order.items) && order.items.some(it => it && (it.isExchangeItem || it.isExchangeMeta))) ||
+            itemsArr.some(it => it && (it.isExchangeItem || it.isExchangeMeta)) ||
             String(order.clientName || '').toLowerCase().includes('استبدال') ||
             String(order.clientName || '').toLowerCase().includes('تبديل') ||
             String(order.clientName || '').toLowerCase().includes('échange') ||
@@ -230,7 +277,7 @@ export default function AliOwnerDashboard({
         if (!isRetour && !isExchange) return;
 
         const details = order.exchangeDetails || 
-          (Array.isArray(order.items) ? order.items.find(it => it && (it.isExchangeMeta || it.isReturnMeta)) : null);
+          itemsArr.find(it => it && (it.isExchangeMeta || it.isReturnMeta)) || null;
 
         const rip = String(details?.baridiMobRip || order.baridiMobRip || '').trim();
 

@@ -283,7 +283,7 @@ export default function App() {
                     currentPath.startsWith('/ali') || 
                     currentPath.startsWith('/pos') || 
                     currentPath.startsWith('/emballage');
-    if (isAdmin && orders.length === 0) {
+    if (isAdmin) {
       fetchData('orders', setOrders);
       fetchData('suppliers', setSuppliers);
       fetchData('expenses', setExpenses);
