@@ -17,7 +17,8 @@ import {
   MessageCircle,
   Tag,
   ArrowRightLeft,
-  RotateCcw
+  RotateCcw,
+  Archive
 } from 'lucide-react';
 import { showToast } from '../../utils/toast';
 import { supabase } from '../../lib/supabaseClient';
@@ -48,6 +49,31 @@ export default function ExchangesReturnsTab({
   const [istilamOverrides, setIstilamOverrides] = useState({});
   const [istilamFilter, setIstilamFilter] = useState('all'); // 'all' | 'received' | 'not_received'
   const [isSyncingCourier, setIsSyncingCourier] = useState(false);
+
+  // Sync paid refund IDs from Ali's actions in real-time
+  const [localPaidRefundIds, setLocalPaidRefundIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pyjama_ali_paid_refunds');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    const handleRefundPaid = () => {
+      try {
+        const saved = localStorage.getItem('pyjama_ali_paid_refunds');
+        if (saved) setLocalPaidRefundIds(JSON.parse(saved));
+      } catch (err) {}
+    };
+    window.addEventListener('pyjama_order_refund_paid', handleRefundPaid);
+    window.addEventListener('storage', handleRefundPaid);
+    return () => {
+      window.removeEventListener('pyjama_order_refund_paid', handleRefundPaid);
+      window.removeEventListener('storage', handleRefundPaid);
+    };
+  }, []);
 
   // Sync tracking live from courier companies (Yalidine & ZR Express)
   const handleSyncCourierTracking = async () => {
@@ -206,11 +232,33 @@ export default function ExchangesReturnsTab({
             isCourierReceived
           );
 
+      const orderKey = String(order.ticketNumber || order.id || '');
+      const isRefundPaid = Boolean(
+        localPaidRefundIds.includes(order.id) ||
+        localPaidRefundIds.includes(order.ticketNumber) ||
+        localPaidRefundIds.includes(orderKey) ||
+        order.isRefundPaid === true ||
+        meta.isRefundPaid === true ||
+        order.is_refund_paid === true ||
+        meta.is_refund_paid === true
+      );
+
+      const isArchived = Boolean(
+        isRefundPaid ||
+        order.isArchived === true ||
+        order.archived === true ||
+        meta.isArchived === true ||
+        meta.archived === true
+      );
+
       return {
         ...order,
         meta,
         isRetour: isRetourMode,
         isDefect,
+        isRefundPaid,
+        isArchived,
+        refundPaidAt: meta.refund_paid_at || order.refund_paid_at || null,
         replacementItems,
         approvalState,
         refundDue,
@@ -233,34 +281,46 @@ export default function ExchangesReturnsTab({
       const dateB = new Date(b.created_at || b.date || 0).getTime();
       return dateB - dateA;
     });
-  }, [orders, isRetourMode]);
+  }, [orders, isRetourMode, localPaidRefundIds, istilamOverrides]);
 
-  // Counts for current mode
+  // Counts for current mode: isolates active vs archived orders
   const counts = useMemo(() => {
-    const approvedOrders = allCurrentOrders.filter(o => o.approvalState === 'approved');
+    const activeOrders = allCurrentOrders.filter(o => !o.isArchived);
+    const archivedOrders = allCurrentOrders.filter(o => o.isArchived);
+    const approvedOrders = activeOrders.filter(o => o.approvalState === 'approved');
+
     return {
-      total: allCurrentOrders.length,
-      pending: allCurrentOrders.filter(o => o.approvalState === 'pending').length,
+      total: activeOrders.length,
+      pending: activeOrders.filter(o => o.approvalState === 'pending').length,
       approved: approvedOrders.length,
       approvedReceived: approvedOrders.filter(o => o.isTamIstilam).length,
       approvedNotReceived: approvedOrders.filter(o => !o.isTamIstilam).length,
-      rejected: allCurrentOrders.filter(o => o.approvalState === 'rejected').length
+      rejected: activeOrders.filter(o => o.approvalState === 'rejected').length,
+      archived: archivedOrders.length
     };
   }, [allCurrentOrders]);
 
-  // Filtered list according to tab, istilam & search
+  // Filtered list according to tab, istilam, archive status & search
   const filteredOrders = useMemo(() => {
     return allCurrentOrders.filter(order => {
-      // Status filter
-      if (statusFilter !== 'all' && order.approvalState !== statusFilter) {
-        return false;
-      }
+      // If user is in the Archive tab, strictly show ONLY archived/completed orders!
+      if (statusFilter === 'archived') {
+        if (!order.isArchived) return false;
+      } else {
+        // In all regular active tabs, strictly HIDE archived orders!
+        if (order.isArchived) return false;
 
-      // Istilam filter for approved orders (or when istilamFilter is explicitly active)
-      if (istilamFilter === 'received') {
-        if (order.approvalState !== 'approved' || !order.isTamIstilam) return false;
-      } else if (istilamFilter === 'not_received') {
-        if (order.approvalState !== 'approved' || order.isTamIstilam) return false;
+        // Status filter
+        if (statusFilter !== 'all' && order.approvalState !== statusFilter) {
+          return false;
+        }
+
+        // Istilam filter for approved orders
+        if (istilamFilter === 'received') {
+          if (order.approvalState !== 'approved' || !order.isTamIstilam) return false;
+        } else if (istilamFilter === 'not_received') {
+          if (order.approvalState !== 'approved' || order.isTamIstilam) return false;
+        }
       }
 
       // Search filter
@@ -286,6 +346,58 @@ export default function ExchangesReturnsTab({
       return true;
     });
   }, [allCurrentOrders, statusFilter, istilamFilter, searchTerm]);
+
+  // Handle Archive / Transfer Confirmation directly from Admin
+  const handleToggleArchiveOrder = async (order) => {
+    const willBeArchived = !order.isArchived;
+    const orderKey = order.id;
+
+    // Instant local state update
+    setLocalPaidRefundIds(prev => {
+      const next = willBeArchived 
+        ? [...prev, orderKey, order.ticketNumber].filter(Boolean) 
+        : prev.filter(id => id !== orderKey && id !== order.ticketNumber);
+      try {
+        localStorage.setItem('pyjama_ali_paid_refunds', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    try {
+      const updatedDetails = {
+        ...(order.meta || order.exchangeDetails || {}),
+        isRefundPaid: willBeArchived,
+        isArchived: willBeArchived,
+        archived: willBeArchived,
+        refund_paid_at: willBeArchived ? new Date().toISOString() : null
+      };
+
+      await supabase.from('orders').update({
+        exchangeDetails: updatedDetails,
+        isRefundPaid: willBeArchived,
+        isArchived: willBeArchived,
+        archived: willBeArchived
+      }).eq('id', order.id);
+
+      window.dispatchEvent(new CustomEvent('pyjama_order_refund_paid', {
+        detail: {
+          orderId: order.id,
+          ticketNumber: order.ticketNumber,
+          willBePaid: willBeArchived
+        }
+      }));
+
+      showToast(
+        willBeArchived
+          ? '✅ تم تأكيد التحويل ونقل الطلب فوراً إلى الأرشيف والمكتملة (L\'Historique)!'
+          : '↩️ تم إلغاء الأرشفة وإعادة الطلب إلى القائمة النشطة بنجاح',
+        'info'
+      );
+    } catch (err) {
+      console.error('Error toggling archive status:', err);
+      showToast('حدث خطأ أثناء تحديث حالة الأرشفة', 'error');
+    }
+  };
 
   // Handle Approve (Create Parcel & Send WhatsApp)
   const handleApprove = async (order) => {
@@ -687,7 +799,7 @@ export default function ExchangesReturnsTab({
               transition: 'all 0.15s ease'
             }}
           >
-            الكل ({counts.total})
+            النشطة ({counts.total})
           </button>
           <button
             type="button"
@@ -751,6 +863,31 @@ export default function ExchangesReturnsTab({
             }}
           >
             المرفوضة ({counts.rejected})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter('archived');
+              setIstilamFilter('all');
+            }}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '10px',
+              border: 'none',
+              background: statusFilter === 'archived' ? 'linear-gradient(135deg, #059669 0%, #10B981 100%)' : '#ECFDF5',
+              color: statusFilter === 'archived' ? '#FFFFFF' : '#047857',
+              fontWeight: 900,
+              fontSize: '0.86rem',
+              cursor: 'pointer',
+              boxShadow: statusFilter === 'archived' ? '0 2px 8px rgba(16, 185, 129, 0.25)' : 'none',
+              transition: 'all 0.15s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Archive size={15} />
+            <span>الأرشيف والمكتملة ({counts.archived}) 📁</span>
           </button>
         </div>
 
@@ -887,6 +1024,59 @@ export default function ExchangesReturnsTab({
         )}
       </div>
 
+      {/* Historique Header Banner */}
+      {statusFilter === 'archived' && (
+        <div style={{
+          background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
+          border: '1.5px solid #86EFAC',
+          borderRadius: '20px',
+          padding: '20px 24px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '14px',
+          boxShadow: '0 4px 16px rgba(22, 101, 52, 0.05)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '14px',
+              background: '#15803D',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFF',
+              boxShadow: '0 4px 12px rgba(21, 128, 61, 0.25)'
+            }}>
+              <Archive size={24} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.18rem', fontWeight: 900, color: '#14532D' }}>
+                سجل الأرشيف والطلبات المكتملة (L'Historique) 📁
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#166534', fontWeight: 600 }}>
+                هنا تجد جميع الطلبات التي تم استلام طرودها في المحل وتأكيد تحويل مستحقاتها عبر بريدي موب بنجاح.
+              </p>
+            </div>
+          </div>
+
+          <div style={{
+            background: '#15803D',
+            color: '#FFFFFF',
+            padding: '8px 18px',
+            borderRadius: '12px',
+            fontWeight: 900,
+            fontSize: '0.92rem',
+            boxShadow: '0 2px 8px rgba(21, 128, 61, 0.2)'
+          }}>
+            {counts.archived} طلب مكتمل ومؤرشف
+          </div>
+        </div>
+      )}
+
       {/* Orders List */}
       {filteredOrders.length === 0 ? (
         <div style={{
@@ -897,13 +1087,27 @@ export default function ExchangesReturnsTab({
           border: '1.5px dashed #CBD5E1',
           color: '#64748B'
         }}>
-          <ArrowRightLeft size={48} color="#CBD5E1" style={{ marginBottom: '16px' }} />
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1E293B', margin: '0 0 6px' }}>
-            لا توجد طلبات استبدال أو استرجاع مطابقة حالياً
-          </h3>
-          <p style={{ fontSize: '0.9rem', color: '#94A3B8', margin: 0 }}>
-            {searchTerm ? 'جرّب تغيير كلمات البحث' : 'ستظهر الطلبات الجديدة هنا فور تقديمها من طرف الزبائن'}
-          </p>
+          {statusFilter === 'archived' ? (
+            <>
+              <Archive size={48} color="#86EFAC" style={{ marginBottom: '16px' }} />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1E293B', margin: '0 0 6px' }}>
+                لا توجد طلبات مؤرشفة أو مكتملة بعد 📁
+              </h3>
+              <p style={{ fontSize: '0.9rem', color: '#64748B', margin: 0 }}>
+                {searchTerm ? 'جرّب البحث برقم هاتف أو رقم RIP آخر' : 'عند تأكيد استلام الطرود وتحويل المبالغ للزبائن، ستنتقل الطلبات تلقائياً إلى هذا السجل.'}
+              </p>
+            </>
+          ) : (
+            <>
+              <ArrowRightLeft size={48} color="#CBD5E1" style={{ marginBottom: '16px' }} />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1E293B', margin: '0 0 6px' }}>
+                لا توجد طلبات استبدال أو استرجاع نشطة حالياً
+              </h3>
+              <p style={{ fontSize: '0.9rem', color: '#94A3B8', margin: 0 }}>
+                {searchTerm ? 'جرّب تغيير كلمات البحث' : 'ستظهر الطلبات الجديدة هنا فور تقديمها من طرف الزبائن'}
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -926,10 +1130,15 @@ export default function ExchangesReturnsTab({
             let cardShadow = '0 4px 14px rgba(0,0,0,0.02)';
             let headerBg = '#F8FAFC';
 
-            if (isApproved) {
+            if (order.isArchived) {
+              cardBorder = '2px solid #86EFAC';
+              cardShadow = '0 6px 20px rgba(22, 163, 74, 0.08)';
+              headerBg = 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)';
+            } else if (isApproved) {
               if (order.isTamIstilam) {
                 // 🟢 GREEN for Received
                 cardBorder = '2.5px solid #16A34A';
+                cardShadow = '0 6px 22px rgba(220, 38, 38, 0.15)';
                 cardShadow = '0 6px 22px rgba(22, 163, 74, 0.15)';
                 headerBg = 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)';
               } else {
@@ -959,6 +1168,30 @@ export default function ExchangesReturnsTab({
                   transition: 'all 0.2s ease'
                 }}
               >
+                {/* Archive Top Ribbon if Archived */}
+                {order.isArchived && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, #15803D 0%, #16A34A 100%)',
+                    color: '#FFFFFF',
+                    padding: '8px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '0.84rem',
+                    fontWeight: 900
+                  }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <CheckCircle2 size={16} />
+                      <span>طلب مؤرشف ومكتمل — تم استلام الطرد في المحل وتأكيد تحويل المستحقات عبر بريدي موب 💳✨</span>
+                    </span>
+                    {order.refundPaidAt && (
+                      <span style={{ fontSize: '0.78rem', background: 'rgba(0,0,0,0.2)', padding: '2px 8px', borderRadius: '6px' }}>
+                        {new Date(order.refundPaidAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Card Top Header */}
                 <div style={{
                   padding: '16px 24px',
@@ -1641,23 +1874,77 @@ export default function ExchangesReturnsTab({
                               <span>{isProcessing ? 'جاري التسجيل...' : 'تأكيد استلام الطرد في المحل (تم الاستلام) 🟢'}</span>
                             </button>
                           ) : (
-                            <div
-                              style={{
-                                background: '#F0FDF4',
-                                color: '#166534',
-                                border: '1.5px solid #86EFAC',
-                                borderRadius: '12px',
-                                padding: '8px 16px',
-                                fontWeight: 900,
-                                fontSize: '0.86rem',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                userSelect: 'none'
-                              }}
-                            >
-                              <CheckCircle2 size={16} color="#16A34A" />
-                              <span>تم استلام الطرد نهائياً بالمحل 📦</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                              <div
+                                style={{
+                                  background: '#F0FDF4',
+                                  color: '#166534',
+                                  border: '1.5px solid #86EFAC',
+                                  borderRadius: '12px',
+                                  padding: '8px 16px',
+                                  fontWeight: 900,
+                                  fontSize: '0.86rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  userSelect: 'none'
+                                }}
+                              >
+                                <CheckCircle2 size={16} color="#16A34A" />
+                                <span>تم استلام الطرد نهائياً بالمحل 📦</span>
+                              </div>
+
+                              {/* Archive / Transfer Confirmation Actions */}
+                              {order.isArchived ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleArchiveOrder(order)}
+                                  title="إلغاء الأرشفة وإعادة الطلب للقائمة النشطة"
+                                  style={{
+                                    border: '1.5px solid #CBD5E1',
+                                    background: '#FFFFFF',
+                                    color: '#475569',
+                                    padding: '8px 16px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.84rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#94A3B8'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#CBD5E1'; }}
+                                >
+                                  <RotateCcw size={14} />
+                                  <span>إلغاء الأرشفة (إعادة للنشطة) ↩️</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleArchiveOrder(order)}
+                                  title="تأكيد التحويل ونقل العملية فوراً إلى سجل الأرشيف"
+                                  style={{
+                                    border: 'none',
+                                    background: 'linear-gradient(135deg, #B45309 0%, #D97706 100%)',
+                                    color: '#FFFFFF',
+                                    padding: '9px 18px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.86rem',
+                                    fontWeight: 900,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 2px 8px rgba(180, 83, 9, 0.25)',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                >
+                                  <CreditCard size={15} />
+                                  <span>تأكيد التحويل والأرشفة (L'Historique) 💳📁</span>
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>

@@ -497,12 +497,37 @@ export default function AliOwnerDashboard({
         const updatedDetails = {
           ...(item.order.exchangeDetails || {}),
           isRefundPaid: willBePaid,
+          isArchived: willBePaid,
+          archived: willBePaid,
           refund_paid_at: willBePaid ? new Date().toISOString() : null
         };
         await supabase.from('orders').update({
           exchangeDetails: updatedDetails,
-          isRefundPaid: willBePaid
+          isRefundPaid: willBePaid,
+          isArchived: willBePaid,
+          archived: willBePaid
         }).eq('id', item.order.id);
+
+        setLiveOrders(prev => prev.map(o => {
+          if (o.id === item.order.id) {
+            return {
+              ...o,
+              isRefundPaid: willBePaid,
+              isArchived: willBePaid,
+              archived: willBePaid,
+              exchangeDetails: updatedDetails
+            };
+          }
+          return o;
+        }));
+
+        window.dispatchEvent(new CustomEvent('pyjama_order_refund_paid', { 
+          detail: { 
+            orderId: item.order.id, 
+            ticketNumber: item.order.ticketNumber,
+            willBePaid 
+          } 
+        }));
       } catch (e) {
         console.warn('Could not sync refund status to supabase:', e);
       }
