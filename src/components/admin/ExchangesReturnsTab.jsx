@@ -1143,57 +1143,6 @@ export default function ExchangesReturnsTab({
       {/* ========================================================================= */}
       {isArchiveMode && (
         <div>
-          {/* Historique Header Banner */}
-          <div style={{
-            background: 'linear-gradient(135deg, #064E3B 0%, #047857 100%)',
-            borderRadius: '24px',
-            padding: '24px 28px',
-            marginBottom: '24px',
-            color: '#FFFFFF',
-            boxShadow: '0 8px 30px rgba(6, 78, 59, 0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '16px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{
-                width: '54px',
-                height: '54px',
-                borderRadius: '16px',
-                background: 'rgba(255, 255, 255, 0.15)',
-                backdropFilter: 'blur(8px)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#FFF',
-                border: '1px solid rgba(255, 255, 255, 0.25)'
-              }}>
-                <Archive size={28} />
-              </div>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 900, color: '#FFFFFF' }}>
-                  سجل الأرشيف والطلبات المكتملة (L'Historique) 📁
-                </h2>
-                <p style={{ margin: '6px 0 0', fontSize: '0.88rem', color: '#D1FAE5', fontWeight: 600 }}>
-                  الأرشيف مقسم إلى أقسام واضحة: طلبات الاسترجاع المسددة عبر بريدي موب، وطلبات الاستبدال المستلمة بنجاح بالمحل.
-                </p>
-              </div>
-            </div>
-
-            <div style={{
-              background: '#FFFFFF',
-              color: '#064E3B',
-              padding: '10px 22px',
-              borderRadius: '14px',
-              fontWeight: 900,
-              fontSize: '1rem',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.1)'
-            }}>
-              {allArchivedOrders.length} طلب مكتمل ومؤرشف كلياً
-            </div>
-          </div>
 
           {/* Historique Summary KPI Cards */}
           <div style={{
