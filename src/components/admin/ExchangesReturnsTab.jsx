@@ -376,6 +376,12 @@ export default function ExchangesReturnsTab({
     return filterBySearch(archivedExchanges);
   }, [archivedExchanges, searchTerm]);
 
+  const displayedArchivedOrders = useMemo(() => {
+    if (archiveSection === 'retours') return filteredArchivedRetours;
+    if (archiveSection === 'exchanges') return filteredArchivedExchanges;
+    return [...filteredArchivedRetours, ...filteredArchivedExchanges];
+  }, [archiveSection, filteredArchivedRetours, filteredArchivedExchanges]);
+
   // Handle Archive / Transfer Confirmation directly from Admin
   const handleToggleArchiveOrder = async (order) => {
     const willBeArchived = !order.isArchived;
@@ -1267,205 +1273,40 @@ export default function ExchangesReturnsTab({
             </div>
           </div>
 
-          {/* ================================================================= */}
-          {/* SECTION 1: RETOURS ARCHIVE (قسم طلبات الاسترجاع المؤرشفة)          */}
-          {/* ================================================================= */}
-          {(archiveSection === 'all' || archiveSection === 'retours') && (
-            <div style={{ marginBottom: '40px' }}>
-              {/* Section Header */}
-              <div style={{
-                background: '#F0FDF4',
-                border: '1.5px solid #86EFAC',
-                borderRadius: '18px',
-                padding: '16px 22px',
-                marginBottom: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '12px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '10px',
-                    background: '#15803D',
-                    color: '#FFF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.1rem'
-                  }}>
-                    ↩️
-                  </div>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 900, color: '#14532D' }}>
-                      القسم الأول: سجل طلبات الاسترجاع المؤرشفة والمكتملة (Retours & Remboursements)
-                    </h3>
-                    <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#166534', fontWeight: 600 }}>
-                      طلبات الاسترجاع التي تم استلام طرودها في المحل وتأكيد تحويل مبالغها عبر بريدي موب
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{
-                    background: '#15803D',
-                    color: '#FFF',
-                    padding: '6px 14px',
-                    borderRadius: '10px',
-                    fontWeight: 900,
-                    fontSize: '0.86rem'
-                  }}>
-                    {filteredArchivedRetours.length} طلب استرجاع
-                  </span>
-                  <span style={{
-                    background: '#DCFCE7',
-                    border: '1px solid #86EFAC',
-                    color: '#14532D',
-                    padding: '6px 14px',
-                    borderRadius: '10px',
-                    fontWeight: 900,
-                    fontSize: '0.86rem'
-                  }}>
-                    المبالغ: {filteredArchivedRetours.reduce((sum, o) => sum + (Number(o.refundDue) || 0), 0).toLocaleString('ar-DZ')} دج
-                  </span>
-                </div>
-              </div>
-
-              {/* Cards for Retours Archive */}
-              {filteredArchivedRetours.length === 0 ? (
-                <div style={{
-                  background: '#FFF',
-                  borderRadius: '20px',
-                  padding: '40px 20px',
-                  textAlign: 'center',
-                  border: '1.5px dashed #CBD5E1',
-                  color: '#64748B',
-                  marginBottom: '20px'
-                }}>
-                  <CreditCard size={36} color="#86EFAC" style={{ marginBottom: '12px' }} />
-                  <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E293B', margin: '0 0 4px' }}>
-                    لا توجد طلبات استرجاع مؤرشفة تطابق البحث
-                  </h4>
-                  <p style={{ fontSize: '0.85rem', color: '#94A3B8', margin: 0 }}>
-                    عند تأكيد تحويل مستحقات الاسترجاع من طرف علي، ستظهر تلقائياً في هذا القسم.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                  {filteredArchivedRetours.map((order, idx) => (
-                    <ExchangeOrderCard
-                      key={order.id || idx}
-                      order={order}
-                      idx={idx}
-                      isProcessing={processingOrderId === order.id}
-                      onApprove={handleApprove}
-                      onReject={setRejectionModalOrder}
-                      onToggleIstilam={handleToggleIstilam}
-                      onToggleArchive={handleToggleArchiveOrder}
-                      onOpenPhotoModal={setSelectedPhotoModal}
-                      onCopy={copyToClipboard}
-                    />
-                  ))}
-                </div>
-              )}
+          {/* Direct Archived Orders List */}
+          {displayedArchivedOrders.length === 0 ? (
+            <div style={{
+              background: '#FFF',
+              borderRadius: '24px',
+              padding: '60px 20px',
+              textAlign: 'center',
+              border: '1.5px dashed #CBD5E1',
+              color: '#64748B'
+            }}>
+              <Archive size={48} color="#86EFAC" style={{ marginBottom: '16px' }} />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1E293B', margin: '0 0 6px' }}>
+                لا توجد طلبات مؤرشفة أو مكتملة تطابق البحث 📁
+              </h3>
+              <p style={{ fontSize: '0.9rem', color: '#94A3B8', margin: 0 }}>
+                {searchTerm ? 'جرّب تغيير كلمات البحث' : 'تظهر هنا الطلبات المؤرشفة والمكتملة تلقائياً'}
+              </p>
             </div>
-          )}
-
-          {/* ================================================================= */}
-          {/* SECTION 2: EXCHANGES ARCHIVE (قسم طلبات الاستبدال المؤرشفة)        */}
-          {/* ================================================================= */}
-          {(archiveSection === 'all' || archiveSection === 'exchanges') && (
-            <div style={{ marginBottom: '30px' }}>
-              {/* Section Header */}
-              <div style={{
-                background: '#EFF6FF',
-                border: '1.5px solid #93C5FD',
-                borderRadius: '18px',
-                padding: '16px 22px',
-                marginBottom: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '12px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '10px',
-                    background: '#1D4ED8',
-                    color: '#FFF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.1rem'
-                  }}>
-                    🔄
-                  </div>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 900, color: '#1E3A8A' }}>
-                      القسم الثاني: سجل طلبات الاستبدال المؤرشفة والمكتملة (Échanges Terminés)
-                    </h3>
-                    <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#1E40AF', fontWeight: 600 }}>
-                      طلبات الاستبدال التي تم تسليم طرودها البديلة للزبائن واستلام الطرود القديمة نهائياً بالمحل
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{
-                    background: '#1D4ED8',
-                    color: '#FFF',
-                    padding: '6px 14px',
-                    borderRadius: '10px',
-                    fontWeight: 900,
-                    fontSize: '0.86rem'
-                  }}>
-                    {filteredArchivedExchanges.length} طلب استبدال مكتمل
-                  </span>
-                </div>
-              </div>
-
-              {/* Cards for Exchanges Archive */}
-              {filteredArchivedExchanges.length === 0 ? (
-                <div style={{
-                  background: '#FFF',
-                  borderRadius: '20px',
-                  padding: '40px 20px',
-                  textAlign: 'center',
-                  border: '1.5px dashed #CBD5E1',
-                  color: '#64748B'
-                }}>
-                  <Package size={36} color="#93C5FD" style={{ marginBottom: '12px' }} />
-                  <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1E293B', margin: '0 0 4px' }}>
-                    لا توجد طلبات استبدال مؤرشفة تطابق البحث
-                  </h4>
-                  <p style={{ fontSize: '0.85rem', color: '#94A3B8', margin: 0 }}>
-                    تنتقل طلبات الاستبدال المكتملة إلى هنا عند تسويتها واستلام طرودها في المحل.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                  {filteredArchivedExchanges.map((order, idx) => (
-                    <ExchangeOrderCard
-                      key={order.id || idx}
-                      order={order}
-                      idx={idx}
-                      isProcessing={processingOrderId === order.id}
-                      onApprove={handleApprove}
-                      onReject={setRejectionModalOrder}
-                      onToggleIstilam={handleToggleIstilam}
-                      onToggleArchive={handleToggleArchiveOrder}
-                      onOpenPhotoModal={setSelectedPhotoModal}
-                      onCopy={copyToClipboard}
-                    />
-                  ))}
-                </div>
-              )}
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {displayedArchivedOrders.map((order, idx) => (
+                <ExchangeOrderCard
+                  key={order.id || idx}
+                  order={order}
+                  idx={idx}
+                  isProcessing={processingOrderId === order.id}
+                  onApprove={handleApprove}
+                  onReject={setRejectionModalOrder}
+                  onToggleIstilam={handleToggleIstilam}
+                  onToggleArchive={handleToggleArchiveOrder}
+                  onOpenPhotoModal={setSelectedPhotoModal}
+                  onCopy={copyToClipboard}
+                />
+              ))}
             </div>
           )}
         </div>
