@@ -40,11 +40,12 @@ export default function ExchangesReturnsTab({
   const isRetourMode = currentMode === 'retour';
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('pending'); // 'pending' | 'approved' | 'rejected' | 'all'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'approved' | 'pending' | 'rejected'
   const [selectedPhotoModal, setSelectedPhotoModal] = useState(null);
   const [processingOrderId, setProcessingOrderId] = useState(null);
   const [rejectionModalOrder, setRejectionModalOrder] = useState(null);
   const [rejectionReason, setRejectionReason] = useState(isRetourMode ? 'السلعة غير مطابقة لشروط الاسترجاع' : 'السلعة غير مطابقة لشروط الاستبدال');
+  const [istilamOverrides, setIstilamOverrides] = useState({});
 
   // Helper: Detect pure return order
   const isOrderRetour = (order) => {
@@ -136,7 +137,10 @@ export default function ExchangesReturnsTab({
         'recupere_vendeur', 'retourne_au_vendeur', 'retour_recupere'
       ].some(s => courierStatus.includes(s));
 
-      const isTamIstilam = Boolean(order.tam_istilam === true || order.isExchangeParcelReceived === true || order.exchange_parcel_received_at || isCourierReceived);
+      const localOverride = istilamOverrides[order.id];
+      const isTamIstilam = localOverride !== undefined 
+        ? localOverride 
+        : Boolean(order.tam_istilam === true || order.isExchangeParcelReceived === true || order.exchange_parcel_received_at || isCourierReceived);
 
       return {
         ...order,
@@ -155,6 +159,13 @@ export default function ExchangesReturnsTab({
         oldPrice: Number(meta.oldProductPrice || order.price || 0),
         reason: meta.reason || (isRetourMode ? 'طلب استرجاع المنتج واسترداد المبلغ' : 'تغيير المقاس أو الموديل')
       };
+    }).sort((a, b) => {
+      // Prioritize pending orders at top, then sort by date descending
+      if (a.approvalState === 'pending' && b.approvalState !== 'pending') return -1;
+      if (b.approvalState === 'pending' && a.approvalState !== 'pending') return 1;
+      const dateA = new Date(a.created_at || a.date || 0).getTime();
+      const dateB = new Date(b.created_at || b.date || 0).getTime();
+      return dateB - dateA;
     });
   }, [orders, isRetourMode]);
 
@@ -269,6 +280,47 @@ export default function ExchangesReturnsTab({
     } finally {
       setProcessingOrderId(null);
       setRejectionModalOrder(null);
+    }
+  };
+
+  // Handle Toggle Istilam (Manual receipt toggle for returns & manual override for exchanges)
+  const handleToggleIstilam = async (order) => {
+    if (processingOrderId) return;
+    setProcessingOrderId(order.id);
+    const newIstilamState = !order.isTamIstilam;
+
+    // Instant optimistic UI update
+    setIstilamOverrides(prev => ({ ...prev, [order.id]: newIstilamState }));
+
+    try {
+      showToast(newIstilamState ? '⏳ جاري تسجيل استلام الطرد في المحل...' : '⏳ جاري تحويل الحالة إلى: راهي في الطريق جاية...', 'info');
+
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          tam_istilam: newIstilamState,
+          isExchangeParcelReceived: newIstilamState,
+          tam_istilam_at: newIstilamState ? new Date().toISOString() : null,
+          exchange_parcel_received_at: newIstilamState ? new Date().toISOString() : null
+        })
+        .eq('id', order.id);
+
+      if (error) {
+        // Rollback on error
+        setIstilamOverrides(prev => ({ ...prev, [order.id]: !newIstilamState }));
+        throw error;
+      }
+
+      showToast(newIstilamState ? '🟢 تم تأكيد استلام الطرد بنجاح في المحل / المخزن!' : '🔴 تم تحويل الحالة إلى: راهي في الطريق جاية (لم يتم الاستلام)', 'success');
+      
+      if (onUpdateStatus) {
+        onUpdateStatus(order.id, order.status);
+      }
+    } catch (err) {
+      console.error('Error toggling istilam:', err);
+      showToast('حدث خطأ أثناء تحديث حالة الاستلام', 'error');
+    } finally {
+      setProcessingOrderId(null);
     }
   };
 
@@ -523,20 +575,21 @@ export default function ExchangesReturnsTab({
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F1F5F9', padding: '4px', borderRadius: '14px' }}>
           <button
             type="button"
-            onClick={() => setStatusFilter('pending')}
+            onClick={() => setStatusFilter('all')}
             style={{
               padding: '8px 16px',
               borderRadius: '10px',
               border: 'none',
-              background: statusFilter === 'pending' ? '#FFFFFF' : 'transparent',
-              color: statusFilter === 'pending' ? '#B45309' : '#64748B',
+              background: statusFilter === 'all' ? '#FFFFFF' : 'transparent',
+              color: statusFilter === 'all' ? '#1E293B' : '#64748B',
               fontWeight: 800,
               fontSize: '0.86rem',
               cursor: 'pointer',
-              boxShadow: statusFilter === 'pending' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
+              boxShadow: statusFilter === 'all' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+              transition: 'all 0.15s ease'
             }}
           >
-            قيد الانتظار ({counts.pending})
+            الكل ({counts.total})
           </button>
           <button
             type="button"
@@ -550,10 +603,29 @@ export default function ExchangesReturnsTab({
               fontWeight: 800,
               fontSize: '0.86rem',
               cursor: 'pointer',
-              boxShadow: statusFilter === 'approved' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
+              boxShadow: statusFilter === 'approved' ? '0 2px 6px rgba(21, 128, 61, 0.15)' : 'none',
+              transition: 'all 0.15s ease'
             }}
           >
             المقبولة ({counts.approved})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('pending')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '10px',
+              border: 'none',
+              background: statusFilter === 'pending' ? '#FFFFFF' : 'transparent',
+              color: statusFilter === 'pending' ? '#B45309' : '#64748B',
+              fontWeight: 800,
+              fontSize: '0.86rem',
+              cursor: 'pointer',
+              boxShadow: statusFilter === 'pending' ? '0 2px 6px rgba(180, 83, 9, 0.15)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            قيد الانتظار ({counts.pending})
           </button>
           <button
             type="button"
@@ -567,27 +639,11 @@ export default function ExchangesReturnsTab({
               fontWeight: 800,
               fontSize: '0.86rem',
               cursor: 'pointer',
-              boxShadow: statusFilter === 'rejected' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
+              boxShadow: statusFilter === 'rejected' ? '0 2px 6px rgba(185, 28, 28, 0.15)' : 'none',
+              transition: 'all 0.15s ease'
             }}
           >
             المرفوضة ({counts.rejected})
-          </button>
-          <button
-            type="button"
-            onClick={() => setStatusFilter('all')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '10px',
-              border: 'none',
-              background: statusFilter === 'all' ? '#FFFFFF' : 'transparent',
-              color: statusFilter === 'all' ? '#1E293B' : '#64748B',
-              fontWeight: 800,
-              fontSize: '0.86rem',
-              cursor: 'pointer',
-              boxShadow: statusFilter === 'all' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
-            }}
-          >
-            الكل ({counts.total})
           </button>
         </div>
       </div>
@@ -622,6 +678,35 @@ export default function ExchangesReturnsTab({
               : order.baridiMobRip;
 
             const isProcessing = processingOrderId === order.id;
+            const isApproved = order.approvalState === 'approved';
+            const isPending = order.approvalState === 'pending';
+            const isRejected = order.approvalState === 'rejected';
+
+            // User Rule: Received = Green, In Transit / Not Received = Red
+            let cardBorder = '1px solid #E2E8F0';
+            let cardShadow = '0 4px 14px rgba(0,0,0,0.02)';
+            let headerBg = '#F8FAFC';
+
+            if (isApproved) {
+              if (order.isTamIstilam) {
+                // 🟢 GREEN for Received
+                cardBorder = '2.5px solid #16A34A';
+                cardShadow = '0 6px 22px rgba(22, 163, 74, 0.15)';
+                headerBg = 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)';
+              } else {
+                // 🔴 RED for In transit / not yet received
+                cardBorder = '2.5px solid #DC2626';
+                cardShadow = '0 6px 22px rgba(220, 38, 38, 0.15)';
+                headerBg = 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)';
+              }
+            } else if (isPending) {
+              cardBorder = '2px solid #FDE68A';
+              cardShadow = '0 8px 24px rgba(217, 119, 6, 0.08)';
+              headerBg = 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)';
+            } else if (isRejected) {
+              cardBorder = '1.5px solid #FCA5A5';
+              headerBg = '#FEF2F2';
+            }
 
             return (
               <div 
@@ -629,17 +714,16 @@ export default function ExchangesReturnsTab({
                 style={{
                   background: '#FFF',
                   borderRadius: '24px',
-                  border: order.approvalState === 'pending' ? '2px solid #FDE68A' : '1px solid #E2E8F0',
-                  boxShadow: order.approvalState === 'pending' ? '0 8px 24px rgba(217, 119, 6, 0.08)' : '0 4px 14px rgba(0,0,0,0.02)',
-                  overflow: 'hidden'
+                  border: cardBorder,
+                  boxShadow: cardShadow,
+                  overflow: 'hidden',
+                  transition: 'all 0.2s ease'
                 }}
               >
                 {/* Card Top Header */}
                 <div style={{
                   padding: '16px 24px',
-                  background: order.approvalState === 'pending' 
-                    ? 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)' 
-                    : (order.approvalState === 'approved' ? '#F0FDF4' : '#FEF2F2'),
+                  background: headerBg,
                   borderBottom: '1px solid #E2E8F0',
                   display: 'flex',
                   alignItems: 'center',
@@ -706,44 +790,70 @@ export default function ExchangesReturnsTab({
                     </button>
                   </div>
 
-                  {/* Status Badge */}
+                  {/* Status Badges */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    {order.isTamIstilam ? (
-                      <span style={{
-                        background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
-                        color: '#166534',
-                        border: '1.5px solid #86EFAC',
-                        padding: '6px 14px',
-                        borderRadius: '12px',
-                        fontWeight: 900,
-                        fontSize: '0.85rem',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        boxShadow: '0 2px 8px rgba(22, 101, 52, 0.15)'
-                      }}>
-                        <CheckCircle2 size={15} color="#15803D" />
-                        <span>تم استلام الطرد من شركة التوصيل ✅</span>
-                      </span>
-                    ) : order.trackingNumber ? (
-                      <span style={{
-                        background: '#EFF6FF',
-                        color: '#1D4ED8',
-                        border: '1.5px solid #BFDBFE',
-                        padding: '6px 12px',
-                        borderRadius: '12px',
-                        fontWeight: 800,
-                        fontSize: '0.82rem',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <Truck size={14} color="#2563EB" />
-                        <span>في انتظار استلام الخدام للطرد من المكتب ⏳</span>
-                      </span>
-                    ) : null}
+                    {isApproved && (
+                      <>
+                        {/* Primary Receipt Status: Green if received, Red if in transit */}
+                        {order.isTamIstilam ? (
+                          <span style={{
+                            background: 'linear-gradient(135deg, #15803D 0%, #16A34A 100%)',
+                            color: '#FFFFFF',
+                            padding: '6px 14px',
+                            borderRadius: '12px',
+                            fontWeight: 900,
+                            fontSize: '0.84rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 2px 8px rgba(21, 128, 61, 0.25)'
+                          }}>
+                            <CheckCircle2 size={16} color="#FFFFFF" />
+                            <span>🟢 تم الاستلام (المحل / المخزن) ✅</span>
+                            {order.tamIstilamAt && (
+                              <span style={{ fontSize: '0.72rem', opacity: 0.9, background: 'rgba(0,0,0,0.15)', padding: '2px 6px', borderRadius: '6px' }}>
+                                {new Date(order.tamIstilamAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span style={{
+                            background: 'linear-gradient(135deg, #DC2626 0%, #EF4444 100%)',
+                            color: '#FFFFFF',
+                            padding: '6px 14px',
+                            borderRadius: '12px',
+                            fontWeight: 900,
+                            fontSize: '0.84rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 2px 8px rgba(220, 38, 38, 0.25)'
+                          }}>
+                            <Clock size={16} color="#FFFFFF" />
+                            <span>🔴 راهي في الطريق جاية (لم يتم الاستلام بعد) ⏳</span>
+                          </span>
+                        )}
 
-                    {order.approvalState === 'pending' && (
+                        {/* Approval Tag with Tracking Code */}
+                        <span style={{
+                          background: '#FFFFFF',
+                          color: '#0F172A',
+                          border: '1.5px solid #CBD5E1',
+                          padding: '5px 12px',
+                          borderRadius: '12px',
+                          fontWeight: 800,
+                          fontSize: '0.82rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <CheckCircle2 size={14} color="#16A34A" />
+                          <span>طلب مقبول {order.trackingNumber ? `(${order.trackingNumber})` : ''}</span>
+                        </span>
+                      </>
+                    )}
+
+                    {isPending && (
                       <span style={{
                         background: '#FEF3C7',
                         color: '#B45309',
@@ -761,25 +871,7 @@ export default function ExchangesReturnsTab({
                       </span>
                     )}
 
-                    {order.approvalState === 'approved' && (
-                      <span style={{
-                        background: '#DCFCE7',
-                        color: '#15803D',
-                        border: '1.5px solid #86EFAC',
-                        padding: '6px 14px',
-                        borderRadius: '12px',
-                        fontWeight: 900,
-                        fontSize: '0.85rem',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <CheckCircle2 size={15} color="#16A34A" />
-                        <span>مقبول ({order.trackingNumber || 'قيد الشحن'})</span>
-                      </span>
-                    )}
-
-                    {order.approvalState === 'rejected' && (
+                    {isRejected && (
                       <span style={{
                         background: '#FEE2E2',
                         color: '#B91C1C',
@@ -1249,12 +1341,88 @@ export default function ExchangesReturnsTab({
                         </button>
                       </div>
                     ) : order.approvalState === 'approved' ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ color: '#15803D', fontWeight: 800, fontSize: '0.88rem' }}>
-                          {isRetourMode 
-                            ? '✅ تم قبول الاسترجاع وإشعار الزبون بمتابعة استرداد المبلغ' 
-                            : '✅ تم إرسال رسالة الموافقة وكود التتبع للزبون'}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '12px' }}>
+                        {/* Status Label & Details */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: order.isTamIstilam ? '#DCFCE7' : '#FEE2E2',
+                            color: order.isTamIstilam ? '#166534' : '#991B1B',
+                            border: order.isTamIstilam ? '1.5px solid #86EFAC' : '1.5px solid #FCA5A5',
+                            padding: '6px 14px',
+                            borderRadius: '10px',
+                            fontWeight: 900,
+                            fontSize: '0.88rem'
+                          }}>
+                            <span>{order.isTamIstilam ? '🟢' : '🔴'}</span>
+                            <span>
+                              {order.isTamIstilam 
+                                ? (isRetourMode ? 'تم استلام طرد الاسترجاع في المحل بنجاح' : 'تم استلام طرد الاستبدال من شركة التوصيل') 
+                                : (isRetourMode ? 'طرد الاسترجاع راه في الطريق جاي (لم يُستلم بعد)' : 'طرد الاستبدال مع شركة التوصيل (لم يُستلم بعد)')}
+                            </span>
+                          </span>
+
+                          <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 700 }}>
+                            {isRetourMode 
+                              ? '✍️ تأكيد استلام يدوي' 
+                              : '⚡ استلام تلقائي عبر منصة التوصيل أو يدوي'}
+                          </span>
+                        </div>
+
+                        {/* Action Toggle Button */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {!order.isTamIstilam ? (
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={() => handleToggleIstilam(order)}
+                              style={{
+                                background: 'linear-gradient(135deg, #15803D 0%, #16A34A 100%)',
+                                color: '#FFF',
+                                border: 'none',
+                                borderRadius: '12px',
+                                padding: '10px 22px',
+                                fontWeight: 900,
+                                fontSize: '0.92rem',
+                                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                boxShadow: '0 4px 14px rgba(22, 163, 74, 0.35)',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <CheckCircle2 size={18} />
+                              <span>{isProcessing ? 'جاري التسجيل...' : 'تأكيد استلام الطرد في المحل (تم الاستلام) 🟢'}</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={() => handleToggleIstilam(order)}
+                              title="إعادة الحالة إلى: في الطريق جاية"
+                              style={{
+                                background: '#FFF',
+                                color: '#DC2626',
+                                border: '1.5px solid #FCA5A5',
+                                borderRadius: '12px',
+                                padding: '8px 18px',
+                                fontWeight: 800,
+                                fontSize: '0.86rem',
+                                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <RefreshCw size={15} />
+                              <span>{isProcessing ? 'جاري التحديث...' : 'إعادة إلى: في الطريق جاية (لم يتم الاستلام) 🔴'}</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div style={{ color: '#DC2626', fontWeight: 800, fontSize: '0.88rem' }}>
