@@ -39,7 +39,7 @@ export default function ExchangesReturnsTab({
   }, [mode]);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'approved' | 'pending' | 'rejected' | 'archived'
+  const [statusFilter, setStatusFilter] = useState('approved'); // 'approved' | 'pending' | 'rejected' | 'archived'
   const [archiveSection, setArchiveSection] = useState('all'); // 'all' | 'retours' | 'exchanges'
 
   const isArchiveMode = internalMode === 'archived' || statusFilter === 'archived';
@@ -630,7 +630,7 @@ export default function ExchangesReturnsTab({
           onClick={() => {
             if (onTabChange) onTabChange('retours');
             setInternalMode('retour');
-            setStatusFilter('all');
+            setStatusFilter('approved');
           }}
           style={{
             padding: '12px 24px',
@@ -766,24 +766,6 @@ export default function ExchangesReturnsTab({
 
             {/* Segmented Filter Buttons */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F1F5F9', padding: '4px', borderRadius: '14px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setStatusFilter('all')}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: statusFilter === 'all' ? '#FFFFFF' : 'transparent',
-                  color: statusFilter === 'all' ? '#1E293B' : '#64748B',
-                  fontWeight: 800,
-                  fontSize: '0.86rem',
-                  cursor: 'pointer',
-                  boxShadow: statusFilter === 'all' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                النشطة ({counts.total})
-              </button>
               <button
                 type="button"
                 onClick={() => {
