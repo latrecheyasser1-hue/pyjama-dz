@@ -277,8 +277,12 @@ export default function AliOwnerDashboard({
         const isParcelReceived = Boolean(
           order.tam_istilam === true ||
           order.isExchangeParcelReceived === true ||
+          details?.tam_istilam === true ||
+          details?.isExchangeParcelReceived === true ||
           order.tam_istilam_at ||
           order.exchange_parcel_received_at ||
+          details?.tam_istilam_at ||
+          details?.exchange_parcel_received_at ||
           isCourierConfirmed
         );
 

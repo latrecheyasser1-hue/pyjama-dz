@@ -163,7 +163,17 @@ export default function ExchangesReturnsTab({
       const localOverride = istilamOverrides[order.id];
       const isTamIstilam = localOverride !== undefined 
         ? localOverride 
-        : Boolean(order.tam_istilam === true || order.isExchangeParcelReceived === true || order.exchange_parcel_received_at || isCourierReceived);
+        : Boolean(
+            order.tam_istilam === true || 
+            order.isExchangeParcelReceived === true || 
+            meta.tam_istilam === true || 
+            meta.isExchangeParcelReceived === true || 
+            order.tam_istilam_at || 
+            order.exchange_parcel_received_at || 
+            meta.tam_istilam_at || 
+            meta.exchange_parcel_received_at || 
+            isCourierReceived
+          );
 
       return {
         ...order,
@@ -328,13 +338,31 @@ export default function ExchangesReturnsTab({
     try {
       showToast(newIstilamState ? '⏳ جاري تسجيل استلام الطرد في المحل...' : '⏳ جاري تحويل الحالة إلى: راهي في الطريق جاية...', 'info');
 
+      const updatedItems = Array.isArray(order.items) ? [...order.items] : [];
+      const metaIdx = updatedItems.findIndex(it => it && (it.isExchangeMeta || it.isReturnMeta));
+      const nowIso = new Date().toISOString();
+      if (metaIdx >= 0) {
+        updatedItems[metaIdx] = {
+          ...updatedItems[metaIdx],
+          tam_istilam: newIstilamState,
+          isExchangeParcelReceived: newIstilamState,
+          tam_istilam_at: newIstilamState ? nowIso : null,
+          exchange_parcel_received_at: newIstilamState ? nowIso : null
+        };
+      } else {
+        updatedItems.push({
+          isExchangeMeta: true,
+          tam_istilam: newIstilamState,
+          isExchangeParcelReceived: newIstilamState,
+          tam_istilam_at: newIstilamState ? nowIso : null,
+          exchange_parcel_received_at: newIstilamState ? nowIso : null
+        });
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({
-          tam_istilam: newIstilamState,
-          isExchangeParcelReceived: newIstilamState,
-          tam_istilam_at: newIstilamState ? new Date().toISOString() : null,
-          exchange_parcel_received_at: newIstilamState ? new Date().toISOString() : null
+          items: updatedItems
         })
         .eq('id', order.id);
 
