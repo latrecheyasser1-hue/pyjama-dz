@@ -326,17 +326,21 @@ export default function ExchangesReturnsTab({
     }
   };
 
-  // Handle Toggle Istilam (Manual receipt toggle for returns & manual override for exchanges)
+  // Handle Confirm Istilam (Manual receipt confirmation for returns & exchanges - One-way irreversible)
   const handleToggleIstilam = async (order) => {
     if (processingOrderId) return;
+    if (order.isTamIstilam) {
+      showToast('⚠️ لا يمكن إلغاء الاستلام بعد تأكيده (الحالة نهائية)', 'warning');
+      return;
+    }
     setProcessingOrderId(order.id);
-    const newIstilamState = !order.isTamIstilam;
+    const newIstilamState = true;
 
     // Instant optimistic UI update
-    setIstilamOverrides(prev => ({ ...prev, [order.id]: newIstilamState }));
+    setIstilamOverrides(prev => ({ ...prev, [order.id]: true }));
 
     try {
-      showToast(newIstilamState ? '⏳ جاري تسجيل استلام الطرد في المحل...' : '⏳ جاري تحويل الحالة إلى: راهي في الطريق جاية...', 'info');
+      showToast('⏳ جاري تسجيل استلام الطرد في المحل...', 'info');
 
       const updatedItems = Array.isArray(order.items) ? [...order.items] : [];
       const metaIdx = updatedItems.findIndex(it => it && (it.isExchangeMeta || it.isReturnMeta));
@@ -372,7 +376,7 @@ export default function ExchangesReturnsTab({
         throw error;
       }
 
-      showToast(newIstilamState ? '🟢 تم تأكيد استلام الطرد بنجاح في المحل / المخزن!' : '🔴 تم تحويل الحالة إلى: راهي في الطريق جاية (لم يتم الاستلام)', 'success');
+      showToast('🟢 تم تأكيد استلام الطرد بنجاح في المحل / المخزن!', 'success');
       
       if (onUpdateStatus) {
         onUpdateStatus(order.id, order.status);
@@ -1600,29 +1604,24 @@ export default function ExchangesReturnsTab({
                               <span>{isProcessing ? 'جاري التسجيل...' : 'تأكيد استلام الطرد في المحل (تم الاستلام) 🟢'}</span>
                             </button>
                           ) : (
-                            <button
-                              type="button"
-                              disabled={isProcessing}
-                              onClick={() => handleToggleIstilam(order)}
-                              title="إعادة الحالة إلى: في الطريق (لم يتم الاستلام)"
+                            <div
                               style={{
-                                background: '#FFF',
-                                color: '#DC2626',
-                                border: '1.5px solid #FCA5A5',
+                                background: '#F0FDF4',
+                                color: '#166534',
+                                border: '1.5px solid #86EFAC',
                                 borderRadius: '12px',
-                                padding: '8px 18px',
-                                fontWeight: 800,
+                                padding: '8px 16px',
+                                fontWeight: 900,
                                 fontSize: '0.86rem',
-                                cursor: isProcessing ? 'not-allowed' : 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '6px',
-                                transition: 'all 0.15s ease'
+                                userSelect: 'none'
                               }}
                             >
-                              <RefreshCw size={15} />
-                              <span>{isProcessing ? 'جاري التحديث...' : 'إلغاء الاستلام (إعادة إلى: في الطريق) 🔴'}</span>
-                            </button>
+                              <CheckCircle2 size={16} color="#16A34A" />
+                              <span>تم استلام الطرد نهائياً بالمحل 📦</span>
+                            </div>
                           )}
                         </div>
                       </div>
