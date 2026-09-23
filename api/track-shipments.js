@@ -132,6 +132,27 @@ export default async function handler(req, res) {
             }
           }
 
+          // Return / Exchange parcel collected by merchant / worker from courier
+          const isCollectedByMerchant = [
+            'retourné au vendeur', 'retourne au vendeur',
+            'livré au vendeur', 'livre au vendeur',
+            'reçu par le vendeur', 'recu par le vendeur',
+            'retour récupéré', 'retour recupere',
+            'retour retiré', 'retour retire',
+            'échange reçu', 'echange recu',
+            'returned_to_merchant', 'received_by_merchant',
+            'return_delivered_to_sender', 'return_collected',
+            'colis récupéré par l\'expéditeur', 'colis recupere par l\'expediteur'
+          ].some(s => normStatus.includes(s));
+
+          if (isCollectedByMerchant) {
+            patchData.isExchangeParcelReceived = true;
+            patchData.tam_istilam = true;
+            patchData.tam_istilam_at = new Date().toISOString();
+            patchData.exchange_parcel_received_at = new Date().toISOString();
+            patchData.exchange_return_courier_status = status;
+          }
+
           if (Object.keys(patchData).length > 0) {
             await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${targetOrder.id}`, {
               method: 'PATCH',
@@ -163,12 +184,20 @@ export default async function handler(req, res) {
     const zrApiKey = creds.zr_express_api_key || 'Z7Hc9ysXDHbjfztqASk0YevJumND6TOFpH7tC8DKLpCFsX5ZfV2kjdSplyiktz3d';
     const zrTenantId = 'c84d4b7b-9252-45c0-8339-5be6cfd9bc91';
 
-    // 2. Fetch Active Dispatched Orders
-    const ordersRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=in.(confirmee,expediee)&select=id,clientName,phone,wilaya,commune,deliveryMode,product,price,status,created_at,deliveryCompany,trackingNumber,shippingLabelUrl&order=created_at.desc&limit=80`, {
+    // 2. Fetch Active Dispatched Orders + Pending Exchange Returns
+    const ordersRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?status=in.(confirmee,expediee,livree)&select=id,clientName,phone,wilaya,commune,deliveryMode,product,price,status,created_at,deliveryCompany,trackingNumber,shippingLabelUrl,isExchange,isExchangeParcelReceived,tam_istilam,exchangeDetails&order=created_at.desc&limit=100`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     const rawOrders = await ordersRes.json();
-    const activeOrders = Array.isArray(rawOrders) ? rawOrders.filter(o => o.trackingNumber && o.trackingNumber.trim().length > 4) : [];
+    const activeOrders = Array.isArray(rawOrders) ? rawOrders.filter(o => {
+      const tracking = (o.trackingNumber || '').trim();
+      if (!tracking || tracking.length <= 4) return false;
+      if (o.status === 'livree') {
+        const isEx = o.isExchange === true || o.orderType === 'exchange' || Boolean(o.exchangeDetails) || String(o.clientName || '').includes('استبدال');
+        return isEx && !o.isExchangeParcelReceived && !o.tam_istilam;
+      }
+      return true;
+    }) : [];
 
     if (!Array.isArray(activeOrders) || activeOrders.length === 0) {
       return res.status(200).json({ success: true, message: 'No active shipping orders to track', processed: 0 });
@@ -283,6 +312,8 @@ export default async function handler(req, res) {
 
         if (isExchangeReturnReceived && !order.isExchangeParcelReceived) {
           patchData.isExchangeParcelReceived = true;
+          patchData.tam_istilam = true;
+          patchData.tam_istilam_at = new Date().toISOString();
           patchData.exchange_parcel_received_at = new Date().toISOString();
           patchData.exchange_return_courier_status = currentStatus;
           shouldUpdateOrder = true;

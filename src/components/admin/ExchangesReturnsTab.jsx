@@ -121,6 +121,23 @@ export default function ExchangesReturnsTab({
         approvalState = 'rejected';
       }
 
+      // Return parcel collected from courier by merchant detection
+      const courierStatus = String(order.exchange_return_courier_status || order.yalidine_last_status || order.zrStatus || '').toLowerCase();
+      const isCourierReceived = [
+        'retourné au vendeur', 'retourne au vendeur',
+        'livré au vendeur', 'livre au vendeur',
+        'reçu par le vendeur', 'recu par le vendeur',
+        'retour récupéré', 'retour recupere',
+        'retour retiré', 'retour retire',
+        'échange reçu', 'echange recu',
+        'returned_to_merchant', 'received_by_merchant',
+        'return_delivered_to_sender', 'return_collected',
+        'colis récupéré par l\'expéditeur', 'colis recupere par l\'expediteur',
+        'recupere_vendeur', 'retourne_au_vendeur', 'retour_recupere'
+      ].some(s => courierStatus.includes(s));
+
+      const isTamIstilam = Boolean(order.tam_istilam === true || order.isExchangeParcelReceived === true || order.exchange_parcel_received_at || isCourierReceived);
+
       return {
         ...order,
         meta,
@@ -129,6 +146,9 @@ export default function ExchangesReturnsTab({
         approvalState,
         refundDue,
         baridiMobRip: rawRip,
+        isTamIstilam,
+        tamIstilamAt: order.tam_istilam_at || order.exchange_parcel_received_at || null,
+        courierReturnStatus: courierStatus,
         photo: meta.productPhoto || order.productPhoto || null,
         oldTitle: meta.oldProductTitle || order.product || 'بيجامة',
         oldBarcode: meta.oldProductBarcode || '',
@@ -687,7 +707,42 @@ export default function ExchangesReturnsTab({
                   </div>
 
                   {/* Status Badge */}
-                  <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {order.isTamIstilam ? (
+                      <span style={{
+                        background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
+                        color: '#166534',
+                        border: '1.5px solid #86EFAC',
+                        padding: '6px 14px',
+                        borderRadius: '12px',
+                        fontWeight: 900,
+                        fontSize: '0.85rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 8px rgba(22, 101, 52, 0.15)'
+                      }}>
+                        <CheckCircle2 size={15} color="#15803D" />
+                        <span>تم استلام الطرد من شركة التوصيل ✅</span>
+                      </span>
+                    ) : order.trackingNumber ? (
+                      <span style={{
+                        background: '#EFF6FF',
+                        color: '#1D4ED8',
+                        border: '1.5px solid #BFDBFE',
+                        padding: '6px 12px',
+                        borderRadius: '12px',
+                        fontWeight: 800,
+                        fontSize: '0.82rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <Truck size={14} color="#2563EB" />
+                        <span>في انتظار استلام الخدام للطرد من المكتب ⏳</span>
+                      </span>
+                    ) : null}
+
                     {order.approvalState === 'pending' && (
                       <span style={{
                         background: '#FEF3C7',
@@ -720,7 +775,7 @@ export default function ExchangesReturnsTab({
                         gap: '6px'
                       }}>
                         <CheckCircle2 size={15} color="#16A34A" />
-                        <span>مقبول وتم إنشاء الشحنة ✅ ({order.trackingNumber || 'قيد الشحن'})</span>
+                        <span>مقبول ({order.trackingNumber || 'قيد الشحن'})</span>
                       </span>
                     )}
 

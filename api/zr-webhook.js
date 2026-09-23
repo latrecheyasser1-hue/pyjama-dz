@@ -116,11 +116,16 @@ export default async function handler(req, res) {
         'return_collected',
         'recupere_vendeur',
         'retourne_au_vendeur',
-        'retour_recupere'
+        'retour_recupere',
+        'retour_retire',
+        'livre_vendeur',
+        'echange_recu'
       ].some(s => normZrState.includes(s));
 
       if (isZrReturnReceived) {
         updateData.isExchangeParcelReceived = true;
+        updateData.tam_istilam = true;
+        updateData.tam_istilam_at = new Date().toISOString();
         updateData.exchange_parcel_received_at = new Date().toISOString();
         updateData.exchange_return_courier_status = stateName;
       }
