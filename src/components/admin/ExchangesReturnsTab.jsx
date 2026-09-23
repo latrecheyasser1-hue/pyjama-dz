@@ -1612,12 +1612,6 @@ export default function ExchangesReturnsTab({
                                 : (isRetourMode ? 'طرد الاسترجاع في الطريق (لم يتم الاستلام بالمحل بعد)' : 'طرد الاستبدال مع شركة التوصيل (لم يتم الاستلام بالمحل بعد)')}
                             </span>
                           </span>
-
-                          <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 700 }}>
-                            {isRetourMode 
-                              ? '✍️ تأكيد استلام يدوي' 
-                              : '⚡ استلام تلقائي عبر منصة التوصيل أو يدوي'}
-                          </span>
                         </div>
 
                         {/* Action Toggle Button */}
