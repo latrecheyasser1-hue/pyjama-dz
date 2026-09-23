@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { 
   X, RefreshCw, RotateCcw, Camera, Upload, Check, AlertCircle, ShoppingBag, 
   ChevronRight, ArrowRight, Trash2, ShieldCheck, CheckCircle2, Layers,
-  Lock, User, UserCheck, Copy, Truck, Phone
+  Lock, User, UserCheck, Copy, Truck, Phone, Plus
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { INITIAL_PRODUCTS } from '../data/mockData';
@@ -71,6 +71,8 @@ export default function ExchangeModal({
   }, [currentCustomer]);
 
   const [trackingCode, setTrackingCode] = useState('');
+  const [barcodes, setBarcodes] = useState(['']);
+  const [verifiedOldItems, setVerifiedOldItems] = useState([]);
   const [oldProductBarcode, setOldProductBarcode] = useState('');
   const [oldProductTitle, setOldProductTitle] = useState('');
   const [oldProductPrice, setOldProductPrice] = useState(0);
@@ -181,6 +183,7 @@ export default function ExchangeModal({
       setVerificationError('');
       setOldProductTitle('');
       setOldProductPrice(0);
+      setVerifiedOldItems([]);
       setOriginalOrderFound(null);
     }
   };
@@ -192,17 +195,41 @@ export default function ExchangeModal({
       setVerificationError('');
       setOldProductTitle('');
       setOldProductPrice(0);
+      setVerifiedOldItems([]);
       setOriginalOrderFound(null);
     }
   };
 
-  const handleBarcodeChange = (val) => {
-    setOldProductBarcode(val);
+  const handleBarcodeChange = (index, val) => {
+    const nextBarcodes = [...barcodes];
+    nextBarcodes[index] = val;
+    setBarcodes(nextBarcodes);
     if (isOrderVerified) {
       setIsOrderVerified(false);
       setVerificationError('');
       setOldProductTitle('');
       setOldProductPrice(0);
+      setVerifiedOldItems([]);
+      setOriginalOrderFound(null);
+    }
+  };
+
+  const handleAddBarcodeField = () => {
+    setBarcodes(prev => [...prev, '']);
+  };
+
+  const handleRemoveBarcodeField = (index) => {
+    if (barcodes.length <= 1) {
+      setBarcodes(['']);
+    } else {
+      setBarcodes(prev => prev.filter((_, i) => i !== index));
+    }
+    if (isOrderVerified) {
+      setIsOrderVerified(false);
+      setVerificationError('');
+      setOldProductTitle('');
+      setOldProductPrice(0);
+      setVerifiedOldItems([]);
       setOriginalOrderFound(null);
     }
   };
@@ -212,7 +239,7 @@ export default function ExchangeModal({
     setVerificationError('');
     const cleanPhone = (phone || '').replace(/\D/g, '');
     const cleanTracking = (trackingCode || '').trim();
-    const cleanBarcode = (oldProductBarcode || '').trim();
+    const cleanBarcodes = barcodes.map(b => (b || '').trim()).filter(Boolean);
 
     if (!cleanPhone || cleanPhone.length < 9) {
       setVerificationError('يرجى إدخال رقم هاتف صحيح (10 أرقام) للتحقق من طلبيتك.');
@@ -222,8 +249,21 @@ export default function ExchangeModal({
       setVerificationError('يرجى إدخال كود التتبع (Tracking Code) من رسالة الواتساب أو ملصق الطرد.');
       return;
     }
-    if (!cleanBarcode || cleanBarcode.length < 6) {
-      setVerificationError('يرجى إدخال كود الباركود للسلعة (12 رقماً من رسالة الواتساب أو الملصق).');
+    if (cleanBarcodes.length === 0) {
+      setVerificationError('يرجى إدخال كود باركود واحد على الأقل للسلعة (12 رقماً من رسالة الواتساب أو الملصق).');
+      return;
+    }
+
+    const shortBarcode = cleanBarcodes.find(b => b.length < 6);
+    if (shortBarcode) {
+      setVerificationError(`كود الباركود "${shortBarcode}" غير مكتمل. يرجى إدخال كود الباركود المكون من 12 رقماً.`);
+      return;
+    }
+
+    // Check for duplicate barcodes entered
+    const uniqueEntered = new Set(cleanBarcodes);
+    if (uniqueEntered.size !== cleanBarcodes.length) {
+      setVerificationError('لقد قمت بإدخال نفس كود الباركود أكثر من مرة! يرجى إدخال أكواد سلع مختلفة.');
       return;
     }
 
@@ -283,54 +323,98 @@ export default function ExchangeModal({
         return;
       }
 
-      // 4. Verify Barcode & Extract Product Name and Net Price (بدون مصاريف التوصيل)
-      let matchedItem = null;
+      // 4. Verify Each Barcode Belongs to This Specific Order
       let itemsList = foundOrder.items;
       if (typeof itemsList === 'string') {
         try { itemsList = JSON.parse(itemsList); } catch(e) { itemsList = []; }
       }
+      if (!Array.isArray(itemsList)) itemsList = [];
 
-      if (Array.isArray(itemsList) && itemsList.length > 0) {
-        matchedItem = itemsList.find(it => it.barcode && String(it.barcode).trim() === cleanBarcode);
+      const verifiedItems = [];
+      const unverifiedBarcodes = [];
+
+      for (const barcode of cleanBarcodes) {
+        // Direct match in order items
+        let matchedItem = itemsList.find(it => it.barcode && String(it.barcode).trim() === barcode);
+
+        // Catalog lookup match inside order items
+        if (!matchedItem) {
+          matchedItem = itemsList.find(it => {
+            const p = products.find(prod => (prod.id === it.productId || prod.title === it.product || prod.title === it.title) && prod.barcode && String(prod.barcode).trim() === barcode) ||
+                      INITIAL_PRODUCTS.find(prod => (prod.id === it.productId || prod.title === it.product || prod.title === it.title) && prod.barcode && String(prod.barcode).trim() === barcode);
+            return !!p;
+          });
+        }
+
+        // Single-item order fallback
         if (!matchedItem && itemsList.length === 1) {
-          const catProd = products.find(p => p.barcode && String(p.barcode).trim() === cleanBarcode);
-          if (catProd) matchedItem = { ...itemsList[0], title: catProd.title, price: catProd.price };
+          const catProd = products.find(p => p.barcode && String(p.barcode).trim() === barcode) ||
+                          INITIAL_PRODUCTS.find(p => p.barcode && String(p.barcode).trim() === barcode);
+          if (catProd && (itemsList[0].product?.includes(catProd.title) || catProd.title?.includes(itemsList[0].product) || !itemsList[0].barcode)) {
+            matchedItem = itemsList[0];
+          }
+        }
+
+        if (matchedItem) {
+          const catProd = products.find(p => p.barcode && String(p.barcode).trim() === barcode) ||
+                          products.find(p => p.id === matchedItem.productId);
+
+          const title = (matchedItem.title || matchedItem.product || catProd?.title || 'منتج غير محدد').replace(/\(x\d+\)/g, '').trim();
+
+          let itemNetPrice = 0;
+          if (matchedItem.price) {
+            itemNetPrice = Number(matchedItem.price);
+          } else if (catProd && catProd.price) {
+            itemNetPrice = Number(catProd.price);
+          } else {
+            const orderTotal = Number(foundOrder.price) || 0;
+            const deliveryCost = Number(foundOrder.deliveryFee) || 0;
+            itemNetPrice = Math.max(0, Math.round((orderTotal - deliveryCost) / Math.max(itemsList.length, 1)));
+          }
+
+          verifiedItems.push({
+            productId: matchedItem.productId || catProd?.id || 'old_item',
+            title: title,
+            barcode: barcode,
+            price: itemNetPrice,
+            color: matchedItem.color || '',
+            size: matchedItem.size || '',
+            qty: 1
+          });
+        } else {
+          unverifiedBarcodes.push(barcode);
         }
       }
 
-      const matchedCatalogProduct = products.find(p => p.barcode && String(p.barcode).trim() === cleanBarcode) ||
-        INITIAL_PRODUCTS.find(p => p.barcode && String(p.barcode).trim() === cleanBarcode);
-
-      if (!matchedItem && !matchedCatalogProduct) {
-        setVerificationError(`❌ كود الباركود (${cleanBarcode}) غير مطابق لأي سلعة مسجلة في هذا الطلب أو المتجر. يرجى التأكد من كود الباركود (12 رقماً) الموجود على ملصق السلعة أو في رسالة الواتساب.`);
+      if (unverifiedBarcodes.length > 0) {
+        setVerificationError(`❌ كود الباركود (${unverifiedBarcodes.join(' ، ')}) لا ينتمي للطلبية ذات كود التتبع "${cleanTracking}"! يرجى التأكد من إدخال أكواد السلع المسجلة في هذه الطلبية فقط.`);
         setIsOrderVerified(false);
         return;
       }
 
-      // Extract title
-      const extractedTitle = matchedItem?.title || matchedItem?.product || matchedCatalogProduct?.title || foundOrder.product || 'منتج غير محدد';
-
-      // Extract net price alone (بدون مصاريف التوصيل)
-      let netPrice = 0;
-      if (matchedItem && matchedItem.price) {
-        netPrice = Number(matchedItem.price);
-      } else if (matchedCatalogProduct && matchedCatalogProduct.price) {
-        netPrice = Number(matchedCatalogProduct.price);
-      } else {
-        const orderTotal = Number(foundOrder.price) || 0;
-        const deliveryCost = Number(foundOrder.deliveryFee) || 0;
-        netPrice = Math.max(0, orderTotal - deliveryCost);
+      if (verifiedItems.length === 0) {
+        setVerificationError('❌ لم يتم العثور على أي سلعة متطابقة في هذه الطلبية. يرجى مراجعة أكواد الباركود.');
+        setIsOrderVerified(false);
+        return;
       }
 
-      setOldProductTitle(extractedTitle.replace(/\(x\d+\)/g, '').trim());
-      setOldProductPrice(netPrice);
+      // Compute aggregates
+      const totalNetPrice = verifiedItems.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
+      const combinedTitle = verifiedItems.map(it => it.title).join(' + ');
+      const combinedBarcodes = verifiedItems.map(it => it.barcode).join(', ');
+
+      setVerifiedOldItems(verifiedItems);
+      setOldProductTitle(combinedTitle);
+      setOldProductBarcode(combinedBarcodes);
+      setOldProductPrice(totalNetPrice);
       setOriginalOrderFound(foundOrder);
+
       if (foundOrder.clientName && !clientName) {
         setClientName(foundOrder.clientName.replace(/\[.*\]/g, '').trim());
       }
       setIsOrderVerified(true);
       setVerificationError('');
-      if (showToast) showToast('✅ تم فحص وتأكيد بيانات الطلبية والسلعة بنجاح!', 'success');
+      if (showToast) showToast('✅ تم فحص وتأكيد بيانات الطلبية والسلع بنجاح!', 'success');
     } catch (err) {
       console.error('Order verification error:', err);
       setVerificationError('حدث خطأ أثناء الاتصال بقاعدة البيانات للتحقق من الطلب. يرجى المحاولة ثانية.');
@@ -488,6 +572,7 @@ export default function ExchangeModal({
           originalTracking: originalOrderFound?.trackingNumber || trackingCode || '',
           oldProductTitle: oldProductTitle || '',
           oldProductBarcode: oldProductBarcode || '',
+          oldProducts: verifiedOldItems,
           oldProductPrice: parsedOldPrice,
           refundDue: parsedOldPrice,
           baridiMobRip: baridiMobRip,
@@ -499,19 +584,22 @@ export default function ExchangeModal({
         };
 
         const returnItemsWithMeta = [
-          {
-            productId: originalOrderFound?.id || 'old_item',
-            product: oldProductTitle,
-            title: oldProductTitle,
-            barcode: oldProductBarcode,
-            price: parsedOldPrice,
+          ...verifiedOldItems.map(item => ({
+            productId: item.productId || originalOrderFound?.id || 'old_item',
+            product: item.title,
+            title: item.title,
+            barcode: item.barcode,
+            price: Number(item.price) || 0,
             qty: 1,
+            color: item.color || '',
+            size: item.size || '',
             isRetour: true,
             isReturnItem: true
-          },
+          })),
           {
             isReturnMeta: true,
             isExchangeMeta: true,
+            oldItems: verifiedOldItems,
             ...returnDetailsData
           }
         ];
@@ -571,6 +659,7 @@ export default function ExchangeModal({
           originalTracking: originalOrderFound?.trackingNumber || trackingCode || '',
           oldProductTitle: oldProductTitle || '',
           oldProductBarcode: oldProductBarcode || '',
+          oldProducts: verifiedOldItems,
           oldProductPrice: parsedOldPrice,
           newProductsPrice: newProductsSubtotal,
           priceDifference: priceDifference,
@@ -920,19 +1009,103 @@ export default function ExchangeModal({
                   />
                 </div>
 
-                {/* Barcode Input (12 digits) */}
+                {/* Dynamic Multi-Barcode Inputs */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    كود السلعة (الباركود 12 رقماً من رسالة الواتساب أو ملصق السلعة) *
-                  </label>
-                  <input 
-                    type="text"
-                    required
-                    placeholder="مثال: 897139447004 أو 100858539887"
-                    value={oldProductBarcode}
-                    onChange={(e) => handleBarcodeChange(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '0.88rem', direction: 'ltr', boxSizing: 'border-box' }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>
+                      أكواد السلع (الباركود 12 رقماً من رسالة الواتساب أو ملصق السلعة) *
+                    </label>
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#64748B', marginBottom: '8px', lineHeight: 1.4 }}>
+                    يمكنك إدخال كود أو أكثر إذا كنت ترغب في {isRetourMode ? 'استرجاع' : 'استبدال'} عدة سلع من نفس الطلبية:
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {barcodes.map((bc, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                          <input 
+                            type="text"
+                            required
+                            placeholder={`كود السلعة ${idx + 1}: مثال: 897139447004`}
+                            value={bc}
+                            onChange={(e) => handleBarcodeChange(idx, e.target.value)}
+                            style={{ 
+                              width: '100%', 
+                              padding: '10px 12px', 
+                              paddingLeft: bc.length > 0 ? '45px' : '12px',
+                              borderRadius: '10px', 
+                              border: '1px solid #CBD5E1', 
+                              fontSize: '0.88rem', 
+                              direction: 'ltr', 
+                              boxSizing: 'border-box' 
+                            }}
+                          />
+                          {bc.length > 0 && (
+                            <span style={{ 
+                              position: 'absolute', 
+                              left: '10px', 
+                              top: '50%', 
+                              transform: 'translateY(-50%)', 
+                              fontSize: '0.72rem', 
+                              color: bc.length === 12 ? '#10B981' : '#94A3B8', 
+                              fontWeight: 700 
+                            }}>
+                              {bc.length}/12
+                            </span>
+                          )}
+                        </div>
+
+                        {barcodes.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBarcodeField(idx)}
+                            title="حذف هذا الكود"
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '10px',
+                              border: '1px solid #FECACA',
+                              background: '#FEF2F2',
+                              color: '#DC2626',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={handleAddBarcodeField}
+                      style={{
+                        alignSelf: 'flex-start',
+                        background: '#F8FAFC',
+                        border: '1.5px dashed #94A3B8',
+                        borderRadius: '8px',
+                        padding: '6px 12px',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        color: isRetourMode ? '#B91C1C' : 'var(--burgundy)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginTop: '2px',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      <Plus size={15} />
+                      <span>+ إضافة كود سلعة أخرى من نفس الطلبية</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* GATING: Verification Button vs Verified Card + Reason & Photo */}
@@ -963,12 +1136,12 @@ export default function ExchangeModal({
                       {isVerifying ? (
                         <>
                           <RefreshCw size={18} className="spin" />
-                          <span>جاري فحص وتأكيد بيانات الطلبية...</span>
+                          <span>جاري فحص وتأكيد بيانات الطلبية والسلع...</span>
                         </>
                       ) : (
                         <>
                           <CheckCircle2 size={18} />
-                          <span>فحص والتحقق من الطلبية 🔍</span>
+                          <span>فحص والتحقق من الطلبية والسلع 🔍</span>
                         </>
                       )}
                     </button>
@@ -983,11 +1156,11 @@ export default function ExchangeModal({
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '4px' }}>
                     {/* Confirmed Order Badge & Retrieved Product Details */}
-                    <div style={{ background: '#ECFDF5', border: '1.5px solid #10B981', borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ background: '#ECFDF5', border: '1.5px solid #10B981', borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#047857', fontWeight: 900, fontSize: '0.92rem' }}>
                           <CheckCircle2 size={20} color="#10B981" />
-                          <span>تم فحص وتأكيد الطلبية بنجاح ✅</span>
+                          <span>تم تأكيد الطلبية والسلع بنجاح ✅</span>
                         </div>
                         <button
                           type="button"
@@ -996,6 +1169,7 @@ export default function ExchangeModal({
                             setOriginalOrderFound(null);
                             setOldProductTitle('');
                             setOldProductPrice(0);
+                            setVerifiedOldItems([]);
                           }}
                           style={{ background: '#DCFCE7', border: 'none', borderRadius: '8px', padding: '4px 10px', fontSize: '0.75rem', fontWeight: 800, color: '#047857', cursor: 'pointer' }}
                         >
@@ -1003,25 +1177,45 @@ export default function ExchangeModal({
                         </button>
                       </div>
                       
-                      <div style={{ background: '#FFFFFF', borderRadius: '10px', padding: '10px 12px', border: '1px solid #A7F3D0', display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.84rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#64748B' }}>
-                            {isRetourMode ? 'السلعة المراد استرجاعها:' : 'السلعة المراد استبدالها:'}
-                          </span>
-                          <strong style={{ color: '#0F172A' }}>{oldProductTitle}</strong>
+                      <div style={{ background: '#FFFFFF', borderRadius: '10px', padding: '12px', border: '1px solid #A7F3D0', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.84rem' }}>
+                        <div style={{ fontWeight: 800, color: '#047857', borderBottom: '1px solid #E2E8F0', paddingBottom: '6px', fontSize: '0.86rem' }}>
+                          {isRetourMode ? 'السلع المحددة للاسترجاع:' : 'السلع المحددة للاستبدال:'} ({verifiedOldItems.length > 0 ? verifiedOldItems.length : 1} سلع)
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#64748B' }}>الباركود (12 رقماً):</span>
-                          <strong style={{ color: '#0F172A', direction: 'ltr' }}>{oldProductBarcode}</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#64748B' }}>سعر السلعة الصافي المدفوع:</span>
-                          <strong style={{ color: isRetourMode ? '#B91C1C' : 'var(--burgundy)', fontWeight: 900, fontSize: '0.92rem' }}>
-                            {oldProductPrice} دج (سعر المنتج فقط بدون توصيل)
+
+                        {verifiedOldItems.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {verifiedOldItems.map((item, idx) => (
+                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '8px 10px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                                <div>
+                                  <strong style={{ display: 'block', color: '#0F172A', fontSize: '0.85rem' }}>{item.title}</strong>
+                                  <span style={{ fontSize: '0.74rem', color: '#64748B', direction: 'ltr', display: 'inline-block' }}>باركود: {item.barcode}</span>
+                                </div>
+                                <strong style={{ color: isRetourMode ? '#B91C1C' : 'var(--burgundy)', fontWeight: 800 }}>{item.price} دج</strong>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#64748B' }}>السلعة:</span>
+                              <strong style={{ color: '#0F172A' }}>{oldProductTitle}</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#64748B' }}>الباركود:</span>
+                              <strong style={{ color: '#0F172A', direction: 'ltr' }}>{oldProductBarcode}</strong>
+                            </div>
+                          </>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1.5px dashed #A7F3D0', paddingTop: '8px', marginTop: '2px' }}>
+                          <span style={{ fontWeight: 800, color: '#334155' }}>إجمالي سعر السلع الصافي المدفوع:</span>
+                          <strong style={{ color: isRetourMode ? '#B91C1C' : 'var(--burgundy)', fontWeight: 900, fontSize: '0.98rem' }}>
+                            {oldProductPrice} دج (بدون توصيل)
                           </strong>
                         </div>
+
                         {originalOrderFound && (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #E2E8F0', paddingTop: '4px', marginTop: '2px', fontSize: '0.78rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #E2E8F0', paddingTop: '6px', marginTop: '2px', fontSize: '0.78rem' }}>
                             <span style={{ color: '#64748B' }}>شركة وولاية التوصيل الأصلية:</span>
                             <strong style={{ color: '#047857' }}>
                               {originalOrderFound.wilaya} ({detectedCourierName})
