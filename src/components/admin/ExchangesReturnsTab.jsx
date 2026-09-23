@@ -199,65 +199,6 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Top Banner */}
-      <div style={{
-        background: 'linear-gradient(135deg, #2A0812 0%, #4A0E1C 50%, #150308 100%)',
-        borderRadius: '24px',
-        padding: '24px 28px',
-        color: 'white',
-        marginBottom: '24px',
-        boxShadow: '0 10px 30px rgba(107, 29, 47, 0.2)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{
-            width: '54px',
-            height: '54px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, #D97706, #B45309)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#FFF',
-            boxShadow: '0 4px 14px rgba(217, 119, 6, 0.35)'
-          }}>
-            <ArrowRightLeft size={28} />
-          </div>
-          <div>
-            <h1 style={{ fontSize: '1.45rem', fontWeight: 900, margin: 0, letterSpacing: '-0.3px' }}>
-              إدارة طلبات الاستبدال والاسترجاع (Échanges & Retours)
-            </h1>
-            <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-              فحص طلبات الزبائن ومعاينة الصور قبل اتخاذ قرار القبول وإنشاء كولي الشحن التلقائي
-            </p>
-          </div>
-        </div>
-
-        {/* Pending Counter Alert */}
-        {counts.pending > 0 && (
-          <div style={{
-            background: '#FEF3C7',
-            border: '1.5px solid #FCD34D',
-            color: '#92400E',
-            padding: '10px 18px',
-            borderRadius: '14px',
-            fontWeight: 800,
-            fontSize: '0.92rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: '0 4px 12px rgba(217, 119, 6, 0.15)'
-          }}>
-            <Clock size={18} color="#B45309" />
-            <span>لديك <strong>{counts.pending}</strong> طلب في انتظار المراجعة والقرار</span>
-          </div>
-        )}
-      </div>
-
       {/* KPI Cards */}
       <div style={{
         display: 'grid',
