@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { 
-  X, RefreshCw, Camera, Upload, Check, AlertCircle, ShoppingBag, 
+  X, RefreshCw, RotateCcw, Camera, Upload, Check, AlertCircle, ShoppingBag, 
   ChevronRight, ArrowRight, Trash2, ShieldCheck, CheckCircle2, Layers,
-  Lock, User, UserCheck 
+  Lock, User, UserCheck, Copy, Truck, Phone
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { INITIAL_PRODUCTS } from '../data/mockData';
@@ -15,11 +15,13 @@ export default function ExchangeModal({
   currentCustomer = null,
   onOpenAuth,
   onPlaceOrder, 
-  showToast 
+  showToast,
+  initialMode = 'exchange',
+  settings = {}
 }) {
   if (!isOpen) return null;
 
-  // Account Gatekeeper Check: Only customers with an account can request an exchange
+  // Account Gatekeeper Check: Only customers with an account can request an exchange / return
   const hasAccount = Boolean(
     currentCustomer && (
       currentCustomer.id || 
@@ -28,6 +30,21 @@ export default function ExchangeModal({
       currentCustomer.full_name
     )
   );
+
+  // Mode: 'exchange' or 'retour'
+  const [activeMode, setActiveMode] = useState(initialMode);
+  const isRetourMode = activeMode === 'retour';
+
+  // Agreement to return terms checkbox
+  const [hasAgreedToReturnTerms, setHasAgreedToReturnTerms] = useState(false);
+
+  // Sync mode when modal opens or initialMode changes
+  React.useEffect(() => {
+    if (isOpen) {
+      setActiveMode(initialMode || 'exchange');
+      setHasAgreedToReturnTerms(false);
+    }
+  }, [isOpen, initialMode]);
 
   // Form States - Prefilled from customer account if logged in
   const [clientName, setClientName] = useState(() => {
@@ -52,6 +69,7 @@ export default function ExchangeModal({
       }
     }
   }, [currentCustomer]);
+
   const [trackingCode, setTrackingCode] = useState('');
   const [oldProductBarcode, setOldProductBarcode] = useState('');
   const [oldProductTitle, setOldProductTitle] = useState('');
@@ -89,6 +107,36 @@ export default function ExchangeModal({
   const availableCategories = useMemo(() => {
     return categories.filter(c => c && !c.id.includes('__') && c.id !== 'solde');
   }, [categories]);
+
+  // Stock Manager Phone Number from Settings
+  const stockManagerPhone = useMemo(() => {
+    return (
+      settings?.whatsappLivraisonManager || 
+      settings?.whatsappBoutiqueManager || 
+      settings?.whatsapp || 
+      (Array.isArray(settings?.phoneOrders) ? settings.phoneOrders[0] : (typeof settings?.phoneOrders === 'string' ? settings.phoneOrders.split(/[-,\/]/)[0]?.trim() : '')) || 
+      '0555123456'
+    );
+  }, [settings]);
+
+  // Courier Company detected from original order
+  const detectedCourierName = useMemo(() => {
+    const c = String(originalOrderFound?.deliveryCompany || '').toLowerCase();
+    if (c.includes('yali')) return 'ياليدين إكسبريس (Yalidine Express)';
+    if (c.includes('zr')) return 'زد آر إكسبريس (ZR Express)';
+    return originalOrderFound?.deliveryCompany || 'شركة التوصيل الأصلية (Yalidine أو ZR Express)';
+  }, [originalOrderFound]);
+
+  // Quick Copy Helper
+  const copyToClipboard = (text, label) => {
+    try {
+      navigator.clipboard.writeText(text);
+      if (showToast) showToast(`✅ تم نسخ ${label} بنجاح!`, 'success');
+      else alert(`تم نسخ ${label}: ${text}`);
+    } catch (e) {
+      alert(`الرقم: ${text}`);
+    }
+  };
 
   // Handle Photo Upload with Compression
   const handlePhotoSelect = (e) => {
@@ -211,7 +259,7 @@ export default function ExchangeModal({
       if (customerPhoneClean && customerPhoneClean.length >= 9) {
         const custPhoneSuffix = customerPhoneClean.slice(-9);
         if (orderPhoneSuffix !== custPhoneSuffix) {
-          setVerificationError(`❌ هذه الطلبية مسجلة برقم هاتف مختلف (${foundOrder.phone}) عن رقم حسابك المفعل (${currentCustomer.phone}). خدمة الاستبدال متاحة حصرياً للطلبيات التابعة لحسابك الشخصي.`);
+          setVerificationError(`❌ هذه الطلبية مسجلة برقم هاتف مختلف (${foundOrder.phone}) عن رقم حسابك المفعل (${currentCustomer.phone}). الخدمة متاحة حصرياً للطلبيات التابعة لحسابك الشخصي.`);
           setIsOrderVerified(false);
           return;
         }
@@ -220,17 +268,17 @@ export default function ExchangeModal({
       // 3. Verify Order Status (must be received / delivered)
       const st = (foundOrder.status || '').toLowerCase();
       if (st === 'nouvelle') {
-        setVerificationError('⚠️ هذه الطلبية ما زالت جديدة قيد المعالجة (Nouvelle) ولم يتم شحنها وتوصيلها للزبون بعد! الاستبدال متاح فقط للطلبيات المستلمة.');
+        setVerificationError('⚠️ هذه الطلبية ما زالت جديدة قيد المعالجة (Nouvelle) ولم يتم شحنها وتوصيلها للزبون بعد! الخدمة متاحة فقط للطلبيات المستلمة.');
         setIsOrderVerified(false);
         return;
       }
       if (st === 'annulee') {
-        setVerificationError('❌ هذه الطلبية تم إلغاؤها مسبقاً (Annulée) ولا يمكن تقديم طلب استبدال لها.');
+        setVerificationError('❌ هذه الطلبية تم إلغاؤها مسبقاً (Annulée) ولا يمكن تقديم طلب لها.');
         setIsOrderVerified(false);
         return;
       }
       if (st === 'retour') {
-        setVerificationError('❌ هذه الطلبية مسجلة كمرتجع مسبقاً (Retour) ولا يمكن استبدالها.');
+        setVerificationError('❌ هذه الطلبية مسجلة كمرتجع مسبقاً (Retour).');
         setIsOrderVerified(false);
         return;
       }
@@ -316,7 +364,7 @@ export default function ExchangeModal({
     return 500;
   }, [originalOrderFound]);
 
-  // Price Difference
+  // Price Difference for Exchange
   const priceDifference = newProductsSubtotal > 0 ? (newProductsSubtotal - parsedOldPrice) : 0;
   const isRefundDue = exchangeCart.length > 0 && parsedOldPrice > 0 && priceDifference < 0;
   const refundAmount = isRefundDue ? Math.abs(priceDifference) : 0;
@@ -376,7 +424,7 @@ export default function ExchangeModal({
     if (showToast) showToast(`✅ تم إضافة "${pickerProduct.title}" إلى سلة الاستبدال`, 'success');
   };
 
-  // Submit Exchange Request
+  // Submit Request (Handles both Exchange and Return)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -395,118 +443,210 @@ export default function ExchangeModal({
       return;
     }
     if (!productPhoto) {
-      alert('⚠️ إرفاق صورة للمنتج إجباري لمعاينة حالته وقبول طلب الاستبدال.');
+      alert(isRetourMode 
+        ? '⚠️ إرفاق صورة للمنتج إجباري لمعاينة حالته وقبول طلب الاسترجاع.' 
+        : '⚠️ إرفاق صورة للمنتج إجباري لمعاينة حالته وقبول طلب الاستبدال.');
       return;
     }
-    if (exchangeCart.length === 0) {
-      alert('⚠️ يرجى اختيار منتج واحد على الأقل ترغب في الاستبدال به.');
-      return;
-    }
-    if (isRefundDue && baridiMobRip.length !== 20) {
-      alert('⚠️ يرجى إدخال رقم حساب بريدي موب (RIP) كاملاً (20 رقماً) لنتمكن من تحويل فارق السعر لحسابكم.');
-      return;
+
+    // Specific mode validations
+    if (isRetourMode) {
+      if (baridiMobRip.length !== 20) {
+        alert('⚠️ يرجى إدخال رقم حساب بريدي موب (RIP) كاملاً (20 رقماً) لنتمكن من تحويل المبلغ المسترد لحسابكم.');
+        return;
+      }
+      if (!hasAgreedToReturnTerms) {
+        alert('⚠️ يرجى قراءة تنبيه وتعليمات إرسال الطرد والتأكيد عليها بالموافقة قبل تأكيد الطلب.');
+        return;
+      }
+    } else {
+      if (exchangeCart.length === 0) {
+        alert('⚠️ يرجى اختيار منتج واحد على الأقل ترغب في الاستبدال به.');
+        return;
+      }
+      if (isRefundDue && baridiMobRip.length !== 20) {
+        alert('⚠️ يرجى إدخال رقم حساب بريدي موب (RIP) كاملاً (20 رقماً) لنتمكن من تحويل فارق السعر لحسابكم.');
+        return;
+      }
     }
 
     setIsSubmitting(true);
     try {
-      const exchangeOrderCode = `ECH-${Math.floor(10000 + Math.random() * 90000)}`;
-      const replacementTitles = exchangeCart.map(it => `${it.title} (${it.color} - ${it.size}) x${it.qty}`).join(' + ');
-
       const effectiveCompany = originalOrderFound?.deliveryCompany || 'zrexpress';
       const effectiveWilaya = originalOrderFound?.wilaya || '02 - Chlef';
       const effectiveCommune = originalOrderFound?.commune || 'Chlef';
       const effectiveDeliveryMode = originalOrderFound?.deliveryMode || 'Livraison Bureau';
 
-      const exchangeDetailsData = {
-        originalOrderCode: trackingCode || originalOrderFound?.id || '',
-        originalTracking: originalOrderFound?.trackingNumber || trackingCode || '',
-        oldProductTitle: oldProductTitle || '',
-        oldProductBarcode: oldProductBarcode || '',
-        oldProductPrice: parsedOldPrice,
-        newProductsPrice: newProductsSubtotal,
-        priceDifference: priceDifference,
-        refundDue: isRefundDue ? refundAmount : 0,
-        baridiMobRip: isRefundDue ? baridiMobRip : null,
-        reason: reason === 'أخرى (اكتب السبب أدناه)' ? customReason : reason,
-        productPhoto: productPhoto
-      };
+      if (isRetourMode) {
+        // RETOUR PAYLOAD
+        const returnOrderCode = `RET-${Math.floor(10000 + Math.random() * 90000)}`;
 
-      const exchangeItemsWithMeta = [
-        ...exchangeCart.map(it => ({
-          productId: it.productId,
-          product: it.title,
-          title: it.title,
-          color: it.color,
-          size: it.size,
-          price: it.price,
-          qty: it.qty,
-          image: it.image,
-          isExchangeItem: true
-        })),
-        {
-          isExchangeMeta: true,
-          ...exchangeDetailsData
-        }
-      ];
+        const returnDetailsData = {
+          type: 'retour',
+          isRetour: true,
+          originalOrderCode: trackingCode || originalOrderFound?.id || '',
+          originalTracking: originalOrderFound?.trackingNumber || trackingCode || '',
+          oldProductTitle: oldProductTitle || '',
+          oldProductBarcode: oldProductBarcode || '',
+          oldProductPrice: parsedOldPrice,
+          refundDue: parsedOldPrice,
+          baridiMobRip: baridiMobRip,
+          reason: reason === 'أخرى (اكتب السبب أدناه)' ? customReason : reason,
+          productPhoto: productPhoto,
+          deliveryCompany: effectiveCompany,
+          agreedToReturnTerms: true,
+          stockManagerPhone: stockManagerPhone
+        };
 
-      const exchangePayload = {
-        id: exchangeOrderCode,
-        clientName: `${clientName.trim()} [طلب استبدال 🔄]`,
-        phone: cleanPhone.startsWith('0') ? cleanPhone : '0' + cleanPhone,
-        wilaya: effectiveWilaya,
-        commune: effectiveCommune,
-        deliveryMode: effectiveDeliveryMode,
-        deliveryCompany: effectiveCompany,
-        product: `🔄 استبدال: ${replacementTitles}`,
-        items: exchangeItemsWithMeta,
-        price: totalCodToPay,
-        deliveryFee: deliveryFee,
-        totalPrice: totalCodToPay,
-        quantity: exchangeCart.reduce((sum, it) => sum + (it.qty || 1), 0),
-        status: 'nouvelle',
-        isExchange: true,
-        archived: false,
-        exchangeDetails: exchangeDetailsData,
-        date: new Date().toISOString().split('T')[0]
-      };
+        const returnItemsWithMeta = [
+          {
+            productId: originalOrderFound?.id || 'old_item',
+            product: oldProductTitle,
+            title: oldProductTitle,
+            barcode: oldProductBarcode,
+            price: parsedOldPrice,
+            qty: 1,
+            isRetour: true,
+            isReturnItem: true
+          },
+          {
+            isReturnMeta: true,
+            isExchangeMeta: true,
+            ...returnDetailsData
+          }
+        ];
 
-      if (onPlaceOrder) {
-        await onPlaceOrder(exchangePayload);
-      } else {
-        await supabase.from('orders').insert([{
-          clientName: exchangePayload.clientName,
-          phone: exchangePayload.phone,
-          wilaya: exchangePayload.wilaya,
-          commune: exchangePayload.commune,
-          deliveryMode: exchangePayload.deliveryMode,
-          deliveryCompany: exchangePayload.deliveryCompany,
-          product: exchangePayload.product,
-          price: exchangePayload.price,
-          quantity: exchangePayload.quantity,
-          items: exchangePayload.items,
-          status: 'nouvelle',
-          archived: false,
-          date: new Date().toISOString().split('T')[0]
-        }]);
-      }
-
-      // Trigger Instant WhatsApp Notification to Customer
-      fetch('/api/send-order-whatsapp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: cleanPhone,
-          clientName: clientName.trim(),
-          id: exchangeOrderCode,
+        const returnPayload = {
+          id: returnOrderCode,
+          clientName: `${clientName.trim()} [طلب استرجاع واسترداد ↩️]`,
+          phone: cleanPhone.startsWith('0') ? cleanPhone : '0' + cleanPhone,
           wilaya: effectiveWilaya,
-          product: `🔄 طلب استبدال: ${replacementTitles} (المبلغ للدفع عند الاستلام: ${totalCodToPay} دج)`
-        })
-      }).catch(e => console.warn('Exchange WhatsApp notify error:', e));
+          commune: effectiveCommune,
+          deliveryMode: effectiveDeliveryMode,
+          deliveryCompany: effectiveCompany,
+          product: `↩️ استرجاع: ${oldProductTitle} (المبلغ المسترد: ${parsedOldPrice} دج)`,
+          items: returnItemsWithMeta,
+          price: 0,
+          deliveryFee: 0,
+          totalPrice: 0,
+          quantity: 1,
+          status: 'nouvelle',
+          isRetour: true,
+          isExchange: false,
+          exchangeStatus: 'pending',
+          refundDue: parsedOldPrice,
+          baridiMobRip: baridiMobRip,
+          archived: false,
+          exchangeDetails: returnDetailsData,
+          date: new Date().toISOString().split('T')[0]
+        };
+
+        if (onPlaceOrder) {
+          await onPlaceOrder(returnPayload);
+        } else {
+          await supabase.from('orders').insert([returnPayload]);
+        }
+
+        // WhatsApp notify
+        fetch('/api/send-order-whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: cleanPhone,
+            clientName: clientName.trim(),
+            id: returnOrderCode,
+            wilaya: effectiveWilaya,
+            product: `↩️ طلب استرجاع واسترداد: ${oldProductTitle} (المبلغ المسترد عبر بريدي موب: ${parsedOldPrice} دج)`
+          })
+        }).catch(e => console.warn('Return WhatsApp notify error:', e));
+
+      } else {
+        // EXCHANGE PAYLOAD
+        const exchangeOrderCode = `ECH-${Math.floor(10000 + Math.random() * 90000)}`;
+        const replacementTitles = exchangeCart.map(it => `${it.title} (${it.color} - ${it.size}) x${it.qty}`).join(' + ');
+
+        const exchangeDetailsData = {
+          type: 'exchange',
+          originalOrderCode: trackingCode || originalOrderFound?.id || '',
+          originalTracking: originalOrderFound?.trackingNumber || trackingCode || '',
+          oldProductTitle: oldProductTitle || '',
+          oldProductBarcode: oldProductBarcode || '',
+          oldProductPrice: parsedOldPrice,
+          newProductsPrice: newProductsSubtotal,
+          priceDifference: priceDifference,
+          refundDue: isRefundDue ? refundAmount : 0,
+          baridiMobRip: isRefundDue ? baridiMobRip : null,
+          reason: reason === 'أخرى (اكتب السبب أدناه)' ? customReason : reason,
+          productPhoto: productPhoto
+        };
+
+        const exchangeItemsWithMeta = [
+          ...exchangeCart.map(it => ({
+            productId: it.productId,
+            product: it.title,
+            title: it.title,
+            color: it.color,
+            size: it.size,
+            price: it.price,
+            qty: it.qty,
+            image: it.image,
+            isExchangeItem: true
+          })),
+          {
+            isExchangeMeta: true,
+            ...exchangeDetailsData
+          }
+        ];
+
+        const exchangePayload = {
+          id: exchangeOrderCode,
+          clientName: `${clientName.trim()} [طلب استبدال 🔄]`,
+          phone: cleanPhone.startsWith('0') ? cleanPhone : '0' + cleanPhone,
+          wilaya: effectiveWilaya,
+          commune: effectiveCommune,
+          deliveryMode: effectiveDeliveryMode,
+          deliveryCompany: effectiveCompany,
+          product: `🔄 استبدال: ${replacementTitles}`,
+          items: exchangeItemsWithMeta,
+          price: totalCodToPay,
+          deliveryFee: deliveryFee,
+          totalPrice: totalCodToPay,
+          quantity: exchangeCart.reduce((sum, it) => sum + (it.qty || 1), 0),
+          status: 'nouvelle',
+          isExchange: true,
+          isRetour: false,
+          exchangeStatus: 'pending',
+          refundDue: isRefundDue ? refundAmount : 0,
+          baridiMobRip: isRefundDue ? baridiMobRip : null,
+          archived: false,
+          exchangeDetails: exchangeDetailsData,
+          date: new Date().toISOString().split('T')[0]
+        };
+
+        if (onPlaceOrder) {
+          await onPlaceOrder(exchangePayload);
+        } else {
+          await supabase.from('orders').insert([exchangePayload]);
+        }
+
+        // WhatsApp notify
+        fetch('/api/send-order-whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: cleanPhone,
+            clientName: clientName.trim(),
+            id: exchangeOrderCode,
+            wilaya: effectiveWilaya,
+            product: `🔄 طلب استبدال: ${replacementTitles} (المبلغ للدفع عند الاستلام: ${totalCodToPay} دج)`
+          })
+        }).catch(e => console.warn('Exchange WhatsApp notify error:', e));
+      }
 
       setIsSuccess(true);
     } catch (err) {
-      console.error('Error submitting exchange order:', err);
-      alert('حدث خطأ أثناء تسجيل طلب الاستبدال. يرجى المحاولة مرة أخرى.');
+      console.error('Error submitting exchange/return order:', err);
+      alert('حدث خطأ أثناء تسجيل الطلب. يرجى المحاولة مرة أخرى.');
     } finally {
       setIsSubmitting(false);
     }
@@ -577,15 +717,29 @@ export default function ExchangeModal({
               <CheckCircle2 size={36} />
             </div>
             <h3 style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--burgundy-dark)', margin: '0 0 8px' }}>
-              تم تسجيل طلب الاستبدال بنجاح! 🔄✨
+              {isRetourMode ? 'تم تسجيل طلب الاسترجاع بنجاح! ↩️✨' : 'تم تسجيل طلب الاستبدال بنجاح! 🔄✨'}
             </h3>
             <p style={{ fontSize: '0.92rem', color: '#475569', lineHeight: 1.6, marginBottom: '20px' }}>
-              تلقينا طلبك بنجاح. سنرسل لك رسالة تأكيد عبر الواتساب، وسيقوم الموزع بإيصال القطع الجديدة واستلام القطعة القديمة منك في نفس الوقت.
+              {isRetourMode ? (
+                <>
+                  تلقينا طلبك بنجاح. يرجى الآن تجهيز الطرد وتسليمه لمكتب شركة التوصيل <strong>({detectedCourierName})</strong> وإرساله إلى رقم مسؤول المخزون: <strong>{stockManagerPhone}</strong> مع تحديد مبلغ التحصيل <strong>0 دج</strong>.
+                </>
+              ) : (
+                <>
+                  تلقينا طلبك بنجاح. سنرسل لك رسالة تأكيد عبر الواتساب، وسيقوم الموزع بإيصال القطع الجديدة واستلام القطعة القديمة منك في نفس الوقت.
+                </>
+              )}
             </p>
-            {isRefundDue && (
+            {isRetourMode ? (
               <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '14px', borderRadius: '12px', fontSize: '0.9rem', color: '#15803D', fontWeight: 800, marginBottom: '20px' }}>
-                💳 سيتم تحويل فارق السعر ({refundAmount} دج) إلى حساب بريدي موب: {formattedRipDisplay} فور استلام السلعة القديمة.
+                💳 سيتم تحويل المبلغ المسترد ({parsedOldPrice} دج) إلى حساب بريدي موب: {formattedRipDisplay} فور استلام السلعة وفحصها في مخزننا.
               </div>
+            ) : (
+              isRefundDue && (
+                <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '14px', borderRadius: '12px', fontSize: '0.9rem', color: '#15803D', fontWeight: 800, marginBottom: '20px' }}>
+                  💳 سيتم تحويل فارق السعر ({refundAmount} دج) إلى حساب بريدي موب: {formattedRipDisplay} فور استلام السلعة القديمة.
+                </div>
+              )
             )}
             <button
               type="button"
@@ -606,17 +760,88 @@ export default function ExchangeModal({
           </div>
         ) : (
           <>
+            {/* Mode Switcher Tabs */}
+            <div style={{
+              display: 'flex',
+              background: '#F1F5F9',
+              borderRadius: '16px',
+              padding: '4px',
+              gap: '6px',
+              marginBottom: '16px',
+              marginTop: '4px'
+            }}>
+              <button
+                type="button"
+                onClick={() => setActiveMode('exchange')}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: !isRetourMode ? '#FFFFFF' : 'transparent',
+                  color: !isRetourMode ? 'var(--burgundy-dark)' : '#64748B',
+                  fontWeight: 900,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: !isRetourMode ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <RefreshCw size={16} />
+                <span>طلب استبدال (Échange)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMode('retour')}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: isRetourMode ? '#FFFFFF' : 'transparent',
+                  color: isRetourMode ? '#B91C1C' : '#64748B',
+                  fontWeight: 900,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: isRetourMode ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <RotateCcw size={16} />
+                <span>طلب استرجاع (Retour)</span>
+              </button>
+            </div>
+
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: '#FFF1F2', color: 'var(--burgundy)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <RefreshCw size={26} />
+              <div style={{ 
+                width: '48px', 
+                height: '48px', 
+                borderRadius: '16px', 
+                background: isRetourMode ? '#FEF2F2' : '#FFF1F2', 
+                color: isRetourMode ? '#DC2626' : 'var(--burgundy)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center' 
+              }}>
+                {isRetourMode ? <RotateCcw size={26} /> : <RefreshCw size={26} />}
               </div>
               <div>
                 <h3 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--burgundy-dark)', margin: 0 }}>
-                  طلب استبدال منتج (Échange) 🔄
+                  {isRetourMode ? 'طلب استرجاع واسترداد المبلغ (Retour) ↩️' : 'طلب استبدال منتج (Échange) 🔄'}
                 </h3>
                 <span style={{ fontSize: '0.82rem', color: '#64748B' }}>
-                  بدّل مقاسك أو اختر موديلاً آخر بكل سهولة وأمان
+                  {isRetourMode 
+                    ? 'استرجعي قيمة مشترياتك مباشرة إلى حسابك بريدي موب بكل سهولة وأمان' 
+                    : 'بدّل مقاسك أو اختر موديلاً آخر بكل سهولة وأمان'}
                 </span>
               </div>
             </div>
@@ -698,7 +923,7 @@ export default function ExchangeModal({
                 {/* Barcode Input (12 digits) */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    كود السلعة (الباركود 12 رقم من رسالة الواتساب أو ملصق السلعة) *
+                    كود السلعة (الباركود 12 رقماً من رسالة الواتساب أو ملصق السلعة) *
                   </label>
                   <input 
                     type="text"
@@ -719,7 +944,7 @@ export default function ExchangeModal({
                       disabled={isVerifying}
                       style={{
                         width: '100%',
-                        background: 'var(--burgundy)',
+                        background: isRetourMode ? '#B91C1C' : 'var(--burgundy)',
                         color: 'white',
                         border: 'none',
                         borderRadius: '12px',
@@ -731,7 +956,7 @@ export default function ExchangeModal({
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '8px',
-                        boxShadow: '0 4px 14px rgba(136, 19, 55, 0.25)',
+                        boxShadow: isRetourMode ? '0 4px 14px rgba(185, 28, 28, 0.25)' : '0 4px 14px rgba(136, 19, 55, 0.25)',
                         transition: 'all 0.2s'
                       }}
                     >
@@ -780,29 +1005,37 @@ export default function ExchangeModal({
                       
                       <div style={{ background: '#FFFFFF', borderRadius: '10px', padding: '10px 12px', border: '1px solid #A7F3D0', display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.84rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#64748B' }}>السلعة المراد استبدالها:</span>
+                          <span style={{ color: '#64748B' }}>
+                            {isRetourMode ? 'السلعة المراد استرجاعها:' : 'السلعة المراد استبدالها:'}
+                          </span>
                           <strong style={{ color: '#0F172A' }}>{oldProductTitle}</strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#64748B' }}>الباركود (12 رقم):</span>
+                          <span style={{ color: '#64748B' }}>الباركود (12 رقماً):</span>
                           <strong style={{ color: '#0F172A', direction: 'ltr' }}>{oldProductBarcode}</strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ color: '#64748B' }}>سعر السلعة الصافي المدفوع:</span>
-                          <strong style={{ color: 'var(--burgundy)', fontWeight: 900, fontSize: '0.92rem' }}>{oldProductPrice} دج (سعر المنتج فقط بدون توصيل)</strong>
+                          <strong style={{ color: isRetourMode ? '#B91C1C' : 'var(--burgundy)', fontWeight: 900, fontSize: '0.92rem' }}>
+                            {oldProductPrice} دج (سعر المنتج فقط بدون توصيل)
+                          </strong>
                         </div>
                         {originalOrderFound && (
                           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #E2E8F0', paddingTop: '4px', marginTop: '2px', fontSize: '0.78rem' }}>
-                            <span style={{ color: '#64748B' }}>ولاية التوصيل الأصلية:</span>
-                            <strong style={{ color: '#047857' }}>{originalOrderFound.wilaya} ({originalOrderFound.deliveryCompany || 'شركة التوصيل'})</strong>
+                            <span style={{ color: '#64748B' }}>شركة وولاية التوصيل الأصلية:</span>
+                            <strong style={{ color: '#047857' }}>
+                              {originalOrderFound.wilaya} ({detectedCourierName})
+                            </strong>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Reason Selection (Unlocked only after successful verification) */}
+                    {/* Reason Selection */}
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>سبب طلب الاستبدال *</label>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                        {isRetourMode ? 'سبب طلب الاسترجاع *' : 'سبب طلب الاستبدال *'}
+                      </label>
                       <select
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
@@ -810,6 +1043,7 @@ export default function ExchangeModal({
                       >
                         <option value="مقاس غير مناسب (طلع صغير)">مقاس غير مناسب (طلع صغير)</option>
                         <option value="مقاس غير مناسب (طلع كبير)">مقاس غير مناسب (طلع كبير)</option>
+                        {isRetourMode && <option value="لم يعجبني الموديل أو اللون على الواقع">لم يعجبني الموديل أو اللون على الواقع</option>}
                         <option value="عيب تصنيعي أو تمزق في القماش">عيب تصنيعي أو تمزق في القماش</option>
                         <option value="الموديل أو اللون مختلف عن الصورة">الموديل أو اللون مختلف عن الصورة</option>
                         <option value="وصلني منتج بالخطأ">وصلني منتج بالخطأ</option>
@@ -818,7 +1052,7 @@ export default function ExchangeModal({
                       {reason === 'أخرى (اكتب السبب أدناه)' && (
                         <textarea 
                           required
-                          placeholder="يرجى كتابة سبب الاستبدال هنا..."
+                          placeholder={isRetourMode ? "يرجى كتابة سبب الاسترجاع هنا بالتفصيل..." : "يرجى كتابة سبب الاستبدال هنا بالتفصيل..."}
                           value={customReason}
                           onChange={(e) => setCustomReason(e.target.value)}
                           style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '0.88rem', marginTop: '8px', minHeight: '60px', boxSizing: 'border-box' }}
@@ -826,10 +1060,10 @@ export default function ExchangeModal({
                       )}
                     </div>
 
-                    {/* Mandatory Photo Upload (Unlocked only after successful verification) */}
+                    {/* Mandatory Photo Upload */}
                     <div>
                       <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: '#1E293B', marginBottom: '6px' }}>
-                        📸 صورة المنتج المراد استبداله (إجباري) *
+                        {isRetourMode ? '📸 صورة المنتج المراد استرجاعه (إجباري) *' : '📸 صورة المنتج المراد استبداله (إجباري) *'}
                       </label>
                       <input 
                         type="file"
@@ -839,7 +1073,7 @@ export default function ExchangeModal({
                         style={{ display: 'none' }}
                       />
                       {photoPreview ? (
-                        <div style={{ position: 'relative', width: '120px', height: '120px', borderRadius: '14px', overflow: 'hidden', border: '2px solid var(--burgundy)' }}>
+                        <div style={{ position: 'relative', width: '120px', height: '120px', borderRadius: '14px', overflow: 'hidden', border: `2px solid ${isRetourMode ? '#B91C1C' : 'var(--burgundy)'}` }}>
                           <img src={photoPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           <button
                             type="button"
@@ -869,9 +1103,9 @@ export default function ExchangeModal({
                             fontWeight: 700
                           }}
                         >
-                          <Camera size={26} color="var(--burgundy)" />
+                          <Camera size={26} color={isRetourMode ? '#B91C1C' : 'var(--burgundy)'} />
                           <span>انقر لالتقاط صورة أو رفعها من هاتفك</span>
-                          <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>ضرورية لمعاينة حالة المنتج قبل قبول الاستبدال</span>
+                          <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>ضرورية لمعاينة حالة المنتج قبل قبول الطلب</span>
                         </button>
                       )}
                     </div>
@@ -882,164 +1116,376 @@ export default function ExchangeModal({
               {/* UNLOCKED ONLY AFTER SUCCESSFUL VERIFICATION */}
               {isOrderVerified && (
                 <>
-                  {/* Step 2: Selection of Replacement Items */}
-                  <div style={{ background: '#FFF1F2', padding: '16px', borderRadius: '16px', border: '1px solid #FECDD3' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--burgundy-dark)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <ShoppingBag size={18} />
-                        <span>2. السلع البديلة الجديدة المختارة</span>
+                  {isRetourMode ? (
+                    /* ========================================================================= */
+                    /* RETOUR MODE: NO REPLACEMENT PICKER, DIRECT RIP + RULES + NOTICE + SUBMIT */
+                    /* ========================================================================= */
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {/* Step 2: Financial Refund Breakdown & BaridiMob RIP Input */}
+                      <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 900, color: '#1E293B', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <ShieldCheck size={18} color="#059669" />
+                          <span>2. تفاصيل الحساب المالي واسترداد المبلغ</span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.84rem', color: '#475569', marginBottom: '14px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>سعر السلعة الصافي المسترجع:</span>
+                            <strong style={{ color: '#0F172A', fontSize: '0.92rem' }}>{parsedOldPrice} دج</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>مصاريف شحن الإرجاع:</span>
+                            <strong style={{ color: '#D97706' }}>يدفعها الزبون مباشرة لشركة التوصيل عند إرسال الطرد</strong>
+                          </div>
+                          <div style={{ marginTop: '4px', paddingTop: '8px', borderTop: '1px dashed #CBD5E1', display: 'flex', justifyContent: 'space-between', fontSize: '0.98rem', fontWeight: 900, color: '#047857' }}>
+                            <span>المبلغ الصافي المسترد لحسابكم (بريدي موب):</span>
+                            <span>{parsedOldPrice} دج</span>
+                          </div>
+                        </div>
+
+                        {/* BaridiMob RIP Input (Mandatory) */}
+                        <div style={{ background: '#ECFDF5', border: '1.5px solid #10B981', padding: '14px', borderRadius: '14px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 800, color: '#065F46', marginBottom: '6px' }}>
+                            <span>رقم حساب بريدي موب (RIP BaridiMob - 20 رقماً) *</span>
+                            <span style={{ direction: 'ltr', color: baridiMobRip.length === 20 ? '#059669' : '#DC2626' }}>
+                              {baridiMobRip.length} / 20 رقماً
+                            </span>
+                          </div>
+                          <input 
+                            type="text"
+                            required
+                            placeholder="0079 9999 00XX XXXX XXXX"
+                            value={formattedRipDisplay}
+                            onChange={(e) => handleRipChange(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '12px 14px',
+                              borderRadius: '10px',
+                              border: `2px solid ${baridiMobRip.length === 20 ? '#10B981' : '#F87171'}`,
+                              fontSize: '1rem',
+                              fontWeight: 800,
+                              letterSpacing: '1px',
+                              direction: 'ltr',
+                              textAlign: 'center',
+                              background: '#FFFFFF',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                          <p style={{ margin: '8px 0 0', fontSize: '0.76rem', color: '#047857', lineHeight: 1.4 }}>
+                            💡 سيتم تحويل هذا المبلغ ({parsedOldPrice} دج) إلى حساب بريدي موب الخاص بكم فور وصول الطرد وفحصه في مخزننا.
+                          </p>
+                        </div>
                       </div>
+
+                      {/* Step 3: MANDATORY RETURN NOTICE & SHIPPING INSTRUCTIONS */}
+                      <div style={{
+                        background: '#FFFBEB',
+                        border: '2px solid #F59E0B',
+                        borderRadius: '16px',
+                        padding: '16px 18px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#92400E', fontWeight: 900, fontSize: '0.95rem' }}>
+                          <AlertCircle size={20} color="#D97706" style={{ flexShrink: 0 }} />
+                          <span>⚠️ تنبيه هام جداً: تعليمات إرسال طرد الإرجاع</span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.84rem', color: '#78350F', lineHeight: 1.6 }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                            <span style={{ fontWeight: 900, color: '#B45309' }}>1.</span>
+                            <div>
+                              <strong>شركة التوصيل المعتمدة:</strong> يجب إرسال طرد الإرجاع حصرياً عبر نفس شركة التوصيل التي استلمت منها طلبيتك الأصلية وهي: <span style={{ background: '#FEF3C7', padding: '2px 8px', borderRadius: '6px', fontWeight: 900, color: '#92400E' }}>{detectedCourierName}</span>.
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                            <span style={{ fontWeight: 900, color: '#B45309' }}>2.</span>
+                            <div>
+                              <strong>مصاريف الشحن:</strong> تكلفة شحن الإرجاع تقع على عاتق الزبون، وتُدفع مباشرة لمكتب شركة التوصيل عند تسليم الطرد.
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                            <span style={{ fontWeight: 900, color: '#B45309' }}>3.</span>
+                            <div>
+                              <strong>مبلغ التحصيل (0 دينار جزائري):</strong> عند تسجيل الطرد لدى شركة التوصيل، <strong>يجب تحديد مبلغ التحصيل (Contre Remboursement / Montant à encaisser) بـ 0 دج (صفر دينار)</strong>. لا تضع أي مبلغ على الطرد لأن مستحقاتك ستصلك كاملة عبر بريدي موب.
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                            <span style={{ fontWeight: 900, color: '#B45309' }}>4.</span>
+                            <div style={{ flex: 1 }}>
+                              <div><strong>رقم هاتف المستلم (المسؤول عن المخزون):</strong> يجب كتابة رقم هاتف مسؤول المخزون كجهة اتصال للمستلم على ملصق الطرد لكي تتصل به شركة التوصيل فور وصوله:</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                                <div style={{ background: '#FFFFFF', border: '1.5px solid #FCD34D', borderRadius: '8px', padding: '6px 12px', fontFamily: 'monospace', fontWeight: 900, fontSize: '0.95rem', color: '#92400E', direction: 'ltr' }}>
+                                  {stockManagerPhone}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(stockManagerPhone, 'رقم هاتف مسؤول المخزون')}
+                                  style={{
+                                    background: '#D97706',
+                                    color: '#FFF',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '6px 12px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <Copy size={13} />
+                                  <span>نسخ الرقم</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Mandatory Confirmation Checkbox */}
+                        <div style={{
+                          marginTop: '6px',
+                          background: '#FFFFFF',
+                          border: `2px solid ${hasAgreedToReturnTerms ? '#16A34A' : '#F59E0B'}`,
+                          borderRadius: '12px',
+                          padding: '12px',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onClick={() => setHasAgreedToReturnTerms(!hasAgreedToReturnTerms)}
+                        >
+                          <input
+                            type="checkbox"
+                            id="agree-return-terms"
+                            checked={hasAgreedToReturnTerms}
+                            onChange={(e) => setHasAgreedToReturnTerms(e.target.checked)}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              width: '20px',
+                              height: '20px',
+                              accentColor: '#16A34A',
+                              marginTop: '2px',
+                              cursor: 'pointer'
+                            }}
+                          />
+                          <label 
+                            htmlFor="agree-return-terms"
+                            style={{
+                              fontSize: '0.84rem',
+                              fontWeight: 800,
+                              color: hasAgreedToReturnTerms ? '#166534' : '#92400E',
+                              cursor: 'pointer',
+                              lineHeight: 1.5
+                            }}
+                          >
+                            أقر وأؤكد بأنني قرأت وفهمت كافة التعليمات والشروط أعلاه، وألتزم بإرسال الطرد مع شركة ({detectedCourierName}) بمبلغ تحصيل (0 دج) وعلى نفقتي الخاصة.
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Submit Button for Retour */}
                       <button
-                        type="button"
-                        onClick={() => setIsPickerOpen(true)}
+                        type="submit"
+                        disabled={isSubmitting || !hasAgreedToReturnTerms || baridiMobRip.length !== 20}
+                        style={{
+                          background: (!hasAgreedToReturnTerms || baridiMobRip.length !== 20) ? '#CBD5E1' : '#B91C1C',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '14px',
+                          padding: '16px',
+                          fontSize: '1rem',
+                          fontWeight: 900,
+                          cursor: (!hasAgreedToReturnTerms || baridiMobRip.length !== 20) ? 'not-allowed' : (isSubmitting ? 'wait' : 'pointer'),
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          boxShadow: (!hasAgreedToReturnTerms || baridiMobRip.length !== 20) ? 'none' : '0 10px 20px -5px rgba(185, 28, 28, 0.4)',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {isSubmitting ? 'جاري تسجيل الطلب...' : 'تأكيد طلب الاسترجاع واسترداد المبلغ ↩️'}
+                      </button>
+
+                      {(!hasAgreedToReturnTerms || baridiMobRip.length !== 20) && (
+                        <div style={{ textAlign: 'center', fontSize: '0.78rem', color: '#94A3B8', fontWeight: 700, marginTop: '-6px' }}>
+                          ⚠️ يجب التأشير على مربع قراءة التعليمات وإدخال رقم بريدي موب كاملاً (20 رقماً) لتأكيد الطلب.
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* ========================================================================= */
+                    /* EXCHANGE MODE: REPLACEMENT PICKER + DIFFERENCE CALCULATION + SUBMIT      */
+                    /* ========================================================================= */
+                    <>
+                      {/* Step 2: Selection of Replacement Items */}
+                      <div style={{ background: '#FFF1F2', padding: '16px', borderRadius: '16px', border: '1px solid #FECDD3' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--burgundy-dark)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <ShoppingBag size={18} />
+                            <span>2. السلع البديلة الجديدة المختارة</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsPickerOpen(true)}
+                            style={{
+                              background: 'var(--burgundy)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '10px',
+                              padding: '8px 14px',
+                              fontSize: '0.82rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <span>+ اختيار منتجات</span>
+                          </button>
+                        </div>
+
+                        {exchangeCart.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '18px 10px', color: '#881337', fontSize: '0.85rem' }}>
+                            لم تختر أي سلعة بديلة بعد. اضغط على <strong>+ اختيار منتجات</strong> لتصفح المتجر واختيار القطع التي تناسبك!
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {exchangeCart.map((item, idx) => (
+                              <div key={item.id || idx} style={{ background: '#FFFFFF', padding: '10px 12px', borderRadius: '12px', border: '1px solid #FFE4E6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  {item.image && (
+                                    <img src={item.image} alt={item.title} style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }} />
+                                  )}
+                                  <div>
+                                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1E293B' }}>{item.title}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#64748B' }}>اللون: {item.color} | المقاس: {item.size}</div>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <span style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--burgundy)' }}>{item.price} دج</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setExchangeCart(prev => prev.filter(it => it.id !== item.id))}
+                                    style={{ background: '#FEE2E2', border: 'none', borderRadius: '8px', padding: '6px', color: '#DC2626', cursor: 'pointer' }}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Step 3: Calculation & Conditional RIP */}
+                      {exchangeCart.length > 0 && parsedOldPrice > 0 && (
+                        <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#334155', marginBottom: '10px' }}>
+                            3. تفاصيل الحساب المالي
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem', color: '#475569' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span>سعر السلعة القديمة:</span>
+                              <strong>{parsedOldPrice} دج</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span>مجموع السلع الجديدة:</span>
+                              <strong>{newProductsSubtotal} دج</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span>فارق السعر:</span>
+                              <strong style={{ color: priceDifference >= 0 ? '#059669' : '#DC2626' }}>
+                                {priceDifference > 0 ? `+${priceDifference}` : priceDifference} دج
+                              </strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span>مصاريف التوصيل (على الزبون):</span>
+                              <strong>+{deliveryFee} دج</strong>
+                            </div>
+                            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #CBD5E1', display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', fontWeight: 900, color: 'var(--burgundy-dark)' }}>
+                              <span>المبلغ للدفع للموزع عند الاستلام:</span>
+                              <span>{totalCodToPay} دج</span>
+                            </div>
+                          </div>
+
+                          {/* If store owes money to client (Refund Due) */}
+                          {isRefundDue && (
+                            <div style={{ marginTop: '14px', background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '14px', borderRadius: '14px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#065F46', fontWeight: 800, fontSize: '0.85rem', marginBottom: '8px' }}>
+                                <ShieldCheck size={18} />
+                                <span>لديك مبلغ مسترد في ذمتنا قدره: {refundAmount} دج</span>
+                              </div>
+                              <p style={{ margin: '0 0 10px 0', fontSize: '0.78rem', color: '#047857', lineHeight: 1.4 }}>
+                                المنتج الجديد أرخص من القديم! يرجى إدخال رقم حساب بريدي موب (RIP) ليتم تحويل هذا المبلغ لحسابكم فور استلام القطعة القديمة.
+                              </p>
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontWeight: 800, color: '#065F46', marginBottom: '4px' }}>
+                                  <span>رقم حساب بريدي موب (RIP BaridiMob) *</span>
+                                  <span style={{ direction: 'ltr', color: baridiMobRip.length === 20 ? '#059669' : '#DC2626' }}>
+                                    {baridiMobRip.length} / 20 رقماً
+                                  </span>
+                                </div>
+                                <input 
+                                  type="text"
+                                  required
+                                  placeholder="0079 9999 00XX XXXX XXXX"
+                                  value={formattedRipDisplay}
+                                  onChange={(e) => handleRipChange(e.target.value)}
+                                  style={{
+                                    width: '100%',
+                                    padding: '12px 14px',
+                                    borderRadius: '10px',
+                                    border: `2px solid ${baridiMobRip.length === 20 ? '#10B981' : '#F87171'}`,
+                                    fontSize: '1rem',
+                                    fontWeight: 800,
+                                    letterSpacing: '1px',
+                                    direction: 'ltr',
+                                    textAlign: 'center',
+                                    background: '#FFFFFF',
+                                    boxSizing: 'border-box'
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Submit Button for Exchange */}
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
                         style={{
                           background: 'var(--burgundy)',
                           color: 'white',
                           border: 'none',
-                          borderRadius: '10px',
-                          padding: '8px 14px',
-                          fontSize: '0.82rem',
-                          fontWeight: 800,
-                          cursor: 'pointer',
+                          borderRadius: '14px',
+                          padding: '16px',
+                          fontSize: '1rem',
+                          fontWeight: 900,
+                          cursor: isSubmitting ? 'wait' : 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '4px'
+                          justifyContent: 'center',
+                          gap: '8px',
+                          boxShadow: '0 10px 20px -5px rgba(136, 19, 55, 0.4)',
+                          transition: 'opacity 0.2s'
                         }}
                       >
-                        <span>+ اختيار منتجات</span>
+                        {isSubmitting ? 'جاري تسجيل الطلب...' : 'تأكيد طلب الاستبدال 🔄'}
                       </button>
-                    </div>
-
-                    {exchangeCart.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '18px 10px', color: '#881337', fontSize: '0.85rem' }}>
-                        لم تختر أي سلعة بديلة بعد. اضغط على <strong>+ اختيار منتجات</strong> لتصفح المتجر واختيار القطع التي تناسبك!
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {exchangeCart.map((item, idx) => (
-                          <div key={item.id || idx} style={{ background: '#FFFFFF', padding: '10px 12px', borderRadius: '12px', border: '1px solid #FFE4E6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              {item.image && (
-                                <img src={item.image} alt={item.title} style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }} />
-                              )}
-                              <div>
-                                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1E293B' }}>{item.title}</div>
-                                <div style={{ fontSize: '0.75rem', color: '#64748B' }}>اللون: {item.color} | المقاس: {item.size}</div>
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <span style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--burgundy)' }}>{item.price} دج</span>
-                              <button
-                                type="button"
-                                onClick={() => setExchangeCart(prev => prev.filter(it => it.id !== item.id))}
-                                style={{ background: '#FEE2E2', border: 'none', borderRadius: '8px', padding: '6px', color: '#DC2626', cursor: 'pointer' }}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Step 3: Calculation & Conditional RIP */}
-                  {exchangeCart.length > 0 && parsedOldPrice > 0 && (
-                    <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#334155', marginBottom: '10px' }}>
-                        3. تفاصيل الحساب المالي
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem', color: '#475569' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>سعر السلعة القديمة:</span>
-                          <strong>{parsedOldPrice} دج</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>مجموع السلع الجديدة:</span>
-                          <strong>{newProductsSubtotal} دج</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>فارق السعر:</span>
-                          <strong style={{ color: priceDifference >= 0 ? '#059669' : '#DC2626' }}>
-                            {priceDifference > 0 ? `+${priceDifference}` : priceDifference} دج
-                          </strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>مصاريف التوصيل (على الزبون):</span>
-                          <strong>+{deliveryFee} دج</strong>
-                        </div>
-                        <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #CBD5E1', display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', fontWeight: 900, color: 'var(--burgundy-dark)' }}>
-                          <span>المبلغ للدفع للموزع عند الاستلام:</span>
-                          <span>{totalCodToPay} دج</span>
-                        </div>
-                      </div>
-
-                      {/* If store owes money to client (Refund Due) */}
-                      {isRefundDue && (
-                        <div style={{ marginTop: '14px', background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '14px', borderRadius: '14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#065F46', fontWeight: 800, fontSize: '0.85rem', marginBottom: '8px' }}>
-                            <ShieldCheck size={18} />
-                            <span>لديك مبلغ مسترد في ذمتنا قدره: {refundAmount} دج</span>
-                          </div>
-                          <p style={{ margin: '0 0 10px 0', fontSize: '0.78rem', color: '#047857', lineHeight: 1.4 }}>
-                            المنتج الجديد أرخص من القديم! يرجى إدخال رقم حساب بريدي موب (RIP) ليتم تحويل هذا المبلغ لحسابكم فور استلام القطعة القديمة.
-                          </p>
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontWeight: 800, color: '#065F46', marginBottom: '4px' }}>
-                              <span>رقم حساب بريدي موب (RIP BaridiMob) *</span>
-                              <span style={{ direction: 'ltr', color: baridiMobRip.length === 20 ? '#059669' : '#DC2626' }}>
-                                {baridiMobRip.length} / 20 رقماً
-                              </span>
-                            </div>
-                            <input 
-                              type="text"
-                              required
-                              placeholder="0079 9999 00XX XXXX XXXX"
-                              value={formattedRipDisplay}
-                              onChange={(e) => handleRipChange(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '12px 14px',
-                                borderRadius: '10px',
-                                border: `2px solid ${baridiMobRip.length === 20 ? '#10B981' : '#F87171'}`,
-                                fontSize: '1rem',
-                                fontWeight: 800,
-                                letterSpacing: '1px',
-                                direction: 'ltr',
-                                textAlign: 'center',
-                                background: '#FFFFFF',
-                                boxSizing: 'border-box'
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    </>
                   )}
-
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    style={{
-                      background: 'var(--burgundy)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '14px',
-                      padding: '16px',
-                      fontSize: '1rem',
-                      fontWeight: 900,
-                      cursor: isSubmitting ? 'wait' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      boxShadow: '0 10px 20px -5px rgba(136, 19, 55, 0.4)',
-                      transition: 'opacity 0.2s'
-                    }}
-                  >
-                    {isSubmitting ? 'جاري تسجيل الطلب...' : 'تأكيد طلب الاستبدال 🔄'}
-                  </button>
                 </>
               )}
             </form>

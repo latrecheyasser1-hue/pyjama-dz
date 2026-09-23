@@ -1432,6 +1432,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const [isTariffsModalOpen, setIsTariffsModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
+  const [isReturnPolicyModalOpen, setIsReturnPolicyModalOpen] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
@@ -5219,9 +5220,9 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       )}
 
       {/* Return Policy Modal */}
-      {isReturnModalOpen && (
+      {isReturnPolicyModalOpen && (
         <div 
-          onClick={() => setIsReturnModalOpen(false)}
+          onClick={() => setIsReturnPolicyModalOpen(false)}
           style={{ 
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
             background: 'rgba(15, 23, 42, 0.75)', 
@@ -5249,7 +5250,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
           >
             <button 
               type="button"
-              onClick={() => setIsReturnModalOpen(false)}
+              onClick={() => setIsReturnPolicyModalOpen(false)}
               style={{ position: 'absolute', top: '20px', left: '20px', background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' }}
             >
               <X size={20} />
@@ -5638,6 +5639,21 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 onClick={() => {
                   menuBackPushedRef.current = false;
                   setIsMobileMenuOpen(false);
+                  setIsReturnModalOpen(true);
+                }}
+              >
+                <div className="mobile-drawer-item-left">
+                  <span style={{ color: '#B91C1C', fontWeight: 800 }}>- DEMANDE DE RETOUR / طلب استرجاع واسترداد المبلغ</span>
+                </div>
+                <ChevronRight size={18} color="#94A3B8" />
+              </button>
+
+              <button 
+                type="button"
+                className="mobile-drawer-item"
+                onClick={() => {
+                  menuBackPushedRef.current = false;
+                  setIsMobileMenuOpen(false);
                   setIsReclamationOpen(true);
                 }}
               >
@@ -5811,15 +5827,21 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       {/* DELIVERY TARIFFS MODAL (58 WILAYAS CHLEF DEPARTURE) */}
       <DeliveryTariffsModal isOpen={isTariffsModalOpen} onClose={() => setIsTariffsModalOpen(false)} />
 
-      {/* PRODUCT EXCHANGE MODAL (طلب استبدال منتج) */}
+      {/* PRODUCT EXCHANGE & RETURN MODAL (طلب استبدال واسترجاع) */}
       <ExchangeModal
-        isOpen={isExchangeModalOpen}
-        onClose={() => setIsExchangeModalOpen(false)}
+        isOpen={isExchangeModalOpen || isReturnModalOpen}
+        initialMode={isReturnModalOpen ? 'retour' : 'exchange'}
+        onClose={() => {
+          setIsExchangeModalOpen(false);
+          setIsReturnModalOpen(false);
+        }}
         products={products}
         categories={categoriesList}
+        settings={settings}
         currentCustomer={currentCustomer}
         onOpenAuth={() => {
           setIsExchangeModalOpen(false);
+          setIsReturnModalOpen(false);
           setIsAuthModalOpen(true);
         }}
         onPlaceOrder={onPlaceOrder}
