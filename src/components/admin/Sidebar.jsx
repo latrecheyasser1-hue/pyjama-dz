@@ -35,18 +35,27 @@ export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, pendi
   ];
 
   return (
-    <aside style={{
-      width: '250px',
-      background: 'var(--burgundy-dark)',
-      color: 'white',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      padding: '24px 16px',
-      minHeight: '100vh',
-      boxShadow: '4px 0 16px rgba(0,0,0,0.15)',
-      flexShrink: 0
-    }}>
+    <aside 
+      className="admin-sidebar-scroll"
+      style={{
+        width: '255px',
+        background: 'var(--burgundy-dark)',
+        color: 'white',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '20px 14px',
+        height: '100vh',
+        maxHeight: '100vh',
+        position: 'sticky',
+        top: 0,
+        boxShadow: '4px 0 16px rgba(0,0,0,0.15)',
+        flexShrink: 0,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        zIndex: 50
+      }}
+    >
       <div>
         {/* Brand Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 12px 24px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>

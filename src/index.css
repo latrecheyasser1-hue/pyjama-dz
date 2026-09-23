@@ -42,6 +42,60 @@ html {
   scrollbar-width: none;
 }
 
+/* Special Luxury Independent Scrollbar for Admin Sidebar */
+.admin-sidebar-scroll {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.45) rgba(0, 0, 0, 0.25);
+  overscroll-behavior: contain;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  margin: 6px 0;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.6) 0%, rgba(216, 108, 134, 0.6) 100%);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #D4AF37 0%, #D86C86 100%);
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.5);
+}
+
+.admin-main-scroll {
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+
+.admin-main-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.admin-main-scroll::-webkit-scrollbar-track {
+  background: #F1EBE1;
+}
+
+.admin-main-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 6px;
+}
+
+.admin-main-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
 :root {
   --font-primary: 'Outfit', 'Cairo', sans-serif;
   --font-arabic: 'Cairo', 'Outfit', sans-serif;
