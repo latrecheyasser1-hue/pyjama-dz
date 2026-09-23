@@ -667,118 +667,111 @@ export default function ExchangesReturnsTab({
           </button>
         </div>
 
-        {/* Sub-filter specifically for Approved Orders: Received 🟢 vs Still In Transit 🔴 */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          width: '100%',
-          paddingTop: '14px',
-          borderTop: '1px solid #F1F5F9'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <span>📦 فرز المقبولة:</span>
-            </span>
+        {/* Sub-filter specifically for Approved Orders (Only appears when statusFilter === 'approved') */}
+        {statusFilter === 'approved' && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            width: '100%',
+            paddingTop: '14px',
+            borderTop: '1px solid #F1F5F9'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span>📦 فرز حسب الاستلام:</span>
+              </span>
 
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#F8FAFC', padding: '4px', borderRadius: '12px', border: '1.5px solid #E2E8F0' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusFilter('approved');
-                  setIstilamFilter('all');
-                }}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '9px',
-                  border: 'none',
-                  background: (statusFilter === 'approved' && istilamFilter === 'all') ? '#0F172A' : 'transparent',
-                  color: (statusFilter === 'approved' && istilamFilter === 'all') ? '#FFFFFF' : '#64748B',
-                  fontWeight: 800,
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  boxShadow: (statusFilter === 'approved' && istilamFilter === 'all') ? '0 2px 6px rgba(0,0,0,0.12)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                كافة المقبولة ({counts.approved})
-              </button>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#F8FAFC', padding: '4px', borderRadius: '12px', border: '1.5px solid #E2E8F0' }}>
+                <button
+                  type="button"
+                  onClick={() => setIstilamFilter('all')}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '9px',
+                    border: 'none',
+                    background: istilamFilter === 'all' ? '#0F172A' : 'transparent',
+                    color: istilamFilter === 'all' ? '#FFFFFF' : '#64748B',
+                    fontWeight: 800,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    boxShadow: istilamFilter === 'all' ? '0 2px 6px rgba(0,0,0,0.12)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  كافة المقبولة ({counts.approved})
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusFilter('approved');
-                  setIstilamFilter('received');
-                }}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '9px',
-                  border: 'none',
-                  background: (statusFilter === 'approved' && istilamFilter === 'received') ? '#15803D' : 'transparent',
-                  color: (statusFilter === 'approved' && istilamFilter === 'received') ? '#FFFFFF' : '#15803D',
-                  fontWeight: 900,
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: (statusFilter === 'approved' && istilamFilter === 'received') ? '0 2px 8px rgba(21, 128, 61, 0.25)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <span>🟢</span>
-                <span>تم استلامها ({counts.approvedReceived})</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setIstilamFilter('received')}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '9px',
+                    border: 'none',
+                    background: istilamFilter === 'received' ? '#15803D' : 'transparent',
+                    color: istilamFilter === 'received' ? '#FFFFFF' : '#15803D',
+                    fontWeight: 900,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: istilamFilter === 'received' ? '0 2px 8px rgba(21, 128, 61, 0.25)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>🟢</span>
+                  <span>تم الاستلام ({counts.approvedReceived})</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusFilter('approved');
-                  setIstilamFilter('not_received');
-                }}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '9px',
-                  border: 'none',
-                  background: (statusFilter === 'approved' && istilamFilter === 'not_received') ? '#DC2626' : 'transparent',
-                  color: (statusFilter === 'approved' && istilamFilter === 'not_received') ? '#FFFFFF' : '#DC2626',
-                  fontWeight: 900,
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: (statusFilter === 'approved' && istilamFilter === 'not_received') ? '0 2px 8px rgba(220, 38, 38, 0.25)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <span>🔴</span>
-                <span>ما زال ما استلمتهاش ({counts.approvedNotReceived})</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setIstilamFilter('not_received')}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '9px',
+                    border: 'none',
+                    background: istilamFilter === 'not_received' ? '#DC2626' : 'transparent',
+                    color: istilamFilter === 'not_received' ? '#FFFFFF' : '#DC2626',
+                    fontWeight: 900,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: istilamFilter === 'not_received' ? '0 2px 8px rgba(220, 38, 38, 0.25)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>🔴</span>
+                  <span>في الطريق (لم يتم الاستلام) ({counts.approvedNotReceived})</span>
+                </button>
+              </div>
             </div>
-          </div>
 
-          {(statusFilter === 'approved' && istilamFilter !== 'all') && (
-            <button
-              type="button"
-              onClick={() => setIstilamFilter('all')}
-              style={{
-                background: '#F1F5F9',
-                border: '1px solid #CBD5E1',
-                borderRadius: '8px',
-                padding: '4px 10px',
-                color: '#475569',
-                fontSize: '0.78rem',
-                fontWeight: 800,
-                cursor: 'pointer'
-              }}
-            >
-              عرض كل المقبولة ↩️
-            </button>
-          )}
-        </div>
+            {istilamFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setIstilamFilter('all')}
+                style={{
+                  background: '#F1F5F9',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '8px',
+                  padding: '4px 10px',
+                  color: '#475569',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                إلغاء الفرز (عرض الكل) ↩️
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Orders List */}
@@ -963,7 +956,7 @@ export default function ExchangesReturnsTab({
                             boxShadow: '0 2px 8px rgba(220, 38, 38, 0.25)'
                           }}>
                             <Clock size={16} color="#FFFFFF" />
-                            <span>🔴 راهي في الطريق جاية (لم يتم الاستلام بعد) ⏳</span>
+                            <span>🔴 في الطريق (لم يتم الاستلام بعد) ⏳</span>
                           </span>
                         )}
 
@@ -1493,7 +1486,7 @@ export default function ExchangesReturnsTab({
                             <span>
                               {order.isTamIstilam 
                                 ? (isRetourMode ? 'تم استلام طرد الاسترجاع في المحل بنجاح' : 'تم استلام طرد الاستبدال من شركة التوصيل') 
-                                : (isRetourMode ? 'طرد الاسترجاع راه في الطريق جاي (لم يُستلم بعد)' : 'طرد الاستبدال مع شركة التوصيل (لم يُستلم بعد)')}
+                                : (isRetourMode ? 'طرد الاسترجاع في الطريق (لم يتم الاستلام بالمحل بعد)' : 'طرد الاستبدال مع شركة التوصيل (لم يتم الاستلام بالمحل بعد)')}
                             </span>
                           </span>
 
@@ -1535,7 +1528,7 @@ export default function ExchangesReturnsTab({
                               type="button"
                               disabled={isProcessing}
                               onClick={() => handleToggleIstilam(order)}
-                              title="إعادة الحالة إلى: في الطريق جاية"
+                              title="إعادة الحالة إلى: في الطريق (لم يتم الاستلام)"
                               style={{
                                 background: '#FFF',
                                 color: '#DC2626',
@@ -1552,7 +1545,7 @@ export default function ExchangesReturnsTab({
                               }}
                             >
                               <RefreshCw size={15} />
-                              <span>{isProcessing ? 'جاري التحديث...' : 'إعادة إلى: في الطريق جاية (لم يتم الاستلام) 🔴'}</span>
+                              <span>{isProcessing ? 'جاري التحديث...' : 'إلغاء الاستلام (إعادة إلى: في الطريق) 🔴'}</span>
                             </button>
                           )}
                         </div>
