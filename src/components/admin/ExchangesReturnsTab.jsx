@@ -47,6 +47,28 @@ export default function ExchangesReturnsTab({
   const [rejectionReason, setRejectionReason] = useState(isRetourMode ? 'السلعة غير مطابقة لشروط الاسترجاع' : 'السلعة غير مطابقة لشروط الاستبدال');
   const [istilamOverrides, setIstilamOverrides] = useState({});
   const [istilamFilter, setIstilamFilter] = useState('all'); // 'all' | 'received' | 'not_received'
+  const [isSyncingCourier, setIsSyncingCourier] = useState(false);
+
+  // Sync tracking live from courier companies (Yalidine & ZR Express)
+  const handleSyncCourierTracking = async () => {
+    if (isSyncingCourier) return;
+    setIsSyncingCourier(true);
+    showToast('⏳ جاري فحص ومزامنة حالة طرود الاستبدال مع شركات التوصيل...', 'info');
+    try {
+      const res = await fetch('/api/track-shipments', { method: 'GET' });
+      const data = await res.json();
+      if (data && data.success) {
+        showToast('✅ تم فحص وتحديث طرود الاستبدال مع شركات التوصيل بنجاح!', 'success');
+      } else {
+        showToast('✅ اكتمل الفحص مع شركات التوصيل', 'info');
+      }
+    } catch (e) {
+      console.warn('Track shipments sync error:', e);
+      showToast('تعذر الاتصال بخدمة التتبع حالياً', 'warning');
+    } finally {
+      setIsSyncingCourier(false);
+    }
+  };
 
   // Helper: Detect pure return order
   const isOrderRetour = (order) => {
@@ -752,24 +774,50 @@ export default function ExchangesReturnsTab({
               </div>
             </div>
 
-            {istilamFilter !== 'all' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
-                onClick={() => setIstilamFilter('all')}
+                disabled={isSyncingCourier}
+                onClick={handleSyncCourierTracking}
+                title="تحديث ومزامنة حالة طرود الاستبدال مع منصات Yalidine و ZR Express"
                 style={{
-                  background: '#F1F5F9',
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '8px',
-                  padding: '4px 10px',
-                  color: '#475569',
-                  fontSize: '0.78rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#EFF6FF',
+                  border: '1.5px solid #BFDBFE',
+                  color: '#1D4ED8',
+                  borderRadius: '10px',
+                  padding: '6px 14px',
+                  fontSize: '0.82rem',
                   fontWeight: 800,
-                  cursor: 'pointer'
+                  cursor: isSyncingCourier ? 'wait' : 'pointer',
+                  transition: 'all 0.15s ease'
                 }}
               >
-                إلغاء الفرز (عرض الكل) ↩️
+                <RefreshCw size={14} className={isSyncingCourier ? 'spin' : ''} />
+                <span>{isSyncingCourier ? 'جاري الفحص...' : 'تحديث التتبع من شركات التوصيل 🔄'}</span>
               </button>
-            )}
+
+              {istilamFilter !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setIstilamFilter('all')}
+                  style={{
+                    background: '#F1F5F9',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '8px',
+                    padding: '4px 10px',
+                    color: '#475569',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                >
+                  إلغاء الفرز (عرض الكل) ↩️
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

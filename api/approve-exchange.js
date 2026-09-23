@@ -53,25 +53,43 @@ export default async function handler(req, res) {
       let shippingLabelUrl = order.shippingLabelUrl || null;
       let deliveryCompany = order.deliveryCompany || 'zrexpress';
 
-      // Call internal create-parcel handler if no tracking yet
-      if (!trackingNumber) {
+      // Call create-parcel handler if exchange and no tracking yet (Returns are sent by customer to warehouse)
+      if (!isReturn && !trackingNumber) {
         try {
-          const parcelRes = await fetch('https://pyjama-dz.vercel.app/api/create-parcel', {
+          const host = req.headers['x-forwarded-host'] || req.headers.host || 'pyjama-dz.vercel.app';
+          const protocol = host.includes('localhost') ? 'http' : 'https';
+          const createParcelUrl = `${protocol}://${host}/api/create-parcel`;
+
+          const parcelRes = await fetch(createParcelUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order })
+            body: JSON.stringify({ order, company: deliveryCompany })
           });
           const parcelData = await parcelRes.json();
           if (parcelData && parcelData.trackingNumber) {
             trackingNumber = parcelData.trackingNumber;
             shippingLabelUrl = parcelData.shippingLabelUrl || null;
             deliveryCompany = parcelData.deliveryCompany || deliveryCompany;
+          } else {
+            console.warn('[approve-exchange] Parcel creation response:', parcelData);
           }
         } catch (pe) {
-          console.error('Error calling create-parcel for exchange/return:', pe);
-          // Fallback tracking simulation if remote call fails
-          const prefix = isReturn ? 'RET' : 'EX';
-          trackingNumber = `${deliveryCompany.toUpperCase().slice(0, 3)}-${prefix}-${Math.floor(100000 + Math.random() * 900000)}`;
+          console.error('Error calling create-parcel for exchange:', pe);
+          try {
+            const fallbackRes = await fetch('https://pyjama-dz.vercel.app/api/create-parcel', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ order, company: deliveryCompany })
+            });
+            const fallbackData = await fallbackRes.json();
+            if (fallbackData && fallbackData.trackingNumber) {
+              trackingNumber = fallbackData.trackingNumber;
+              shippingLabelUrl = fallbackData.shippingLabelUrl || null;
+              deliveryCompany = fallbackData.deliveryCompany || deliveryCompany;
+            }
+          } catch (e2) {
+            console.error('Fallback create-parcel error:', e2);
+          }
         }
       }
 

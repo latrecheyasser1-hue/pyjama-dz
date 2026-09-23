@@ -216,7 +216,7 @@ export default async function handler(req, res) {
 
       await Promise.all(chunk.map(async (order) => {
         const tracking = (order.trackingNumber || '').trim();
-        if (!tracking || tracking.startsWith('YAL-') || (tracking.startsWith('ZR-') && !tracking.includes('-ZR')) || tracking.endsWith('.pdf')) {
+        if (!tracking || tracking.toLowerCase().includes('mock') || (tracking.startsWith('ZR-') && !tracking.includes('-ZR')) || tracking.endsWith('.pdf')) {
           return; // Skip mock / legacy test tracking
         }
 
