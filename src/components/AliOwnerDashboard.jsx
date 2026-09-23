@@ -3100,62 +3100,6 @@ export default function AliOwnerDashboard({
         {activeTab === 'refunds_history' && (
           <div className="tab-pane-fade" key="refunds_history" style={{ width: '100%' }}>
             <div>
-                {/* Historique banner */}
-                <div style={{
-                  background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
-                  border: '1.5px solid #86EFAC',
-                  borderRadius: '20px',
-                  padding: '24px 28px',
-                  marginBottom: '24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '16px'
-                }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{
-                        width: '44px',
-                        height: '44px',
-                        borderRadius: '12px',
-                        background: '#15803D',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#FFF'
-                      }}>
-                        <History size={24} />
-                      </div>
-                      <div>
-                        <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 900, color: '#14532D' }}>
-                          سجل أرشيف التحويلات المكتملة (L'Historique BaridiMob)
-                        </h2>
-                        <p style={{ margin: '4px 0 0', fontSize: '0.88rem', color: '#166534', fontWeight: 600 }}>
-                          الأرشيف الشامل لجميع المبالغ المحولة للزبائن. يمكنك البحث المباشر برقم الـ RIP أو رقم الهاتف في أي وقت.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Total Completed Payouts */}
-                  <div style={{
-                    background: '#15803D',
-                    color: '#FFF',
-                    padding: '12px 24px',
-                    borderRadius: '16px',
-                    textAlign: 'center',
-                    boxShadow: '0 4px 14px rgba(21, 128, 61, 0.25)'
-                  }}>
-                    <span style={{ fontSize: '0.8rem', opacity: 0.9, display: 'block', fontWeight: 700 }}>
-                      إجمالي المبالغ المحولة في الأرشيف:
-                    </span>
-                    <span style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '0.5px' }}>
-                      {totalCompletedRefundsAmount.toLocaleString('ar-DZ')} دج
-                    </span>
-                  </div>
-                </div>
-
                 {/* DEDICATED SEARCH BAR FOR RIP AND PHONE NUMBER */}
                 <div style={{
                   background: '#FFF',
