@@ -292,7 +292,7 @@ export default function ExchangesReturnsTab({
           }}
         >
           <ArrowRightLeft size={18} />
-          <span>🔄 طلبات الاستبدال (Échanges)</span>
+          <span>طلبات الاستبدال (Échanges)</span>
           {exchangePendingCount > 0 && (
             <span style={{
               background: !isRetourMode ? '#F59E0B' : '#EF4444',
@@ -330,7 +330,7 @@ export default function ExchangesReturnsTab({
           }}
         >
           <RotateCcw size={18} />
-          <span>↩️ طلبات الاسترجاع (Retours & Remboursements)</span>
+          <span>طلبات الاسترجاع (Retours & Remboursements)</span>
           {retourPendingCount > 0 && (
             <span style={{
               background: isRetourMode ? '#F59E0B' : '#EF4444',

@@ -12,8 +12,8 @@ export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, pendi
 
   const menuItems = [
     { id: 'orders', label: '📥 الطلبيات الجديدة', desc: 'Commandes en temps réel', badge: newOrdersCount > 0 ? newOrdersCount : null },
-    { id: 'exchanges', label: '🔄 طلبات الاستبدال', desc: 'Échanges de produits', badge: pendingExchangesCount > 0 ? pendingExchangesCount : null },
-    { id: 'retours', label: '↩️ طلبات الاسترجاع', desc: 'Retours & Remboursements', badge: pendingRetoursCount > 0 ? pendingRetoursCount : null },
+    { id: 'exchanges', label: 'طلبات الاستبدال', desc: 'Échanges de produits', badge: pendingExchangesCount > 0 ? pendingExchangesCount : null },
+    { id: 'retours', label: 'طلبات الاسترجاع', desc: 'Retours & Remboursements', badge: pendingRetoursCount > 0 ? pendingRetoursCount : null },
     {
       id: 'stock',
       label: '📦 المخزون والمنتجات',

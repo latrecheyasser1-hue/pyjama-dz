@@ -242,7 +242,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
             gap: '8px'
           }}
         >
-          <span>🔄 طلبات الاستبدال (Échange)</span>
+          <span>طلبات الاستبدال (Échange)</span>
           <span style={{
             background: orderFilter === 'exchange' ? 'white' : '#BE123C',
             color: orderFilter === 'exchange' ? '#BE123C' : 'white',
