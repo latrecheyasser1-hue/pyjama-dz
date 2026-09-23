@@ -46,6 +46,7 @@ export default function ExchangesReturnsTab({
   const [rejectionModalOrder, setRejectionModalOrder] = useState(null);
   const [rejectionReason, setRejectionReason] = useState(isRetourMode ? 'السلعة غير مطابقة لشروط الاسترجاع' : 'السلعة غير مطابقة لشروط الاستبدال');
   const [istilamOverrides, setIstilamOverrides] = useState({});
+  const [istilamFilter, setIstilamFilter] = useState('all'); // 'all' | 'received' | 'not_received'
 
   // Helper: Detect pure return order
   const isOrderRetour = (order) => {
@@ -171,20 +172,30 @@ export default function ExchangesReturnsTab({
 
   // Counts for current mode
   const counts = useMemo(() => {
+    const approvedOrders = allCurrentOrders.filter(o => o.approvalState === 'approved');
     return {
       total: allCurrentOrders.length,
       pending: allCurrentOrders.filter(o => o.approvalState === 'pending').length,
-      approved: allCurrentOrders.filter(o => o.approvalState === 'approved').length,
+      approved: approvedOrders.length,
+      approvedReceived: approvedOrders.filter(o => o.isTamIstilam).length,
+      approvedNotReceived: approvedOrders.filter(o => !o.isTamIstilam).length,
       rejected: allCurrentOrders.filter(o => o.approvalState === 'rejected').length
     };
   }, [allCurrentOrders]);
 
-  // Filtered list according to tab & search
+  // Filtered list according to tab, istilam & search
   const filteredOrders = useMemo(() => {
     return allCurrentOrders.filter(order => {
       // Status filter
       if (statusFilter !== 'all' && order.approvalState !== statusFilter) {
         return false;
+      }
+
+      // Istilam filter for approved orders (or when istilamFilter is explicitly active)
+      if (istilamFilter === 'received') {
+        if (order.approvalState !== 'approved' || !order.isTamIstilam) return false;
+      } else if (istilamFilter === 'not_received') {
+        if (order.approvalState !== 'approved' || order.isTamIstilam) return false;
       }
 
       // Search filter
@@ -209,7 +220,7 @@ export default function ExchangesReturnsTab({
 
       return true;
     });
-  }, [allCurrentOrders, statusFilter, searchTerm]);
+  }, [allCurrentOrders, statusFilter, istilamFilter, searchTerm]);
 
   // Handle Approve (Create Parcel & Send WhatsApp)
   const handleApprove = async (order) => {
@@ -593,7 +604,10 @@ export default function ExchangesReturnsTab({
           </button>
           <button
             type="button"
-            onClick={() => setStatusFilter('approved')}
+            onClick={() => {
+              setStatusFilter('approved');
+              setIstilamFilter('all');
+            }}
             style={{
               padding: '8px 16px',
               borderRadius: '10px',
@@ -611,7 +625,10 @@ export default function ExchangesReturnsTab({
           </button>
           <button
             type="button"
-            onClick={() => setStatusFilter('pending')}
+            onClick={() => {
+              setStatusFilter('pending');
+              setIstilamFilter('all');
+            }}
             style={{
               padding: '8px 16px',
               borderRadius: '10px',
@@ -629,7 +646,10 @@ export default function ExchangesReturnsTab({
           </button>
           <button
             type="button"
-            onClick={() => setStatusFilter('rejected')}
+            onClick={() => {
+              setStatusFilter('rejected');
+              setIstilamFilter('all');
+            }}
             style={{
               padding: '8px 16px',
               borderRadius: '10px',
@@ -645,6 +665,119 @@ export default function ExchangesReturnsTab({
           >
             المرفوضة ({counts.rejected})
           </button>
+        </div>
+
+        {/* Sub-filter specifically for Approved Orders: Received 🟢 vs Still In Transit 🔴 */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          width: '100%',
+          paddingTop: '14px',
+          borderTop: '1px solid #F1F5F9'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span>📦 فرز المقبولة:</span>
+            </span>
+
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#F8FAFC', padding: '4px', borderRadius: '12px', border: '1.5px solid #E2E8F0' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('approved');
+                  setIstilamFilter('all');
+                }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: (statusFilter === 'approved' && istilamFilter === 'all') ? '#0F172A' : 'transparent',
+                  color: (statusFilter === 'approved' && istilamFilter === 'all') ? '#FFFFFF' : '#64748B',
+                  fontWeight: 800,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  boxShadow: (statusFilter === 'approved' && istilamFilter === 'all') ? '0 2px 6px rgba(0,0,0,0.12)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                كافة المقبولة ({counts.approved})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('approved');
+                  setIstilamFilter('received');
+                }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: (statusFilter === 'approved' && istilamFilter === 'received') ? '#15803D' : 'transparent',
+                  color: (statusFilter === 'approved' && istilamFilter === 'received') ? '#FFFFFF' : '#15803D',
+                  fontWeight: 900,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: (statusFilter === 'approved' && istilamFilter === 'received') ? '0 2px 8px rgba(21, 128, 61, 0.25)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>🟢</span>
+                <span>تم استلامها ({counts.approvedReceived})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('approved');
+                  setIstilamFilter('not_received');
+                }}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: (statusFilter === 'approved' && istilamFilter === 'not_received') ? '#DC2626' : 'transparent',
+                  color: (statusFilter === 'approved' && istilamFilter === 'not_received') ? '#FFFFFF' : '#DC2626',
+                  fontWeight: 900,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: (statusFilter === 'approved' && istilamFilter === 'not_received') ? '0 2px 8px rgba(220, 38, 38, 0.25)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>🔴</span>
+                <span>ما زال ما استلمتهاش ({counts.approvedNotReceived})</span>
+              </button>
+            </div>
+          </div>
+
+          {(statusFilter === 'approved' && istilamFilter !== 'all') && (
+            <button
+              type="button"
+              onClick={() => setIstilamFilter('all')}
+              style={{
+                background: '#F1F5F9',
+                border: '1px solid #CBD5E1',
+                borderRadius: '8px',
+                padding: '4px 10px',
+                color: '#475569',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                cursor: 'pointer'
+              }}
+            >
+              عرض كل المقبولة ↩️
+            </button>
+          )}
         </div>
       </div>
 
