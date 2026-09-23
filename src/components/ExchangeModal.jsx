@@ -440,13 +440,30 @@ export default function ExchangeModal({
     return exchangeCart.reduce((sum, item) => sum + (Number(item.price) * (item.qty || 1)), 0);
   }, [exchangeCart]);
 
-  // Delivery fee from original order wilaya (default to 500 DA if unknown)
+  // Detect if exchange or return is due to manufacturer defect (free shipping on store)
+  const isReasonDefect = useMemo(() => {
+    const text = `${reason} ${customReason}`.toLowerCase();
+    return reason === 'عيب تصنيعي أو تمزق في القماش' || 
+           reason === 'وصلني منتج بالخطأ' ||
+           reason === 'الموديل أو اللون مختلف عن الصورة' ||
+           text.includes('عيب') ||
+           text.includes('تصنيع') ||
+           text.includes('تمزق') ||
+           text.includes('مقطوع') ||
+           text.includes('مطاشي') ||
+           text.includes('طاشة') ||
+           text.includes('تالف') ||
+           text.includes('بالخطأ');
+  }, [reason, customReason]);
+
+  // Delivery fee from original order wilaya (default to 500 DA if unknown, 0 DA if manufacturer defect!)
   const deliveryFee = useMemo(() => {
+    if (isReasonDefect) return 0;
     if (originalOrderFound && originalOrderFound.deliveryFee !== undefined) {
       return Number(originalOrderFound.deliveryFee) || 500;
     }
     return 500;
-  }, [originalOrderFound]);
+  }, [originalOrderFound, isReasonDefect]);
 
   // Price Difference for Exchange
   const priceDifference = newProductsSubtotal > 0 ? (newProductsSubtotal - parsedOldPrice) : 0;
@@ -1329,7 +1346,9 @@ export default function ExchangeModal({
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span>مصاريف شحن الإرجاع:</span>
-                            <strong style={{ color: '#D97706' }}>يدفعها الزبون مباشرة لشركة التوصيل عند إرسال الطرد</strong>
+                            <strong style={{ color: isReasonDefect ? '#059669' : '#D97706' }}>
+                              {isReasonDefect ? 'مجاناً على حساب المتجر (بسبب عيب مصنعي) 🛡️' : 'يدفعها الزبون مباشرة لشركة التوصيل عند إرسال الطرد'}
+                            </strong>
                           </div>
                           <div style={{ marginTop: '4px', paddingTop: '8px', borderTop: '1px dashed #CBD5E1', display: 'flex', justifyContent: 'space-between', fontSize: '0.98rem', fontWeight: 900, color: '#047857' }}>
                             <span>المبلغ الصافي المسترد لحسابكم (بريدي موب):</span>
@@ -1603,8 +1622,10 @@ export default function ExchangeModal({
                               </strong>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span>مصاريف التوصيل (على الزبون):</span>
-                              <strong>+{deliveryFee} دج</strong>
+                              <span>مصاريف التوصيل:</span>
+                              <strong style={{ color: isReasonDefect ? '#059669' : '#475569' }}>
+                                {isReasonDefect ? '0 دج (مجاناً - على حساب المتجر بسبب عيب مصنعي) 🛡️' : `+${deliveryFee} دج (على الزبون)`}
+                              </strong>
                             </div>
                             <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #CBD5E1', display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', fontWeight: 900, color: 'var(--burgundy-dark)' }}>
                               <span>المبلغ للدفع للموزع عند الاستلام:</span>

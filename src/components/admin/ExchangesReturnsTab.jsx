@@ -175,10 +175,27 @@ export default function ExchangesReturnsTab({
             isCourierReceived
           );
 
+      const reasonText = String(meta.reason || order.reason || '').toLowerCase();
+      const isDefect = Boolean(
+        reasonText.includes('عيب') ||
+        reasonText.includes('تصنيع') ||
+        reasonText.includes('تمزق') ||
+        reasonText.includes('مقطوع') ||
+        reasonText.includes('مطاشي') ||
+        reasonText.includes('طاشة') ||
+        reasonText.includes('تالف') ||
+        reasonText.includes('تلف') ||
+        reasonText.includes('بالخطأ') ||
+        reasonText.includes('défaut') ||
+        reasonText.includes('defect') ||
+        meta.isDefect === true
+      );
+
       return {
         ...order,
         meta,
         isRetour: isRetourMode,
+        isDefect,
         replacementItems,
         approvalState,
         refundDue,
@@ -1393,20 +1410,30 @@ export default function ExchangesReturnsTab({
                       </div>
 
                       <div>
-                        <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'block', fontWeight: 700 }}>مصاريف التوصيل</span>
-                        <strong style={{ fontSize: '1rem', color: '#475569' }}>{(Number(order.deliveryFee) || 500).toLocaleString('ar-DZ')} دج</strong>
+                        <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'block', fontWeight: 700 }}>
+                          مصاريف التوصيل {order.isDefect ? '🛡️ (على المحل)' : '🚚 (على الزبون)'}
+                        </span>
+                        <strong style={{ 
+                          fontSize: '1rem', 
+                          color: order.isDefect ? '#059669' : '#475569',
+                          fontWeight: 800
+                        }}>
+                          {order.isDefect ? '0 دج (مجاني - عيب مصنعي) 🛡️' : `${(Number(order.deliveryFee) || 500).toLocaleString('ar-DZ')} دج (على الزبون)`}
+                        </strong>
                       </div>
 
                       <div>
                         <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'block', fontWeight: 700 }}>المبلغ الصافي للتحصيل (COD)</span>
                         <strong style={{ fontSize: '1.25rem', color: 'var(--burgundy)', fontWeight: 900 }}>
-                          {Number(order.price || order.totalPrice || 0).toLocaleString('ar-DZ')} دج
+                          {isRetourMode ? '0 دج (استرجاع - بدون تحصيل)' : `${Number(order.price || order.totalPrice || 0).toLocaleString('ar-DZ')} دج`}
                         </strong>
                       </div>
 
                       {order.refundDue > 0 && (
                         <div style={{ background: '#DCFCE7', padding: '6px 14px', borderRadius: '12px', border: '1px solid #86EFAC' }}>
-                          <span style={{ fontSize: '0.78rem', color: '#166534', display: 'block', fontWeight: 800 }}>فارق السعر المستحق للزبون 💳</span>
+                          <span style={{ fontSize: '0.78rem', color: '#166534', display: 'block', fontWeight: 800 }}>
+                            {isRetourMode ? 'المبلغ المسترد للزبون عبر بريدي موب 💳' : 'فارق السعر المستحق للزبون 💳'}
+                          </span>
                           <strong style={{ fontSize: '1.1rem', color: '#15803D', fontWeight: 900 }}>
                             {order.refundDue.toLocaleString('ar-DZ')} دج
                           </strong>
