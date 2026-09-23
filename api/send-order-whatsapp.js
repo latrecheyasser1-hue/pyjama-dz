@@ -105,12 +105,22 @@ export default async function handler(req, res) {
       });
       metaData = await apiRes.json();
     } else {
-      // Order confirmations are INSTANT (فَمْ فَمْ)
       orderNum = await getSequentialOrderNum(id);
+      const isExchangeApproval = Boolean(req.body?.action === 'exchange_approved' || req.body?.isExchangeApproval);
+      const isExchangeRejection = Boolean(req.body?.action === 'exchange_rejected' || req.body?.isExchangeRejection);
       const isExchangeOrder = Boolean(req.body?.isExchange || cleanProduct.includes('استبدال'));
 
-      if (isExchangeOrder) {
-        messageText = `*متجر Pyjama DZ - طلب استبدال 🔄*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك لاستبدال المنتج بنجاح:\n\n• رقم الطلب: #${orderNum}\n• تفاصيل الاستبدال: ${cleanProduct}\n• الولاية: ${wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* لتثبيت طلب الاستبدال وتجهيز الشحنة البديلة (سيقوم موزع التوصيل باستلام السلعة القديمة منك عند تسليم البديل).`;
+      if (isExchangeApproval) {
+        const trackingNum = req.body?.trackingNumber || 'قيد التجهيز';
+        const barcodesStr = req.body?.barcodesText || '';
+        const deliveryCompany = req.body?.deliveryCompany || 'شركة التوصيل';
+        
+        messageText = `*متجر Pyjama DZ - تمت الموافقة على طلب الاستبدال ✅*\n\nأهلاً بك${nameGreeting}! 🌸\nيسرنا إعلامك بأنه قد *تمت مراجعة والموافقة على طلب الاستبدال الخاص بك*.\n\n📦 *رقم التتبع (Tracking):*\n*${trackingNum}*\n🚚 *شركة الشحن:* ${deliveryCompany}\n\n• السلعة البديلة الجديدة: ${cleanProduct}\n${barcodesStr ? `\n🏷️ *أكواد السلعة البديلة:*\n${barcodesStr}\n` : ''}\n✨ سيصلك موزع التوصيل لتسليمك السلعة الجديدة واستلام السلعة القديمة منك في نفس الوقت.\nشكراً لثقتك بـ Pyjama DZ! ❤️`;
+      } else if (isExchangeRejection) {
+        const rejectionReason = req.body?.reason ? `\n• ملاحظة: ${req.body.reason}` : '';
+        messageText = `*متجر Pyjama DZ - بخصوص طلب الاستبدال 🌸*\n\nأهلاً بك${nameGreeting}.\nنعتذر منك، بعد مراجعة تفاصيل وصور طلب الاستبدال، تعذر علينا قبول الطلب حالياً.${rejectionReason}\n\nإذا كان لديك أي استفسار، يمكنك مراسلتنا هنا مباشرة لمساعدتك. شكراً لتفهمك!`;
+      } else if (isExchangeOrder) {
+        messageText = `*متجر Pyjama DZ - طلب استبدال منتج 🔄*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك لاستبدال المنتج بنجاح:\n\n• رقم الطلب: #${orderNum}\n• تفاصيل الاستبدال: ${cleanProduct}\n• الولاية: ${wilaya || ''}\n\n👉 هل أنت متأكد من رغبتك في هذا الاستبدال؟\nيرجى الرد بـ *تأكيد* لتثبيت طلبك وإحالته لإدارة المتجر للمراجعة والمعالجة.`;
       } else {
         messageText = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك عبر الموقع بنجاح:\n\n• رقم الطلب: #${orderNum}\n• المنتجات: ${cleanProduct}\n• الولاية: ${wilaya || ''}\n\n👉 يرجى الرد بـ *تأكيد* (أو *إلغاء*) لتأكيد طلبك وتجهيز شحنتك.`;
       }

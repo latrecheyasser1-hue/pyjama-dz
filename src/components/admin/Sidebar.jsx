@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, ShoppingBag, Users, BarChart3, History, Settings, Lock, ExternalLink, Bell, Volume2, ChevronDown, ChevronUp } from 'lucide-react';
 
-export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, reclamationsCount = 0, onLock, onSwitchToClient, playNotificationSound, onOpenPos }) {
+export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, pendingExchangesCount = 0, reclamationsCount = 0, onLock, onSwitchToClient, playNotificationSound, onOpenPos }) {
   const [stockExpanded, setStockExpanded] = useState(activeTab.startsWith('stock_'));
 
   useEffect(() => {
@@ -12,6 +12,7 @@ export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, recla
 
   const menuItems = [
     { id: 'orders', label: '📥 الطلبيات الجديدة', desc: 'Commandes en temps réel', badge: newOrdersCount > 0 ? newOrdersCount : null },
+    { id: 'exchanges_returns', label: '🔄 الاستبدال والاسترجاع', desc: 'Échanges & Retours', badge: pendingExchangesCount > 0 ? pendingExchangesCount : null },
     {
       id: 'stock',
       label: '📦 المخزون والمنتجات',

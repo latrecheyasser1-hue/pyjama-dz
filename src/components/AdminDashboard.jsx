@@ -14,6 +14,7 @@ import CategoriesTab from './admin/CategoriesTab';
 import PosModal from './admin/PosModal';
 import ClientsTab from './admin/ClientsTab';
 import ReclamationsTab from './admin/ReclamationsTab';
+import ExchangesReturnsTab from './admin/ExchangesReturnsTab';
 
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
@@ -181,6 +182,24 @@ export default function AdminDashboard({
   // Active new orders count (real orders only)
   const newOrdersCount = realOrders.filter(o => o.status === 'nouvelle').length;
 
+  const pendingExchangesCount = React.useMemo(() => {
+    return (orders || []).filter(order => {
+      const isEx = Boolean(
+        order.isExchange === true ||
+        order.isRetour === true ||
+        String(order.clientName || '').includes('استبدال') ||
+        String(order.product || '').includes('استبدال') ||
+        String(order.product || '').includes('استرجاع') ||
+        order.exchangeDetails ||
+        (Array.isArray(order.items) && order.items.some(it => it && (it.isExchangeItem || it.isExchangeMeta)))
+      );
+      if (!isEx) return false;
+      const isApproved = order.exchangeStatus === 'approved' || (order.trackingNumber && order.status !== 'annulee');
+      const isRejected = order.exchangeStatus === 'rejected' || order.status === 'annulee';
+      return !isApproved && !isRejected;
+    }).length;
+  }, [orders]);
+
   const reclamationsCount = React.useMemo(() => {
     const list = settings?.reclamations && Array.isArray(settings.reclamations) ? settings.reclamations : [];
     return list.filter(r => r.status === 'nouvelle').length;
@@ -200,6 +219,7 @@ export default function AdminDashboard({
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         newOrdersCount={newOrdersCount}
+        pendingExchangesCount={pendingExchangesCount}
         reclamationsCount={reclamationsCount}
         onLock={async () => await supabase.auth.signOut()}
         onSwitchToClient={onSwitchToClient}
@@ -222,6 +242,15 @@ export default function AdminDashboard({
             onUpdateStatus={onUpdateStatus}
             onDeleteOrder={onDeleteOrder}
             onOpenPos={() => setShowPosModal(true)}
+          />
+        )}
+
+        {activeTab === 'exchanges_returns' && (
+          <ExchangesReturnsTab
+            orders={orders}
+            products={products}
+            settings={settings}
+            onUpdateStatus={onUpdateStatus}
           />
         )}
 

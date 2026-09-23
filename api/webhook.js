@@ -2172,6 +2172,49 @@ async function processOrderConfirmationIntent(fromPhone, messageText) {
     }
 
     const orderToConfirm = pendingOrders[0];
+
+    const isExchangeOrReturn = Boolean(
+      orderToConfirm.isExchange === true ||
+      orderToConfirm.isRetour === true ||
+      String(orderToConfirm.clientName || '').includes('استبدال') ||
+      String(orderToConfirm.product || '').includes('استبدال') ||
+      String(orderToConfirm.product || '').includes('استرجاع') ||
+      orderToConfirm.exchangeDetails
+    );
+
+    if (isExchangeOrReturn) {
+      // 1. DO NOT create parcel in shipping platforms! Mark status as 'attente_approbation'
+      await updateOrderStatusAndArchive(orderToConfirm.id, 'attente_approbation');
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderToConfirm.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            status: 'attente_approbation',
+            exchangeStatus: 'pending_approval'
+          })
+        });
+      } catch (err) {
+        console.error('Error updating exchange status in webhook:', err);
+      }
+
+      // 2. Notify customer that request is confirmed and under review by management
+      const clientNameStr = orderToConfirm.clientName 
+        ? ` ${String(orderToConfirm.clientName).replace(/\[.*?\]/g, '').trim()}` 
+        : '';
+      const orderNumStr = await getSequentialOrderNum(orderToConfirm.id);
+      
+      const reviewMsg = `أهلاً وسهلاً بك${clientNameStr}! 🌸\n\n✅ *تم تسجيل وتأكيد رغبتك في طلب الاستبدال (طلب #${orderNumStr}) بنجاح.*\n\nطلبك الآن قيد المعالجة والمراجعة من قبل إدارة المتجر ⏳.\nسيتم الرد عليك قريباً وإشعارك بالقرار وتفاصيل شحن القطعة البديلة إن شاء الله. شكراً لتفهمك وثقتك بـ Pyjama DZ! ✨`;
+      
+      await sendWhatsAppMessage(fromPhone, reviewMsg);
+      return true;
+    }
+
     await updateOrderStatusAndArchive(orderToConfirm.id, 'confirmee');
 
     // Auto-create Yalidine parcel immediately with await
