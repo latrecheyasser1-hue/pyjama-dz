@@ -471,6 +471,14 @@ export default function ExchangeModal({
   const refundAmount = isRefundDue ? Math.abs(priceDifference) : 0;
   const totalCodToPay = Math.max(0, priceDifference + deliveryFee);
 
+  // For Retour:
+  // If manufacturer defect: store covers shipping -> full refund (parsedOldPrice)
+  // If normal return: shipping is deducted from refund -> Math.max(0, parsedOldPrice - deliveryFee)
+  const retourRefundAmount = useMemo(() => {
+    if (isReasonDefect) return parsedOldPrice;
+    return Math.max(0, parsedOldPrice - deliveryFee);
+  }, [isReasonDefect, parsedOldPrice, deliveryFee]);
+
   // Check Current Stock of Item in Picker
   const pickerCurrentStock = useMemo(() => {
     if (!pickerProduct) return 0;
@@ -581,6 +589,8 @@ export default function ExchangeModal({
       if (isRetourMode) {
         // RETOUR PAYLOAD
         const returnOrderCode = `RET-${Math.floor(10000 + Math.random() * 90000)}`;
+        const effectiveRefundDue = isReasonDefect ? parsedOldPrice : Math.max(0, parsedOldPrice - deliveryFee);
+        const effectiveReturnDeliveryFee = isReasonDefect ? 0 : deliveryFee;
 
         const returnDetailsData = {
           type: 'retour',
@@ -591,7 +601,9 @@ export default function ExchangeModal({
           oldProductBarcode: oldProductBarcode || '',
           oldProducts: verifiedOldItems,
           oldProductPrice: parsedOldPrice,
-          refundDue: parsedOldPrice,
+          deliveryFee: effectiveReturnDeliveryFee,
+          isDefect: isReasonDefect,
+          refundDue: effectiveRefundDue,
           baridiMobRip: baridiMobRip,
           reason: reason === 'أخرى (اكتب السبب أدناه)' ? customReason : reason,
           productPhoto: productPhoto,
@@ -629,17 +641,18 @@ export default function ExchangeModal({
           commune: effectiveCommune,
           deliveryMode: effectiveDeliveryMode,
           deliveryCompany: effectiveCompany,
-          product: `↩️ استرجاع: ${oldProductTitle} (المبلغ المسترد: ${parsedOldPrice} دج)`,
+          product: `↩️ استرجاع: ${oldProductTitle} (المبلغ المسترد: ${effectiveRefundDue} دج)`,
           items: returnItemsWithMeta,
           price: 0,
-          deliveryFee: 0,
+          deliveryFee: effectiveReturnDeliveryFee,
+          isDefect: isReasonDefect,
           totalPrice: 0,
           quantity: 1,
           status: 'nouvelle',
           isRetour: true,
           isExchange: false,
           exchangeStatus: 'pending',
-          refundDue: parsedOldPrice,
+          refundDue: effectiveRefundDue,
           baridiMobRip: baridiMobRip,
           archived: false,
           exchangeDetails: returnDetailsData,
@@ -661,7 +674,7 @@ export default function ExchangeModal({
             clientName: clientName.trim(),
             id: returnOrderCode,
             wilaya: effectiveWilaya,
-            product: `↩️ طلب استرجاع واسترداد: ${oldProductTitle} (المبلغ المسترد عبر بريدي موب: ${parsedOldPrice} دج)`
+            product: `↩️ طلب استرجاع واسترداد: ${oldProductTitle} (المبلغ المسترد عبر بريدي موب: ${effectiveRefundDue} دج)`
           })
         }).catch(e => console.warn('Return WhatsApp notify error:', e));
 
@@ -838,7 +851,7 @@ export default function ExchangeModal({
             </p>
             {isRetourMode ? (
               <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: '14px', borderRadius: '12px', fontSize: '0.9rem', color: '#15803D', fontWeight: 800, marginBottom: '20px' }}>
-                💳 سيتم تحويل المبلغ المسترد ({parsedOldPrice} دج) إلى حساب بريدي موب: {formattedRipDisplay} فور استلام السلعة وفحصها في مخزننا.
+                💳 سيتم تحويل المبلغ المسترد الصافي ({retourRefundAmount} دج) إلى حساب بريدي موب: {formattedRipDisplay} فور استلام السلعة وفحصها في مخزننا.
               </div>
             ) : (
               isRefundDue && (
@@ -1347,12 +1360,12 @@ export default function ExchangeModal({
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span>مصاريف شحن الإرجاع:</span>
                             <strong style={{ color: isReasonDefect ? '#059669' : '#D97706' }}>
-                              {isReasonDefect ? 'مجاناً على حساب المتجر (بسبب عيب مصنعي) 🛡️' : 'يدفعها الزبون مباشرة لشركة التوصيل عند إرسال الطرد'}
+                              {isReasonDefect ? '0 دج (مجاناً على حساب المتجر - عيب مصنعي) 🛡️' : `-${deliveryFee} دج (تُخصم تلقائياً من المبلغ المسترد)`}
                             </strong>
                           </div>
                           <div style={{ marginTop: '4px', paddingTop: '8px', borderTop: '1px dashed #CBD5E1', display: 'flex', justifyContent: 'space-between', fontSize: '0.98rem', fontWeight: 900, color: '#047857' }}>
                             <span>المبلغ الصافي المسترد لحسابكم (بريدي موب):</span>
-                            <span>{parsedOldPrice} دج</span>
+                            <span>{retourRefundAmount} دج</span>
                           </div>
                         </div>
 
@@ -1385,7 +1398,7 @@ export default function ExchangeModal({
                             }}
                           />
                           <p style={{ margin: '8px 0 0', fontSize: '0.76rem', color: '#047857', lineHeight: 1.4 }}>
-                            💡 سيتم تحويل هذا المبلغ ({parsedOldPrice} دج) إلى حساب بريدي موب الخاص بكم فور وصول الطرد وفحصه في مخزننا.
+                            💡 سيتم تحويل هذا المبلغ الصافي ({retourRefundAmount} دج) إلى حساب بريدي موب الخاص بكم فور وصول الطرد وفحصه في مخزننا.
                           </p>
                         </div>
                       </div>
@@ -1416,14 +1429,14 @@ export default function ExchangeModal({
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                             <span style={{ fontWeight: 900, color: '#B45309' }}>2.</span>
                             <div>
-                              <strong>مصاريف الشحن:</strong> تكلفة شحن الإرجاع تقع على عاتق الزبون، وتُدفع مباشرة لمكتب شركة التوصيل عند تسليم الطرد.
+                              <strong>مصاريف الشحن:</strong> {isReasonDefect ? 'مجاناً على حساب المتجر بسبب وجود عيب مصنعي.' : `تكلفة شحن الإرجاع (${deliveryFee} دج) تقع على عاتق الزبون، وتُخصم تلقائياً من المبلغ المسترد دون الحاجة لدفع أي شيء في مكتب شركة التوصيل.`}
                             </div>
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                             <span style={{ fontWeight: 900, color: '#B45309' }}>3.</span>
                             <div>
-                              <strong>مبلغ التحصيل (0 دينار جزائري):</strong> عند تسجيل الطرد لدى شركة التوصيل، <strong>يجب تحديد مبلغ التحصيل (Contre Remboursement / Montant à encaisser) بـ 0 دج (صفر دينار)</strong>. لا تضع أي مبلغ على الطرد لأن مستحقاتك ستصلك كاملة عبر بريدي موب.
+                              <strong>مبلغ التحصيل (0 دينار جزائري):</strong> عند تسجيل الطرد لدى شركة التوصيل، <strong>لا تدفع شيئاً في المكتب ويجب تحديد مبلغ التحصيل (Contre Remboursement / Montant à encaisser) بـ 0 دج (صفر دينار)</strong>. مستحقاتكم الصافية ({retourRefundAmount} دج) ستصلكم مباشرة عبر بريدي موب فور فحص السلعة.
                             </div>
                           </div>
 

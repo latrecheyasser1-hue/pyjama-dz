@@ -286,7 +286,31 @@ export default function AliOwnerDashboard({
         // In Exchange: "LI YKOON ZABOON YSSALNAA CHWYA" -> ONLY when refundDue > 0 (price diff in customer favor)
         let refundDue = 0;
         if (isRetour) {
-          refundDue = Number(details?.refundDue || order.refundDue || details?.oldProductPrice || order.price || order.totalPrice || 0);
+          const reasonText = String(details?.reason || order.reason || '').toLowerCase();
+          const isDefect = Boolean(
+            reasonText.includes('عيب') ||
+            reasonText.includes('تصنيع') ||
+            reasonText.includes('تمزق') ||
+            reasonText.includes('مقطوع') ||
+            reasonText.includes('مطاشي') ||
+            reasonText.includes('طاشة') ||
+            reasonText.includes('تالف') ||
+            reasonText.includes('تلف') ||
+            reasonText.includes('بالخطأ') ||
+            reasonText.includes('défaut') ||
+            reasonText.includes('defect') ||
+            details?.isDefect === true ||
+            order.isDefect === true
+          );
+          const rawPrice = Number(details?.oldProductPrice || order.price || order.totalPrice || 0);
+          const deliveryFeeVal = isDefect ? 0 : (Number(details?.deliveryFee || order.deliveryFee) || 500);
+          const storedRefund = Number(details?.refundDue !== undefined ? details.refundDue : (order.refundDue !== undefined ? order.refundDue : 0));
+
+          if (storedRefund > 0 && storedRefund < rawPrice) {
+            refundDue = storedRefund;
+          } else {
+            refundDue = isDefect ? rawPrice : Math.max(0, rawPrice - deliveryFeeVal);
+          }
         } else if (isExchange) {
           refundDue = Number(details?.refundDue || order.refundDue || 0);
           // If customer owes money or difference is 0, no BaridiMob refund is owed!

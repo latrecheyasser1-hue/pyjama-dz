@@ -135,7 +135,38 @@ export default function ExchangesReturnsTab({
         : [];
 
       const rawRip = String(meta.baridiMobRip || order.baridiMobRip || '').trim();
-      const refundDue = Number(meta.refundDue || order.refundDue || (isRetourMode ? order.price || order.totalPrice || 0 : 0));
+
+      const reasonText = String(meta.reason || order.reason || '').toLowerCase();
+      const isDefect = Boolean(
+        reasonText.includes('عيب') ||
+        reasonText.includes('تصنيع') ||
+        reasonText.includes('تمزق') ||
+        reasonText.includes('مقطوع') ||
+        reasonText.includes('مطاشي') ||
+        reasonText.includes('طاشة') ||
+        reasonText.includes('تالف') ||
+        reasonText.includes('تلف') ||
+        reasonText.includes('بالخطأ') ||
+        reasonText.includes('défaut') ||
+        reasonText.includes('defect') ||
+        meta.isDefect === true ||
+        order.isDefect === true
+      );
+
+      const oldProductPrice = Number(meta.oldProductPrice || order.price || order.totalPrice || 0);
+      const deliveryFeeVal = isDefect ? 0 : (Number(meta.deliveryFee || order.deliveryFee) || 500);
+
+      let refundDue = 0;
+      if (isRetourMode) {
+        const storedRefund = Number(meta.refundDue !== undefined ? meta.refundDue : (order.refundDue !== undefined ? order.refundDue : 0));
+        if (storedRefund > 0 && storedRefund < oldProductPrice) {
+          refundDue = storedRefund;
+        } else {
+          refundDue = isDefect ? oldProductPrice : Math.max(0, oldProductPrice - deliveryFeeVal);
+        }
+      } else {
+        refundDue = Number(meta.refundDue || order.refundDue || 0);
+      }
 
       // Determine approval status
       let approvalState = 'pending';
@@ -175,22 +206,6 @@ export default function ExchangesReturnsTab({
             isCourierReceived
           );
 
-      const reasonText = String(meta.reason || order.reason || '').toLowerCase();
-      const isDefect = Boolean(
-        reasonText.includes('عيب') ||
-        reasonText.includes('تصنيع') ||
-        reasonText.includes('تمزق') ||
-        reasonText.includes('مقطوع') ||
-        reasonText.includes('مطاشي') ||
-        reasonText.includes('طاشة') ||
-        reasonText.includes('تالف') ||
-        reasonText.includes('تلف') ||
-        reasonText.includes('بالخطأ') ||
-        reasonText.includes('défaut') ||
-        reasonText.includes('defect') ||
-        meta.isDefect === true
-      );
-
       return {
         ...order,
         meta,
@@ -199,6 +214,7 @@ export default function ExchangesReturnsTab({
         replacementItems,
         approvalState,
         refundDue,
+        deliveryFee: deliveryFeeVal,
         baridiMobRip: rawRip,
         isTamIstilam,
         tamIstilamAt: order.tam_istilam_at || order.exchange_parcel_received_at || null,
@@ -206,7 +222,7 @@ export default function ExchangesReturnsTab({
         photo: meta.productPhoto || order.productPhoto || null,
         oldTitle: meta.oldProductTitle || order.product || 'بيجامة',
         oldBarcode: meta.oldProductBarcode || '',
-        oldPrice: Number(meta.oldProductPrice || order.price || 0),
+        oldPrice: oldProductPrice,
         reason: meta.reason || (isRetourMode ? 'طلب استرجاع المنتج واسترداد المبلغ' : 'تغيير المقاس أو الموديل')
       };
     }).sort((a, b) => {
@@ -1411,14 +1427,14 @@ export default function ExchangesReturnsTab({
 
                       <div>
                         <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'block', fontWeight: 700 }}>
-                          مصاريف التوصيل {order.isDefect ? '🛡️ (على المحل)' : '🚚 (على الزبون)'}
+                          مصاريف التوصيل {order.isDefect ? '🛡️ (على المحل)' : (isRetourMode ? '🚚 (مخصومة من المسترد)' : '🚚 (على الزبون)')}
                         </span>
                         <strong style={{ 
                           fontSize: '1rem', 
-                          color: order.isDefect ? '#059669' : '#475569',
+                          color: order.isDefect ? '#059669' : (isRetourMode ? '#D97706' : '#475569'),
                           fontWeight: 800
                         }}>
-                          {order.isDefect ? '0 دج (مجاني - عيب مصنعي) 🛡️' : `${(Number(order.deliveryFee) || 500).toLocaleString('ar-DZ')} دج (على الزبون)`}
+                          {order.isDefect ? '0 دج (مجاني - عيب مصنعي) 🛡️' : `${(Number(order.deliveryFee) || 500).toLocaleString('ar-DZ')} دج (${isRetourMode ? 'مخصومة من المسترد' : 'على الزبون'})`}
                         </strong>
                       </div>
 
