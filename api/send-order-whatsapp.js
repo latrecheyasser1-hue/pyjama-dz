@@ -106,11 +106,24 @@ export default async function handler(req, res) {
       metaData = await apiRes.json();
     } else {
       orderNum = await getSequentialOrderNum(id);
+      const isReturnApproval = Boolean(req.body?.action === 'return_approved' || req.body?.isReturnApproval);
+      const isReturnRejection = Boolean(req.body?.action === 'return_rejected' || req.body?.isReturnRejection);
+      const isReturnOrder = Boolean(req.body?.isRetour || cleanProduct.includes('استرجاع'));
+
       const isExchangeApproval = Boolean(req.body?.action === 'exchange_approved' || req.body?.isExchangeApproval);
       const isExchangeRejection = Boolean(req.body?.action === 'exchange_rejected' || req.body?.isExchangeRejection);
       const isExchangeOrder = Boolean(req.body?.isExchange || cleanProduct.includes('استبدال'));
 
-      if (isExchangeApproval) {
+      if (isReturnApproval) {
+        const trackingNum = req.body?.trackingNumber || 'قيد المعالجة';
+        const deliveryCompany = req.body?.deliveryCompany || 'شركة التوصيل';
+        messageText = `*متجر Pyjama DZ - تمت الموافقة على طلب الاسترجاع ✅*\n\nأهلاً بك${nameGreeting}! 🌸\nيسرنا إعلامك بأنه قد *تمت مراجعة والموافقة على طلب الاسترجاع الخاص بك*.\n\n📦 *رقم التتبع (Tracking):*\n*${trackingNum}*\n🚚 *شركة الشحن:* ${deliveryCompany}\n\n• السلعة المرتجعة: ${cleanProduct}\n\n✨ سيصلك موزع التوصيل لاستلام السلعة، وسيتم تحويل مستحقاتك المالية فور استلامها وفحصها.\nشكراً لثقتك بـ Pyjama DZ! ❤️`;
+      } else if (isReturnRejection) {
+        const rejectionReason = req.body?.reason ? `\n• ملاحظة: ${req.body.reason}` : '';
+        messageText = `*متجر Pyjama DZ - بخصوص طلب الاسترجاع 🌸*\n\nأهلاً بك${nameGreeting}.\nنعتذر منك، بعد مراجعة تفاصيل وصور طلب الاسترجاع، تعذر علينا قبول الطلب حالياً.${rejectionReason}\n\nإذا كان لديك أي استفسار، يمكنك مراسلتنا هنا مباشرة لمساعدتك. شكراً لتفهمك!`;
+      } else if (isReturnOrder) {
+        messageText = `*متجر Pyjama DZ - طلب استرجاع منتج ↩️*\n\nأهلاً بك${nameGreeting}.\nتلقينا طلبك لاسترجاع المنتج واسترداد المبلغ بنجاح:\n\n• رقم الطلب: #${orderNum}\n• تفاصيل الاسترجاع: ${cleanProduct}\n• الولاية: ${wilaya || ''}\n\n👉 هل أنت متأكد من رغبتك في هذا الاسترجاع؟\nيرجى الرد بـ *تأكيد* لتثبيت طلبك وإحالته لإدارة المتجر للمراجعة والمعالجة.`;
+      } else if (isExchangeApproval) {
         const trackingNum = req.body?.trackingNumber || 'قيد التجهيز';
         const barcodesStr = req.body?.barcodesText || '';
         const deliveryCompany = req.body?.deliveryCompany || 'شركة التوصيل';

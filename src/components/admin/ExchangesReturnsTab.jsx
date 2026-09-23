@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   RefreshCw, 
   Search, 
@@ -16,34 +16,92 @@ import {
   AlertCircle,
   MessageCircle,
   Tag,
-  ArrowRightLeft
+  ArrowRightLeft,
+  RotateCcw
 } from 'lucide-react';
 import { showToast } from '../../utils/toast';
 import { supabase } from '../../lib/supabaseClient';
 
-export default function ExchangesReturnsTab({ orders = [], products = [], settings = {}, onUpdateStatus }) {
+export default function ExchangesReturnsTab({ 
+  orders = [], 
+  products = [], 
+  settings = {}, 
+  onUpdateStatus, 
+  mode = 'exchange', 
+  onTabChange 
+}) {
+  const [internalMode, setInternalMode] = useState(mode);
+  
+  useEffect(() => {
+    setInternalMode(mode);
+  }, [mode]);
+
+  const currentMode = onTabChange ? mode : internalMode;
+  const isRetourMode = currentMode === 'retour';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('pending'); // 'pending' | 'approved' | 'rejected' | 'all'
   const [selectedPhotoModal, setSelectedPhotoModal] = useState(null);
   const [processingOrderId, setProcessingOrderId] = useState(null);
   const [rejectionModalOrder, setRejectionModalOrder] = useState(null);
-  const [rejectionReason, setRejectionReason] = useState('السلعة غير مطابقة لشروط الاستبدال');
+  const [rejectionReason, setRejectionReason] = useState(isRetourMode ? 'السلعة غير مطابقة لشروط الاسترجاع' : 'السلعة غير مطابقة لشروط الاستبدال');
 
-  // Filter only exchange and return orders
-  const allExchangeOrders = useMemo(() => {
+  // Helper: Detect pure return order
+  const isOrderRetour = (order) => {
+    if (!order) return false;
+    if (order.isRetour === true || order.orderType === 'retour' || order.orderType === 'return') return true;
+    const clientName = String(order.clientName || '').toLowerCase();
+    const product = String(order.product || '').toLowerCase();
+    if (clientName.includes('استرجاع') || clientName.includes('retour') || 
+        product.includes('استرجاع') || product.includes('إرجاع') || product.includes('retour')) {
+      return true;
+    }
+    if (order.exchangeDetails?.type === 'retour') return true;
+    if (order.status === 'retour') return true;
+    return false;
+  };
+
+  // Helper: Detect pure exchange order
+  const isOrderExchange = (order) => {
+    if (!order) return false;
+    if (isOrderRetour(order)) return false;
+    if (order.isExchange === true || order.orderType === 'exchange') return true;
+    const clientName = String(order.clientName || '').toLowerCase();
+    const product = String(order.product || '').toLowerCase();
+    if (clientName.includes('استبدال') || clientName.includes('تبديل') || clientName.includes('échange') || clientName.includes('echange')) {
+      return true;
+    }
+    if (product.includes('استبدال') || product.includes('تبديل')) return true;
+    if (order.exchangeDetails) return true;
+    if (Array.isArray(order.items) && order.items.some(it => it && (it.isExchangeItem || it.isExchangeMeta))) return true;
+    return false;
+  };
+
+  // Global pending counts for sub-tab badges
+  const exchangePendingCount = useMemo(() => {
     return (orders || []).filter(order => {
-      const isEx = Boolean(
-        order.isExchange === true ||
-        order.isRetour === true ||
-        String(order.clientName || '').includes('استبدال') ||
-        String(order.product || '').includes('استبدال') ||
-        String(order.product || '').includes('استرجاع') ||
-        order.exchangeDetails ||
-        (Array.isArray(order.items) && order.items.some(it => it && (it.isExchangeItem || it.isExchangeMeta)))
-      );
-      return isEx;
+      if (!isOrderExchange(order)) return false;
+      const isApproved = order.exchangeStatus === 'approved' || (order.trackingNumber && order.status !== 'annulee');
+      const isRejected = order.exchangeStatus === 'rejected' || order.status === 'annulee';
+      return !isApproved && !isRejected;
+    }).length;
+  }, [orders]);
+
+  const retourPendingCount = useMemo(() => {
+    return (orders || []).filter(order => {
+      if (!isOrderRetour(order)) return false;
+      const isApproved = order.exchangeStatus === 'approved' || (order.trackingNumber && order.status !== 'annulee');
+      const isRejected = order.exchangeStatus === 'rejected' || order.status === 'annulee';
+      return !isApproved && !isRejected;
+    }).length;
+  }, [orders]);
+
+  // Filter orders according to current active mode (strictly isolated)
+  const allCurrentOrders = useMemo(() => {
+    return (orders || []).filter(order => {
+      return isRetourMode ? isOrderRetour(order) : isOrderExchange(order);
     }).map(order => {
-      // Extract normalized exchange metadata
+      // Extract normalized metadata
       const meta = order.exchangeDetails || 
         (Array.isArray(order.items) ? order.items.find(it => it && it.isExchangeMeta) : null) || {};
       
@@ -52,7 +110,7 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
         : [];
 
       const rawRip = String(meta.baridiMobRip || order.baridiMobRip || '').trim();
-      const refundDue = Number(meta.refundDue || order.refundDue || 0);
+      const refundDue = Number(meta.refundDue || order.refundDue || (isRetourMode ? order.price || order.totalPrice || 0 : 0));
 
       // Determine approval status
       let approvalState = 'pending';
@@ -65,6 +123,7 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
       return {
         ...order,
         meta,
+        isRetour: isRetourMode,
         replacementItems,
         approvalState,
         refundDue,
@@ -72,25 +131,25 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
         photo: meta.productPhoto || order.productPhoto || null,
         oldTitle: meta.oldProductTitle || order.product || 'بيجامة',
         oldBarcode: meta.oldProductBarcode || '',
-        oldPrice: Number(meta.oldProductPrice || 0),
-        reason: meta.reason || 'تغيير المقاس أو الموديل'
+        oldPrice: Number(meta.oldProductPrice || order.price || 0),
+        reason: meta.reason || (isRetourMode ? 'طلب استرجاع المنتج واسترداد المبلغ' : 'تغيير المقاس أو الموديل')
       };
     });
-  }, [orders]);
+  }, [orders, isRetourMode]);
 
-  // Counts
+  // Counts for current mode
   const counts = useMemo(() => {
     return {
-      total: allExchangeOrders.length,
-      pending: allExchangeOrders.filter(o => o.approvalState === 'pending').length,
-      approved: allExchangeOrders.filter(o => o.approvalState === 'approved').length,
-      rejected: allExchangeOrders.filter(o => o.approvalState === 'rejected').length
+      total: allCurrentOrders.length,
+      pending: allCurrentOrders.filter(o => o.approvalState === 'pending').length,
+      approved: allCurrentOrders.filter(o => o.approvalState === 'approved').length,
+      rejected: allCurrentOrders.filter(o => o.approvalState === 'rejected').length
     };
-  }, [allExchangeOrders]);
+  }, [allCurrentOrders]);
 
   // Filtered list according to tab & search
   const filteredOrders = useMemo(() => {
-    return allExchangeOrders.filter(order => {
+    return allCurrentOrders.filter(order => {
       // Status filter
       if (statusFilter !== 'all' && order.approvalState !== statusFilter) {
         return false;
@@ -118,7 +177,7 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
 
       return true;
     });
-  }, [allExchangeOrders, statusFilter, searchTerm]);
+  }, [allCurrentOrders, statusFilter, searchTerm]);
 
   // Handle Approve (Create Parcel & Send WhatsApp)
   const handleApprove = async (order) => {
@@ -126,7 +185,8 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
     setProcessingOrderId(order.id);
 
     try {
-      showToast('⏳ جاري إنشاء كولي الاستبدال وإشعار الزبون عبر الواتساب...', 'info');
+      const isRet = isRetourMode || order.isRetour;
+      showToast(isRet ? '⏳ جاري تأكيد قبول الاسترجاع وإشعار الزبون...' : '⏳ جاري إنشاء كولي الاستبدال وإشعار الزبون عبر الواتساب...', 'info');
 
       const res = await fetch('/api/approve-exchange', {
         method: 'POST',
@@ -139,15 +199,15 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
 
       const data = await res.json();
       if (data && data.success) {
-        showToast(`✅ تمت الموافقة بنجاح! تم إنشاء الشحنة برقم تتبع: ${data.trackingNumber}`, 'success');
+        showToast(isRet ? `✅ تم قبول الاسترجاع وتحديث الحالة بنجاح!` : `✅ تمت الموافقة بنجاح! تم إنشاء الشحنة برقم تتبع: ${data.trackingNumber}`, 'success');
         if (onUpdateStatus) {
           onUpdateStatus(order.id, 'confirmee');
         }
       } else {
-        showToast(`⚠️ ${data.error || 'حدث خطأ أثناء الموافقة، يرجى المحاولة ثانية'}`, 'warning');
+        showToast(`⚠️ ${data.error || 'حدث خطأ أثناء المعالجة، يرجى المحاولة ثانية'}`, 'warning');
       }
     } catch (err) {
-      console.error('Error approving exchange:', err);
+      console.error('Error approving exchange/return:', err);
       showToast('حدث خطأ في الاتصال بالخادم', 'error');
     } finally {
       setProcessingOrderId(null);
@@ -199,6 +259,92 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Sub-tabs Switcher (Exchanges vs Retours) */}
+      <div style={{
+        display: 'flex',
+        gap: '12px',
+        marginBottom: '22px',
+        borderBottom: '2px solid #E2E8F0',
+        paddingBottom: '14px',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          type="button"
+          onClick={() => {
+            if (onTabChange) onTabChange('exchanges');
+            setInternalMode('exchange');
+          }}
+          style={{
+            padding: '12px 24px',
+            borderRadius: '14px',
+            border: 'none',
+            fontWeight: 800,
+            fontSize: '0.96rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: !isRetourMode ? 'var(--burgundy)' : '#F1F5F9',
+            color: !isRetourMode ? '#FFF' : '#64748B',
+            boxShadow: !isRetourMode ? '0 4px 14px rgba(107, 29, 47, 0.25)' : 'none',
+            transition: 'all 0.2s'
+          }}
+        >
+          <ArrowRightLeft size={18} />
+          <span>🔄 طلبات الاستبدال (Échanges)</span>
+          {exchangePendingCount > 0 && (
+            <span style={{
+              background: !isRetourMode ? '#F59E0B' : '#EF4444',
+              color: '#FFF',
+              fontSize: '0.78rem',
+              fontWeight: 900,
+              padding: '2px 8px',
+              borderRadius: '12px'
+            }}>
+              {exchangePendingCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (onTabChange) onTabChange('retours');
+            setInternalMode('retour');
+          }}
+          style={{
+            padding: '12px 24px',
+            borderRadius: '14px',
+            border: 'none',
+            fontWeight: 800,
+            fontSize: '0.96rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: isRetourMode ? '#B91C1C' : '#F1F5F9',
+            color: isRetourMode ? '#FFF' : '#64748B',
+            boxShadow: isRetourMode ? '0 4px 14px rgba(185, 28, 28, 0.25)' : 'none',
+            transition: 'all 0.2s'
+          }}
+        >
+          <RotateCcw size={18} />
+          <span>↩️ طلبات الاسترجاع (Retours & Remboursements)</span>
+          {retourPendingCount > 0 && (
+            <span style={{
+              background: isRetourMode ? '#F59E0B' : '#EF4444',
+              color: '#FFF',
+              fontSize: '0.78rem',
+              fontWeight: 900,
+              padding: '2px 8px',
+              borderRadius: '12px'
+            }}>
+              {retourPendingCount}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* KPI Cards */}
       <div style={{
         display: 'grid',
@@ -219,7 +365,9 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#92400E' }}>في انتظار القرار ⏳</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#92400E' }}>
+              {isRetourMode ? 'في انتظار موافقة الاسترجاع ⏳' : 'في انتظار موافقة الاستبدال ⏳'}
+            </span>
             <span style={{
               background: '#FDE68A',
               color: '#B45309',
@@ -245,7 +393,9 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#166534' }}>مقبولة وتم الشحن 🚚</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#166534' }}>
+              {isRetourMode ? 'استرجاع مقبول ومؤكد 🚚' : 'استبدال مقبول وتم الشحن 🚚'}
+            </span>
             <CheckCircle2 size={18} color="#16A34A" />
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#15803D' }}>{counts.approved}</div>
@@ -264,7 +414,9 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#991B1B' }}>المرفوضة ❌</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#991B1B' }}>
+              {isRetourMode ? 'استرجاع مرفوض ❌' : 'استبدال مرفوض ❌'}
+            </span>
             <XCircle size={18} color="#DC2626" />
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#B91C1C' }}>{counts.rejected}</div>
@@ -283,7 +435,9 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#475569' }}>إجمالي الطلبات 📦</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#475569' }}>
+              {isRetourMode ? 'إجمالي طلبات الاسترجاع 📦' : 'إجمالي طلبات الاستبدال 📦'}
+            </span>
             <Package size={18} color="#64748B" />
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#1E293B' }}>{counts.total}</div>
@@ -703,96 +857,167 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
                       </div>
                     </div>
 
-                    {/* COL 2: NEW REPLACEMENT PRODUCTS */}
-                    <div style={{
-                      background: '#F0FDF4',
-                      border: '1.5px solid #BBF7D0',
-                      borderRadius: '18px',
-                      padding: '18px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between'
-                    }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                          <span style={{ background: '#86EFAC', color: '#14532D', padding: '3px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 900 }}>
-                            السلع البديلة الجديدة المطلوبة
+                    {/* COL 2: NEW REPLACEMENT PRODUCTS OR RETURN REFUND DETAILS */}
+                    {isRetourMode ? (
+                      <div style={{
+                        background: '#EFF6FF',
+                        border: '1.5px solid #BFDBFE',
+                        borderRadius: '18px',
+                        padding: '18px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between'
+                      }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                            <span style={{ background: '#2563EB', color: '#FFF', padding: '3px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 900 }}>
+                              بيانات استرجاع المبلغ والحساب
+                            </span>
+                          </div>
+
+                          <div style={{ background: '#FFF', padding: '14px', borderRadius: '14px', border: '1px solid #DBEAFE', marginBottom: '14px' }}>
+                            <span style={{ fontSize: '0.82rem', color: '#1E40AF', display: 'block', fontWeight: 700, marginBottom: '4px' }}>
+                              المبلغ المستحق للزبون (Remboursement):
+                            </span>
+                            <strong style={{ fontSize: '1.4rem', color: '#1E3A8A', fontWeight: 900 }}>
+                              {Number(order.refundDue || order.price || order.totalPrice || 0).toLocaleString('ar-DZ')} دج
+                            </strong>
+                          </div>
+
+                          {order.baridiMobRip ? (
+                            <div style={{ background: '#FFF', padding: '12px 14px', borderRadius: '14px', border: '1.5px solid #86EFAC' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 800 }}>حساب بريدي موب (RIP):</span>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(order.baridiMobRip, 'رقم الـ RIP')}
+                                  style={{
+                                    background: '#DCFCE7',
+                                    border: '1px solid #86EFAC',
+                                    color: '#15803D',
+                                    padding: '4px 10px',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: 800,
+                                    fontSize: '0.78rem'
+                                  }}
+                                >
+                                  نسخ الـ RIP 📋
+                                </button>
+                              </div>
+                              <strong style={{ fontFamily: 'monospace', fontSize: '0.96rem', letterSpacing: '1px', color: '#0F172A', direction: 'ltr', display: 'block' }}>
+                                {formattedRip}
+                              </strong>
+                            </div>
+                          ) : (
+                            <div style={{ padding: '12px', background: '#FFF', borderRadius: '12px', border: '1px dashed #93C5FD', color: '#1E40AF', fontSize: '0.84rem', fontWeight: 700 }}>
+                              لم يتم تسجيل رقم RIP بريدي موب بعد
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Delivery Status */}
+                        <div style={{ marginTop: '16px', background: '#DBEAFE', padding: '10px 14px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#1E40AF', fontWeight: 800 }}>
+                            <Truck size={16} />
+                            <span>شركة الشحن: {order.deliveryCompany === 'yalidine' ? 'Yalidine Express' : 'ZR Express'}</span>
+                          </div>
+                          <span style={{ fontSize: '0.8rem', color: '#1D4ED8', fontWeight: 700 }}>
+                            {order.yalidine_last_status || order.status === 'retour' ? 'طرد مرتجع 📦' : (order.deliveryMode || 'Livraison à domicile')}
                           </span>
                         </div>
-
-                        {order.replacementItems.length === 0 ? (
-                          <div style={{ fontSize: '0.9rem', color: '#166534', fontWeight: 700, padding: '12px 0' }}>
-                            {String(order.product || '').replace(/🔄 استبدال:\s*/, '')}
+                      </div>
+                    ) : (
+                      <div style={{
+                        background: '#F0FDF4',
+                        border: '1.5px solid #BBF7D0',
+                        borderRadius: '18px',
+                        padding: '18px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between'
+                      }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            <span style={{ background: '#86EFAC', color: '#14532D', padding: '3px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 900 }}>
+                              السلع البديلة الجديدة المطلوبة
+                            </span>
                           </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {order.replacementItems.map((item, itIdx) => (
-                              <div 
-                                key={itIdx}
-                                style={{
-                                  background: '#FFF',
-                                  borderRadius: '12px',
-                                  padding: '10px 14px',
-                                  border: '1px solid #DCFCE7',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  gap: '12px'
-                                }}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                  {item.image && (
-                                    <img 
-                                      src={item.image} 
-                                      alt={item.title} 
-                                      style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover' }}
-                                    />
-                                  )}
-                                  <div>
-                                    <strong style={{ fontSize: '0.92rem', color: '#1E293B', display: 'block' }}>
-                                      {item.title}
-                                    </strong>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
-                                      {item.color && (
-                                        <span style={{ background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                                          {item.color}
-                                        </span>
-                                      )}
-                                      {item.size && (
-                                        <span style={{ background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                                          مقاس: {item.size}
-                                        </span>
-                                      )}
-                                      <span>x{item.qty || 1}</span>
-                                    </div>
-                                    {item.barcode && (
-                                      <div style={{ fontSize: '0.76rem', fontFamily: 'monospace', color: '#15803D', marginTop: '3px', fontWeight: 800 }}>
-                                        CODE: {item.barcode}
-                                      </div>
+
+                          {order.replacementItems.length === 0 ? (
+                            <div style={{ fontSize: '0.9rem', color: '#166534', fontWeight: 700, padding: '12px 0' }}>
+                              {String(order.product || '').replace(/🔄 استبدال:\s*/, '')}
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              {order.replacementItems.map((item, itIdx) => (
+                                <div 
+                                  key={itIdx}
+                                  style={{
+                                    background: '#FFF',
+                                    borderRadius: '12px',
+                                    padding: '10px 14px',
+                                    border: '1px solid #DCFCE7',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '12px'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {item.image && (
+                                      <img 
+                                        src={item.image} 
+                                        alt={item.title} 
+                                        style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover' }}
+                                      />
                                     )}
+                                    <div>
+                                      <strong style={{ fontSize: '0.92rem', color: '#1E293B', display: 'block' }}>
+                                        {item.title}
+                                      </strong>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: '#64748B', marginTop: '2px' }}>
+                                        {item.color && (
+                                          <span style={{ background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                            {item.color}
+                                          </span>
+                                        )}
+                                        {item.size && (
+                                          <span style={{ background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                            مقاس: {item.size}
+                                          </span>
+                                        )}
+                                        <span>x{item.qty || 1}</span>
+                                      </div>
+                                      {item.barcode && (
+                                        <div style={{ fontSize: '0.76rem', fontFamily: 'monospace', color: '#15803D', marginTop: '3px', fontWeight: 800 }}>
+                                          CODE: {item.barcode}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div style={{ textAlign: 'left', fontWeight: 900, color: '#15803D', fontSize: '0.95rem' }}>
+                                    {(Number(item.price || 0) * (item.qty || 1)).toLocaleString('ar-DZ')} دج
                                   </div>
                                 </div>
-
-                                <div style={{ textAlign: 'left', fontWeight: 900, color: '#15803D', fontSize: '0.95rem' }}>
-                                  {(Number(item.price || 0) * (item.qty || 1)).toLocaleString('ar-DZ')} دج
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Delivery Mode & Company */}
-                      <div style={{ marginTop: '16px', background: '#DCFCE7', padding: '10px 14px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#166534', fontWeight: 800 }}>
-                          <Truck size={16} />
-                          <span>شركة الشحن: {order.deliveryCompany === 'yalidine' ? 'Yalidine Express' : 'ZR Express'}</span>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <span style={{ fontSize: '0.8rem', color: '#15803D', fontWeight: 700 }}>
-                          {order.deliveryMode || 'Livraison à domicile'}
-                        </span>
+
+                        {/* Delivery Mode & Company */}
+                        <div style={{ marginTop: '16px', background: '#DCFCE7', padding: '10px 14px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#166534', fontWeight: 800 }}>
+                            <Truck size={16} />
+                            <span>شركة الشحن: {order.deliveryCompany === 'yalidine' ? 'Yalidine Express' : 'ZR Express'}</span>
+                          </div>
+                          <span style={{ fontSize: '0.8rem', color: '#15803D', fontWeight: 700 }}>
+                            {order.deliveryMode || 'Livraison à domicile'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Financial Breakdown & RIP (if any) */}
@@ -960,13 +1185,19 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
                           }}
                         >
                           <CheckCircle2 size={18} />
-                          <span>{isProcessing ? 'جاري إنشاء الشحنة...' : 'قبول وتأكيد الشحن الآن 🚚'}</span>
+                          <span>
+                            {isProcessing 
+                              ? (isRetourMode ? 'جاري تأكيد الاسترجاع...' : 'جاري إنشاء الشحنة...') 
+                              : (isRetourMode ? 'قبول وتأكيد الاسترجاع ✅' : 'قبول وتأكيد الشحن الآن 🚚')}
+                          </span>
                         </button>
                       </div>
                     ) : order.approvalState === 'approved' ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <span style={{ color: '#15803D', fontWeight: 800, fontSize: '0.88rem' }}>
-                          ✅ تم إرسال رسالة الموافقة وكود التتبع للزبون
+                          {isRetourMode 
+                            ? '✅ تم قبول الاسترجاع وإشعار الزبون بمتابعة استرداد المبلغ' 
+                            : '✅ تم إرسال رسالة الموافقة وكود التتبع للزبون'}
                         </span>
                       </div>
                     ) : (
@@ -1086,7 +1317,7 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
             </div>
 
             <h3 style={{ margin: '0 0 8px', fontSize: '1.25rem', fontWeight: 900, color: '#1E293B', textAlign: 'center' }}>
-              تأكيد رفض طلب الاستبدال
+              {isRetourMode ? 'تأكيد رفض طلب الاسترجاع' : 'تأكيد رفض طلب الاستبدال'}
             </h3>
             <p style={{ fontSize: '0.88rem', color: '#64748B', textAlign: 'center', margin: '0 0 20px', lineHeight: 1.5 }}>
               سيتم إشعار الزبون ({rejectionModalOrder.clientName}) عبر الواتساب بالاعتذار وتوضيح سبب الرفض.
@@ -1110,10 +1341,21 @@ export default function ExchangesReturnsTab({ orders = [], products = [], settin
                   marginBottom: '8px'
                 }}
               >
-                <option value="السلعة غير مطابقة لشروط الاستبدال (مستعملة أو تالفة)">السلعة غير مطابقة لشروط الاستبدال (مستعملة أو تالفة)</option>
-                <option value="انقضاء المدة المحددة لطلب الاستبدال (تجاوزت 4 أيام)">انقضاء المدة المحددة لطلب الاستبدال (تجاوزت 4 أيام)</option>
-                <option value="الموديل البديل غير متوفر حالياً في المخزن">الموديل البديل غير متوفر حالياً في المخزن</option>
-                <option value="البيانات المدخلة أو كود بار الطلبية الأصلية غير صحيحة">البيانات المدخلة أو كود بار الطلبية الأصلية غير صحيحة</option>
+                {isRetourMode ? (
+                  <>
+                    <option value="السلعة غير مطابقة لشروط الاسترجاع (مستعملة، مغسولة، أو تالفة)">السلعة غير مطابقة لشروط الاسترجاع (مستعملة، مغسولة، أو تالفة)</option>
+                    <option value="انقضاء المدة المحددة لطلب الاسترجاع (تجاوزت 4 أيام من الاستلام)">انقضاء المدة المحددة لطلب الاسترجاع (تجاوزت 4 أيام من الاستلام)</option>
+                    <option value="رقم الحساب البريدي RIP المدخل غير صحيح أو غير مطابق">رقم الحساب البريدي RIP المدخل غير صحيح أو غير مطابق</option>
+                    <option value="بيانات الطلبية الأصلية غير متطابقة مع السجلات">بيانات الطلبية الأصلية غير متطابقة مع السجلات</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="السلعة غير مطابقة لشروط الاستبدال (مستعملة أو تالفة)">السلعة غير مطابقة لشروط الاستبدال (مستعملة أو تالفة)</option>
+                    <option value="انقضاء المدة المحددة لطلب الاستبدال (تجاوزت 4 أيام)">انقضاء المدة المحددة لطلب الاستبدال (تجاوزت 4 أيام)</option>
+                    <option value="الموديل البديل غير متوفر حالياً في المخزن">الموديل البديل غير متوفر حالياً في المخزن</option>
+                    <option value="البيانات المدخلة أو كود بار الطلبية الأصلية غير صحيحة">البيانات المدخلة أو كود بار الطلبية الأصلية غير صحيحة</option>
+                  </>
+                )}
               </select>
             </div>
 

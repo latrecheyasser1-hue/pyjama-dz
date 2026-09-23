@@ -182,18 +182,47 @@ export default function AdminDashboard({
   // Active new orders count (real orders only)
   const newOrdersCount = realOrders.filter(o => o.status === 'nouvelle').length;
 
+  const isOrderRetour = (order) => {
+    if (!order) return false;
+    if (order.isRetour === true || order.orderType === 'retour' || order.orderType === 'return') return true;
+    const clientName = String(order.clientName || '').toLowerCase();
+    const product = String(order.product || '').toLowerCase();
+    if (clientName.includes('استرجاع') || clientName.includes('retour') || 
+        product.includes('استرجاع') || product.includes('إرجاع') || product.includes('retour')) {
+      return true;
+    }
+    if (order.exchangeDetails?.type === 'retour') return true;
+    if (order.status === 'retour') return true;
+    return false;
+  };
+
+  const isOrderExchange = (order) => {
+    if (!order) return false;
+    if (isOrderRetour(order)) return false;
+    if (order.isExchange === true || order.orderType === 'exchange') return true;
+    const clientName = String(order.clientName || '').toLowerCase();
+    const product = String(order.product || '').toLowerCase();
+    if (clientName.includes('استبدال') || clientName.includes('تبديل') || clientName.includes('échange') || clientName.includes('echange')) {
+      return true;
+    }
+    if (product.includes('استبدال') || product.includes('تبديل')) return true;
+    if (order.exchangeDetails) return true;
+    if (Array.isArray(order.items) && order.items.some(it => it && (it.isExchangeItem || it.isExchangeMeta))) return true;
+    return false;
+  };
+
   const pendingExchangesCount = React.useMemo(() => {
     return (orders || []).filter(order => {
-      const isEx = Boolean(
-        order.isExchange === true ||
-        order.isRetour === true ||
-        String(order.clientName || '').includes('استبدال') ||
-        String(order.product || '').includes('استبدال') ||
-        String(order.product || '').includes('استرجاع') ||
-        order.exchangeDetails ||
-        (Array.isArray(order.items) && order.items.some(it => it && (it.isExchangeItem || it.isExchangeMeta)))
-      );
-      if (!isEx) return false;
+      if (!isOrderExchange(order)) return false;
+      const isApproved = order.exchangeStatus === 'approved' || (order.trackingNumber && order.status !== 'annulee');
+      const isRejected = order.exchangeStatus === 'rejected' || order.status === 'annulee';
+      return !isApproved && !isRejected;
+    }).length;
+  }, [orders]);
+
+  const pendingRetoursCount = React.useMemo(() => {
+    return (orders || []).filter(order => {
+      if (!isOrderRetour(order)) return false;
       const isApproved = order.exchangeStatus === 'approved' || (order.trackingNumber && order.status !== 'annulee');
       const isRejected = order.exchangeStatus === 'rejected' || order.status === 'annulee';
       return !isApproved && !isRejected;
@@ -220,6 +249,7 @@ export default function AdminDashboard({
         setActiveTab={setActiveTab}
         newOrdersCount={newOrdersCount}
         pendingExchangesCount={pendingExchangesCount}
+        pendingRetoursCount={pendingRetoursCount}
         reclamationsCount={reclamationsCount}
         onLock={async () => await supabase.auth.signOut()}
         onSwitchToClient={onSwitchToClient}
@@ -245,12 +275,25 @@ export default function AdminDashboard({
           />
         )}
 
-        {activeTab === 'exchanges_returns' && (
+        {(activeTab === 'exchanges' || activeTab === 'exchanges_returns') && (
           <ExchangesReturnsTab
             orders={orders}
             products={products}
             settings={settings}
+            mode="exchange"
             onUpdateStatus={onUpdateStatus}
+            onTabChange={setActiveTab}
+          />
+        )}
+
+        {activeTab === 'retours' && (
+          <ExchangesReturnsTab
+            orders={orders}
+            products={products}
+            settings={settings}
+            mode="retour"
+            onUpdateStatus={onUpdateStatus}
+            onTabChange={setActiveTab}
           />
         )}
 

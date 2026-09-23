@@ -36,6 +36,15 @@ export default async function handler(req, res) {
 
     const order = orderRows[0];
 
+    const isReturn = Boolean(
+      order.isRetour === true || 
+      order.orderType === 'retour' || 
+      order.orderType === 'return' ||
+      String(order.clientName || '').includes('استرجاع') || 
+      String(order.product || '').includes('استرجاع') || 
+      order.status === 'retour'
+    );
+
     // ==========================================
     // ACTION: APPROVE & CREATE PARCEL
     // ==========================================
@@ -59,9 +68,10 @@ export default async function handler(req, res) {
             deliveryCompany = parcelData.deliveryCompany || deliveryCompany;
           }
         } catch (pe) {
-          console.error('Error calling create-parcel for exchange:', pe);
+          console.error('Error calling create-parcel for exchange/return:', pe);
           // Fallback tracking simulation if remote call fails
-          trackingNumber = `${deliveryCompany.toUpperCase().slice(0, 3)}-EX-${Math.floor(100000 + Math.random() * 900000)}`;
+          const prefix = isReturn ? 'RET' : 'EX';
+          trackingNumber = `${deliveryCompany.toUpperCase().slice(0, 3)}-${prefix}-${Math.floor(100000 + Math.random() * 900000)}`;
         }
       }
 
@@ -110,15 +120,15 @@ export default async function handler(req, res) {
             phone: order.phone,
             clientName: String(order.clientName || '').replace(/\[.*?\]/g, '').trim(),
             id: order.id,
-            action: 'exchange_approved',
-            product: String(order.product || 'بيجامة بديلة').replace(/🔄 استبدال:\s*/, ''),
+            action: isReturn ? 'return_approved' : 'exchange_approved',
+            product: String(order.product || (isReturn ? 'بيجامة مسترجعة' : 'بيجامة بديلة')).replace(/🔄 استبدال:\s*/, '').replace(/↩️ استرجاع:\s*/, ''),
             trackingNumber: trackingNumber,
             deliveryCompany: deliveryCompany === 'yalidine' ? 'Yalidine Express 🚚' : 'ZR Express 🚚',
             barcodesText: barcodesList.join('\n')
           })
         });
       } catch (we) {
-        console.warn('Error sending exchange WhatsApp approval:', we);
+        console.warn('Error sending exchange/return WhatsApp approval:', we);
       }
 
       return res.status(200).json({
@@ -133,7 +143,7 @@ export default async function handler(req, res) {
     // ACTION: REJECT
     // ==========================================
     if (action === 'reject') {
-      const rejectionReason = reason || 'تعذر استبدال هذا المنتج وفق سياسة المتجر';
+      const rejectionReason = reason || (isReturn ? 'تعذر استرجاع هذا المنتج وفق سياسة المتجر' : 'تعذر استبدال هذا المنتج وفق سياسة المتجر');
 
       const updatePayload = {
         status: 'annulee',
@@ -162,12 +172,12 @@ export default async function handler(req, res) {
             phone: order.phone,
             clientName: String(order.clientName || '').replace(/\[.*?\]/g, '').trim(),
             id: order.id,
-            action: 'exchange_rejected',
+            action: isReturn ? 'return_rejected' : 'exchange_rejected',
             reason: rejectionReason
           })
         });
       } catch (we) {
-        console.warn('Error sending exchange WhatsApp rejection:', we);
+        console.warn('Error sending exchange/return WhatsApp rejection:', we);
       }
 
       return res.status(200).json({
