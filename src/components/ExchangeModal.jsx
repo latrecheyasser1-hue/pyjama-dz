@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { 
   X, RefreshCw, RotateCcw, Camera, Upload, Check, AlertCircle, ShoppingBag, 
   ChevronRight, ArrowRight, Trash2, ShieldCheck, CheckCircle2, Layers,
-  Lock, User, UserCheck, Copy, Truck, Phone, Plus
+  Lock, User, UserCheck, Copy, Truck, Phone, Plus, Clock
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { INITIAL_PRODUCTS } from '../data/mockData';
@@ -83,6 +83,7 @@ export default function ExchangeModal({
   const [isOrderVerified, setIsOrderVerified] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState('');
+  const [verifiedDeliveryInfo, setVerifiedDeliveryInfo] = useState(null);
   
   // Mandatory Photo Upload State
   const [productPhoto, setProductPhoto] = useState(null);
@@ -180,6 +181,7 @@ export default function ExchangeModal({
     setTrackingCode(val);
     if (isOrderVerified) {
       setIsOrderVerified(false);
+      setVerifiedDeliveryInfo(null);
       setVerificationError('');
       setOldProductTitle('');
       setOldProductPrice(0);
@@ -192,6 +194,7 @@ export default function ExchangeModal({
     setPhone(val);
     if (isOrderVerified) {
       setIsOrderVerified(false);
+      setVerifiedDeliveryInfo(null);
       setVerificationError('');
       setOldProductTitle('');
       setOldProductPrice(0);
@@ -206,6 +209,7 @@ export default function ExchangeModal({
     setBarcodes(nextBarcodes);
     if (isOrderVerified) {
       setIsOrderVerified(false);
+      setVerifiedDeliveryInfo(null);
       setVerificationError('');
       setOldProductTitle('');
       setOldProductPrice(0);
@@ -226,6 +230,7 @@ export default function ExchangeModal({
     }
     if (isOrderVerified) {
       setIsOrderVerified(false);
+      setVerifiedDeliveryInfo(null);
       setVerificationError('');
       setOldProductTitle('');
       setOldProductPrice(0);
@@ -305,23 +310,117 @@ export default function ExchangeModal({
         }
       }
 
-      // 3. Verify Order Status (must be received / delivered)
+      // 3. Verify Order Status & 3-Day Receipt Gatekeeper Policy
       const st = (foundOrder.status || '').toLowerCase();
       if (st === 'nouvelle') {
         setVerificationError('⚠️ هذه الطلبية ما زالت جديدة قيد المعالجة (Nouvelle) ولم يتم شحنها وتوصيلها للزبون بعد! الخدمة متاحة فقط للطلبيات المستلمة.');
         setIsOrderVerified(false);
+        setVerifiedDeliveryInfo(null);
         return;
       }
       if (st === 'annulee') {
         setVerificationError('❌ هذه الطلبية تم إلغاؤها مسبقاً (Annulée) ولا يمكن تقديم طلب لها.');
         setIsOrderVerified(false);
+        setVerifiedDeliveryInfo(null);
         return;
       }
       if (st === 'retour') {
         setVerificationError('❌ هذه الطلبية مسجلة كمرتجع مسبقاً (Retour).');
         setIsOrderVerified(false);
+        setVerifiedDeliveryInfo(null);
         return;
       }
+
+      // Check delivery state and delivery timestamp
+      let isDelivered = st === 'livree' || st.includes('livr') || st.includes('مستلم');
+      let deliveryDateRaw = null;
+
+      // Check items metadata for delivery date
+      let parsedOrderItems = foundOrder.items;
+      if (typeof parsedOrderItems === 'string') {
+        try { parsedOrderItems = JSON.parse(parsedOrderItems); } catch(e) { parsedOrderItems = []; }
+      }
+      if (Array.isArray(parsedOrderItems)) {
+        for (const it of parsedOrderItems) {
+          if (it && (it.delivered_at || it.tam_istilam_at || it.date_livraison)) {
+            deliveryDateRaw = it.delivered_at || it.tam_istilam_at || it.date_livraison;
+            isDelivered = true;
+            break;
+          }
+        }
+      }
+
+      // If not yet confirmed delivered in DB, attempt a quick live tracking check
+      if (!isDelivered) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3500);
+          const trackRes = await fetch(`/api/track-shipments?tracking=${encodeURIComponent(cleanTracking)}`, {
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (trackRes.ok) {
+            const trackJson = await trackRes.json();
+            if (trackJson && trackJson.isDelivered) {
+              isDelivered = true;
+              deliveryDateRaw = trackJson.deliveredAt || deliveryDateRaw;
+            }
+          }
+        } catch(e) {
+          // Ignore network errors, proceed with existing order record
+        }
+      }
+
+      // If still not delivered, customer hasn't received the parcel yet
+      if (!isDelivered) {
+        setVerificationError('⚠️ هذه الطلبية ما زالت قيد الشحن والتوصيل مع شركة التوصيل ولم يتم تسجيل استلامها بعد من قِبل الزبون. قانون وسياسة المتجر يشترط استلامك الفعلي للطرد أولاً قبل طلب الاستبدال أو الاسترجاع.');
+        setIsOrderVerified(false);
+        setVerifiedDeliveryInfo(null);
+        return;
+      }
+
+      // Determine the exact delivery/receipt date
+      if (!deliveryDateRaw) {
+        deliveryDateRaw = foundOrder.delivered_at || foundOrder.date_livraison || foundOrder.date || foundOrder.created_at;
+      }
+
+      const deliveryDateObj = new Date(deliveryDateRaw);
+      const now = new Date();
+      const diffMs = now.getTime() - deliveryDateObj.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      const diffDays = Math.floor(diffHours / 24);
+
+      // STRICT 3-DAY GATEKEEPER RULE (72 HOURS MAX FROM RECEIPT DATE)
+      if (diffHours > 72) {
+        const formattedDeliveryDate = !isNaN(deliveryDateObj.getTime())
+          ? deliveryDateObj.toLocaleDateString('ar-DZ', { year: 'numeric', month: 'long', day: 'numeric' })
+          : 'سابقاً';
+
+        setVerificationError(
+          `❌ عذراً، لا يمكن قبول طلب الاستبدال أو الاسترجاع لهذه الطلبية!\n\n` +
+          `📜 قانون وسياسة المتجر: مهلة الاستبدال والاسترجاع محددة بـ 3 أيام فقط كحد أقصى تبدأ من تاريخ استلام الطرد (وليس من تاريخ الطلب).\n` +
+          `📦 تاريخ استلامك للطرد: ${formattedDeliveryDate} (مرت عليه ${diffDays} أيام).\n\n` +
+          `لقد انتهت المهلة القانونية المسموحة (3 أيام من تاريخ الاستلام)، ونعتذر عن عدم إمكانية معالجة الطلب وفقاً لقوانين المحل.`
+        );
+        setIsOrderVerified(false);
+        setVerifiedDeliveryInfo(null);
+        return;
+      }
+
+      // Valid within 3 days
+      const remainingHours = Math.max(0, Math.round(72 - diffHours));
+      const remainingDays = Math.ceil(remainingHours / 24);
+      const formattedDeliveryDate = !isNaN(deliveryDateObj.getTime())
+        ? deliveryDateObj.toLocaleDateString('ar-DZ', { year: 'numeric', month: 'long', day: 'numeric' })
+        : 'مؤخراً';
+
+      setVerifiedDeliveryInfo({
+        deliveredAt: deliveryDateObj,
+        formattedDate: formattedDeliveryDate,
+        remainingHours,
+        remainingDays,
+        diffDays
+      });
 
       // 4. Verify Each Barcode Belongs to This Specific Order
       let itemsList = foundOrder.items;
@@ -992,6 +1091,39 @@ export default function ExchangeModal({
               </div>
             )}
 
+            {/* Store Policy: 3 Days Only from Receipt Date Notice */}
+            <div style={{
+              background: '#EFF6FF',
+              border: '1.5px solid #BFDBFE',
+              borderRadius: '14px',
+              padding: '12px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '16px',
+              boxShadow: '0 2px 8px rgba(37, 99, 235, 0.05)'
+            }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: '#DBEAFE',
+                color: '#1D4ED8',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Clock size={20} />
+              </div>
+              <div style={{ fontSize: '0.84rem', color: '#1E3A8A', lineHeight: 1.45 }}>
+                <strong style={{ color: '#1E40AF', display: 'block', fontSize: '0.88rem', marginBottom: '2px' }}>
+                  📜 قانون وسياسة المتجر:
+                </strong>
+                مهلة طلب {isRetourMode ? 'الاسترجاع' : 'الاستبدال'} هي <strong>3 أيام فقط كحد أقصى</strong> تُحسب من <strong>تاريخ استلام الطرد</strong> (وليس من تاريخ إجراء الطلب).
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
               {/* Order / Client Info & Verification Gatekeeper */}
               <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '16px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1187,7 +1319,7 @@ export default function ExchangeModal({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '4px' }}>
                     {/* Confirmed Order Badge & Retrieved Product Details */}
                     <div style={{ background: '#ECFDF5', border: '1.5px solid #10B981', borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#047857', fontWeight: 900, fontSize: '0.92rem' }}>
                           <CheckCircle2 size={20} color="#10B981" />
                           <span>تم تأكيد الطلبية والسلع بنجاح ✅</span>
@@ -1196,6 +1328,7 @@ export default function ExchangeModal({
                           type="button"
                           onClick={() => {
                             setIsOrderVerified(false);
+                            setVerifiedDeliveryInfo(null);
                             setOriginalOrderFound(null);
                             setOldProductTitle('');
                             setOldProductPrice(0);
@@ -1206,6 +1339,37 @@ export default function ExchangeModal({
                           إعادة الفحص 🔄
                         </button>
                       </div>
+
+                      {/* 3-Day Receipt Confirmation Badge */}
+                      {verifiedDeliveryInfo && (
+                        <div style={{
+                          background: '#FFFFFF',
+                          border: '1.5px solid #86EFAC',
+                          borderRadius: '10px',
+                          padding: '8px 12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '8px',
+                          fontSize: '0.82rem'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#166534', fontWeight: 800 }}>
+                            <Truck size={16} />
+                            <span>تاريخ استلام الطرد: {verifiedDeliveryInfo.formattedDate}</span>
+                          </div>
+                          <span style={{
+                            background: '#DCFCE7',
+                            color: '#15803D',
+                            padding: '3px 10px',
+                            borderRadius: '8px',
+                            fontSize: '0.76rem',
+                            fontWeight: 800
+                          }}>
+                            ✅ مؤهل (ضمن مهلة الـ 3 أيام)
+                          </span>
+                        </div>
+                      )}
                       
                       <div style={{ background: '#FFFFFF', borderRadius: '10px', padding: '12px', border: '1px solid #A7F3D0', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.84rem' }}>
                         <div style={{ fontWeight: 800, color: '#047857', borderBottom: '1px solid #E2E8F0', paddingBottom: '6px', fontSize: '0.86rem' }}>

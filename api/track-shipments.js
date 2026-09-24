@@ -80,6 +80,66 @@ export default async function handler(req, res) {
     return res.status(200).send(crcToken);
   }
 
+  // Handle Single Tracking Lookup (For Exchange / Return 3-Day Receipt Eligibility Check)
+  const singleTracking = req.query?.tracking || searchParams.get('tracking') || req.query?.check_tracking;
+  if (singleTracking) {
+    try {
+      const cleanTrack = String(singleTracking).trim();
+      const oRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?or=(trackingNumber.ilike.%25${encodeURIComponent(cleanTrack)}%25,id.eq.${encodeURIComponent(cleanTrack)})&limit=1`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const oRows = await oRes.json();
+      const targetOrder = Array.isArray(oRows) && oRows[0] ? oRows[0] : null;
+
+      let isDelivered = false;
+      let deliveredAt = null;
+      let courierStatus = targetOrder?.status || 'unknown';
+
+      if (targetOrder) {
+        const st = String(targetOrder.status || '').toLowerCase();
+        if (st === 'livree' || st.includes('livr') || st.includes('مستلم')) {
+          isDelivered = true;
+          deliveredAt = targetOrder.delivered_at || targetOrder.date || targetOrder.created_at;
+          courierStatus = 'livree';
+        }
+        if (Array.isArray(targetOrder.items)) {
+          for (const it of targetOrder.items) {
+            if (it && (it.delivered_at || it.tam_istilam_at)) {
+              isDelivered = true;
+              deliveredAt = it.delivered_at || it.tam_istilam_at;
+              break;
+            }
+          }
+        }
+      }
+
+      let elapsedHours = null;
+      let diffDays = null;
+      let isWithin3Days = false;
+      if (deliveredAt) {
+        const delDate = new Date(deliveredAt);
+        const diffMs = Date.now() - delDate.getTime();
+        elapsedHours = diffMs / (1000 * 60 * 60);
+        diffDays = Math.floor(elapsedHours / 24);
+        isWithin3Days = elapsedHours <= 72;
+      }
+
+      return res.status(200).json({
+        success: true,
+        tracking: cleanTrack,
+        isDelivered,
+        deliveredAt,
+        elapsedHours,
+        diffDays,
+        isWithin3Days,
+        courierStatus,
+        orderId: targetOrder?.id
+      });
+    } catch(err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   // If a simple GET ping from Yalidine validation without 'cron' or 'action=run'
   if (req.method === 'GET' && !req.query?.action && !searchParams.get('action') && !req.query?.cron) {
     res.setHeader('Content-Type', 'text/plain');
