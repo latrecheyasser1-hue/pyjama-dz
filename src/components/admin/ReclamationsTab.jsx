@@ -12,7 +12,19 @@ export default function ReclamationsTab({ settings, onUpdateSettings }) {
     if (typeof raw === 'string') {
       try { raw = JSON.parse(raw); } catch (e) { raw = []; }
     }
-    return Array.isArray(raw) ? raw : [];
+    const list = Array.isArray(raw) ? raw : [];
+    // Strict deduplication by normalized phone + message content
+    const seen = new Set();
+    const unique = [];
+    for (const r of list) {
+      const p = String(r.whatsappNumber || r.phone || '').replace(/\D/g, '').slice(-9);
+      const m = String(r.message || '').trim().toLowerCase();
+      const k = (p && m) ? `${p}_${m}` : String(r.id || r.createdAt);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      unique.push(r);
+    }
+    return unique;
   }, [settings?.reclamations]);
 
   // Compute counts
@@ -48,6 +60,7 @@ export default function ReclamationsTab({ settings, onUpdateSettings }) {
 
   // Update Status
   const handleUpdateStatus = async (id, newStatus) => {
+    const target = reclamations.find(r => r.id === id);
     const updated = reclamations.map(r => {
       if (r.id === id) {
         return { ...r, status: newStatus };
@@ -59,7 +72,10 @@ export default function ReclamationsTab({ settings, onUpdateSettings }) {
     try {
       if (id) {
         await supabase.from('orders').update({ status: newStatus }).eq('id', id);
-        await supabase.from('reclamations').update({ status: newStatus }).eq('id', id);
+        if (target && target.whatsappNumber) {
+          const normPhone = target.whatsappNumber.replace(/\D/g, '').slice(-9);
+          await supabase.from('orders').update({ status: newStatus }).eq('deliveryMode', 'reclamation').ilike('phone', `%${normPhone}%`);
+        }
       }
     } catch (err) {
       console.error('Error updating reclamation status in Supabase DB:', err);
@@ -72,13 +88,17 @@ export default function ReclamationsTab({ settings, onUpdateSettings }) {
   // Delete Reclamation
   const handleDelete = async (id) => {
     if (!window.confirm('هل أنت متأكد من حذف هذه الشكوى نهائياً؟')) return;
+    const target = reclamations.find(r => r.id === id);
     const updated = reclamations.filter(r => r.id !== id);
 
     // Delete record permanently from Supabase orders and reclamations tables
     try {
       if (id) {
         await supabase.from('orders').delete().eq('id', id);
-        await supabase.from('reclamations').delete().eq('id', id);
+        if (target && target.whatsappNumber) {
+          const normPhone = target.whatsappNumber.replace(/\D/g, '').slice(-9);
+          await supabase.from('orders').delete().eq('deliveryMode', 'reclamation').ilike('phone', `%${normPhone}%`);
+        }
       }
     } catch (err) {
       console.error('Error deleting reclamation from Supabase DB:', err);

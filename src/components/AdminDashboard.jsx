@@ -17,6 +17,7 @@ import ReclamationsTab from './admin/ReclamationsTab';
 import ExchangesReturnsTab from './admin/ExchangesReturnsTab';
 
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { playNotificationSound } from '../utils/audio';
 
 export default function AdminDashboard({
   orders,
@@ -138,46 +139,20 @@ export default function AdminDashboard({
     return () => subscription.unsubscribe();
   }, []);
 
-  // Track previous orders count to trigger sound on new order entry
-  const prevOrdersCountRef = useRef(orders.length);
-
-  // Web Audio API Sound Generator for Real-Time Order Notification
-  const playNotificationSound = () => {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      
-      // Chime sequence: High-Low-High happy notification
-      const playTone = (freq, startTime, duration) => {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + startTime);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime + startTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + startTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(audioCtx.currentTime + startTime);
-        osc.stop(audioCtx.currentTime + startTime + duration);
-      };
-
-      playTone(587.33, 0, 0.15);     // D5
-      playTone(880.00, 0.15, 0.35);  // A5
-    } catch (e) {
-      console.log("Audio not allowed or blocked by browser", e);
-    }
-  };
-
-  useEffect(() => {
-    if (session && orders.length > prevOrdersCountRef.current) {
-      playNotificationSound();
-    }
-    prevOrdersCountRef.current = orders.length;
-  }, [orders, session]);
-
   // Pure real orders list (filtering out reclamations)
   const realOrders = React.useMemo(() => {
     return (orders || []).filter(o => o.deliveryMode !== 'reclamation' && o.deliveryCompany !== 'RECLAMATION' && o.orderType !== 'reclamation');
   }, [orders]);
+
+  // Track previous orders count to trigger sound on new order entry
+  const prevOrdersCountRef = useRef(realOrders.length);
+
+  useEffect(() => {
+    if (session && realOrders.length > prevOrdersCountRef.current && prevOrdersCountRef.current > 0) {
+      playNotificationSound();
+    }
+    prevOrdersCountRef.current = realOrders.length;
+  }, [realOrders.length, session]);
 
   // Active new orders count (real orders only)
   const newOrdersCount = realOrders.filter(o => o.status === 'nouvelle').length;

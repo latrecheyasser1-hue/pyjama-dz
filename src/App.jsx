@@ -4,6 +4,7 @@ import ToastContainer from './components/ToastContainer';
 import CookieConsent from './components/CookieConsent';
 import { supabase } from './lib/supabaseClient';
 import { processOrderDelivery } from './services/deliveryApi';
+import { playNotificationSound } from './utils/audio';
 
 import CashierPOS from './components/CashierPOS';
 const lazyWithRetry = (componentImport) =>
@@ -27,31 +28,6 @@ const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard')
 const GrosStorefront = lazyWithRetry(() => import('./components/GrosStorefront'));
 const EmballagePOS = lazyWithRetry(() => import('./components/EmballagePOS'));
 const AliOwnerDashboard = lazyWithRetry(() => import('./components/AliOwnerDashboard'));
-
-
-const playNotificationSound = () => {
-  try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(1046.50, audioCtx.currentTime); // C6
-    oscillator.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.1); // E6
-    
-    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    
-    oscillator.start(audioCtx.currentTime);
-    oscillator.stop(audioCtx.currentTime + 0.5);
-  } catch (e) {
-    console.log('Audio error:', e);
-  }
-};
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -180,8 +156,16 @@ export default function App() {
           if (payload.eventType === 'UPDATE' && payload.new) {
             setOrders(prev => prev.map(o => o.id === payload.new.id ? { ...o, ...payload.new } : o));
           } else if (payload.eventType === 'INSERT' && payload.new) {
-            setOrders(prev => [payload.new, ...prev]);
-            playNotificationSound();
+            setOrders(prev => {
+              if (prev.some(o => o.id === payload.new.id)) return prev;
+              return [payload.new, ...prev];
+            });
+            const isRec = payload.new.deliveryMode === 'reclamation' || 
+                          payload.new.deliveryCompany === 'RECLAMATION' || 
+                          payload.new.orderType === 'reclamation';
+            if (!isRec) {
+              playNotificationSound();
+            }
           } else {
             fetchData('orders', setOrders);
           }
@@ -572,7 +556,16 @@ export default function App() {
 
       const existingRecs = Array.isArray(obj.reclamations) ? obj.reclamations : [];
       const merged = [...mappedOrderRecs, ...mapped, ...existingRecs];
-      const uniqueRecs = Array.from(new Map(merged.map(item => [String(item.id || item.createdAt), item])).values());
+      const seen = new Set();
+      const uniqueRecs = [];
+      for (const item of merged) {
+        const normPhone = String(item.whatsappNumber || item.phone || '').replace(/\D/g, '').slice(-9);
+        const normMsg = String(item.message || '').trim().toLowerCase();
+        const dedupKey = (normPhone && normMsg) ? `${normPhone}_${normMsg}` : String(item.id || item.createdAt);
+        if (seen.has(dedupKey)) continue;
+        seen.add(dedupKey);
+        uniqueRecs.push(item);
+      }
       obj.reclamations = uniqueRecs;
     } catch (e) {
       console.warn('Reclamations query notice:', e);

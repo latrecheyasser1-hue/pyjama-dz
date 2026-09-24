@@ -1679,20 +1679,13 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
   const handleReclamationSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingReclamation) return;
     if (!reclamationName.trim() || !reclamationWhatsapp.trim() || !reclamationMessage.trim()) {
       alert('الرجاء ملء جميع الخانات المتاحة.');
       return;
     }
     setIsSubmittingReclamation(true);
     try {
-      const recPayload = {
-        clientName: reclamationName.trim(),
-        whatsappNumber: reclamationWhatsapp.trim(),
-        message: reclamationMessage.trim(),
-        status: 'nouvelle',
-        created_at: new Date().toISOString()
-      };
-
       // 1. Guaranteed RLS-free insert into 'orders' table using valid DB columns (Works 100% on all mobile devices without auth)
       const orderRecPayload = {
         clientName: reclamationName.trim(),
@@ -1709,18 +1702,32 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         date: new Date().toISOString().split('T')[0]
       };
 
-      await supabase.from('orders').insert([orderRecPayload]);
+      const { data: insertedRecOrder } = await supabase.from('orders').insert([orderRecPayload]).select().single();
+      const recId = insertedRecOrder?.id || ('REC-' + Date.now());
+
+      const recPayload = {
+        id: recId,
+        clientName: reclamationName.trim(),
+        whatsappNumber: reclamationWhatsapp.trim(),
+        message: reclamationMessage.trim(),
+        status: 'nouvelle',
+        createdAt: new Date().toISOString()
+      };
 
       // 2. Direct insert into dedicated 'reclamations' table if present
       try {
         await supabase.from('reclamations').insert([recPayload]);
       } catch (e) {}
 
-      // 3. Fallback to settings update
+      // 3. Fallback to settings update with matching ID and phone+msg deduplication
       try {
         let freshReclamations = Array.isArray(settings?.reclamations) ? settings.reclamations : [];
-        const updatedReclamations = [{ id: 'REC-' + Date.now(), ...recPayload }, ...freshReclamations];
-        await onUpdateSettings({ reclamations: updatedReclamations });
+        const cleanPrev = freshReclamations.filter(r => {
+          const samePhone = String(r.whatsappNumber || r.phone || '').replace(/\D/g, '').slice(-9) === reclamationWhatsapp.trim().replace(/\D/g, '').slice(-9);
+          const sameMsg = String(r.message || '').trim().toLowerCase() === reclamationMessage.trim().toLowerCase();
+          return !(samePhone && sameMsg);
+        });
+        await onUpdateSettings({ reclamations: [recPayload, ...cleanPrev] });
       } catch (e) {}
 
       // Trigger WhatsApp bot response asynchronously
