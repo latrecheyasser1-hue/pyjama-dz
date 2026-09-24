@@ -5628,7 +5628,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span style={{ color: 'var(--burgundy)', fontWeight: 800 }}>- DEMANDE D'ÉCHANGE / طلب استبدال منتج</span>
+                  <span style={{ color: '#DC2626', fontWeight: 800 }}>- DEMANDE D'ÉCHANGE / طلب استبدال منتج</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5643,7 +5643,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span style={{ color: '#B91C1C', fontWeight: 800 }}>- DEMANDE DE RETOUR / طلب استرجاع واسترداد المبلغ</span>
+                  <span style={{ color: '#DC2626', fontWeight: 800 }}>- DEMANDE DE RETOUR / طلب استرجاع واسترداد المبلغ</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
@@ -5658,7 +5658,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 }}
               >
                 <div className="mobile-drawer-item-left">
-                  <span style={{ color: '#BE123C', fontWeight: 800 }}>- RECLAMATIONS / قسم الشكاوى والملاحظات</span>
+                  <span style={{ color: '#DC2626', fontWeight: 800 }}>- RECLAMATIONS / قسم الشكاوى والملاحظات</span>
                 </div>
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
