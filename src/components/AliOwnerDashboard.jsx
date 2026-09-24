@@ -2832,27 +2832,6 @@ export default function AliOwnerDashboard({
                               <div style={{ fontSize: '0.85rem', color: '#64748B', marginTop: '4px' }}>
                                 تظهر هنا حصرياً طرود الاسترجاع أو الاستبدال بفارق السعر التي تم استلامها فعلياً في المركز ولم يتم تحويل مستحقاتها بعد.
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => setActiveTab('refunds_history')}
-                                style={{
-                                  marginTop: '14px',
-                                  padding: '8px 18px',
-                                  background: '#DCFCE7',
-                                  color: '#15803D',
-                                  border: '1.5px solid #86EFAC',
-                                  borderRadius: '12px',
-                                  fontSize: '0.88rem',
-                                  fontWeight: 800,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '8px'
-                                }}
-                              >
-                                <History size={16} />
-                                <span>الانتقال إلى خانة سجل التحويلات (L'Historique) ←</span>
-                              </button>
                             </td>
                           </tr>
                         ) : (
