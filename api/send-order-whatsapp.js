@@ -115,9 +115,19 @@ export default async function handler(req, res) {
       const isExchangeOrder = Boolean(req.body?.isExchange || cleanProduct.includes('استبدال'));
 
       if (isReturnApproval) {
-        const trackingNum = req.body?.trackingNumber || 'قيد المعالجة';
-        const deliveryCompany = req.body?.deliveryCompany || 'شركة التوصيل';
-        messageText = `*متجر Pyjama DZ - تمت الموافقة على طلب الاسترجاع ✅*\n\nأهلاً بك${nameGreeting}! 🌸\nيسرنا إعلامك بأنه قد *تمت مراجعة والموافقة على طلب الاسترجاع الخاص بك*.\n\n📦 *رقم التتبع (Tracking):*\n*${trackingNum}*\n🚚 *شركة الشحن:* ${deliveryCompany}\n\n• السلعة المرتجعة: ${cleanProduct}\n\n✨ سيصلك موزع التوصيل لاستلام السلعة، وسيتم تحويل مستحقاتك المالية فور استلامها وفحصها.\nشكراً لثقتك بـ Pyjama DZ! ❤️`;
+        const deliveryComp = req.body?.deliveryCompany || 'شركة التوصيل التي استلمت منها (Yalidine أو ZR Express)';
+        const refundAmount = req.body?.refundDue ? `\n💰 *المبلغ المستحق للاسترداد:* ${req.body.refundDue} دج` : '';
+        const ripText = req.body?.baridiMobRip ? `\n💳 *حساب بريدي موب (RIP):* ${req.body.baridiMobRip}` : '';
+
+        messageText = `*متجر Pyjama DZ - تمت الموافقة على طلب الاسترجاع ✅*\n\n` +
+          `أهلاً بك${nameGreeting}! 🌸\n` +
+          `يسرنا إعلامك بأنه قد *تمت مراجعة والموافقة على طلب الاسترجاع الخاص بك*.\n\n` +
+          `📋 *السلعة المراد إرجاعها:*\n• ${cleanProduct}${refundAmount}${ripText}\n\n` +
+          `📦 *تعليمات إرسال الطرد:*\n` +
+          `1️⃣ يرجى التوجه إلى أقرب وكالة أو الاتصال بمكتب *${deliveryComp}* (نفس شركة التوصيل التي استلمت منها طلبيتك).\n` +
+          `2️⃣ قم بإرسال الطرد المرتجع إلى عنوان متجرنا بقيمة *0 دج (0 DA)* (بدون طلب دفع عند الاستلام COD).\n` +
+          `3️⃣ فور وصول الطرد إلى المتجر وفحصه والتأكد من سلامته، سيتم تحويل مستحقاتك المالية فوراً إلى حسابك عبر تطبيق بريدي موب.\n\n` +
+          `شكراً لثقتك وتعاملك مع Pyjama DZ! ❤️`;
       } else if (isReturnRejection) {
         const rejectionReason = req.body?.reason ? `\n• ملاحظة: ${req.body.reason}` : '';
         messageText = `*متجر Pyjama DZ - بخصوص طلب الاسترجاع 🌸*\n\nأهلاً بك${nameGreeting}.\nنعتذر منك، بعد مراجعة تفاصيل وصور طلب الاسترجاع، تعذر علينا قبول الطلب حالياً.${rejectionReason}\n\nإذا كان لديك أي استفسار، يمكنك مراسلتنا هنا مباشرة لمساعدتك. شكراً لتفهمك!`;

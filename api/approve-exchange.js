@@ -129,6 +129,22 @@ export default async function handler(req, res) {
         });
       }
 
+      let refundDue = order.refundDue || 0;
+      let baridiMobRip = order.baridiMobRip || '';
+      if (!refundDue || !baridiMobRip) {
+        let parsedItems = order.items;
+        if (typeof parsedItems === 'string') {
+          try { parsedItems = JSON.parse(parsedItems); } catch(e) {}
+        }
+        if (Array.isArray(parsedItems)) {
+          const meta = parsedItems.find(it => it.isReturnMeta || it.isExchangeMeta || it.baridiMobRip);
+          if (meta) {
+            refundDue = refundDue || meta.refundDue || meta.oldProductPrice || 0;
+            baridiMobRip = baridiMobRip || meta.baridiMobRip || '';
+          }
+        }
+      }
+
       // Send WhatsApp approval notification
       try {
         await fetch('https://pyjama-dz.vercel.app/api/send-order-whatsapp', {
@@ -142,7 +158,9 @@ export default async function handler(req, res) {
             product: String(order.product || (isReturn ? 'بيجامة مسترجعة' : 'بيجامة بديلة')).replace(/🔄 استبدال:\s*/, '').replace(/↩️ استرجاع:\s*/, ''),
             trackingNumber: trackingNumber,
             deliveryCompany: deliveryCompany === 'yalidine' ? 'Yalidine Express 🚚' : 'ZR Express 🚚',
-            barcodesText: barcodesList.join('\n')
+            barcodesText: barcodesList.join('\n'),
+            refundDue: refundDue,
+            baridiMobRip: baridiMobRip
           })
         });
       } catch (we) {
