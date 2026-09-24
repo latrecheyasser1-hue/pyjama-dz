@@ -345,6 +345,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                       >
                         <option value="nouvelle">🆕 جديدة (Nouvelle)</option>
                         <option value="confirmee">📞 مؤكدة (Confirmée)</option>
+                        <option value="livree">🚚 تم التوصيل / مستلمة (Livrée)</option>
                         <option value="annulee">❌ ملغاة (Annulée)</option>
                       </select>
                     </td>
