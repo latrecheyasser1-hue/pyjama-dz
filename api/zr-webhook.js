@@ -51,6 +51,26 @@ async function sendWhatsAppMessage(toPhone, textBody) {
   }
 }
 
+async function saveBureauMeta(identifier, meta) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        key: `bureau_meta_${identifier}`,
+        value: JSON.stringify(meta)
+      })
+    });
+  } catch (err) {
+    console.error('Error saving bureau meta in ZR webhook:', err);
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({ status: 'ZR Express Webhook Active' });
@@ -79,7 +99,7 @@ export default async function handler(req, res) {
     } else if (stateName.includes('transit') || stateName.includes('hub') || stateName.includes('expedie') || stateName.includes('vers_')) {
       mappedStatus = 'expediee';
     } else if (stateName.includes('retour') || stateName.includes('annul') || stateName.includes('refus')) {
-      mappedStatus = 'annulee';
+      mappedStatus = 'retour';
     }
 
     // Find order in Supabase
@@ -97,37 +117,32 @@ export default async function handler(req, res) {
 
     if (Array.isArray(orders) && orders.length > 0) {
       const targetOrder = orders[0];
-      const updateData = {
-        deliveryCompany: 'zrexpress',
-        zrStatus: stateName,
-        trackingNumber: trackingNumber || targetOrder.trackingNumber,
-        updated_at: new Date().toISOString()
-      };
+      const updateData = {};
 
-      if (mappedStatus) {
+      if (mappedStatus && targetOrder.status !== mappedStatus) {
         updateData.status = mappedStatus;
       }
+      if (trackingNumber && !targetOrder.trackingNumber) {
+        updateData.trackingNumber = trackingNumber;
+      }
+      if (!targetOrder.deliveryCompany) {
+        updateData.deliveryCompany = 'zrexpress';
+      }
 
-      const normZrState = String(stateName).toLowerCase();
-      const isZrReturnReceived = [
-        'returned_to_merchant',
-        'received_by_merchant',
-        'return_delivered_to_sender',
-        'return_collected',
-        'recupere_vendeur',
-        'retourne_au_vendeur',
-        'retour_recupere',
-        'retour_retire',
-        'livre_vendeur',
-        'echange_recu'
-      ].some(s => normZrState.includes(s));
+      // Fetch existing bureau meta from settings
+      const metaFetch = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.bureau_meta_${targetOrder.id}&select=value`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const metaRows = await metaFetch.json();
+      let currentMeta = {};
+      if (Array.isArray(metaRows) && metaRows[0]?.value) {
+        try { currentMeta = JSON.parse(metaRows[0].value); } catch(e) {}
+      }
 
-      if (isZrReturnReceived) {
-        updateData.isExchangeParcelReceived = true;
-        updateData.tam_istilam = true;
-        updateData.tam_istilam_at = new Date().toISOString();
-        updateData.exchange_parcel_received_at = new Date().toISOString();
-        updateData.exchange_return_courier_status = stateName;
+      if (mappedStatus === 'livree') {
+        currentMeta.picked_up = true;
+        currentMeta.picked_up_at = new Date().toISOString();
+        await saveBureauMeta(targetOrder.id, currentMeta);
       }
 
       // Instant WhatsApp Notifications for ZR Express Events
@@ -146,8 +161,9 @@ export default async function handler(req, res) {
 
       // A. Out with livreur
       const isOutForDelivery = stateName.includes('vers_client') || stateName.includes('en cours') || stateName.includes('sorti') || stateName.includes('livreur');
-      if (!isBureau && isOutForDelivery && !targetOrder.domicile_out_notif_sent) {
-        updateData.domicile_out_notif_sent = true;
+      if (!isBureau && isOutForDelivery && !currentMeta.domicile_out_sent) {
+        currentMeta.domicile_out_sent = true;
+        await saveBureauMeta(targetOrder.id, currentMeta);
         if (phone) {
           const msg = `*متجر Pyjama DZ 🚚*\n\n${greeting}! 🌸\nطردك رقم #${orderNum} خرج الآن مع الموزع (Livreur) وراه في الطريق لعنوانك! 📦💨\n\nسيتصل بك الموزع قريباً على هاتفك للاستلام، يرجى إبقاء هاتفك مفتوحاً. شكراً لثقتك بنا! ❤️\nhttps://pyjama-dz.vercel.app`;
           await sendWhatsAppMessage(phone, msg);
@@ -156,25 +172,28 @@ export default async function handler(req, res) {
 
       // B. Arrived at Bureau (Hub)
       const isAtBureau = stateName.includes('hub_destination') || stateName.includes('au_bureau') || stateName.includes('disponible') || stateName.includes('centre');
-      if (isBureau && isAtBureau && !targetOrder.bureau_arrival_notif_sent) {
-        updateData.bureau_arrival_notif_sent = true;
-        updateData.bureau_arrived_at = new Date().toISOString();
+      if (isBureau && isAtBureau && !currentMeta.arrival_sent) {
+        currentMeta.arrived_at = new Date().toISOString();
+        currentMeta.arrival_sent = true;
+        await saveBureauMeta(targetOrder.id, currentMeta);
         if (phone) {
           const msg = `*متجر Pyjama DZ ✨*\n\n${greeting}! 🌸\nنود إعلامك أن طلبيتك رقم #${orderNum} وصلت الآن إلى مكتب التوصيل [${officeName}] وهي جاهزة للاستلام! 🏢📦\n\nيرجى التقرب من المكتب لاستلام طردك في أقرب وقت. شكراً جزيلاً لثقتك بمتجرنا! ❤️\nhttps://pyjama-dz.vercel.app`;
           await sendWhatsAppMessage(phone, msg);
         }
       }
 
-      await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${targetOrder.id}`, {
-        method: 'PATCH',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      });
-      console.log(`Updated Order ${targetOrder.id} with ZR status ${stateName}`);
+      if (Object.keys(updateData).length > 0) {
+        await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${targetOrder.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        });
+        console.log(`Updated Order ${targetOrder.id} with status ${updateData.status}`);
+      }
     }
 
     return res.status(200).json({ success: true });

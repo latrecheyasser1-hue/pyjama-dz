@@ -1,17 +1,24 @@
-name: Scheduled Marketing Automations
+name: Scheduled Marketing & Tracking Automations
 
 on:
   schedule:
-    # 1. Weekly Top 10 Hot Sale Broadcast: Every Friday at 10:00 AM UTC (11:00 AM Algerian Time)
-    - cron: '0 10 * * 5'
+    # 1. Automated Shipment Tracking & Anti-Retour Alerts (Every 4 hours)
+    - cron: '0 */4 * * *'
     # 2. 14-Day Customer Followup & Satisfaction Check: Every day at 11:00 AM UTC (12:00 PM Algerian Time)
     - cron: '0 11 * * *'
+    # 3. Weekly Top 10 Hot Sale Broadcast: Every Friday at 10:00 AM UTC (11:00 AM Algerian Time)
+    - cron: '0 10 * * 5'
   workflow_dispatch:
 
 jobs:
   run-automations:
     runs-on: ubuntu-latest
     steps:
+      - name: Trigger Automated Shipment Tracking & Anti-Retour Alerts
+        run: |
+          echo "🚚 Triggering Shipping & Anti-Retour WhatsApp Automation..."
+          curl -s -X GET "https://pyjama-dz.vercel.app/api/track-shipments?action=run"
+
       - name: Trigger Weekly Top 10 Hot Sale (Fridays)
         run: |
           DAY_OF_WEEK=$(date +%u)
@@ -26,8 +33,3 @@ jobs:
         run: |
           echo "🌸 Triggering 14-Day Customer Follow-up Check..."
           curl -s -X GET "https://pyjama-dz.vercel.app/api/cron-notifications?action=followup_14_days"
-
-      - name: Trigger Automated Shipment Tracking & Anti-Retour Alerts
-        run: |
-          echo "🚚 Triggering Shipping & Anti-Retour WhatsApp Automation..."
-          curl -s -X GET "https://pyjama-dz.vercel.app/api/track-shipments"
