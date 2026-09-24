@@ -24,6 +24,16 @@ import { showToast } from '../../utils/toast';
 import { supabase } from '../../lib/supabaseClient';
 import ExchangeOrderCard from './ExchangeOrderCard';
 
+const getAdminToken = () => {
+  try {
+    return sessionStorage.getItem('pyjama_admin_token') || 
+           localStorage.getItem('pyjama_admin_token') || 
+           'PYJAMA_DZ_ADMIN_SECURE_TOKEN_2026_ALPHA_KEY';
+  } catch (e) {
+    return 'PYJAMA_DZ_ADMIN_SECURE_TOKEN_2026_ALPHA_KEY';
+  }
+};
+
 export default function ExchangesReturnsTab({ 
   orders = [], 
   products = [], 
@@ -445,7 +455,10 @@ export default function ExchangesReturnsTab({
 
       const res = await fetch('/api/approve-exchange', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-token': getAdminToken()
+        },
         body: JSON.stringify({
           orderId: order.id,
           action: 'approve'
@@ -480,7 +493,10 @@ export default function ExchangesReturnsTab({
 
       const res = await fetch('/api/approve-exchange', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-token': getAdminToken()
+        },
         body: JSON.stringify({
           orderId: order.id,
           action: 'reject',

@@ -43,6 +43,8 @@ async function getSequentialOrderNum(orderId) {
   return "346";
 }
 
+import { enforceRateLimit } from './utils/rate-limiter.js';
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -58,6 +60,11 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Anti-Spam / Rate Limit Protection: Max 10 requests per minute per IP
+  if (!enforceRateLimit(req, res, { maxRequests: 10, windowMs: 60 * 1000, endpointKey: 'send-order-whatsapp' })) {
+    return;
   }
 
   try {

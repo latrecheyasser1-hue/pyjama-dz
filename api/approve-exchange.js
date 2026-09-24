@@ -1,3 +1,5 @@
+import { isAuthorizedAdmin, ADMIN_SECRET_KEY } from './utils/auth-check.js';
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
@@ -7,7 +9,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, x-admin-token'
   );
 
   if (req.method === 'OPTIONS') {
@@ -16,6 +18,11 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Security gate: Verify Admin session
+  if (!isAuthorizedAdmin(req)) {
+    return res.status(401).json({ error: 'غير مصرح: يجب تسجيل الدخول كمسؤول للموافقة على التبديل أو الاسترجاع' });
   }
 
   try {
@@ -62,7 +69,10 @@ export default async function handler(req, res) {
 
           const parcelRes = await fetch(createParcelUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-admin-token': ADMIN_SECRET_KEY
+            },
             body: JSON.stringify({ order, company: deliveryCompany })
           });
           const parcelData = await parcelRes.json();
@@ -78,7 +88,10 @@ export default async function handler(req, res) {
           try {
             const fallbackRes = await fetch('https://pyjama-dz.vercel.app/api/create-parcel', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'x-admin-token': ADMIN_SECRET_KEY
+              },
               body: JSON.stringify({ order, company: deliveryCompany })
             });
             const fallbackData = await fallbackRes.json();

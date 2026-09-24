@@ -80,12 +80,19 @@ function classifyReclamationText(text) {
   return 'complaint';
 }
 
+import { enforceRateLimit } from './utils/rate-limiter.js';
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Anti-Spam / Rate Limit Protection: Max 5 reclamation requests per minute per IP
+  if (!enforceRateLimit(req, res, { maxRequests: 5, windowMs: 60 * 1000, endpointKey: 'send-reclamation-whatsapp' })) {
+    return;
+  }
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || req.query || {});
