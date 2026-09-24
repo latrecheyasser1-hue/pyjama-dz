@@ -22,18 +22,18 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
   // Active orders: orders where archived is false, OR (archived is undefined and status is 'nouvelle')
   const activeOrders = orders.filter(o => o.archived === false || (o.archived === undefined && o.status === 'nouvelle'));
 
-  const isExchangeOrder = (order) => {
+  const isExchangeOrReturn = (order) => {
     if (!order) return false;
     return Boolean(
       order.isExchange === true ||
-      (order.clientName && order.clientName.includes('استبدال')) ||
-      (order.product && order.product.includes('استبدال')) ||
+      order.isRetour === true ||
+      (order.clientName && (order.clientName.includes('استبدال') || order.clientName.includes('استرجاع') || order.clientName.includes('Retour') || order.clientName.includes('Échange'))) ||
+      (order.product && (order.product.includes('استبدال') || order.product.includes('استرجاع') || order.product.includes('Retour') || order.product.includes('Échange'))) ||
       order.exchangeDetails ||
-      (Array.isArray(order.items) && order.items.some(it => it.isExchangeItem || it.isExchangeMeta))
+      order.returnDetails ||
+      (Array.isArray(order.items) && order.items.some(it => it.isExchangeItem || it.isExchangeMeta || it.isReturnItem || it.isReturnMeta || it.type === 'retour' || it.type === 'exchange'))
     );
   };
-
-  const exchangeOrders = activeOrders.filter(o => isExchangeOrder(o));
 
   const grosOrders = activeOrders.filter(o => {
     return (o.product && o.product.includes('(جملة -')) || 
@@ -44,14 +44,14 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
   const hanoutOrders = activeOrders.filter(o => o.isPos === true || o.clientName === 'زبون المحل (بيع حضوري)' || o.commune === 'المتجر الحضوري');
 
   const livraisonOrders = activeOrders.filter(o => 
-    !grosOrders.some(go => go.id === o.id) && !hanoutOrders.some(ho => ho.id === o.id) && !isExchangeOrder(o)
+    !grosOrders.some(go => go.id === o.id) && !hanoutOrders.some(ho => ho.id === o.id) && !isExchangeOrReturn(o)
   );
 
   const displayOrders = orderFilter === 'gros' 
     ? grosOrders 
     : (orderFilter === 'hanout' 
       ? hanoutOrders 
-      : (orderFilter === 'exchange' ? exchangeOrders : livraisonOrders));
+      : livraisonOrders);
 
   const handleConfirmAction = (order) => {
     if (order.status === 'confirmee') {
@@ -224,36 +224,6 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
             {grosOrders.length}
           </span>
         </button>
-
-        <button
-          onClick={() => setOrderFilter('exchange')}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '10px',
-            border: 'none',
-            fontWeight: 800,
-            fontSize: '0.92rem',
-            cursor: 'pointer',
-            background: orderFilter === 'exchange' ? '#BE123C' : '#F1F5F9',
-            color: orderFilter === 'exchange' ? 'white' : '#64748B',
-            transition: 'all 0.2s',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <span>طلبات الاستبدال (Échange)</span>
-          <span style={{
-            background: orderFilter === 'exchange' ? 'white' : '#BE123C',
-            color: orderFilter === 'exchange' ? '#BE123C' : 'white',
-            padding: '2px 8px',
-            borderRadius: '12px',
-            fontSize: '0.78rem',
-            fontWeight: 900
-          }}>
-            {exchangeOrders.length}
-          </span>
-        </button>
       </div>
 
       <div className="table-container">
@@ -299,7 +269,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                     </td>
                     <td style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
                       <div>{order.clientName}</div>
-                      {isExchangeOrder(order) && (
+                      {isExchangeOrReturn(order) && (
                         <span style={{ 
                           display: 'inline-flex', 
                           alignItems: 'center', 
