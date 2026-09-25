@@ -1,18 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/api/approve-exchange",
-      "destination": "/api/create-parcel"
-    },
-    {
-      "source": "/api/zr-webhook",
-      "destination": "/api/webhook"
-    },
-    {
-      "source": "/api/send-reclamation-whatsapp",
-      "destination": "/api/send-order-whatsapp"
-    },
-    {
       "source": "/((?!api/.*).*)",
       "destination": "/index.html"
     }

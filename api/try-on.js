@@ -80,8 +80,6 @@ function resolveStudioModel(color = '', bodyType = 'regular') {
   return '/models/satin_navy.jpg';
 }
 
-import { enforceRateLimit } from './utils/rate-limiter.js';
-
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -98,11 +96,6 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // Rate Limiting Protection: Max 6 try-on attempts per minute per IP to prevent compute exhaustion
-  if (!enforceRateLimit(req, res, { maxRequests: 6, windowMs: 60 * 1000, endpointKey: 'try-on' })) {
-    return;
   }
 
   try {

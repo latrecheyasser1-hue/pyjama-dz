@@ -2165,15 +2165,23 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
   // Calculate Top Selling / Trending Hot Sale product IDs automatically from Analytics & Order History
   const computedHotSaleIds = useMemo(() => {
-    // Filter available retail products (allowing out-of-stock products if needed for display)
-    const availableRetailProds = (products || []).filter(p => p && (!p.category || !p.category.includes('__')));
+    let explicitIds = [];
+    try {
+      if (typeof settings?.hot_sale_products === 'string') {
+        explicitIds = JSON.parse(settings.hot_sale_products);
+      } else if (Array.isArray(settings?.hot_sale_products)) {
+        explicitIds = settings.hot_sale_products;
+      }
+    } catch(e) {}
 
-    // If total retail products <= 10, return all of them!
-    if (availableRetailProds.length <= 10) {
-      return availableRetailProds.map(p => p.id);
+    explicitIds = (explicitIds || []).filter(Boolean);
+
+    // If explicit settings IDs exist and match valid products, use them
+    if (explicitIds.length > 0) {
+      return explicitIds;
     }
 
-    // Otherwise (if > 10 products), compute top 10 most sold automatically from Analytics (Order History)
+    // Otherwise, compute automatically from Analytics (Order History)
     const salesCount = {};
     if (Array.isArray(orders) && orders.length > 0) {
       orders.forEach(order => {
@@ -2188,8 +2196,11 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       });
     }
 
+    // Filter available retail products with stock > 0
+    const availableRetailProds = (products || []).filter(p => p && (!p.category || !p.category.includes('__')) && getProductTotalStock(p) > 0);
+
     // Sort products by sales volume (Analytics) -> discount
-    const sortedProds = [...availableRetailProds].sort((a, b) => {
+    availableRetailProds.sort((a, b) => {
       const countA = salesCount[a.id] || 0;
       const countB = salesCount[b.id] || 0;
       if (countB !== countA) return countB - countA;
@@ -2199,12 +2210,13 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       return discountB - discountA;
     });
 
-    return sortedProds.slice(0, 10).map(p => p.id);
-  }, [orders, products]);
+    // Return top 8 products so HOT SALE category is NEVER empty!
+    return availableRetailProds.slice(0, 8).map(p => p.id);
+  }, [settings?.hot_sale_products, orders, products]);
 
   const getProductsForCategory = useCallback((cat) => {
-    const availableRetail = (products || []).filter(p => p && (!p.category || !p.category.includes('__')));
-    if (!cat) return availableRetail.filter(p => getProductTotalStock(p) > 0);
+    const availableRetail = (products || []).filter(p => p && (!p.category || !p.category.includes('__')) && getProductTotalStock(p) > 0);
+    if (!cat) return availableRetail;
 
     const cId = (cat.id || '').toLowerCase().trim();
     const cTitle = (cat.title || cat.name || '').toLowerCase().trim();
@@ -2213,11 +2225,10 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       return availableRetail.filter(p => computedHotSaleIds.includes(p.id) || p.isHotSale || p.badge === 'HOT SALE');
     }
     if (cId === 'solde' || cId === 'promo' || cTitle.includes('solde')) {
-      return availableRetail.filter(p => getProductTotalStock(p) > 0 && p.oldPrice && Number(p.oldPrice) > Number(p.price || 0));
+      return availableRetail.filter(p => p.oldPrice && Number(p.oldPrice) > Number(p.price || 0));
     }
 
     return availableRetail.filter(p => {
-      if (getProductTotalStock(p) <= 0) return false;
       const pCat = (p.category || '').toLowerCase().trim();
       const pCatId = (p.categoryId || '').toLowerCase().trim();
       return pCat === cId || pCat === cTitle || pCatId === cId || pCatId === cTitle;
@@ -2234,11 +2245,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         return false;
       }
 
-      const isHotSaleSelected = (selectedCategory === 'hot_sale' || selectedCategory === 'hot');
-      const isProductHotSale = computedHotSaleIds.includes(p.id) || p.isHotSale || p.badge === 'HOT SALE';
-
-      // Hide out-of-stock products from general retail Storefront UNLESS it is in HOT SALE
-      if (getProductTotalStock(p) <= 0 && (!isHotSaleSelected || !isProductHotSale)) {
+      // Hide out-of-stock products from the retail Storefront
+      if (getProductTotalStock(p) <= 0) {
         return false;
       }
 
@@ -2254,8 +2262,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       if (selectedCategory === 'all') return true;
       if (selectedCategory === 'promo' || selectedCategory === 'solde') return p.oldPrice && Number(p.oldPrice) > Number(p.price || 0);
       
-      if (isHotSaleSelected) {
-        return isProductHotSale;
+      if (selectedCategory === 'hot_sale' || selectedCategory === 'hot') {
+        return computedHotSaleIds.includes(p.id) || p.isHotSale || p.badge === 'HOT SALE';
       }
       
       const pCat = (p.category || '').toLowerCase().trim();

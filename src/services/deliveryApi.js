@@ -2,16 +2,6 @@
  * Service to handle integrations with delivery companies (Yalidine / Guepex, ZR Express)
  */
 
-const getAdminToken = () => {
-  try {
-    return sessionStorage.getItem('pyjama_admin_token') || 
-           localStorage.getItem('pyjama_admin_token') || 
-           'PYJAMA_DZ_ADMIN_SECURE_TOKEN_2026_ALPHA_KEY';
-  } catch (e) {
-    return 'PYJAMA_DZ_ADMIN_SECURE_TOKEN_2026_ALPHA_KEY';
-  }
-};
-
 /**
  * Creates a parcel in Yalidine / Guepex
  * @param {Object} order - The order details
@@ -24,10 +14,7 @@ export const createYalidineParcel = async (order) => {
   try {
     const res = await fetch('/api/create-parcel', {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-admin-token': getAdminToken()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order, company: 'yalidine' })
     });
     const data = await res.json();
@@ -57,10 +44,7 @@ export const createZRExpressParcel = async (order) => {
   try {
     const res = await fetch('/api/create-parcel', {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-admin-token': getAdminToken()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order, company: 'zrexpress' })
     });
     const data = await res.json();

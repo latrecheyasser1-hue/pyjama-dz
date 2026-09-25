@@ -179,12 +179,10 @@ const WILAYA_IDS = {
   'Djanet': 56, 'El M\'Ghair': 57, 'El Meniaa': 58
 };
 
-import { isAuthorizedAdmin } from './utils/auth-check.js';
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-admin-token');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -192,173 +190,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
-  // Security gate: Verify Admin session
-  if (!isAuthorizedAdmin(req)) {
-    return res.status(401).json({
-      success: false,
-      error: 'غير مصرح: يجب تسجيل الدخول كمسؤول لإنشاء بوليصة الشحن'
-    });
-  }
-
   try {
-    // ==============================================================
-    // ACTION: APPROVE / REJECT EXCHANGE & RETURN (Merged to stay under 12 serverless functions limit)
-    // ==============================================================
-    if (req.body?.action === 'approve' || req.body?.action === 'reject') {
-      const { orderId, action, reason } = req.body;
-      if (!orderId) {
-        return res.status(400).json({ error: 'Missing orderId' });
-      }
-
-      // Fetch order details from Supabase
-      const orderRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}&select=*`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      const orderRows = await orderRes.json();
-      if (!Array.isArray(orderRows) || orderRows.length === 0) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
-      const targetOrder = orderRows[0];
-      const isReturn = Boolean(
-        targetOrder.isRetour === true || 
-        targetOrder.orderType === 'retour' || 
-        targetOrder.orderType === 'return' ||
-        String(targetOrder.clientName || '').includes('استرجاع') || 
-        String(targetOrder.product || '').includes('استرجاع') || 
-        targetOrder.status === 'retour'
-      );
-
-      if (action === 'approve') {
-        let trackingNumber = targetOrder.trackingNumber || null;
-        let shippingLabelUrl = targetOrder.shippingLabelUrl || null;
-        let deliveryCompany = targetOrder.deliveryCompany || 'zrexpress';
-
-        // Update Supabase order
-        const updatePayload = {
-          status: 'confirmee',
-          exchangeStatus: 'approved',
-          trackingNumber: trackingNumber,
-          shippingLabelUrl: shippingLabelUrl,
-          deliveryCompany: deliveryCompany,
-          exchange_approved_at: new Date().toISOString()
-        };
-
-        await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${targetOrder.id}`, {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify(updatePayload)
-        });
-
-        // Collect replacement items barcode text for WhatsApp
-        let barcodesList = [];
-        let itemsList = targetOrder.items;
-        if (typeof itemsList === 'string') {
-          try { itemsList = JSON.parse(itemsList); } catch(e) { itemsList = []; }
-        }
-        if (Array.isArray(itemsList)) {
-          itemsList.forEach(it => {
-            if (!it.isExchangeMeta && it.title) {
-              const code = it.barcode ? ` - الكود بار: *${it.barcode}*` : '';
-              barcodesList.push(`• ${it.title} (${it.color || ''} - ${it.size || ''})${code}`);
-            }
-          });
-        }
-
-        let refundDue = targetOrder.refundDue || 0;
-        let baridiMobRip = targetOrder.baridiMobRip || '';
-        if (!refundDue || !baridiMobRip) {
-          let parsedItems = targetOrder.items;
-          if (typeof parsedItems === 'string') {
-            try { parsedItems = JSON.parse(parsedItems); } catch(e) {}
-          }
-          if (Array.isArray(parsedItems)) {
-            const meta = parsedItems.find(it => it.isReturnMeta || it.isExchangeMeta || it.baridiMobRip);
-            if (meta) {
-              refundDue = refundDue || meta.refundDue || meta.oldProductPrice || 0;
-              baridiMobRip = baridiMobRip || meta.baridiMobRip || '';
-            }
-          }
-        }
-
-        // Send WhatsApp approval notification
-        try {
-          await fetch('https://pyjama-dz.vercel.app/api/send-order-whatsapp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: targetOrder.phone,
-              clientName: String(targetOrder.clientName || '').replace(/\[.*?\]/g, '').trim(),
-              id: targetOrder.id,
-              action: isReturn ? 'return_approved' : 'exchange_approved',
-              product: String(targetOrder.product || (isReturn ? 'بيجامة مسترجعة' : 'بيجامة بديلة')).replace(/🔄 استبدال:\s*/, '').replace(/↩️ استرجاع:\s*/, ''),
-              trackingNumber: trackingNumber,
-              deliveryCompany: deliveryCompany === 'yalidine' ? 'Yalidine Express 🚚' : 'ZR Express 🚚',
-              barcodesText: barcodesList.join('\n'),
-              refundDue: refundDue,
-              baridiMobRip: baridiMobRip
-            })
-          });
-        } catch (we) {
-          console.warn('Error sending exchange/return WhatsApp approval:', we);
-        }
-
-        return res.status(200).json({
-          success: true,
-          action: 'approved',
-          trackingNumber,
-          deliveryCompany
-        });
-      }
-
-      if (action === 'reject') {
-        const rejectionReason = reason || (isReturn ? 'تعذر استرجاع هذا المنتج وفق سياسة المتجر' : 'تعذر استبدال هذا المنتج وفق سياسة المتجر');
-        const updatePayload = {
-          status: 'annulee',
-          exchangeStatus: 'rejected',
-          exchange_rejection_reason: rejectionReason,
-          exchange_rejected_at: new Date().toISOString()
-        };
-
-        await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${targetOrder.id}`, {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify(updatePayload)
-        });
-
-        try {
-          await fetch('https://pyjama-dz.vercel.app/api/send-order-whatsapp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: targetOrder.phone,
-              clientName: String(targetOrder.clientName || '').replace(/\[.*?\]/g, '').trim(),
-              id: targetOrder.id,
-              action: isReturn ? 'return_rejected' : 'exchange_rejected',
-              reason: rejectionReason
-            })
-          });
-        } catch (we) {
-          console.warn('Error sending exchange/return WhatsApp rejection:', we);
-        }
-
-        return res.status(200).json({
-          success: true,
-          action: 'rejected',
-          reason: rejectionReason
-        });
-      }
-    }
-
     const { order, company } = req.body || {};
 
     if (!order) {
