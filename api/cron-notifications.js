@@ -133,6 +133,28 @@ export default async function handler(req, res) {
     let hotSaleResult = null;
 
     if (action === 'weekly_hot_sale' || action === 'all') {
+      // Date-based Strict Once-Per-Friday Guard (Prevents sending multiple times in the same day)
+      const algeriaDateStr = new Date(Date.now() + 3600000).toISOString().slice(0, 10);
+      const isForce = req.query.force === 'true' || req.body?.force === true;
+
+      if (!isForce) {
+        try {
+          const lockRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.last_weekly_hot_sale_date&select=value`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          const lockData = await lockRes.json();
+          if (Array.isArray(lockData) && lockData[0]?.value === algeriaDateStr) {
+            return res.status(200).json({
+              status: 'skipped',
+              message: `Weekly Hot Sale campaign already sent today (${algeriaDateStr}). Strictly limited to once per Friday.`,
+              date: algeriaDateStr
+            });
+          }
+        } catch (e) {
+          console.warn('Error reading hot sale lock date:', e);
+        }
+      }
+
       // 1. Fetch only retail delivery products (exclude Gros/Wholesale and Boutique/POS)
       const prodRes = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -260,7 +282,23 @@ export default async function handler(req, res) {
         }));
       }
 
-      hotSaleResult = { status: 'success', sentCount, totalClients: uniqueClients.size, mediaCount: top10Products.length };
+      // Save lock date to Supabase settings so it CANNOT be sent again today
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ key: 'last_weekly_hot_sale_date', value: algeriaDateStr })
+        });
+      } catch (e) {
+        console.error('Error recording hot sale lock date:', e);
+      }
+
+      hotSaleResult = { status: 'success', sentCount, totalClients: uniqueClients.size, mediaCount: top10Products.length, date: algeriaDateStr };
     }
 
     let followupResult = null;
