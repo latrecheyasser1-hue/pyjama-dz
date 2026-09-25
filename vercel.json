@@ -5,6 +5,10 @@
       "destination": "/api/create-parcel"
     },
     {
+      "source": "/api/zr-webhook",
+      "destination": "/api/webhook"
+    },
+    {
       "source": "/((?!api/.*).*)",
       "destination": "/index.html"
     }
