@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/approve-exchange",
+      "destination": "/api/create-parcel"
+    },
+    {
       "source": "/((?!api/.*).*)",
       "destination": "/index.html"
     }
