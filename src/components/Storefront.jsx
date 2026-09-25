@@ -2165,23 +2165,15 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
   // Calculate Top Selling / Trending Hot Sale product IDs automatically from Analytics & Order History
   const computedHotSaleIds = useMemo(() => {
-    let explicitIds = [];
-    try {
-      if (typeof settings?.hot_sale_products === 'string') {
-        explicitIds = JSON.parse(settings.hot_sale_products);
-      } else if (Array.isArray(settings?.hot_sale_products)) {
-        explicitIds = settings.hot_sale_products;
-      }
-    } catch(e) {}
+    // Filter available retail products (allowing out-of-stock products if needed for display)
+    const availableRetailProds = (products || []).filter(p => p && (!p.category || !p.category.includes('__')));
 
-    explicitIds = (explicitIds || []).filter(Boolean);
-
-    // If explicit settings IDs exist and match valid products, use them
-    if (explicitIds.length > 0) {
-      return explicitIds;
+    // If total retail products <= 10, return all of them!
+    if (availableRetailProds.length <= 10) {
+      return availableRetailProds.map(p => p.id);
     }
 
-    // Otherwise, compute automatically from Analytics (Order History)
+    // Otherwise (if > 10 products), compute top 10 most sold automatically from Analytics (Order History)
     const salesCount = {};
     if (Array.isArray(orders) && orders.length > 0) {
       orders.forEach(order => {
@@ -2196,11 +2188,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       });
     }
 
-    // Filter available retail products (allowing out-of-stock products if needed for display)
-    const availableRetailProds = (products || []).filter(p => p && (!p.category || !p.category.includes('__')));
-
     // Sort products by sales volume (Analytics) -> discount
-    availableRetailProds.sort((a, b) => {
+    const sortedProds = [...availableRetailProds].sort((a, b) => {
       const countA = salesCount[a.id] || 0;
       const countB = salesCount[b.id] || 0;
       if (countB !== countA) return countB - countA;
@@ -2210,9 +2199,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       return discountB - discountA;
     });
 
-    // If total products <= 10, return all of them. If > 10, return top 10 most sold!
-    return availableRetailProds.slice(0, 10).map(p => p.id);
-  }, [settings?.hot_sale_products, orders, products]);
+    return sortedProds.slice(0, 10).map(p => p.id);
+  }, [orders, products]);
 
   const getProductsForCategory = useCallback((cat) => {
     const availableRetail = (products || []).filter(p => p && (!p.category || !p.category.includes('__')));
