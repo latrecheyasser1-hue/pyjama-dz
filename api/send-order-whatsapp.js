@@ -68,6 +68,93 @@ export default async function handler(req, res) {
   }
 
   try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || req.query || {});
+
+    // ==============================================================
+    // RECLAMATION WHATSAPP (Merged to stay under Vercel Serverless Functions limit)
+    // ==============================================================
+    if (body.message && (body.whatsappNumber || body.clientName || body.action === 'reclamation')) {
+      const { clientName, whatsappNumber, message } = body;
+      const cleanPhone = String(whatsappNumber || body.phone || '').replace(/\D/g, '');
+      if (!cleanPhone || cleanPhone.length < 8) {
+        return res.status(400).json({ error: 'Invalid phone number' });
+      }
+      const waPhone = cleanPhone.startsWith('213') ? cleanPhone : (cleanPhone.startsWith('0') ? '213' + cleanPhone.substring(1) : '213' + cleanPhone);
+
+      const token = await getMetaAccessToken();
+      const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
+      const greetingName = (clientName && clientName.trim() !== '' && clientName !== 'زبون المحادثة' && clientName !== 'زبون الواتساب')
+        ? ` ${clientName.trim()}`
+        : '';
+
+      // Save to Supabase settings table (reclamations array)
+      try {
+        const curSettingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations&select=*`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        const rows = await curSettingsRes.json();
+        let existingRecl = [];
+        if (Array.isArray(rows) && rows[0]?.value) {
+          try { existingRecl = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value; } catch(e) {}
+        }
+        if (!Array.isArray(existingRecl)) existingRecl = [];
+
+        const newReclObj = {
+          id: 'REC-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+          clientName: clientName || 'زبون الموقع',
+          whatsappNumber: whatsappNumber || waPhone,
+          message: message ? message.trim() : '',
+          status: 'nouvelle',
+          whatsapp_sent: true,
+          createdAt: new Date().toISOString()
+        };
+
+        const isDuplicate = existingRecl.some(r => r.message === newReclObj.message && r.whatsappNumber === newReclObj.whatsappNumber && (Date.now() - new Date(r.createdAt).getTime()) < 10000);
+        
+        if (!isDuplicate) {
+          const valStr = JSON.stringify([newReclObj, ...existingRecl]);
+          await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.reclamations`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ value: valStr })
+          });
+        }
+      } catch (e) {
+        console.error('Error saving reclamation in send-order-whatsapp API:', e);
+      }
+
+      // Send INSTANT (فَمْ فَمْ) WhatsApp response to client
+      let metaRes = null;
+      try {
+        const replyMsg = `*متجر Pyjama DZ*\n\nأهلاً وسهلاً بك${greetingName}! 🌸\nنشكرك جزيلاً على تواصلك معنا وعلى مشاركتنا ملاحظاتك وتقييمك القيّم. 🙏\nتأكد أن رأيك ورضاك هما أولويتنا دائماً، وسنعمل باستمرار على تقديم الأفضل والأحسن لخدمتك على أكمل وجه بإذن الله. ✨❤️`;
+
+        const url = `https://graph.facebook.com/v25.0/${META_PHONE_NUMBER_ID}/messages`;
+        const apiRes = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: waPhone,
+            type: 'text',
+            text: { preview_url: false, body: replyMsg }
+          })
+        });
+        metaRes = await apiRes.json();
+      } catch (e) {
+        console.error('Error sending instant reclamation WhatsApp reply:', e);
+      }
+
+      return res.status(200).json({ success: true, instant: true, metaResponse: metaRes });
+    }
+
     const { phone, nom, clientName, id, wilaya, product, isWaitlist } = req.body || {};
     if (!phone) {
       return res.status(400).json({ error: 'Phone number is required' });

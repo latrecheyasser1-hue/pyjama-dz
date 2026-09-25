@@ -9,6 +9,10 @@
       "destination": "/api/webhook"
     },
     {
+      "source": "/api/send-reclamation-whatsapp",
+      "destination": "/api/send-order-whatsapp"
+    },
+    {
       "source": "/((?!api/.*).*)",
       "destination": "/index.html"
     }
