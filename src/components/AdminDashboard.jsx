@@ -326,6 +326,8 @@ export default function AdminDashboard({
             expenses={expenses}
             onAddExpense={onAddExpense}
             onDeleteExpense={onDeleteExpense}
+            settings={settings}
+            onUpdateSettings={onUpdateSettings}
           />
         )}
 

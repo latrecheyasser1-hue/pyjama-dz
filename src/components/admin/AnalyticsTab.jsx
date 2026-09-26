@@ -1,16 +1,112 @@
 import React, { useState, useMemo } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Calendar, Wallet, AlertTriangle } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Calendar, Wallet, AlertTriangle, Users, UserCheck, UserX } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getTopSellingProducts, getTopWilayas, getDeliveryStats, getDeadStock } from '../../utils/analytics';
 import { showToast } from '../../utils/toast';
 
-export default function AnalyticsTab({ orders, products, expenses, onAddExpense, onDeleteExpense }) {
+export default function AnalyticsTab({ orders, products, expenses, onAddExpense, onDeleteExpense, settings, onUpdateSettings }) {
   const [desc, setDesc] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [period, setPeriod] = useState('all');
   const [saleType, setSaleType] = useState('all');
   const [expenseSearchDate, setExpenseSearchDate] = useState('');
+
+  // Employees & Salaries State
+  const [empName, setEmpName] = useState('');
+  const [empRole, setEmpRole] = useState('');
+  const [empSalary, setEmpSalary] = useState('');
+
+  const employees = useMemo(() => {
+    let list = settings?.employees;
+    if (typeof list === 'string') {
+      try { list = JSON.parse(list); } catch (e) { list = []; }
+    }
+    return Array.isArray(list) ? list : [];
+  }, [settings?.employees]);
+
+  const activeEmployees = useMemo(() => employees.filter(e => e && e.active !== false), [employees]);
+  const totalMonthlySalary = useMemo(() => activeEmployees.reduce((sum, e) => sum + Number(e.salary || 0), 0), [activeEmployees]);
+
+  // Calculate salary deduction proportional to the selected period
+  const periodSalaryCost = useMemo(() => {
+    if (totalMonthlySalary <= 0) return 0;
+    if (period === 'today' || period === 'yesterday') {
+      return Math.round(totalMonthlySalary / 30);
+    }
+    if (period === 'last_week') {
+      return Math.round((totalMonthlySalary / 30) * 7);
+    }
+    if (period === 'last_month') {
+      return totalMonthlySalary;
+    }
+    if (period === 'last_3_months') {
+      return totalMonthlySalary * 3;
+    }
+    if (period === 'last_6_months') {
+      return totalMonthlySalary * 6;
+    }
+    if (period === 'this_year') {
+      const currentMonth = new Date().getMonth() + 1;
+      return totalMonthlySalary * currentMonth;
+    }
+    // 'all'
+    if (orders && orders.length > 0) {
+      const dates = orders.map(o => new Date(o.created_at || o.date).getTime()).filter(t => !isNaN(t));
+      if (dates.length > 0) {
+        const earliest = Math.min(...dates);
+        const diffMonths = Math.max(1, Math.round((Date.now() - earliest) / (30 * 24 * 60 * 60 * 1000)));
+        return totalMonthlySalary * diffMonths;
+      }
+    }
+    return totalMonthlySalary;
+  }, [totalMonthlySalary, period, orders]);
+
+  const handleAddEmployee = (e) => {
+    e.preventDefault();
+    if (!empName.trim() || !empSalary) {
+      showToast("⚠️ الرجاء إدخال اسم العامل والراتب الشهري", 'warning');
+      return;
+    }
+    const newEmp = {
+      id: 'emp_' + Date.now(),
+      name: empName.trim(),
+      role: empRole.trim() || 'عامل في المتجر',
+      salary: Number(empSalary),
+      active: true,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    const nextList = [...employees, newEmp];
+    if (onUpdateSettings) {
+      onUpdateSettings({ employees: nextList });
+    }
+    setEmpName('');
+    setEmpRole('');
+    setEmpSalary('');
+    showToast("✅ تم إضافة العامل بنجاح وخصم راتبه من الحسابات", 'success');
+  };
+
+  const handleToggleEmployeeActive = (empId) => {
+    const nextList = employees.map(emp => {
+      if (emp.id === empId) {
+        return { ...emp, active: emp.active === false ? true : false };
+      }
+      return emp;
+    });
+    if (onUpdateSettings) {
+      onUpdateSettings({ employees: nextList });
+    }
+    showToast("تم تحديث حالة العامل", 'info');
+  };
+
+  const handleDeleteEmployee = (empId) => {
+    if (!window.confirm("هل أنت متأكد من حذف هذا العامل من السيستيم؟")) return;
+    const nextList = employees.filter(emp => emp.id !== empId);
+    if (onUpdateSettings) {
+      onUpdateSettings({ employees: nextList });
+    }
+    showToast("تم حذف العامل بنجاح", 'info');
+  };
 
   // Helper to filter by date
   const filterByPeriod = (items, dateField) => {
@@ -104,7 +200,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
 
   const totalSideExpenses = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
   
-  const netProfit = totalCA - totalCostGoods - totalSideExpenses;
+  const netProfit = totalCA - totalCostGoods - totalSideExpenses - periodSalaryCost;
 
   // Analytics
   const topProductsData = useMemo(() => getTopSellingProducts(filteredOrders), [filteredOrders]);
@@ -140,7 +236,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
             📊 التحليلات المالية والصندوق اليومي (Caisse & Analytics)
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Suivi complet du Chiffre d'Affaires, coût d'achat des pyjamas vendus, et soustraction automatique de vos dépenses.
+            متابعة شاملة للمداخيل، تكلفة شراء السلع، مصاريف المتجر، وخصم رواتب العمال لحساب صافي الأرباح بدقة.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -173,13 +269,13 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
         <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>المداخيل الإجمالية (CA Brut)</span>
             <div style={{ background: '#E3F7EB', padding: 8, borderRadius: 10, color: '#1F8A55' }}><DollarSign size={18} /></div>
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#1F8A55' }}>{totalCA.toLocaleString()} DA</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1F8A55' }}>{totalCA.toLocaleString()} DA</div>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sur {validOrders.length} commandes</span>
         </div>
 
@@ -188,8 +284,8 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>تكلفة شراء السلع (Achats)</span>
             <div style={{ background: '#FFF3E0', padding: 8, borderRadius: 10, color: '#E65100' }}><TrendingDown size={18} /></div>
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#E65100' }}>{totalCostGoods.toLocaleString()} DA</div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Coût grossiste des pyjamas vendus</span>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#E65100' }}>{totalCostGoods.toLocaleString()} DA</div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Coût grossiste des pyjamas</span>
         </div>
 
         <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
@@ -197,19 +293,30 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>المصاريف اليومية (Masarif)</span>
             <div style={{ background: '#FFEBEE', padding: 8, borderRadius: 10, color: '#C62828' }}><Wallet size={18} /></div>
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#C62828' }}>{totalSideExpenses.toLocaleString()} DA</div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Transport, repas, emballages...</span>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#C62828' }}>{totalSideExpenses.toLocaleString()} DA</div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Transport, emballages, repas...</span>
+        </div>
+
+        <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>رواتب العمال (Salaires)</span>
+            <div style={{ background: '#EEF2FF', padding: 8, borderRadius: 10, color: '#4F46E5' }}><Users size={18} /></div>
+          </div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#4F46E5' }}>{periodSalaryCost.toLocaleString()} DA</div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            {activeEmployees.length} عمال نشطين ({totalMonthlySalary.toLocaleString()} DA/شهر)
+          </span>
         </div>
 
         <div style={{ background: 'var(--burgundy-dark)', color: 'white', padding: '20px', borderRadius: '16px', boxShadow: '0 8px 24px rgba(74,14,23,0.25)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--champagne)', fontWeight: 700 }}>الربح الصافي الحقيقي (Safi / Net Profit)</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--champagne)', fontWeight: 700 }}>الربح الصافي الحقيقي (Safi / Net)</span>
             <div style={{ background: 'rgba(255,255,255,0.15)', padding: 8, borderRadius: 10, color: '#FFD700' }}><TrendingUp size={18} /></div>
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 900, color: netProfit >= 0 ? '#FFD700' : '#FF6B6B' }}>
+          <div style={{ fontSize: '1.55rem', fontWeight: 900, color: netProfit >= 0 ? '#FFD700' : '#FF6B6B' }}>
             {netProfit.toLocaleString()} DA
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>Après déduction de tous les coûts</span>
+          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>بعد خصم السلعة والمصاريف والرواتب</span>
         </div>
       </div>
 
@@ -435,6 +542,158 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
                       </td>
                     </tr>
                   ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Employee & Salaries Management Section */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', marginTop: '24px' }}>
+        {/* Add Employee Form */}
+        <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-light)', height: 'fit-content', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 16 }}>
+            <Users size={22} color="var(--burgundy)" />
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--burgundy)', margin: 0 }}>
+              👥 إضافة عامل جديد (Salaires & Employés)
+            </h3>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '16px', lineHeight: 1.5 }}>
+            الراتب الشهري يُخصم أوتوماتيكياً من صافي الأرباح (Net Profit) حسب الفترة المحددة في الفلتر أعلاه.
+          </p>
+          <form onSubmit={handleAddEmployee} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="form-group">
+              <label className="form-label">إسم العامل (Nom de l'employé) *</label>
+              <input 
+                type="text" 
+                required 
+                value={empName} 
+                onChange={(e) => setEmpName(e.target.value)} 
+                className="form-input" 
+                placeholder="مثال: يوسف، أحمد، سارة..." 
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">المنصب / المهمة (Poste / Rôle)</label>
+              <input 
+                type="text" 
+                value={empRole} 
+                onChange={(e) => setEmpRole(e.target.value)} 
+                className="form-input" 
+                placeholder="Ex: مسؤول التغليف، خدمة الزبائن، التوصيل..." 
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">الراتب الشهري (Salaire Mensuel en DA) *</label>
+              <input 
+                type="number" 
+                required 
+                min="0"
+                step="500"
+                value={empSalary} 
+                onChange={(e) => setEmpSalary(e.target.value)} 
+                className="form-input" 
+                placeholder="Ex: 35000" 
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
+              <Plus size={18} />
+              <span>إضافة العامل وحفظ الراتب</span>
+            </button>
+          </form>
+        </div>
+
+        {/* Employees Table List */}
+        <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--burgundy)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>قائمة العمال والرواتب</span>
+              <span style={{ fontSize: '0.8rem', background: '#E3F2FD', color: '#1565C0', padding: '3px 10px', borderRadius: '20px', fontWeight: 700 }}>
+                {activeEmployees.length} نشط
+              </span>
+            </h3>
+            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#2E7D32', background: '#E8F5E9', padding: '6px 14px', borderRadius: '10px' }}>
+              إجمالي الرواتب: {totalMonthlySalary.toLocaleString()} DA / شهر
+            </div>
+          </div>
+
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>اسم العامل</th>
+                  <th>المنصب</th>
+                  <th>الراتب الشهري</th>
+                  <th>الحالة</th>
+                  <th>حذف</th>
+                </tr>
+              </thead>
+              <tbody>
+                {employees.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-light)' }}>
+                      لم تقم بإضافة أي عامل بعد. أضف عمالك لحساب صافي الأرباح بدقة واحترافية.
+                    </td>
+                  </tr>
+                ) : (
+                  employees.map(emp => {
+                    const isActive = emp.active !== false;
+                    return (
+                      <tr key={emp.id} style={{ opacity: isActive ? 1 : 0.6, background: isActive ? 'inherit' : '#fafafa' }}>
+                        <td>
+                          <div style={{ fontWeight: 800, color: 'var(--text-dark)' }}>{emp.name}</div>
+                          {emp.createdAt && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                              منذ: {emp.createdAt}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--text-dark)', fontWeight: 600 }}>
+                            {emp.role || 'عامل'}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 800, color: '#C62828' }}>
+                          - {Number(emp.salary || 0).toLocaleString()} DA
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleEmployeeActive(emp.id)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '4px 10px',
+                              borderRadius: '20px',
+                              border: 'none',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              background: isActive ? '#E8F5E9' : '#FFEBEE',
+                              color: isActive ? '#2E7D32' : '#C62828',
+                              transition: 'all 0.2s ease'
+                            }}
+                            title={isActive ? "انقر للتعطيل مؤقتاً" : "انقر للتفعيل"}
+                          >
+                            {isActive ? <UserCheck size={14} /> : <UserX size={14} />}
+                            <span>{isActive ? 'نشط (محتسب)' : 'متوقف'}</span>
+                          </button>
+                        </td>
+                        <td>
+                          <button 
+                            type="button"
+                            onClick={() => handleDeleteEmployee(emp.id)}
+                            style={{ background: 'none', border: 'none', color: '#D32F2F', cursor: 'pointer', padding: '4px' }}
+                            title="حذف العامل"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
