@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Phone, Printer, CheckCircle2, Store, Search, Plus, Trash2, X, ShoppingBag } from 'lucide-react';
+import { Phone, Printer, CheckCircle2, Store, Search, Plus, Trash2, X, ShoppingBag, RefreshCw } from 'lucide-react';
 import { getClientReputation } from '../../utils/reputation';
 
-export default function OrdersTab({ orders, products = [], settings, onPlaceOrder, onUpdateProduct, onUpdateStatus, onOpenPos }) {
+export default function OrdersTab({ orders, products = [], settings, onPlaceOrder, onUpdateProduct, onUpdateStatus, onOpenPos, onRefreshOrders }) {
   const [printingOrder, setPrintingOrder] = useState(null);
   const [orderFilter, setOrderFilter] = useState('livraison');
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   React.useEffect(() => {
     if (selectedOrderDetails) {
@@ -58,6 +59,18 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
       onUpdateStatus(order.id, 'confirmee', true);
     } else if (order.status === 'annulee') {
       onUpdateStatus(order.id, 'annulee', true);
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (onRefreshOrders) {
+      setIsRefreshing(true);
+      try {
+        await onRefreshOrders();
+      } catch (err) {
+        console.error('Refresh error:', err);
+      }
+      setTimeout(() => setIsRefreshing(false), 600);
     }
   };
 
@@ -157,6 +170,31 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {onRefreshOrders && (
+            <button 
+              type="button"
+              onClick={handleRefresh}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#FFFFFF',
+                border: '1.5px solid #CBD5E1',
+                borderRadius: '20px',
+                padding: '8px 16px',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                color: 'var(--burgundy-dark)',
+                cursor: 'pointer',
+                boxShadow: 'var(--shadow-sm)',
+                transition: 'all 0.2s ease'
+              }}
+              title="تحديث الطلبيات مباشرة من السيرفر"
+            >
+              <RefreshCw size={15} style={{ animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none' }} />
+              <span>{isRefreshing ? 'جاري التحديث...' : 'تحديث الطلبيات'}</span>
+            </button>
+          )}
           <div style={{ background: '#E8F5E9', color: '#2E7D32', padding: '8px 16px', borderRadius: '20px', fontWeight: 800, fontSize: '0.85rem' }}>
             ● قيد الانتظار ({displayOrders.length} طلبية)
           </div>

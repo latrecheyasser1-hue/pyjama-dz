@@ -37,6 +37,7 @@ export default function AdminDashboard({
   onAddExpense,
   onDeleteExpense,
   onUpdateSettings,
+  onRefreshOrders,
   onSwitchToClient
 }) {
   const { isInstallable, promptInstall } = usePWAInstall();
@@ -247,6 +248,7 @@ export default function AdminDashboard({
             onUpdateProduct={onUpdateProduct}
             onUpdateStatus={onUpdateStatus}
             onDeleteOrder={onDeleteOrder}
+            onRefreshOrders={onRefreshOrders}
             onOpenPos={() => setShowPosModal(true)}
           />
         )}

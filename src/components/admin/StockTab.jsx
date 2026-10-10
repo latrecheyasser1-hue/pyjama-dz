@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Edit2, Upload, Check, X, Layers, PlusCircle, MinusCircle, Printer, Image as ImageIcon, Barcode as BarcodeIcon, Pipette } from 'lucide-react';
+import { Plus, Trash2, Edit2, Upload, Check, X, Layers, PlusCircle, MinusCircle, Printer, Image as ImageIcon, Barcode as BarcodeIcon, Pipette, Tag } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { showToast } from '../../utils/toast';
 

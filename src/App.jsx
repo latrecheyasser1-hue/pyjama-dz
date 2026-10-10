@@ -271,6 +271,37 @@ export default function App() {
       fetchData('orders', setOrders);
       fetchData('suppliers', setSuppliers);
       fetchData('expenses', setExpenses);
+
+      // Realtime listener for active admin sessions
+      const ordersLiveChannel = supabase.channel(`orders_live_${Date.now()}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            setOrders(prev => prev.map(o => o.id === payload.new.id ? { ...o, ...payload.new } : o));
+          } else if (payload.eventType === 'INSERT' && payload.new) {
+            setOrders(prev => {
+              if (prev.some(o => o.id === payload.new.id)) return prev;
+              return [payload.new, ...prev];
+            });
+            const isRec = payload.new.deliveryMode === 'reclamation' || 
+                          payload.new.deliveryCompany === 'RECLAMATION' || 
+                          payload.new.orderType === 'reclamation';
+            if (!isRec) {
+              playNotificationSound();
+            }
+          } else {
+            fetchData('orders', setOrders);
+          }
+        }).subscribe();
+
+      // Robust 20-second background polling to ensure orders arrive even if WebSocket disconnects
+      const syncInterval = setInterval(() => {
+        fetchData('orders', setOrders);
+      }, 20000);
+
+      return () => {
+        supabase.removeChannel(ordersLiveChannel);
+        clearInterval(syncInterval);
+      };
     }
   }, [currentPath]);
 
@@ -1243,6 +1274,7 @@ export default function App() {
             onDeleteExpense={handleDeleteExpense}
             settings={settings}
             onUpdateSettings={handleUpdateSettings}
+            onRefreshOrders={() => fetchData('orders', setOrders)}
             onSwitchToClient={() => navigateTo('/')}
           />
         ) : isAliRoute ? (

@@ -65,13 +65,35 @@ export default function SuppliersTab({ suppliers, onAddSupplier, onUpdateSupplie
 
       {/* Form Modal */}
       {isFormOpen && (
-        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+        <div 
+          className="modal-overlay" 
+          style={{ zIndex: 9999 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setIsFormOpen(false); }}
+        >
           <div className="modal-content" style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--burgundy-dark)' }}>
                 {editingId ? "✏️ تعديل بيانات المورد" : "✨ إضافة مورد / ورشة جديدة"}
               </h3>
-              <button onClick={() => setIsFormOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
+              <button 
+                type="button"
+                onClick={() => setIsFormOpen(false)} 
+                style={{ 
+                  background: '#F1F5F9', 
+                  border: 'none', 
+                  width: '32px', 
+                  height: '32px', 
+                  borderRadius: '50%', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer',
+                  color: '#64748B',
+                  fontWeight: 900
+                }}
+              >
+                ✕
+              </button>
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -94,9 +116,19 @@ export default function SuppliersTab({ suppliers, onAddSupplier, onUpdateSupplie
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ padding: '12px', justifyContent: 'center' }}>
-                <span>💾 حفظ بيانات المورد</span>
-              </button>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '12px', justifyContent: 'center' }}>
+                  <span>💾 حفظ بيانات المورد</span>
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setIsFormOpen(false)}
+                  className="btn" 
+                  style={{ background: '#F1F5F9', color: '#475569', padding: '12px 20px', border: '1px solid #E2E8F0', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  إلغاء
+                </button>
+              </div>
             </form>
           </div>
         </div>
