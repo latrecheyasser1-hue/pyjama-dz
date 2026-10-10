@@ -682,8 +682,13 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       stock: Object.fromEntries(Object.keys(cv.stock || {}).map(sz => [sz, 0]))
     }));
 
+    const nowIso = new Date().toISOString();
     const productData = {
       id: editingId || Date.now(),
+      created_at: editingId 
+        ? (products.find(p => p.id === editingId)?.created_at || nowIso)
+        : nowIso,
+      updated_at: nowIso,
       title: cleanTitle,
       category: finalCategory,
       purchasePrice: stockMode === 'gros' ? 0 : Number(purchasePrice),

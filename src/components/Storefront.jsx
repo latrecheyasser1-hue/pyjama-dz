@@ -2238,15 +2238,87 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     });
   }, [products, computedHotSaleIds, categoriesList]);
 
+  // Helper: Déterminer le timestamp du produit le plus récent dans une catégorie
+  const getCategoryLatestProductTime = useCallback((cat) => {
+    const prods = getProductsForCategory(cat);
+    if (!prods || prods.length === 0) return 0;
+
+    let latestTime = 0;
+    for (let i = 0; i < prods.length; i++) {
+      const p = prods[i];
+      let t = 0;
+      if (p.updated_at) {
+        const parsed = new Date(p.updated_at).getTime();
+        if (!isNaN(parsed) && parsed > 0) t = parsed;
+      }
+      if (t === 0 && p.created_at) {
+        const parsed = new Date(p.created_at).getTime();
+        if (!isNaN(parsed) && parsed > 0) t = parsed;
+      }
+      if (t === 0 && typeof p.id === 'number' && p.id > 1000000000) {
+        t = p.id;
+      }
+      if (t === 0 && typeof p.id === 'string' && !isNaN(Number(p.id)) && Number(p.id) > 1000000000) {
+        t = Number(p.id);
+      }
+      if (t === 0) {
+        const idx = products.indexOf(p);
+        t = idx >= 0 ? (products.length - idx) : 0;
+      }
+      if (t > latestTime) {
+        latestTime = t;
+      }
+    }
+    return latestTime;
+  }, [getProductsForCategory, products]);
+
   // Seules les catégories qui contiennent des produits disponibles sont affichées sur le site
+  // Ordre strict selon la demande de l'utilisateur:
+  // 1. HOT SALE toujours premier
+  // 2. Les catégories triées par date d'ajout du dernier produit (la catégorie où on vient d'ajouter un produit passe immédiatement en 1ère position après Hot Sale!)
+  // 3. SOLDE / PROMO toujours dernier
   const visibleCategoriesList = useMemo(() => {
-    return categoriesList.filter(cat => {
+    const active = categoriesList.filter(cat => {
       if (!cat) return false;
       if (cat.id === 'all') return true;
       const catProds = getProductsForCategory(cat);
       return catProds && catProds.length > 0;
     });
-  }, [categoriesList, getProductsForCategory]);
+
+    return [...active].sort((a, b) => {
+      const aId = (a.id || '').toLowerCase().trim();
+      const aTitle = (a.title || a.name || '').toLowerCase().trim();
+      const bId = (b.id || '').toLowerCase().trim();
+      const bTitle = (b.title || b.name || '').toLowerCase().trim();
+
+      const isAAll = aId === 'all';
+      const isBAll = bId === 'all';
+      if (isAAll) return -1;
+      if (isBAll) return 1;
+
+      const isAHot = aId === 'hot' || aId === 'hot_sale' || aId === 'bestseller' || aTitle.includes('hot');
+      const isBHot = bId === 'hot' || bId === 'hot_sale' || bId === 'bestseller' || bTitle.includes('hot');
+      const isASolde = aId === 'solde' || aId === 'promo' || aTitle.includes('solde');
+      const isBSolde = bId === 'solde' || bId === 'promo' || bTitle.includes('solde');
+
+      // HOT SALE est TOUJOURS PREMIER
+      if (isAHot && !isBHot) return -1;
+      if (!isAHot && isBHot) return 1;
+
+      // SOLDE / PROMO est TOUJOURS DERNIER
+      if (isASolde && !isBSolde) return 1;
+      if (!isASolde && isBSolde) return -1;
+
+      // Entre les deux: la catégorie avec le produit le plus récent passe en premier
+      const timeA = getCategoryLatestProductTime(a);
+      const timeB = getCategoryLatestProductTime(b);
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+
+      return 0;
+    });
+  }, [categoriesList, getProductsForCategory, getCategoryLatestProductTime]);
 
   useEffect(() => {
     if (selectedCategory && selectedCategory !== 'all') {
@@ -3622,24 +3694,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               </div>
               {visibleCategoriesList
                 .filter(cat => cat && cat.id !== 'all')
-                .slice()
-                .sort((a, b) => {
-                  const aId = (a.id || '').toLowerCase().trim();
-                  const aTitle = (a.title || a.name || '').toLowerCase().trim();
-                  const bId = (b.id || '').toLowerCase().trim();
-                  const bTitle = (b.title || b.name || '').toLowerCase().trim();
-
-                  const isAHot = aId === 'hot' || aId === 'bestseller' || aTitle.includes('hot');
-                  const isBHot = bId === 'hot' || bId === 'bestseller' || bTitle.includes('hot');
-                  const isASolde = aId === 'solde' || aId === 'promo' || aTitle.includes('solde');
-                  const isBSolde = bId === 'solde' || bId === 'promo' || bTitle.includes('solde');
-
-                  if (isAHot) return -1;
-                  if (isBHot) return 1;
-                  if (isASolde) return 1;
-                  if (isBSolde) return -1;
-                  return 0;
-                })
                 .map((cat, idx, arr) => (
                   <React.Fragment key={cat.id}>
                     <CategoryShowcaseCard 
