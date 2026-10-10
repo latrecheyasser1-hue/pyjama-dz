@@ -73,6 +73,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
   const [pickerImageSrc, setPickerImageSrc] = useState('');
   const [pickerHoveredColor, setPickerHoveredColor] = useState('#E11D48');
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, targetId: null, targetTitle: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const canvasRef = useRef(null);
 
   // Form State
@@ -532,57 +533,149 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!title) {
-      showToast("⚠️ الرجاء إدخال اسم المنتج", 'warning');
+    if (isSubmitting) return;
+
+    // 1. Validation: Nom du Produit (Obligatoire)
+    const cleanTitle = (title || '').trim();
+    if (!cleanTitle) {
+      showToast("⚠️ الرجاء إدخال إسم المنتج (Nom du pyjama obligatoire)", 'warning');
       return;
     }
 
-    // Aggregate unique available sizes across all colors for quick storefront filtering
+    // 2. Validation: Catégorie (Obligatoire)
+    let finalCategory;
+    if (stockMode === 'boutique') {
+      finalCategory = `boutique__${category}`;
+    } else {
+      const isCustom = category === '__custom__' || isCustomCategory;
+      if (isCustom) {
+        const customCat = (customCategoryInput || '').trim();
+        if (!customCat) {
+          showToast("⚠️ الرجاء إدخال إسم الصنف المخصص (Catégorie obligatoire)", 'warning');
+          return;
+        }
+        const formattedCustom = customCat.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-') || 'custom';
+        finalCategory = stockMode === 'livraison' ? formattedCustom : `${stockMode}__${formattedCustom}`;
+      } else {
+        if (!category || !category.trim()) {
+          showToast("⚠️ الرجاء تحديد صنف المنتج (Catégorie obligatoire)", 'warning');
+          return;
+        }
+        finalCategory = stockMode === 'livraison' ? category : `${stockMode}__${category}`;
+      }
+    }
+
+    // 3. Validation: Fournisseur (Obligatoire)
+    const cleanSupplier = (supplierName || '').trim();
+    if (!cleanSupplier) {
+      showToast("⚠️ الرجاء اختيار المورد (Fournisseur obligatoire)", 'warning');
+      return;
+    }
+
+    // 4. Validation: Code-barres (Obligatoire)
+    const cleanBarcode = (barcode || '').trim();
+    if (!cleanBarcode) {
+      showToast("⚠️ الرجاء إدخال أو مسح باركود المنتج (Code-barres obligatoire)", 'warning');
+      return;
+    }
+
+    // Vérifier l'unicité du code-barres parmi les autres produits
+    const duplicateProduct = (products || []).find(p => 
+      p.barcode && String(p.barcode).trim() === cleanBarcode && 
+      String(p.id) !== String(editingId || '')
+    );
+    if (duplicateProduct) {
+      showToast(`⚠️ هذا الباركود (${cleanBarcode}) مستخدم مسبقاً في منتج: "${duplicateProduct.title}"`, 'warning');
+      return;
+    }
+
+    // 5. Validation: Prix (Obligatoire)
+    const numPrice = Number(price);
+    if (price === '' || isNaN(numPrice) || numPrice <= 0) {
+      showToast("⚠️ الرجاء إدخال سعر البيع بالدينار (Prix de vente obligatoire)", 'warning');
+      return;
+    }
+
+    if (stockMode !== 'gros') {
+      const numPurchasePrice = Number(purchasePrice);
+      if (purchasePrice === '' || isNaN(numPurchasePrice) || numPurchasePrice <= 0) {
+        showToast("⚠️ الرجاء إدخال سعر الشراء بالدينار (Prix d'achat obligatoire)", 'warning');
+        return;
+      }
+    } else {
+      const numOldPrice = Number(oldPrice);
+      if (oldPrice === '' || isNaN(numOldPrice) || numOldPrice <= 0) {
+        showToast("⚠️ الرجاء إدخال سعر السيري Super Gros بالدينار", 'warning');
+        return;
+      }
+      if (!minQtySuperGros || Number(minQtySuperGros) <= 0) {
+        showToast("⚠️ الرجاء تحديد الحد الأدنى لـ Super Gros", 'warning');
+        return;
+      }
+      if (!serieConfig || Object.keys(serieConfig).length === 0) {
+        showToast("⚠️ الرجاء تحديد مقاسات السيري الواحدة وكمياتها", 'warning');
+        return;
+      }
+    }
+
+    // 6. Validation: Couleurs & Tailles (Obligatoire)
+    if (!colorVariants || colorVariants.length === 0) {
+      showToast("⚠️ الرجاء إضافة لون واحد على الأقل مع مقاساته (Matrice Couleurs & Tailles)", 'warning');
+      return;
+    }
+
+    for (let i = 0; i < colorVariants.length; i++) {
+      const cv = colorVariants[i];
+      if (!cv.color || !cv.color.trim()) {
+        showToast(`⚠️ الرجاء كتابة إسم اللون #${i + 1} (مثال: أحمر، Rose Poudre...)`, 'warning');
+        return;
+      }
+
+      if (stockMode !== 'gros') {
+        const sizesEntries = Object.entries(cv.selectedSizes || {});
+        const hasValidSizeQty = sizesEntries.some(([_, qty]) => Number(qty) > 0);
+        if (sizesEntries.length === 0 || !hasValidSizeQty) {
+          showToast(`⚠️ الرجاء تحديد المقاسات وإدخال الكمية المتوفرة للون "${cv.color.trim()}"`, 'warning');
+          return;
+        }
+      }
+    }
+
+    // 7. Validation: Formater les variantes et vérifier les photos (Au moins une photo obligatoire)
     const allAvailableSizesSet = new Set();
     const formattedVariants = colorVariants.map(cv => {
       const stockObj = {};
-      Object.entries(cv.selectedSizes).forEach(([sz, qty]) => {
+      Object.entries(cv.selectedSizes || {}).forEach(([sz, qty]) => {
         if (qty !== undefined && qty !== null && qty !== '') {
           stockObj[sz] = Number(qty) || 0;
           allAvailableSizesSet.add(sz);
         }
       });
       return {
-        color: cv.color || "Couleur Standard",
+        color: cv.color.trim(),
         colorHex: cv.colorHex || "#CBD5E1",
         image: cv.image || "",
         stock: stockObj
       };
     });
 
-    let finalCategory;
-    if (stockMode === 'boutique') {
-      finalCategory = `boutique__${category}`;
-    } else if (stockMode === 'livraison') {
-      finalCategory = (category === '__custom__' || isCustomCategory)
-        ? (customCategoryInput.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-') || 'custom')
-        : category;
-    } else {
-      const baseCat = (category === '__custom__' || isCustomCategory)
-        ? (customCategoryInput.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-') || 'custom')
-        : category;
-      finalCategory = `${stockMode}__${baseCat}`;
+    const derivedImages = formattedVariants.map(cv => cv.image).filter(img => img && img.trim() !== "");
+    const generalImages = (images || []).filter(img => img && img.trim() !== "");
+    const finalImages = Array.from(new Set([...derivedImages, ...generalImages]));
+
+    if (finalImages.length === 0) {
+      showToast("⚠️ الرجاء رفع صورة واحدة على الأقل للمنتج (Au moins une photo obligatoire)", 'warning');
+      return;
     }
 
-    const derivedImages = formattedVariants.map(cv => cv.image).filter(img => img && img.trim() !== "");
-    const finalImages = derivedImages.length > 0 ? derivedImages : [];
-
-    const serializedDescription = description + '|||' + JSON.stringify({
+    // Note: Description est facultative (Optionnelle) selon la demande de l'utilisateur
+    const serializedDescription = (description || '') + '|||' + JSON.stringify({
       minQtyGros: Number(minQtyGros || 1),
       minQtySuperGros: Number(minQtySuperGros || 60),
       serieConfig: serieConfig,
       bulkPrice5: Number(bulkPrice5 || 0),
       linkedProductIds: linkedProductIds
     });
-
-    const baseCat = (category === '__custom__' || isCustomCategory)
-      ? (customCategoryInput.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-') || 'custom')
-      : category;
 
     const clonedColorVariants = formattedVariants.map(cv => ({
       ...cv,
@@ -591,49 +684,54 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
     const productData = {
       id: editingId || Date.now(),
-      title,
+      title: cleanTitle,
       category: finalCategory,
       purchasePrice: stockMode === 'gros' ? 0 : Number(purchasePrice),
-      price: Number(price),
-      oldPrice: Number(oldPrice),
-      supplier: supplierName,
+      price: numPrice,
+      oldPrice: Number(oldPrice) || 0,
+      supplier: cleanSupplier,
       images: finalImages,
       image: finalImages[0] || '',
-      barcode,
+      barcode: cleanBarcode,
       description: serializedDescription,
       sizes: Array.from(allAvailableSizesSet).length > 0 ? Array.from(allAvailableSizesSet) : ["Standard"],
       colorVariants: (stockMode === 'livraison' && !editingId && !isActiveOnWebsite) ? clonedColorVariants : formattedVariants,
-      promo: stockMode === 'gros' ? false : Number(oldPrice) > Number(price),
-      badge: stockMode === 'gros' ? "Gros 📦" : (Number(oldPrice) > Number(price) ? "Promo 🔥" : "Nouveau ✨")
+      promo: stockMode === 'gros' ? false : Number(oldPrice) > numPrice,
+      badge: stockMode === 'gros' ? "Gros 📦" : (Number(oldPrice) > numPrice ? "Promo 🔥" : "Nouveau ✨")
     };
 
-    if (editingId) {
-      onUpdateProduct(productData);
-      const prevProd = products.find(p => p.id === editingId);
-      const prevVariants = getParsedColorVariants(prevProd);
-      (productData.colorVariants || []).forEach(cv => {
-        const prevCv = prevVariants.find(pv => (pv.color || pv.name) === (cv.color || cv.name));
-        Object.entries(cv.stock || {}).forEach(([sz, qty]) => {
-          const nextQ = Number(qty) || 0;
-          const prevQ = Number(prevCv?.stock?.[sz] || 0);
-          if (nextQ > prevQ && nextQ > 0) {
-            triggerNotifyRestock(productData.id, productData.title, sz, nextQ, cv.color || cv.name);
-          }
+    setIsSubmitting(true);
+    try {
+      if (editingId) {
+        onUpdateProduct(productData);
+        const prevProd = products.find(p => p.id === editingId);
+        const prevVariants = getParsedColorVariants(prevProd);
+        (productData.colorVariants || []).forEach(cv => {
+          const prevCv = prevVariants.find(pv => (pv.color || pv.name) === (cv.color || cv.name));
+          Object.entries(cv.stock || {}).forEach(([sz, qty]) => {
+            const nextQ = Number(qty) || 0;
+            const prevQ = Number(prevCv?.stock?.[sz] || 0);
+            if (nextQ > prevQ && nextQ > 0) {
+              triggerNotifyRestock(productData.id, productData.title, sz, nextQ, cv.color || cv.name);
+            }
+          });
         });
-      });
-    } else {
-      onAddProduct(productData);
-      (productData.colorVariants || []).forEach(cv => {
-        Object.entries(cv.stock || {}).forEach(([sz, qty]) => {
-          const nextQ = Number(qty) || 0;
-          if (nextQ > 0) {
-            triggerNotifyRestock(productData.id, productData.title, sz, nextQ, cv.color || cv.name);
-          }
+      } else {
+        onAddProduct(productData);
+        (productData.colorVariants || []).forEach(cv => {
+          Object.entries(cv.stock || {}).forEach(([sz, qty]) => {
+            const nextQ = Number(qty) || 0;
+            if (nextQ > 0) {
+              triggerNotifyRestock(productData.id, productData.title, sz, nextQ, cv.color || cv.name);
+            }
+          });
         });
-      });
-    }
+      }
 
-    setIsFormOpen(false);
+      setIsFormOpen(false);
+    } finally {
+      setTimeout(() => setIsSubmitting(false), 500);
+    }
   };
 
   // Quick stock quantity adjuster
@@ -744,7 +842,15 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
               <button onClick={() => setIsFormOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
             </div>
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <form 
+              onSubmit={handleSubmit} 
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                  e.preventDefault();
+                }
+              }}
+              style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
+            >
               <div style={{ display: 'grid', gridTemplateColumns: stockMode === 'livraison' ? '1fr 1fr' : '1fr', gap: '16px' }}>
                 <div className="form-group">
                   <label className="form-label">إسم المنتج (Nom du Pyjama) *</label>
@@ -935,7 +1041,21 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
               <div className="form-group" style={{ background: '#F0F9FF', padding: '16px', borderRadius: '12px', border: '1px solid #BAE6FD' }}>
                 <label className="form-label">باركود المنتج (Code-barres) *</label>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <input type="text" required value={barcode} onChange={(e) => setBarcode(e.target.value)} className="form-input" placeholder="Scannez ou entrez le code-barres" style={{ flex: 1, fontWeight: 'bold' }} />
+                  <input 
+                    type="text" 
+                    required 
+                    value={barcode} 
+                    onChange={(e) => setBarcode(e.target.value)} 
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }
+                    }}
+                    className="form-input" 
+                    placeholder="Scannez ou entrez le code-barres" 
+                    style={{ flex: 1, fontWeight: 'bold' }} 
+                  />
                   <button type="button" onClick={generateBarcode} className="btn btn-secondary" style={{ flexShrink: 0 }}>
                     <Layers size={16} /> Générer Aléatoire
                   </button>
@@ -1301,8 +1421,8 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
               )}
 
               <div className="form-group">
-                <label className="form-label">وصف المنتج (Description)</label>
-                <textarea rows="2" value={description} onChange={(e) => setDescription(e.target.value)} className="form-input" />
+                <label className="form-label">وصف المنتج (Description) - <span style={{ color: '#64748B', fontWeight: 600 }}>اختياري (Optionnel)</span></label>
+                <textarea rows="2" value={description} onChange={(e) => setDescription(e.target.value)} className="form-input" placeholder="وصف المنتج (اختياري)..." />
               </div>
 
               {stockMode === 'livraison' && (
@@ -1401,8 +1521,15 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                 </div>
               )}
 
-              <button type="submit" className="btn btn-primary" style={{ padding: '14px', fontSize: '1.05rem', justifyContent: 'center' }}>
-                <span>{editingId ? "💾 حفظ التعديلات (Enregistrer les modifications)" : "💾 حفظ المنتج في المخزون (Enregistrer dans le Stock)"}</span>
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="btn btn-primary" 
+                style={{ padding: '14px', fontSize: '1.05rem', justifyContent: 'center', opacity: isSubmitting ? 0.7 : 1 }}
+              >
+                <span>
+                  {isSubmitting ? "⏳ جاري الحفظ..." : (editingId ? "💾 حفظ التعديلات (Enregistrer les modifications)" : "💾 حفظ المنتج في المخزون (Enregistrer dans le Stock)")}
+                </span>
               </button>
             </form>
           </div>
@@ -1484,7 +1611,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                       <button type="button" onClick={(e) => { e.stopPropagation(); handleOpenEdit(p); }} style={{ background: 'white', border: 'none', padding: 5, borderRadius: '50%', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Modifier">
                         <Edit2 size={12} color="#1565C0" />
                       </button>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); if(window.confirm("Supprimer définitivement ce pyjama ?")) onDeleteProduct(p.id); }} style={{ background: 'white', border: 'none', padding: 5, borderRadius: '50%', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Supprimer">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteModal({ isOpen: true, targetId: p.id, targetTitle: p.title }); }} style={{ background: 'white', border: 'none', padding: 5, borderRadius: '50%', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Supprimer">
                         <Trash2 size={12} color="#D32F2F" />
                       </button>
                     </div>
@@ -1523,7 +1650,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                 <button type="button" onClick={() => handleOpenEdit(p)} style={{ background: 'white', border: 'none', padding: 8, borderRadius: '50%', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }} title="Modifier">
                   <Edit2 size={16} color="#1565C0" />
                 </button>
-                <button type="button" onClick={() => { if(window.confirm("Supprimer définitivement ce pyjama ?")) onDeleteProduct(p.id); }} style={{ background: 'white', border: 'none', padding: 8, borderRadius: '50%', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }} title="Supprimer">
+                <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteModal({ isOpen: true, targetId: p.id, targetTitle: p.title }); }} style={{ background: 'white', border: 'none', padding: 8, borderRadius: '50%', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }} title="Supprimer">
                   <Trash2 size={16} color="#D32F2F" />
                 </button>
               </div>
@@ -1949,6 +2076,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
         onConfirm={() => {
           if (deleteModal.targetId) {
             onDeleteProduct(deleteModal.targetId);
+            setDeleteModal({ isOpen: false, targetId: null, targetTitle: '' });
           }
         }}
         onClose={() => setDeleteModal({ isOpen: false, targetId: null, targetTitle: '' })}

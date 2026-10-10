@@ -1158,10 +1158,13 @@ export default function App() {
       } else if (data && data.length > 0) {
         const fullProd = { ...newProd, ...data[0] };
         setProducts(prev => {
-          if (prev.some(p => p.id === data[0].id)) {
-            return prev.map(p => p.id === data[0].id ? fullProd : p);
+          const exists = prev.some(p => p.id === data[0].id || (newProd.id && p.id === newProd.id));
+          let nextList;
+          if (exists) {
+            nextList = prev.map(p => (p.id === data[0].id || (newProd.id && p.id === newProd.id)) ? fullProd : p);
+          } else {
+            nextList = [fullProd, ...prev];
           }
-          const nextList = [fullProd, ...prev];
           try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
           return nextList;
         });
@@ -1174,9 +1177,57 @@ export default function App() {
   };
 
   const handleDeleteProduct = async (prodId) => {
-    const { error } = await supabase.from('products').delete().eq('id', prodId);
-    if (!error) {
-      setProducts(prev => prev.filter(p => p.id !== prodId));
+    try {
+      const target = products.find(p => p.id === prodId || String(p.id) === String(prodId));
+      const targetBarcode = target?.barcode ? String(target.barcode).trim() : null;
+
+      // 1. Clear any pending debounces or active updates for this product or any associated clone
+      if (updateDebounceRef.current[prodId]) {
+        clearTimeout(updateDebounceRef.current[prodId]);
+        delete updateDebounceRef.current[prodId];
+      }
+      if (pendingUpdatesRef.current[prodId]) {
+        delete pendingUpdatesRef.current[prodId];
+      }
+
+      Object.keys(updateDebounceRef.current).forEach(id => {
+        const info = pendingUpdatesRef.current[id];
+        if (info && (info.product?.id === prodId || (targetBarcode && info.product?.barcode === targetBarcode))) {
+          clearTimeout(updateDebounceRef.current[id]);
+          delete updateDebounceRef.current[id];
+          delete pendingUpdatesRef.current[id];
+        }
+      });
+
+      // 2. Optimistically remove from React state AND sync localStorage immediately
+      const idsToDelete = [prodId];
+      setProducts(prev => {
+        const nextList = prev.filter(p => {
+          const isMatchId = p.id === prodId || String(p.id) === String(prodId);
+          const isMatchBarcode = Boolean(targetBarcode && p.barcode && String(p.barcode).trim() === targetBarcode);
+          if (isMatchId || isMatchBarcode) {
+            if (!idsToDelete.includes(p.id)) idsToDelete.push(p.id);
+            return false;
+          }
+          return true;
+        });
+        try {
+          localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList));
+          localStorage.setItem('pyjama_products_cache_time', String(Date.now()));
+        } catch(e) {}
+        return nextList;
+      });
+
+      // 3. Delete from Supabase permanently: wipe by all matching IDs and by barcode
+      await supabase.from('products').delete().in('id', idsToDelete);
+      if (targetBarcode) {
+        await supabase.from('products').delete().eq('barcode', targetBarcode);
+      }
+
+      showToast("🗑️ تم حذف المنتج وجميع نسخه نهائياً", 'info');
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      showToast("⚠️ حدث خطأ أثناء حذف المنتج", 'error');
     }
   };
 
