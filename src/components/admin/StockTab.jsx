@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Trash2, Edit2, Upload, Check, X, Layers, PlusCircle, MinusCircle, Printer, Image as ImageIcon, Barcode as BarcodeIcon, Pipette, Tag } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { showToast } from '../../utils/toast';
@@ -47,12 +47,17 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     return true;
   });
 
-  const filteredProductsByMode = (products || []).filter(p => {
-    if (stockMode === 'boutique') return p.category && (p.category === '__boutique__' || p.category.startsWith('boutique__'));
-    if (stockMode === 'gros') return p.category && p.category.startsWith('gros__');
-    if (stockMode === 'super_gros') return p.category && p.category.startsWith('super_gros__');
-    return p.category && !p.category.includes('__');
-  });
+  const filteredProductsByMode = useMemo(() => {
+    const seen = new Set();
+    return (products || []).filter(p => {
+      if (!p || !p.id || seen.has(p.id)) return false;
+      seen.add(p.id);
+      if (stockMode === 'boutique') return p.category && (p.category === '__boutique__' || p.category.startsWith('boutique__'));
+      if (stockMode === 'gros') return p.category && p.category.startsWith('gros__');
+      if (stockMode === 'super_gros') return p.category && p.category.startsWith('super_gros__');
+      return p.category && !p.category.includes('__');
+    });
+  }, [products, stockMode]);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -227,9 +232,9 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       cleanCategory = p.category.split('__')[1] || '';
     }
     setCategory(cleanCategory);
-    setPurchasePrice(p.purchasePrice || Math.round(p.price * 0.65));
-    setPrice(p.price);
-    setOldPrice(p.oldPrice || '');
+    setPurchasePrice((p.purchasePrice !== undefined && p.purchasePrice !== null && p.purchasePrice !== '') ? p.purchasePrice : '');
+    setPrice((p.price !== undefined && p.price !== null && p.price !== '') ? p.price : '');
+    setOldPrice((p.oldPrice !== undefined && p.oldPrice !== null && p.oldPrice !== '') ? p.oldPrice : '');
     setSupplierName(p.supplier || suppliers[0]?.name || '');
     setImages(p.images && p.images.length > 0 ? p.images : (p.image ? [p.image] : []));
     setBarcode(p.barcode || String(100000000000 + Math.floor(Math.random() * 900000000000)));
@@ -626,28 +631,6 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
           }
         });
       });
-      if (stockMode === 'livraison') {
-        const boutiqueProduct = {
-          ...productData,
-          category: `boutique__${baseCat}`,
-          colorVariants: isActiveOnWebsite ? clonedColorVariants : formattedVariants,
-          promo: productData.promo,
-          badge: "Boutique 🏪"
-        };
-        onAddProduct(boutiqueProduct);
-
-        const grosProduct = {
-          ...productData,
-          category: `gros__${baseCat}`,
-          purchasePrice: 0,
-          price: 0,
-          oldPrice: 0,
-          colorVariants: clonedColorVariants,
-          promo: false,
-          badge: "Gros 📦"
-        };
-        onAddProduct(grosProduct);
-      }
     }
 
     setIsFormOpen(false);
@@ -830,30 +813,30 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                 {stockMode !== 'gros' && (
                   <div className="form-group">
                     <label className="form-label">سعر الشراء (Prix d'achat DA) *</label>
-                    <input type="number" required value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} className="form-input" style={{ borderColor: '#1F8A55' }} />
+                    <input type="number" required value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} onWheel={(e) => e.target.blur()} className="form-input" style={{ borderColor: '#1F8A55' }} />
                   </div>
                 )}
                 <div className="form-group">
                   <label className="form-label">{stockMode === 'gros' ? "سعر السيري (Prix Série Gros) *" : "سعر البيع (Prix de Vente DA) *"}</label>
-                  <input type="number" required value={price} onChange={(e) => setPrice(e.target.value)} className="form-input" style={{ borderColor: 'var(--burgundy)', fontWeight: 800 }} />
+                  <input type="number" required value={price} onChange={(e) => setPrice(e.target.value)} onWheel={(e) => e.target.blur()} className="form-input" style={{ borderColor: 'var(--burgundy)', fontWeight: 800 }} />
                 </div>
                 <div className="form-group">
                   {stockMode === 'gros' ? (
                     <>
                       <label className="form-label">سعر السيري (Prix Série Super Gros) *</label>
-                      <input type="number" required value={oldPrice} onChange={(e) => setOldPrice(e.target.value)} className="form-input" style={{ borderColor: '#4F46E5', fontWeight: 800 }} />
+                      <input type="number" required value={oldPrice} onChange={(e) => setOldPrice(e.target.value)} onWheel={(e) => e.target.blur()} className="form-input" style={{ borderColor: '#4F46E5', fontWeight: 800 }} />
                     </>
                   ) : (
                     <>
                       <label className="form-label">السعر القديم قبل الخصم (DA)</label>
-                      <input type="number" value={oldPrice} onChange={(e) => setOldPrice(e.target.value)} className="form-input" />
+                      <input type="number" value={oldPrice} onChange={(e) => setOldPrice(e.target.value)} onWheel={(e) => e.target.blur()} className="form-input" />
                     </>
                   )}
                 </div>
                 {(stockMode === 'livraison' || stockMode === 'boutique') && (
                   <div className="form-group">
                     <label className="form-label" style={{ color: 'var(--burgundy-dark)', fontWeight: 800 }}>💰 سعر 5 حبات فما فوق (DA)</label>
-                    <input type="number" value={bulkPrice5} onChange={(e) => setBulkPrice5(e.target.value)} className="form-input" style={{ borderColor: 'var(--burgundy-dark)', fontWeight: 800 }} placeholder="مثال: 1000" />
+                    <input type="number" value={bulkPrice5} onChange={(e) => setBulkPrice5(e.target.value)} onWheel={(e) => e.target.blur()} className="form-input" style={{ borderColor: 'var(--burgundy-dark)', fontWeight: 800 }} placeholder="مثال: 1000" />
                   </div>
                 )}
               </div>

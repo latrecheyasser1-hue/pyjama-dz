@@ -36,6 +36,8 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
     );
   };
 
+  const isExchangeOrder = (order) => isExchangeOrReturn(order);
+
   const grosOrders = activeOrders.filter(o => {
     return (o.product && o.product.includes('(جملة -')) || 
            (o.clientName && o.clientName.includes('(واتساب:')) ||

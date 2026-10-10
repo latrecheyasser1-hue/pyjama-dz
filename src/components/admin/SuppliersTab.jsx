@@ -40,9 +40,9 @@ export default function SuppliersTab({ suppliers, onAddSupplier, onUpdateSupplie
     }
 
     if (editingId) {
-      onUpdateSupplier({ id: editingId, name, phone, wilaya, category });
+      onUpdateSupplier({ id: editingId, name: name.trim(), phone: phone.trim(), wilaya, category });
     } else {
-      onAddSupplier({ id: Date.now(), name, phone, wilaya, category });
+      onAddSupplier({ name: name.trim(), phone: phone.trim(), wilaya, category, balance: 0 });
     }
     setIsFormOpen(false);
   };

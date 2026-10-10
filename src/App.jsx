@@ -3,8 +3,13 @@ import Storefront from './components/Storefront';
 import ToastContainer from './components/ToastContainer';
 import CookieConsent from './components/CookieConsent';
 import { supabase } from './lib/supabaseClient';
-import { processOrderDelivery } from './services/deliveryApi';
+import { showToast } from './utils/toast';
 import { playNotificationSound } from './utils/audio';
+
+const checkIsAdminPath = (path = (typeof window !== 'undefined' ? window.location.pathname : '')) => {
+  const p = (path || '').toLowerCase();
+  return p.startsWith('/admin') || p.startsWith('/ali') || p.startsWith('/pos') || p.startsWith('/emballage');
+};
 
 import CashierPOS from './components/CashierPOS';
 const lazyWithRetry = (componentImport) =>
@@ -51,10 +56,7 @@ export default function App() {
       const cached = localStorage.getItem('pyjama_settings_cache');
       if (!cached) return {};
       const parsed = JSON.parse(cached);
-      const isAdmin = window.location.pathname.startsWith('/admin') || 
-                      window.location.pathname.startsWith('/ali') || 
-                      window.location.pathname.startsWith('/pos') || 
-                      window.location.pathname.startsWith('/emballage');
+      const isAdmin = checkIsAdminPath();
       if (!isAdmin && typeof parsed === 'object') {
         delete parsed.zr_express_api_key;
         delete parsed.zr_express_token;
@@ -92,8 +94,16 @@ export default function App() {
       import('./components/AliOwnerDashboard').catch(() => {});
     }, 500);
 
+    const handleGlobalWheel = () => {
+      if (document.activeElement && document.activeElement.type === 'number') {
+        document.activeElement.blur();
+      }
+    };
+    window.addEventListener('wheel', handleGlobalWheel, { passive: true });
+
     return () => {
       window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('wheel', handleGlobalWheel);
       clearTimeout(preloadTimer);
     };
   }, []);
@@ -102,10 +112,7 @@ export default function App() {
     fetchInitialData();
     
     // 1. Subscribe to real-time database changes with instant in-memory state updates
-    const isAdmin = window.location.pathname.startsWith('/admin') || 
-                    window.location.pathname.startsWith('/ali') || 
-                    window.location.pathname.startsWith('/pos') || 
-                    window.location.pathname.startsWith('/emballage');
+    const isAdmin = checkIsAdminPath();
 
     const productsSub = supabase.channel('products_realtime_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
@@ -130,6 +137,9 @@ export default function App() {
             try { incoming.colorVariants = JSON.parse(incoming.colorVariants); } catch(e) {}
           }
           setProducts(prev => {
+            if (prev.some(p => p.id === incoming.id)) {
+              return prev.map(p => p.id === incoming.id ? { ...p, ...incoming } : p);
+            }
             const nextList = [incoming, ...prev];
             try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
             return nextList;
@@ -237,10 +247,7 @@ export default function App() {
     // Instant unblock loading screen if cached data exists or in max 100ms
     setTimeout(() => setLoading(false), 100);
 
-    const isAdmin = window.location.pathname.startsWith('/admin') || 
-                    window.location.pathname.startsWith('/ali') || 
-                    window.location.pathname.startsWith('/pos') || 
-                    window.location.pathname.startsWith('/emballage');
+    const isAdmin = checkIsAdminPath();
 
     // Public shoppers only load products & settings (saves ~300KB orders & expenses payload on every visit!)
     const initialFetches = [
@@ -263,10 +270,7 @@ export default function App() {
 
   // On-demand loader for admin routes when navigating client-side
   useEffect(() => {
-    const isAdmin = currentPath.startsWith('/admin') || 
-                    currentPath.startsWith('/ali') || 
-                    currentPath.startsWith('/pos') || 
-                    currentPath.startsWith('/emballage');
+    const isAdmin = checkIsAdminPath(currentPath);
     if (isAdmin) {
       fetchData('orders', setOrders);
       fetchData('suppliers', setSuppliers);
@@ -327,10 +331,7 @@ export default function App() {
   }, []);
 
   const fetchData = async (table, setter) => {
-    const isAdmin = window.location.pathname.startsWith('/admin') || 
-                    window.location.pathname.startsWith('/ali') || 
-                    window.location.pathname.startsWith('/pos') || 
-                    window.location.pathname.startsWith('/emballage');
+    const isAdmin = checkIsAdminPath();
 
     // Smart lightweight cache check for products (ONLY on public storefront - admins ALWAYS get fresh real stock!)
     if (table === 'products' && !isAdmin) {
@@ -378,6 +379,23 @@ export default function App() {
             return { ...dbProd, colorVariants: cvs };
           });
         });
+      } else if (table === 'suppliers') {
+        let extra = {};
+        try { extra = JSON.parse(localStorage.getItem('pyjama_suppliers_extra') || '{}'); } catch(e) {}
+        const mergedSuppliers = data.map(s => {
+          const extraMeta = extra[s.id] || {};
+          let defaultWilaya = 'Alger';
+          if (s.name && s.name.includes('(') && s.name.includes(')')) {
+            const match = s.name.match(/\(([^)]+)\)/);
+            if (match && match[1]) defaultWilaya = match[1];
+          }
+          return {
+            ...s,
+            wilaya: extraMeta.wilaya || s.wilaya || defaultWilaya,
+            category: extraMeta.category || s.category || 'Atelier Pyjama'
+          };
+        });
+        setter(mergedSuppliers);
       } else {
         if (table === 'orders') {
           try { localStorage.setItem('pyjama_orders_cache', JSON.stringify(data)); } catch(e) {}
@@ -500,10 +518,7 @@ export default function App() {
       }
     } catch (e) {}
 
-    const isAdmin = window.location.pathname.startsWith('/admin') || 
-                    window.location.pathname.startsWith('/ali') || 
-                    window.location.pathname.startsWith('/pos') || 
-                    window.location.pathname.startsWith('/emballage');
+    const isAdmin = checkIsAdminPath();
 
     let settingsQuery = supabase.from('settings').select('key,value');
     
@@ -1134,13 +1149,27 @@ export default function App() {
   };
 
   const handleAddProduct = async (newProd) => {
-    const sanitizedProd = sanitizeProductForDb(newProd);
-    const { data, error } = await supabase.from('products').insert(sanitizedProd).select();
-    if (error) {
-      console.error(error);
-      alert("Erreur lors de l'ajout du produit: " + error.message);
-    } else if (data && data.length > 0) {
-      setProducts(prev => [{ ...newProd, ...data[0] }, ...prev]);
+    try {
+      const sanitizedProd = sanitizeProductForDb(newProd);
+      const { data, error } = await supabase.from('products').insert(sanitizedProd).select();
+      if (error) {
+        console.error(error);
+        showToast("⚠️ حدث خطأ أثناء إضافة المنتج: " + error.message, 'error');
+      } else if (data && data.length > 0) {
+        const fullProd = { ...newProd, ...data[0] };
+        setProducts(prev => {
+          if (prev.some(p => p.id === data[0].id)) {
+            return prev.map(p => p.id === data[0].id ? fullProd : p);
+          }
+          const nextList = [fullProd, ...prev];
+          try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
+          return nextList;
+        });
+        showToast("✅ تم إضافة المنتج بنجاح", 'success');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("⚠️ تعذر إضافة المنتج", 'error');
     }
   };
 
@@ -1152,17 +1181,86 @@ export default function App() {
   };
 
   const handleAddSupplier = async (newSup) => {
-    const { id, ...supWithoutId } = newSup;
-    await supabase.from('suppliers').insert(supWithoutId);
+    try {
+      const payload = {
+        name: newSup.name?.trim(),
+        phone: newSup.phone?.trim() || '',
+        balance: Number(newSup.balance) || 0
+      };
+      const { data, error } = await supabase.from('suppliers').insert(payload).select();
+      if (error) {
+        console.error('Error inserting supplier:', error);
+        showToast("⚠️ حدث خطأ أثناء حفظ المورد: " + error.message, 'error');
+        return;
+      }
+      const created = (data && data[0]) ? data[0] : { id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()), ...payload };
+      const fullSup = {
+        ...created,
+        wilaya: newSup.wilaya || 'Alger',
+        category: newSup.category || 'Atelier Pyjama'
+      };
+      setSuppliers(prev => [fullSup, ...prev.filter(s => s.id !== created.id)]);
+
+      try {
+        const extra = JSON.parse(localStorage.getItem('pyjama_suppliers_extra') || '{}');
+        extra[created.id] = { wilaya: newSup.wilaya, category: newSup.category };
+        localStorage.setItem('pyjama_suppliers_extra', JSON.stringify(extra));
+      } catch (e) {}
+
+      showToast("✅ تم حفظ المورد بنجاح", 'success');
+    } catch (err) {
+      console.error(err);
+      showToast("⚠️ تعذر حفظ المورد", 'error');
+    }
   };
 
   const handleUpdateSupplier = async (updatedSup) => {
-    const { id, ...supWithoutId } = updatedSup;
-    await supabase.from('suppliers').update(supWithoutId).eq('id', id);
+    try {
+      const { id } = updatedSup;
+      const payload = {
+        name: updatedSup.name?.trim(),
+        phone: updatedSup.phone?.trim() || '',
+        balance: Number(updatedSup.balance) || 0
+      };
+      const { error } = await supabase.from('suppliers').update(payload).eq('id', id);
+      if (error) {
+        console.error('Error updating supplier:', error);
+        showToast("⚠️ حدث خطأ أثناء تعديل بيانات المورد", 'error');
+        return;
+      }
+      setSuppliers(prev => prev.map(s => s.id === id ? { ...s, ...payload, wilaya: updatedSup.wilaya, category: updatedSup.category } : s));
+
+      try {
+        const extra = JSON.parse(localStorage.getItem('pyjama_suppliers_extra') || '{}');
+        extra[id] = { wilaya: updatedSup.wilaya, category: updatedSup.category };
+        localStorage.setItem('pyjama_suppliers_extra', JSON.stringify(extra));
+      } catch (e) {}
+
+      showToast("✅ تم تعديل بيانات المورد بنجاح", 'success');
+    } catch (err) {
+      console.error(err);
+      showToast("⚠️ تعذر تعديل المورد", 'error');
+    }
   };
 
   const handleDeleteSupplier = async (supId) => {
-    await supabase.from('suppliers').delete().eq('id', supId);
+    try {
+      const { error } = await supabase.from('suppliers').delete().eq('id', supId);
+      if (!error) {
+        setSuppliers(prev => prev.filter(s => s.id !== supId));
+        try {
+          const extra = JSON.parse(localStorage.getItem('pyjama_suppliers_extra') || '{}');
+          delete extra[supId];
+          localStorage.setItem('pyjama_suppliers_extra', JSON.stringify(extra));
+        } catch (e) {}
+        showToast("🗑️ تم حذف المورد", 'info');
+      } else {
+        console.error('Error deleting supplier:', error);
+        showToast("⚠️ تعذر حذف المورد", 'error');
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleAddExpense = async (newExp) => {
