@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Trash2, Edit2, Phone, MapPin, Building, Package } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { showToast } from '../../utils/toast';
@@ -64,13 +65,26 @@ export default function SuppliersTab({ suppliers, onAddSupplier, onUpdateSupplie
       </div>
 
       {/* Form Modal */}
-      {isFormOpen && (
+      {isFormOpen && createPortal(
         <div 
           className="modal-overlay" 
-          style={{ zIndex: 9999 }}
+          style={{ 
+            position: 'fixed',
+            inset: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999999,
+            padding: '16px'
+          }}
           onClick={(e) => { if (e.target === e.currentTarget) setIsFormOpen(false); }}
         >
-          <div className="modal-content" style={{ maxWidth: '500px' }}>
+          <div className="modal-content" style={{ maxWidth: '500px', width: '100%', background: '#FFF', borderRadius: '16px', padding: '24px', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--burgundy-dark)' }}>
                 {editingId ? "✏️ تعديل بيانات المورد" : "✨ إضافة مورد / ورشة جديدة"}
@@ -131,7 +145,8 @@ export default function SuppliersTab({ suppliers, onAddSupplier, onUpdateSupplie
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Suppliers Grid */}
