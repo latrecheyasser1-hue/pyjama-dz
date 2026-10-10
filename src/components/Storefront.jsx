@@ -2231,9 +2231,31 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     return availableRetail.filter(p => {
       const pCat = (p.category || '').toLowerCase().trim();
       const pCatId = (p.categoryId || '').toLowerCase().trim();
-      return pCat === cId || pCat === cTitle || pCatId === cId || pCatId === cTitle;
+      if (pCat === cId || pCat === cTitle || pCatId === cId || pCatId === cTitle) return true;
+      const mappedGroupId = getProductCategoryGroupId(p.category, categoriesList);
+      if (mappedGroupId && (mappedGroupId.toLowerCase().trim() === cId || mappedGroupId.toLowerCase().trim() === cTitle)) return true;
+      return false;
     });
-  }, [products, computedHotSaleIds]);
+  }, [products, computedHotSaleIds, categoriesList]);
+
+  // Seules les catégories qui contiennent des produits disponibles sont affichées sur le site
+  const visibleCategoriesList = useMemo(() => {
+    return categoriesList.filter(cat => {
+      if (!cat) return false;
+      if (cat.id === 'all') return true;
+      const catProds = getProductsForCategory(cat);
+      return catProds && catProds.length > 0;
+    });
+  }, [categoriesList, getProductsForCategory]);
+
+  useEffect(() => {
+    if (selectedCategory && selectedCategory !== 'all') {
+      const exists = visibleCategoriesList.some(c => c.id === selectedCategory);
+      if (!exists) {
+        setSelectedCategory('all');
+      }
+    }
+  }, [visibleCategoriesList, selectedCategory]);
 
   const filteredProducts = useMemo(() => {
     if (!Array.isArray(products)) return [];
@@ -3453,8 +3475,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                   </div>
 
                   <div className="stitch-cat-grid-3col">
-                    {/* Real Categories from Admin / Database */}
-                    {categoriesList
+                    {/* Real Categories from Admin / Database (Only those with products) */}
+                    {visibleCategoriesList
                       .filter(cat => cat && cat.id !== 'all')
                       .map((cat, idx) => {
                         const catTitle = cat.name || cat.title || 'قسم';
@@ -3598,7 +3620,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 <h2 className="luxury-editorial-title">L'Art de la Nuit & de l'Élégance</h2>
                 <p className="luxury-editorial-sub">تشكيلات حصرية مصممة لراحتكِ وسحركِ الدائم في المنزل</p>
               </div>
-              {categoriesList
+              {visibleCategoriesList
                 .filter(cat => cat && cat.id !== 'all')
                 .slice()
                 .sort((a, b) => {
@@ -5434,7 +5456,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         {/* Drawer Scrollable Content */}
         <div className="mobile-drawer-content">
           {mobileMenuTab === 'categories' ? (
-            categoriesList.map(cat => {
+            visibleCategoriesList.map(cat => {
               const isSelected = selectedCategory === cat.id;
               return (
                 <button

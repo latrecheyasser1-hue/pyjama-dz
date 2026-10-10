@@ -25,7 +25,18 @@ const getProductCategoryGroupId = (prodCategory, categoriesList) => {
 
 export default function GrosStorefront({ products, settings, onPlaceOrder, onGoToRetail }) {
   const categoriesList = settings?.categories || [];
-  const selectableCategories = categoriesList.filter(c => c.id !== 'all' && c.id !== 'promo');
+  const selectableCategories = useMemo(() => {
+    const baseList = (categoriesList || []).filter(c => c.id !== 'all' && c.id !== 'promo');
+    return baseList.filter(cat => {
+      return (products || []).some(p => {
+        if (!p.category || !p.category.startsWith('gros__')) return false;
+        if (!p.price || Number(p.price) <= 0) return false;
+        const cleanCat = p.category.replace('gros__', '');
+        const mappedCat = getProductCategoryGroupId(cleanCat, categoriesList);
+        return mappedCat === cat.id;
+      });
+    });
+  }, [categoriesList, products]);
 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
