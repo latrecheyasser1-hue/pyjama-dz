@@ -204,12 +204,10 @@ export default function App() {
     const handleFocusOrVisible = () => {
       if (!document.hidden) {
         const timeSinceSync = Date.now() - lastFocusSync;
-        // For admin/backoffice pages, when user returns to tab after > 4 seconds, refresh products automatically
-        if (isAdmin && timeSinceSync > 4000) {
+        // Whenever user returns to tab (on mobile phone or PC), refresh products automatically
+        if (timeSinceSync > 4000) {
           lastFocusSync = Date.now();
           fetchData('products', setProducts);
-        } else if (timeSinceSync > 15 * 60 * 1000) {
-          lastFocusSync = Date.now();
         }
       }
     };
@@ -333,29 +331,17 @@ export default function App() {
   const fetchData = async (table, setter) => {
     const isAdmin = checkIsAdminPath();
 
-    // Smart lightweight cache check for products (ONLY on public storefront - admins ALWAYS get fresh real stock!)
+    // Instant initial render from cache (stale-while-revalidate: ALWAYS fetches fresh data from database)
     if (table === 'products' && !isAdmin) {
-      const cached = localStorage.getItem('pyjama_products_cache');
-      const cachedTime = localStorage.getItem('pyjama_products_cache_time');
-      if (cached && cachedTime) {
-        try {
+      try {
+        const cached = localStorage.getItem('pyjama_products_cache');
+        if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            // Check lightweight last_updated setting (~50 bytes)
-            const { data: verData } = await supabase
-              .from('settings')
-              .select('value')
-              .eq('key', 'products_last_updated')
-              .maybeSingle();
-
-            const lastUpdated = verData?.value ? parseInt(verData.value) : 0;
-            if (lastUpdated && parseInt(cachedTime) >= lastUpdated) {
-              setter(parsed);
-              return;
-            }
+            setter(parsed);
           }
-        } catch(e) {}
-      }
+        }
+      } catch(e) {}
     }
 
     const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });

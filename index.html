@@ -95,6 +95,18 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4" />
     <link rel="apple-touch-icon" href="/favicon.png" />
     <script>
+      // 🚀 Auto-bust stale localStorage products & categories on deployment
+      try {
+        var APP_DEPLOY_VER = '2026_10_11_LIVE_STALE_BUST';
+        if (localStorage.getItem('pyjama_deploy_ver') !== APP_DEPLOY_VER) {
+          localStorage.removeItem('pyjama_products_cache');
+          localStorage.removeItem('pyjama_products_cache_time');
+          localStorage.removeItem('pyjama_dz_categories_cache');
+          localStorage.removeItem('pyjama_settings_cache');
+          localStorage.setItem('pyjama_deploy_ver', APP_DEPLOY_VER);
+        }
+      } catch(e) {}
+
       // 🚀 Force clear legacy service workers & browser cache on mobile
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -105,8 +117,8 @@
                 for (var j = 0; j < names.length; j++) { caches.delete(names[j]); }
               });
             }
-            if (!sessionStorage.getItem('sw_unreg_refresh_v1')) {
-              sessionStorage.setItem('sw_unreg_refresh_v1', '1');
+            if (!sessionStorage.getItem('sw_unreg_refresh_v2')) {
+              sessionStorage.setItem('sw_unreg_refresh_v2', '1');
               window.location.reload();
             }
           }
