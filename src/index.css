@@ -2782,9 +2782,10 @@ tr:hover {
 .mazyoud-pdp-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 30px 16px;
+  padding: 30px 24px;
   background: #FFF;
   animation: mazyoudFadeIn 0.35s ease-out;
+  box-sizing: border-box;
 }
 
 .mazyoud-pdp-back-btn {
@@ -2813,9 +2814,28 @@ tr:hover {
 }
 
 @media (max-width: 768px) {
+  .mazyoud-pdp-container {
+    padding: 16px 22px 85px !important;
+    padding-right: max(22px, env(safe-area-inset-right)) !important;
+    padding-left: max(22px, env(safe-area-inset-left)) !important;
+    box-sizing: border-box;
+  }
+
   .mazyoud-pdp-grid {
     grid-template-columns: 1fr;
-    gap: 24px;
+    gap: 20px;
+  }
+
+  .mazyoud-pdp-details {
+    padding-right: 8px !important;
+    padding-left: 8px !important;
+    box-sizing: border-box;
+  }
+
+  .mazyoud-pdp-title {
+    font-size: 1.5rem !important;
+    line-height: 2rem !important;
+    margin-bottom: 8px !important;
   }
 }
 
@@ -2889,6 +2909,8 @@ tr:hover {
   flex-direction: column;
   text-align: right;
   direction: rtl;
+  padding: 0 4px;
+  box-sizing: border-box;
 }
 
 .mazyoud-pdp-category {

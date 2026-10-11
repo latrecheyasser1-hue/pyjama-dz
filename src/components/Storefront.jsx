@@ -847,7 +847,9 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
             borderRadius: '16px',
             border: '1.5px solid #FCE7F3',
             margin: '12px 0 16px',
-            boxShadow: '0 2px 10px rgba(216, 108, 134, 0.08)'
+            boxShadow: '0 2px 10px rgba(216, 108, 134, 0.08)',
+            boxSizing: 'border-box',
+            width: '100%'
           }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
               <span className="current-price" style={{ direction: 'ltr', display: 'inline-block', fontSize: '1.9rem', fontWeight: 950, color: '#C8102E' }}>
@@ -996,7 +998,9 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                 padding: '12px 16px',
                 background: '#F8FAFC',
                 borderRadius: '14px',
-                border: '1px solid #E2E8F0'
+                border: '1px solid #E2E8F0',
+                boxSizing: 'border-box',
+                width: '100%'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '0.92rem', color: '#1E293B' }}>
                   <span>🔢 الكمية (Quantité) :</span>
