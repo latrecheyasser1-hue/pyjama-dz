@@ -10,6 +10,7 @@ import {
   MessageCircle, 
   RotateCcw 
 } from 'lucide-react';
+import { formatPrice } from '../../utils/formatUtils';
 
 export default function ExchangeOrderCard({
   order,
@@ -315,7 +316,7 @@ export default function ExchangeOrderCard({
                 )}
                 <div>
                   <span>السعر الأصلي: </span>
-                  <strong style={{ color: '#C2410C' }}>{Number(order.oldPrice || 0).toLocaleString('ar-DZ')} دج</strong>
+                  <strong style={{ color: '#C2410C' }}>{formatPrice(order.oldPrice || 0)} دج</strong>
                 </div>
                 <div>
                   <span>سبب الاستبدال: </span>
@@ -412,7 +413,7 @@ export default function ExchangeOrderCard({
                     المبلغ المستحق للزبون (Remboursement):
                   </span>
                   <strong style={{ fontSize: '1.4rem', color: '#1E3A8A', fontWeight: 900 }}>
-                    {Number(order.refundDue || order.price || order.totalPrice || 0).toLocaleString('ar-DZ')} دج
+                    {formatPrice(order.refundDue || order.price || order.totalPrice || 0)} دج
                   </strong>
                 </div>
 
@@ -532,7 +533,7 @@ export default function ExchangeOrderCard({
                         </div>
 
                         <div style={{ textAlign: 'left', fontWeight: 900, color: '#15803D', fontSize: '0.95rem' }}>
-                          {(Number(item.price || 0) * (item.qty || 1)).toLocaleString('ar-DZ')} دج
+                          {formatPrice(Number(item.price || 0) * (item.qty || 1))} دج
                         </div>
                       </div>
                     ))}
@@ -569,7 +570,7 @@ export default function ExchangeOrderCard({
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
             <div>
               <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'block', fontWeight: 700 }}>سعر السلعة القديمة</span>
-              <strong style={{ fontSize: '1rem', color: '#475569' }}>{Number(order.oldPrice || 0).toLocaleString('ar-DZ')} دج</strong>
+              <strong style={{ fontSize: '1rem', color: '#475569' }}>{formatPrice(order.oldPrice || 0)} دج</strong>
             </div>
 
             <div>
@@ -581,14 +582,14 @@ export default function ExchangeOrderCard({
                 color: order.isDefect ? '#059669' : (isRetour ? '#D97706' : '#475569'),
                 fontWeight: 800
               }}>
-                {order.isDefect ? '0 دج (مجاني - عيب مصنعي) 🛡️' : `${(Number(order.deliveryFee) || 500).toLocaleString('ar-DZ')} دج (${isRetour ? 'مخصومة من المسترد' : 'على الزبون'})`}
+                {order.isDefect ? '0 دج (مجاني - عيب مصنعي) 🛡️' : `${formatPrice(order.deliveryFee || 500)} دج (${isRetour ? 'مخصومة من المسترد' : 'على الزبون'})`}
               </strong>
             </div>
 
             <div>
               <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'block', fontWeight: 700 }}>المبلغ الصافي للتحصيل (COD)</span>
               <strong style={{ fontSize: '1.25rem', color: 'var(--burgundy)', fontWeight: 900 }}>
-                {isRetour ? '0 دج (استرجاع - بدون تحصيل)' : `${Number(order.price || order.totalPrice || 0).toLocaleString('ar-DZ')} دج`}
+                {isRetour ? '0 دج (استرجاع - بدون تحصيل)' : `${formatPrice(order.price || order.totalPrice || 0)} دج`}
               </strong>
             </div>
 
@@ -598,7 +599,7 @@ export default function ExchangeOrderCard({
                   {isRetour ? 'المبلغ المسترد للزبون عبر بريدي موب 💳' : 'فارق السعر المستحق للزبون 💳'}
                 </span>
                 <strong style={{ fontSize: '1.1rem', color: '#15803D', fontWeight: 900 }}>
-                  {Number(order.refundDue).toLocaleString('ar-DZ')} دج
+                  {formatPrice(order.refundDue)} دج
                 </strong>
               </div>
             )}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Trash2, Edit2, Upload, Check, X, Layers, PlusCircle, MinusCircle, Printer, Image as ImageIcon, Barcode as BarcodeIcon, Pipette, Tag } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { showToast } from '../../utils/toast';
+import { formatPrice } from '../../utils/formatUtils';
 
 const ALL_SIZES = ["Standard", "S", "M", "L", "XL", "2XL", "3XL", "4XL"];
 
@@ -320,7 +321,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
         <body>
           <div class="title">${product.title}</div>
           <svg id="barcode"></svg>
-          <div class="price">${product.price.toLocaleString()} DA</div>
+          <div class="price">${formatPrice(product.price)} DA</div>
           <script>
             window.onload = function() {
               JsBarcode("#barcode", "${barcodeValue}", {
@@ -1502,8 +1503,8 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                                 <div style={{ flex: 1, fontSize: '0.88rem', fontWeight: isChecked ? 750 : 600, color: isChecked ? 'var(--burgundy-dark)' : '#334155' }}>
                                   {p.title}
                                 </div>
-                                <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700 }}>
-                                  {p.price?.toLocaleString()} DA
+                                <span style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 700, direction: 'ltr' }}>
+                                  {formatPrice(p.price)} DA
                                 </span>
                               </label>
                             );
@@ -1758,11 +1759,11 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                 <div>
                   {stockMode === 'gros' ? (
                     <>
-                      <span style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--burgundy)', display: 'block' }}>
-                        📦 الجملة : {p.price.toLocaleString()} DA (سعر السيري الواحدة)
+                      <span style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--burgundy)', display: 'block', direction: 'ltr' }}>
+                        📦 الجملة : {formatPrice(p.price)} DA (سعر السيري الواحدة)
                       </span>
-                      <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#4F46E5', display: 'block' }}>
-                        👑 جملة كبيرة : {p.oldPrice ? `${p.oldPrice.toLocaleString()} DA` : '0 DA'} (من {(() => {
+                      <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#4F46E5', display: 'block', direction: 'ltr' }}>
+                        👑 جملة كبيرة : {p.oldPrice ? `${formatPrice(p.oldPrice)} DA` : '0 DA'} (من {(() => {
                           const descParts = (p.description || '').split('|||');
                           try {
                             const meta = descParts[1] ? JSON.parse(descParts[1]) : {};
@@ -1773,8 +1774,8 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                     </>
                   ) : (
                     <>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>Achat : {p.purchasePrice ? `${p.purchasePrice.toLocaleString()} DA` : 'N/A'}</span>
-                      <span style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--burgundy)' }}>Vente : {p.price.toLocaleString()} DA</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', direction: 'ltr' }}>Achat : {p.purchasePrice ? `${formatPrice(p.purchasePrice)} DA` : 'N/A'}</span>
+                      <span style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--burgundy)', direction: 'ltr' }}>Vente : {formatPrice(p.price)} DA</span>
                     </>
                   )}
                 </div>
@@ -1961,17 +1962,17 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div style={{ background: '#FFF7ED', padding: '10px', borderRadius: '12px', textAlign: 'center', border: '1px solid #FED7AA' }}>
                     <span style={{ fontSize: '0.75rem', color: '#C2410C', display: 'block', fontWeight: 700 }}>سعر البيع (Vente)</span>
-                    <strong style={{ fontSize: '1.1rem', color: 'var(--burgundy)', fontWeight: 900 }}>{quickViewProduct.price?.toLocaleString()} DA</strong>
+                    <strong style={{ fontSize: '1.1rem', color: 'var(--burgundy)', fontWeight: 900, direction: 'ltr', display: 'inline-block' }}>{formatPrice(quickViewProduct.price)} DA</strong>
                   </div>
                   {!quickViewProduct.category?.startsWith('boutique__') && quickViewProduct.purchasePrice ? (
                     <div style={{ background: '#F0FDF4', padding: '10px', borderRadius: '12px', textAlign: 'center', border: '1px solid #BBF7D0' }}>
                       <span style={{ fontSize: '0.75rem', color: '#166534', display: 'block', fontWeight: 700 }}>سعر الشراء (Achat)</span>
-                      <strong style={{ fontSize: '1.1rem', color: '#15803D', fontWeight: 900 }}>{quickViewProduct.purchasePrice?.toLocaleString()} DA</strong>
+                      <strong style={{ fontSize: '1.1rem', color: '#15803D', fontWeight: 900, direction: 'ltr', display: 'inline-block' }}>{formatPrice(quickViewProduct.purchasePrice)} DA</strong>
                     </div>
                   ) : (
                     <div style={{ background: '#F8FAFC', padding: '10px', borderRadius: '12px', textAlign: 'center', border: '1px solid #E2E8F0' }}>
                       <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block', fontWeight: 700 }}>سعر الشراء</span>
-                      <strong style={{ fontSize: '1.1rem', color: '#475569', fontWeight: 900 }}>{quickViewProduct.purchasePrice ? `${quickViewProduct.purchasePrice.toLocaleString()} DA` : '0 DA'}</strong>
+                      <strong style={{ fontSize: '1.1rem', color: '#475569', fontWeight: 900, direction: 'ltr', display: 'inline-block' }}>{quickViewProduct.purchasePrice ? `${formatPrice(quickViewProduct.purchasePrice)} DA` : '0 DA'}</strong>
                     </div>
                   )}
                 </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Phone, Printer, CheckCircle2, Store, Search, Plus, Trash2, X, ShoppingBag, RefreshCw } from 'lucide-react';
 import { getClientReputation } from '../../utils/reputation';
+import { formatPrice } from '../../utils/formatUtils';
 
 export default function OrdersTab({ orders, products = [], settings, onPlaceOrder, onUpdateProduct, onUpdateStatus, onOpenPos, onRefreshOrders }) {
   const [printingOrder, setPrintingOrder] = useState(null);
@@ -372,8 +373,8 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                         Taille : {order.size}
                       </span>
                     </td>
-                    <td style={{ fontWeight: 800, color: 'var(--burgundy)', fontSize: '0.95rem' }}>
-                      {(Number(order.price) || 0).toLocaleString()} DA
+                    <td style={{ fontWeight: 800, color: 'var(--burgundy)', fontSize: '0.95rem', direction: 'ltr' }}>
+                      {formatPrice(order.price)} DA
                     </td>
                     <td>
                       <select
@@ -547,7 +548,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                               <td style={{ padding: '8px 4px', textAlign: 'right', fontWeight: 700 }}>{it.product || it.title}</td>
                               <td style={{ padding: '8px 4px' }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{it.color || it.selectedColor || '—'}</span></td>
                               <td style={{ padding: '8px 4px', fontWeight: 800 }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{it.size || it.selectedSize} {it.qty > 1 ? `(x${it.qty})` : ''}</span></td>
-                              <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{((it.price || 0) * (it.qty || it.quantity || 1)).toLocaleString()} د.ج</td>
+                              <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{formatPrice((it.price || 0) * (it.qty || it.quantity || 1))} د.ج</td>
                             </tr>
                           ))
                         ) : (
@@ -555,7 +556,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                             <td style={{ padding: '8px 4px', textAlign: 'right', fontWeight: 700 }}>{printingOrder.product}</td>
                             <td style={{ padding: '8px 4px' }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{printingOrder.color || '—'}</span></td>
                             <td style={{ padding: '8px 4px', fontWeight: 800 }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{printingOrder.size}</span></td>
-                            <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{(printingOrder.price || 0).toLocaleString()} د.ج</td>
+                            <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{formatPrice(printingOrder.price)} د.ج</td>
                           </tr>
                         )}
                       </tbody>
@@ -566,7 +567,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                   {(printingOrder.discount > 0 || printingOrder.remise > 0) && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem', fontWeight: 800, color: '#D32F2F', marginBottom: '8px' }}>
                       <span>تخفيض للزبون (Remise):</span>
-                      <span style={{ direction: 'ltr' }}>- {(printingOrder.discount || printingOrder.remise || 0).toLocaleString()} د.ج</span>
+                      <span style={{ direction: 'ltr' }}>- {formatPrice(printingOrder.discount || printingOrder.remise)} د.ج</span>
                     </div>
                   )}
 
@@ -575,7 +576,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                     <tbody>
                       <tr>
                         <td style={{ paddingTop: '12px', border: 'none', textAlign: 'right' }}>{isPosOrder ? 'المجموع الإجمالي:' : 'المجموع الإجمالي للدفع:'}</td>
-                        <td style={{ paddingTop: '12px', border: 'none', textAlign: 'left', direction: 'ltr' }}>{(printingOrder.totalPrice || printingOrder.price || 0).toLocaleString()} د.ج</td>
+                        <td style={{ paddingTop: '12px', border: 'none', textAlign: 'left', direction: 'ltr' }}>{formatPrice(printingOrder.totalPrice || printingOrder.price)} د.ج</td>
                       </tr>
                     </tbody>
                   </table>
@@ -768,7 +769,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                     </div>
                     <div>
                       <span style={{ fontSize: '0.78rem', color: '#881337', display: 'block', fontWeight: 700 }}>سعر السلعة القديمة:</span>
-                      <strong style={{ fontSize: '0.92rem', color: '#1E293B' }}>{(Number(exchangeDetails?.oldProductPrice) || 0).toLocaleString()} DA</strong>
+                      <strong style={{ fontSize: '0.92rem', color: '#1E293B', direction: 'ltr', display: 'inline-block' }}>{formatPrice(exchangeDetails?.oldProductPrice)} DA</strong>
                     </div>
                     <div>
                       <span style={{ fontSize: '0.78rem', color: '#881337', display: 'block', fontWeight: 700 }}>سبب الاستبدال:</span>
@@ -798,8 +799,8 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                     <div style={{ background: '#FEF3C7', border: '1.5px solid #FDE68A', padding: '14px', borderRadius: '14px', marginTop: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                         <strong style={{ color: '#92400E', fontSize: '0.9rem' }}>⚠️ مستحقات يجب إرجاعها للزبونة (Remboursement):</strong>
-                        <span style={{ background: '#D97706', color: 'white', fontWeight: 900, padding: '2px 10px', borderRadius: '12px', fontSize: '0.85rem' }}>
-                          {(Number(exchangeDetails?.refundDue) || 0).toLocaleString()} DA
+                        <span style={{ background: '#D97706', color: 'white', fontWeight: 900, padding: '2px 10px', borderRadius: '12px', fontSize: '0.85rem', direction: 'ltr', display: 'inline-block' }}>
+                          {formatPrice(exchangeDetails?.refundDue)} DA
                         </span>
                       </div>
                       <div>
@@ -845,11 +846,11 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                         </span>
                       </div>
                       <div style={{ textAlign: 'left' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#64748B', display: 'block' }}>
-                          {item.qty} × {Number(item.price || 0).toLocaleString()} DA
+                        <span style={{ fontSize: '0.85rem', color: '#64748B', display: 'block', direction: 'ltr' }}>
+                          {item.qty} × {formatPrice(item.price)} DA
                         </span>
-                        <strong style={{ fontSize: '0.9rem', color: 'var(--burgundy)' }}>
-                          {(Number(item.qty || 1) * Number(item.price || 0)).toLocaleString()} DA
+                        <strong style={{ fontSize: '0.9rem', color: 'var(--burgundy)', direction: 'ltr', display: 'inline-block' }}>
+                          {formatPrice(Number(item.qty || 1) * Number(item.price || 0))} DA
                         </strong>
                       </div>
                     </div>
@@ -869,14 +870,14 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
             <div style={{ borderTop: '2px solid #F1F5F9', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <div>
                 {selectedOrderDetails.discount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#EF4444', marginBottom: 8 }}>
-                    الخصم: <strong>-{(Number(selectedOrderDetails.discount) || 0).toLocaleString()} DA</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#EF4444', marginBottom: 8, direction: 'ltr' }}>
+                    الخصم: <strong>-{formatPrice(selectedOrderDetails.discount)} DA</strong>
                   </div>
                 )}
                 <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#475569' }}>المبلغ الإجمالي المستحق:</span>
               </div>
-              <strong style={{ fontSize: '1.4rem', color: 'var(--burgundy)', fontWeight: 900 }}>
-                {Number(selectedOrderDetails.price || 0).toLocaleString()} DA
+              <strong style={{ fontSize: '1.4rem', color: 'var(--burgundy)', fontWeight: 900, direction: 'ltr', display: 'inline-block' }}>
+                {formatPrice(selectedOrderDetails.price)} DA
               </strong>
             </div>
 

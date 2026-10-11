@@ -5,6 +5,7 @@ import { showToast } from '../utils/toast';
 import { sanitizeAlgerianPhone, isValidAlgerianPhone } from '../utils/phoneUtils';
 import { ShoppingBag, ArrowRight, MapPin, Trash2, Check, Search, Phone, ShoppingCart } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
+import { formatPrice } from '../utils/formatUtils';
 
 const getProductCategoryGroupId = (prodCategory, categoriesList) => {
   if (!Array.isArray(categoriesList)) return prodCategory;
@@ -586,11 +587,11 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#F8FAFC', padding: '10px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
                           <div style={{ textAlign: 'center', opacity: (inputQty === '' || inputQty < minQtySuperGros) ? 1 : 0.4 }}>
                             <span style={{ fontSize: '0.72rem', color: '#64748B', display: 'block' }}>سعر الجملة (Gros)</span>
-                            <strong style={{ fontSize: '0.98rem', color: '#800020' }}>{p.price?.toLocaleString()} DA</strong>
+                            <strong style={{ fontSize: '0.98rem', color: '#800020', direction: 'ltr', display: 'inline-block' }}>{formatPrice(p.price)} DA</strong>
                           </div>
                           <div style={{ textAlign: 'center', opacity: (inputQty !== '' && inputQty >= minQtySuperGros) ? 1 : 0.4 }}>
                             <span style={{ fontSize: '0.72rem', color: '#64748B', display: 'block' }}>سعر الجملة الكبيرة (Super)</span>
-                            <strong style={{ fontSize: '0.98rem', color: '#4F46E5' }}>{(p.oldPrice || p.price)?.toLocaleString()} DA</strong>
+                            <strong style={{ fontSize: '0.98rem', color: '#4F46E5', direction: 'ltr', display: 'inline-block' }}>{formatPrice(p.oldPrice || p.price)} DA</strong>
                           </div>
                         </div>
 
@@ -609,10 +610,10 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
 
                           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <span style={{ fontSize: '0.78rem', color: isQtyValid ? '#15803D' : '#C2410C', fontWeight: 700 }}>
-                              {isQtyValid ? `✅ سعر ${serieConfig ? 'السيري' : 'القطعة'}: ${activePrice.toLocaleString()} DA` : `⚠️ الحد الأدنى للطلب ${minQtyGros} ${serieConfig ? 'سيري' : 'قطعة'}`}
+                              {isQtyValid ? `✅ سعر ${serieConfig ? 'السيري' : 'القطعة'}: ${formatPrice(activePrice)} DA` : `⚠️ الحد الأدنى للطلب ${minQtyGros} ${serieConfig ? 'سيري' : 'قطعة'}`}
                             </span>
                             <span style={{ fontSize: '0.78rem', color: '#475569' }}>
-                              المجموع الفرعي: <strong>{isQtyValid ? `${(activePrice * inputQty).toLocaleString()} DA` : '0 DA'}</strong>
+                              المجموع الفرعي: <strong style={{ direction: 'ltr', display: 'inline-block' }}>{isQtyValid ? `${formatPrice(activePrice * inputQty)} DA` : '0 DA'}</strong>
                             </span>
                           </div>
                         </div>
@@ -703,7 +704,7 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
                           </span>
                         </div>
                         <div style={{ textAlign: 'left' }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#800020', display: 'block' }}>{item.total.toLocaleString()} DA</span>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#800020', display: 'block', direction: 'ltr' }}>{formatPrice(item.total)} DA</span>
                           <button 
                             type="button" 
                             onClick={() => handleRemoveFromCart(item.id)} 
@@ -719,7 +720,7 @@ export default function GrosStorefront({ products, settings, onPlaceOrder, onGoT
                   {/* Cart Total */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FFF7ED', padding: '12px', borderRadius: '12px', border: '1px solid #FED7AA', marginBottom: '20px' }}>
                     <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#C2410C' }}>إجمالي مبلغ الجملة:</span>
-                    <strong style={{ fontSize: '1.25rem', color: '#800020', fontWeight: 900 }}>{cartTotal.toLocaleString()} DA</strong>
+                    <strong style={{ fontSize: '1.25rem', color: '#800020', fontWeight: 900, direction: 'ltr' }}>{formatPrice(cartTotal)} DA</strong>
                   </div>
 
                   {/* Checkout Form */}

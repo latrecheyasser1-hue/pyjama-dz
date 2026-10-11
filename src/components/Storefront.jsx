@@ -17,6 +17,7 @@ import ProductReviewsSection from './ProductReviewsSection';
 import VirtualTryOnModal from './VirtualTryOnModal';
 import { getCurrentCustomer, setCustomerSession, fetchCustomerProfile, saveCustomerWishlist, fetchCustomerWishlist } from '../services/customerService';
 import { useUser, useClerk } from '@clerk/clerk-react';
+import { formatPrice } from '../utils/formatUtils';
 const getProductDisplayCategory = (prodCategory, categoriesList) => {
   if (!Array.isArray(categoriesList)) return prodCategory || 'Pyjama DZ';
   const exact = categoriesList.find(c => c && typeof c === 'object' && c.id === prodCategory);
@@ -488,12 +489,12 @@ function ProductCardItem({ product, onSelect, onCategorySelect, categoriesList, 
         </h3>
 
         <div className="price-container" style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className="price-current" style={{ fontSize: '1.3rem', fontWeight: 900, color: '#C8102E' }}>
-            {(Number(product?.price) || 0).toLocaleString()} DA
+          <span className="price-current" style={{ fontSize: '1.3rem', fontWeight: 900, color: '#C8102E', direction: 'ltr', display: 'inline-block' }}>
+            {formatPrice(product?.price)} DA
           </span>
           {hasPromo && (
-            <span className="price-old" style={{ fontSize: '0.92rem', color: '#888888', textDecoration: 'line-through' }}>
-              {(Number(product.oldPrice) || 0).toLocaleString()} DA
+            <span className="price-old" style={{ fontSize: '0.92rem', color: '#888888', textDecoration: 'line-through', direction: 'ltr', display: 'inline-block' }}>
+              {formatPrice(product.oldPrice)} DA
             </span>
           )}
         </div>
@@ -824,9 +825,9 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
           </div>
 
           <div className="mazyoud-pdp-price-box">
-            <span className="current-price">{(Number(product.price) || 0).toLocaleString()} DA</span>
+            <span className="current-price" style={{ direction: 'ltr', display: 'inline-block' }}>{formatPrice(product.price)} DA</span>
             {Boolean(product.oldPrice && Number(product.oldPrice) > Number(product.price)) && (
-              <span className="old-price">{(Number(product.oldPrice) || 0).toLocaleString()} DA</span>
+              <span className="old-price" style={{ direction: 'ltr', display: 'inline-block' }}>{formatPrice(product.oldPrice)} DA</span>
             )}
           </div>
 
@@ -845,7 +846,7 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
               return (
                 <div style={{ background: '#FDF2F8', color: '#DB2777', padding: '10px 16px', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 850, border: '1px solid #FBCFE8', display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '8px', marginBottom: '8px' }}>
                   <span>🎁 عرض خاص:</span>
-                  <span><strong>{bulkPrice5.toLocaleString()} DA</strong> للقطعة عند شراء 5 حبات فما فوق!</span>
+                  <span><strong style={{ direction: 'ltr', display: 'inline-block' }}>{formatPrice(bulkPrice5)} DA</strong> للقطعة عند شراء 5 حبات فما فوق!</span>
                 </div>
               );
             }
@@ -1197,8 +1198,8 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                       {lp.title}
                     </h4>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', direction: 'ltr' }}>
-                      <span style={{ color: 'var(--burgundy)', fontWeight: 900, fontSize: '1rem' }}>
-                        {lp.price?.toLocaleString()} DA
+                      <span style={{ color: 'var(--burgundy)', fontWeight: 900, fontSize: '1rem', direction: 'ltr' }}>
+                        {formatPrice(lp.price)} DA
                       </span>
                     </div>
                   </div>
@@ -2982,8 +2983,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                           />
                           <div className="search-autocomplete-details">
                             <h4 className="search-autocomplete-title">{item.title}</h4>
-                            <span className="search-autocomplete-price">
-                              {(Number(item.price) || 0).toLocaleString()} DA
+                            <span className="search-autocomplete-price" style={{ direction: 'ltr' }}>
+                              {formatPrice(item.price)} DA
                             </span>
                           </div>
                         </button>
@@ -4263,8 +4264,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                           }}
                         >
                           <span style={{ fontWeight: 900 }}>📦 Yalidine Express</span>
-                          <span style={{ fontSize: '0.92rem', color: '#059669', fontWeight: 900 }}>
-                            {yalidineRate > 0 ? `${yalidineRate.toLocaleString()} DA` : 'حسب الولاية'}
+                          <span style={{ fontSize: '0.92rem', color: '#059669', fontWeight: 900, direction: 'ltr' }}>
+                            {yalidineRate > 0 ? `${formatPrice(yalidineRate)} DA` : 'حسب الولاية'}
                           </span>
                           {deliveryCompany === 'yalidine' && (
                             <span style={{ position: 'absolute', top: 6, right: 8, fontSize: '0.9rem' }}>✅</span>
@@ -4296,8 +4297,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                           }}
                         >
                           <span style={{ fontWeight: 900 }}>⚡ ZR Express</span>
-                          <span style={{ fontSize: '0.92rem', color: '#059669', fontWeight: 900 }}>
-                            {zrRate > 0 ? `${zrRate.toLocaleString()} DA` : 'حسب الولاية'}
+                          <span style={{ fontSize: '0.92rem', color: '#059669', fontWeight: 900, direction: 'ltr' }}>
+                            {zrRate > 0 ? `${formatPrice(zrRate)} DA` : 'حسب الولاية'}
                           </span>
                           {deliveryCompany === 'zrexpress' && (
                             <span style={{ position: 'absolute', top: 6, right: 8, fontSize: '0.9rem' }}>✅</span>
@@ -4430,7 +4431,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.95rem', color: '#475569' }}>
                         <span>مجموع المنتجات ({cartItems.reduce((acc, i) => acc + (i.qty || 1), 0)} قطعة):</span>
-                        <strong style={{ color: '#1E293B' }}>{cartTotal.toLocaleString()} DA</strong>
+                        <strong style={{ color: '#1E293B', direction: 'ltr' }}>{formatPrice(cartTotal)} DA</strong>
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '0.95rem', color: '#475569' }}>
@@ -4438,8 +4439,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                         {(!deliveryMode || !deliveryCompany) ? (
                           <span style={{ color: '#E11D48', fontSize: '0.85rem', fontWeight: 800 }}>يرجى اختيار نوع وشركة التوصيل</span>
                         ) : (
-                          <strong style={{ color: '#059669', fontSize: '1.05rem' }}>
-                            {calculatedDeliveryFee > 0 ? `+${calculatedDeliveryFee.toLocaleString()} DA` : 'مجاني'}
+                          <strong style={{ color: '#059669', fontSize: '1.05rem', direction: 'ltr' }}>
+                            {calculatedDeliveryFee > 0 ? `+${formatPrice(calculatedDeliveryFee)} DA` : 'مجاني'}
                           </strong>
                         )}
                       </div>
@@ -4451,8 +4452,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                             {isBureauDelivery ? 'استلام من المكتب' : 'توصيل لباب المنزل'}
                           </span>
                         </div>
-                        <span style={{ fontSize: '1.45rem', fontWeight: 900, color: 'var(--burgundy-dark)' }}>
-                          {(cartTotal + calculatedDeliveryFee).toLocaleString()} DA
+                        <span style={{ fontSize: '1.45rem', fontWeight: 900, color: 'var(--burgundy-dark)', direction: 'ltr' }}>
+                          {formatPrice(cartTotal + calculatedDeliveryFee)} DA
                         </span>
                       </div>
                     </div>
@@ -4474,11 +4475,11 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                         <img loading="lazy" decoding="async" src={itemDisplayImage} alt={item.product || ''} style={{ width: '85px', height: '110px', objectFit: 'cover', borderRadius: '10px' }} />
                         <div style={{ flex: 1 }}>
                           <h4 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '4px', paddingRight: '24px' }}>{item.product || ''}</h4>
-                           <p style={{ color: 'var(--burgundy)', fontWeight: 900, fontSize: '1.05rem', marginBottom: '12px' }}>
-                             {(Number(getCartItemPrice(item)) || 0).toLocaleString()} DA
+                           <p style={{ color: 'var(--burgundy)', fontWeight: 900, fontSize: '1.05rem', marginBottom: '12px', direction: 'ltr' }}>
+                             {formatPrice(getCartItemPrice(item))} DA
                              {getCartItemPrice(item) < Number(item.price) && (
-                               <span style={{ fontSize: '0.82rem', color: '#64748B', textDecoration: 'line-through', marginRight: '6px', fontWeight: 500 }}>
-                                 {(Number(item.price) || 0).toLocaleString()} DA
+                               <span style={{ fontSize: '0.82rem', color: '#64748B', textDecoration: 'line-through', marginRight: '6px', fontWeight: 500, direction: 'ltr' }}>
+                                 {formatPrice(item.price)} DA
                                </span>
                              )}
                            </p>
@@ -4615,7 +4616,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       </span>
                     ) : (
                       <span style={{ color: '#334155' }}>
-                        أضف <strong style={{ color: '#E11D48' }}>{(10000 - cartTotal).toLocaleString()} DA</strong> للاستفادة من <strong>التوصيل المجاني</strong>! 🚚
+                        أضف <strong style={{ color: '#E11D48', direction: 'ltr', display: 'inline-block' }}>{formatPrice(10000 - cartTotal)} DA</strong> للاستفادة من <strong>التوصيل المجاني</strong>! 🚚
                       </span>
                     )}
                     <span style={{ color: isFreeShippingEligible ? '#15803D' : '#64748B', fontSize: '0.78rem' }}>
@@ -4638,7 +4639,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#64748B' }}>
                         <span>مجموع السلع:</span>
-                        <strong style={{ color: '#1E293B' }}>{cartTotal.toLocaleString()} DA</strong>
+                        <strong style={{ color: '#1E293B', direction: 'ltr' }}>{formatPrice(cartTotal)} DA</strong>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: isFreeShippingEligible ? '#15803D' : '#059669' }}>
                         <span>سعر التوصيل ({wilaya.split('-')[1]?.trim() || wilaya}):</span>
@@ -4647,12 +4648,12 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                             0 DA (مجاني 🎁)
                           </strong>
                         ) : (
-                          <strong style={{ color: '#059669' }}>+{calculatedDeliveryFee.toLocaleString()} DA</strong>
+                          <strong style={{ color: '#059669', direction: 'ltr' }}>+{formatPrice(calculatedDeliveryFee)} DA</strong>
                         )}
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', borderTop: '1px solid #E2E8F0', paddingTop: '8px' }}>
                         <span style={{ fontSize: '1.05rem', color: '#1E293B', fontWeight: 800 }}>المبلغ الإجمالي الكلي</span>
-                        <span style={{ fontSize: '1.5rem', color: 'var(--burgundy-dark)', fontWeight: 900 }}>{(cartTotal + calculatedDeliveryFee).toLocaleString()} DA</span>
+                        <span style={{ fontSize: '1.5rem', color: 'var(--burgundy-dark)', fontWeight: 900, direction: 'ltr' }}>{formatPrice(cartTotal + calculatedDeliveryFee)} DA</span>
                       </div>
                     </div>
                   ) : (
@@ -4663,7 +4664,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                           {isFreeShippingEligible ? '🎉 مؤهل للتوصيل المجاني 100%' : '(سعر التوصيل يضاف عند اختيار الولاية)'}
                         </span>
                       </div>
-                      <span style={{ fontSize: '1.6rem', color: 'var(--burgundy-dark)', fontWeight: 900 }}>{(Number(cartTotal) || 0).toLocaleString()} DA</span>
+                      <span style={{ fontSize: '1.6rem', color: 'var(--burgundy-dark)', fontWeight: 900, direction: 'ltr' }}>{formatPrice(cartTotal)} DA</span>
                     </div>
                   )}
                 </div>
@@ -5864,8 +5865,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                             />
                             <div className="search-autocomplete-details">
                               <h4 className="search-autocomplete-title">{item.title}</h4>
-                              <span className="search-autocomplete-price">
-                                {(Number(item.price) || 0).toLocaleString()} DA
+                              <span className="search-autocomplete-price" style={{ direction: 'ltr' }}>
+                                {formatPrice(item.price)} DA
                               </span>
                             </div>
                           </button>

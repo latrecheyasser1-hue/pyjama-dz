@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, UserCheck, UserX, User, Phone, MapPin, Calendar, ShoppingBag, Eye, X, Star, Trash2, EyeOff, MessageSquare, ThumbsUp, ShieldCheck, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { fetchReviews, deleteReview, toggleReviewStatus } from '../../services/reviewService.js';
+import { formatPrice } from '../../utils/formatUtils.js';
 
 export default function ClientsTab({ orders = [], products = [] }) {
   const [activeSection, setActiveSection] = useState('clients'); // 'clients' | 'reviews'
@@ -927,7 +928,7 @@ export default function ClientsTab({ orders = [], products = [] }) {
                           : o.productTitle || '—'}
                       </td>
                       <td style={{ padding: '10px 12px', fontWeight: 750, color: 'var(--burgundy)' }}>
-                        {o.price?.toLocaleString()} DA
+                        {formatPrice(o.price)} DA
                       </td>
                       <td style={{ padding: '10px 12px' }}>
                         {o.status === 'nouvelle' && <span style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 750 }}>🆕 جديدة</span>}

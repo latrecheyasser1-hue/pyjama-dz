@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Printer, Trash2, X } from 'lucide-react';
 import { getClientReputation } from '../../utils/reputation';
+import { formatPrice } from '../../utils/formatUtils';
 
 export default function HistoryTab({ orders, products, settings, onUpdateProduct, onUpdateStatus, onUpdateSettings }) {
   const [historyType, setHistoryType] = useState('orders'); // 'orders' | 'reclamations'
@@ -513,8 +514,8 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
                             </td>
                           )}
                           {orderTypeFilter === 'hanout' && (
-                            <td style={{ fontWeight: 800, color: '#DC2626' }}>
-                              {discountVal > 0 ? `${discountVal.toLocaleString()} DA` : '-'}
+                            <td style={{ fontWeight: 800, color: '#DC2626', direction: 'ltr' }}>
+                              {discountVal > 0 ? `${formatPrice(discountVal)} DA` : '-'}
                             </td>
                           )}
                           <td style={{ fontWeight: 600 }}>
@@ -523,7 +524,7 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
                           </div>
                           <span style={{ fontSize: '0.75rem', background: '#F5F5F5', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>{o.size}</span>
                         </td>
-                        <td style={{ fontWeight: 800, color: 'var(--burgundy)' }}>{(o.price || 0).toLocaleString()} DA</td>
+                        <td style={{ fontWeight: 800, color: 'var(--burgundy)', direction: 'ltr' }}>{formatPrice(o.price)} DA</td>
                         <td>
                           {o.status === 'confirmee' || o.status === 'livree' ? (
                             <select
@@ -696,7 +697,7 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
                               <td style={{ padding: '8px 4px', textAlign: 'right', fontWeight: 700 }}>{it.product || it.title}</td>
                               <td style={{ padding: '8px 4px' }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{it.color || it.selectedColor || '—'}</span></td>
                               <td style={{ padding: '8px 4px', fontWeight: 800 }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{it.size || it.selectedSize} {it.qty > 1 ? `(x${it.qty})` : ''}</span></td>
-                              <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{((it.price || 0) * (it.qty || it.quantity || 1)).toLocaleString()} د.ج</td>
+                              <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{formatPrice((it.price || 0) * (it.qty || it.quantity || 1))} د.ج</td>
                             </tr>
                           ))
                         ) : (
@@ -704,7 +705,7 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
                             <td style={{ padding: '8px 4px', textAlign: 'right', fontWeight: 700 }}>{printingOrder.product}</td>
                             <td style={{ padding: '8px 4px' }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{printingOrder.color || '—'}</span></td>
                             <td style={{ padding: '8px 4px', fontWeight: 800 }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{printingOrder.size}</span></td>
-                            <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{(printingOrder.price || 0).toLocaleString()} د.ج</td>
+                            <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{formatPrice(printingOrder.price)} د.ج</td>
                           </tr>
                         )}
                       </tbody>
@@ -715,7 +716,7 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
                   {(printingOrder.discount > 0 || printingOrder.remise > 0) && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem', fontWeight: 800, color: '#D32F2F', marginBottom: '8px' }}>
                       <span>تخفيض للزبون (Remise):</span>
-                      <span style={{ direction: 'ltr' }}>- {(printingOrder.discount || printingOrder.remise || 0).toLocaleString()} د.ج</span>
+                      <span style={{ direction: 'ltr' }}>- {formatPrice(printingOrder.discount || printingOrder.remise)} د.ج</span>
                     </div>
                   )}
 
@@ -724,7 +725,7 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
                     <tbody>
                       <tr>
                         <td style={{ paddingTop: '12px', border: 'none', textAlign: 'right' }}>المجموع الإجمالي:</td>
-                        <td style={{ paddingTop: '12px', border: 'none', textAlign: 'left', direction: 'ltr' }}>{(printingOrder.price || 0).toLocaleString()} د.ج</td>
+                        <td style={{ paddingTop: '12px', border: 'none', textAlign: 'left', direction: 'ltr' }}>{formatPrice(printingOrder.price)} د.ج</td>
                       </tr>
                     </tbody>
                   </table>
@@ -906,11 +907,11 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
                         </span>
                       </div>
                       <div style={{ textAlign: 'left' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#64748B', display: 'block' }}>
-                          {item.qty} × {Number(item.price || 0).toLocaleString()} DA
+                        <span style={{ fontSize: '0.85rem', color: '#64748B', display: 'block', direction: 'ltr' }}>
+                          {item.qty} × {formatPrice(item.price)} DA
                         </span>
-                        <strong style={{ fontSize: '0.9rem', color: 'var(--burgundy)' }}>
-                          {(Number(item.qty || 1) * Number(item.price || 0)).toLocaleString()} DA
+                        <strong style={{ fontSize: '0.9rem', color: 'var(--burgundy)', direction: 'ltr', display: 'inline-block' }}>
+                          {formatPrice(Number(item.qty || 1) * Number(item.price || 0))} DA
                         </strong>
                       </div>
                     </div>
@@ -930,14 +931,14 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
             <div style={{ borderTop: '2px solid #F1F5F9', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <div>
                 {selectedOrderDetails.discount > 0 && (
-                  <span style={{ fontSize: '0.8rem', color: '#E53935', display: 'block' }}>
-                    الخصم: <strong>-{(selectedOrderDetails.discount || 0).toLocaleString()} DA</strong>
+                  <span style={{ fontSize: '0.8rem', color: '#E53935', display: 'block', direction: 'ltr' }}>
+                    الخصم: <strong>-{formatPrice(selectedOrderDetails.discount)} DA</strong>
                   </span>
                 )}
                 <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#475569' }}>المبلغ الإجمالي المستحق:</span>
               </div>
-              <strong style={{ fontSize: '1.4rem', color: 'var(--burgundy)', fontWeight: 900 }}>
-                {Number(selectedOrderDetails.price || 0).toLocaleString()} DA
+              <strong style={{ fontSize: '1.4rem', color: 'var(--burgundy)', fontWeight: 900, direction: 'ltr', display: 'inline-block' }}>
+                {formatPrice(selectedOrderDetails.price)} DA
               </strong>
             </div>
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Store, Search, Plus, Trash2, X, Printer, ShoppingBag } from 'lucide-react';
 import { showToast } from '../../utils/toast';
+import { formatPrice } from '../../utils/formatUtils';
 
 export default function PosModal({
   show,
@@ -293,8 +294,8 @@ export default function PosModal({
                         <div style={{ fontSize: '0.8rem', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#222' }}>
                           {prod.title}
                         </div>
-                        <div style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--burgundy-dark)' }}>
-                          {prod.price?.toLocaleString()} DA
+                        <div style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--burgundy-dark)', direction: 'ltr' }}>
+                          {formatPrice(prod.price)} DA
                         </div>
                       </div>
                     </div>
@@ -401,8 +402,8 @@ export default function PosModal({
                                   >+</button>
                                 </div>
                               </td>
-                              <td style={{ padding: '10px 12px', fontWeight: 900, color: 'var(--burgundy)' }}>
-                                {((Number(it.price) || 0) * (Number(it.qty) || 0)).toLocaleString()} DA
+                              <td style={{ padding: '10px 12px', fontWeight: 900, color: 'var(--burgundy)', direction: 'ltr' }}>
+                                {formatPrice((Number(it.price) || 0) * (Number(it.qty) || 0))} DA
                               </td>
                               <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                                 <button
@@ -477,7 +478,7 @@ export default function PosModal({
                     المجموع الإجمالي للطلب :
                   </div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#1F8A55' }}>
-                    {Math.max(0, posCart.reduce((acc, it) => acc + (it.total || 0), 0) - (Number(posDiscount) || 0)).toLocaleString()} DA
+                    {formatPrice(Math.max(0, posCart.reduce((acc, it) => acc + (it.total || 0), 0) - (Number(posDiscount) || 0)))} DA
                   </div>
                 </div>
               </div>
@@ -547,7 +548,7 @@ export default function PosModal({
                         <td style={{ padding: '8px 4px', textAlign: 'right', fontWeight: 700 }}>{it.product || it.title}</td>
                         <td style={{ padding: '8px 4px' }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{it.color || '—'}</span></td>
                         <td style={{ padding: '8px 4px', fontWeight: 800 }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{it.size} {it.qty > 1 ? `(x${it.qty})` : ''}</span></td>
-                        <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{((it.price || 0) * (it.qty || 1)).toLocaleString()} د.ج</td>
+                        <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{formatPrice((it.price || 0) * (it.qty || 1))} د.ج</td>
                       </tr>
                     ))
                   ) : (
@@ -555,7 +556,7 @@ export default function PosModal({
                       <td style={{ padding: '8px 4px', textAlign: 'right', fontWeight: 700 }}>{printingOrder.product}</td>
                       <td style={{ padding: '8px 4px' }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{printingOrder.color || '—'}</span></td>
                       <td style={{ padding: '8px 4px', fontWeight: 800 }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{printingOrder.size}</span></td>
-                      <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{(printingOrder.price || 0).toLocaleString()} د.ج</td>
+                      <td style={{ padding: '8px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{formatPrice(printingOrder.price || 0)} د.ج</td>
                     </tr>
                   )}
                 </tbody>
@@ -566,7 +567,7 @@ export default function PosModal({
             {(printingOrder.discount > 0) && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem', fontWeight: 800, color: '#D32F2F', marginBottom: '8px' }}>
                 <span>تخفيض للزبون (Remise):</span>
-                <span style={{ direction: 'ltr' }}>- {(printingOrder.discount || 0).toLocaleString()} د.ج</span>
+                <span style={{ direction: 'ltr' }}>- {formatPrice(printingOrder.discount || 0)} د.ج</span>
               </div>
             )}
 
@@ -575,7 +576,7 @@ export default function PosModal({
               <tbody>
                 <tr>
                   <td style={{ paddingTop: '12px', border: 'none', textAlign: 'right' }}>المجموع الإجمالي:</td>
-                  <td style={{ paddingTop: '12px', border: 'none', textAlign: 'left', direction: 'ltr' }}>{(printingOrder.price || 0).toLocaleString()} د.ج</td>
+                  <td style={{ paddingTop: '12px', border: 'none', textAlign: 'left', direction: 'ltr' }}>{formatPrice(printingOrder.price || 0)} د.ج</td>
                 </tr>
               </tbody>
             </table>

@@ -14,6 +14,7 @@ import {
 import { getTopSellingProducts, getTopWilayas, getDeliveryStats } from '../utils/analytics';
 import { fetchReviews, deleteReview, toggleReviewStatus } from '../services/reviewService.js';
 import { supabase } from '../lib/supabaseClient.js';
+import { formatPrice } from '../utils/formatUtils.js';
 
 const OWNER_PIN = '765483';
 
@@ -1367,7 +1368,7 @@ export default function AliOwnerDashboard({
                   <span>إجمالي المداخيل (CA)</span>
                 </div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#6B1D2F' }}>
-                  {totalCA.toLocaleString()} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>دج</span>
+                  {formatPrice(totalCA)} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>دج</span>
                 </div>
               </div>
 
@@ -1383,7 +1384,7 @@ export default function AliOwnerDashboard({
                   <span>الأرباح الصافية التقديرية</span>
                 </div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 900, color: estimatedProfit >= 0 ? '#16A34A' : '#DC2626' }}>
-                  {estimatedProfit.toLocaleString()} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>دج</span>
+                  {formatPrice(estimatedProfit)} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>دج</span>
                 </div>
               </div>
 
@@ -1824,21 +1825,21 @@ export default function AliOwnerDashboard({
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                               <span style={{ fontSize: '0.8rem', color: '#64748B' }}>سعر البيع للزبون:</span>
                               <span style={{ fontSize: '1.05rem', fontWeight: 900, color: '#6B1D2F' }}>
-                                {retailPrice.toLocaleString()} دج
+                                {formatPrice(retailPrice)} دج
                               </span>
                             </div>
 
                             {purchasePrice > 0 && (
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#64748B' }}>
                                 <span>سعر الشراء (التكلفة):</span>
-                                <span style={{ fontWeight: 700 }}>{purchasePrice.toLocaleString()} دج</span>
+                                <span style={{ fontWeight: 700 }}>{formatPrice(purchasePrice)} دج</span>
                               </div>
                             )}
 
                             {unitMargin > 0 && (
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: '#16A34A', marginTop: '4px', borderTop: '1px dashed #E2E8F0', paddingTop: '4px' }}>
                                 <span style={{ fontWeight: 700 }}>هامش الربح / قطعة:</span>
-                                <span style={{ fontWeight: 800 }}>+{unitMargin.toLocaleString()} دج</span>
+                                <span style={{ fontWeight: 800 }}>+{formatPrice(unitMargin)} دج</span>
                               </div>
                             )}
                           </div>
@@ -2149,7 +2150,7 @@ export default function AliOwnerDashboard({
                         <div style={{ textAlign: 'left' }}>
                           <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block' }}>المبلغ الإجمالي</span>
                           <span style={{ fontSize: '1.25rem', fontWeight: 900, color: '#6B1D2F' }}>
-                            {Number(o.price || 0).toLocaleString()} <span style={{ fontSize: '0.85rem' }}>دج</span>
+                            {formatPrice(o.price || 0)} <span style={{ fontSize: '0.85rem' }}>دج</span>
                           </span>
                         </div>
 
@@ -2950,7 +2951,7 @@ export default function AliOwnerDashboard({
                                     display: 'inline-block',
                                     letterSpacing: '0.3px'
                                   }}>
-                                    {Number(item.refundDue || 0).toLocaleString('ar-DZ')} دج
+                                    {formatPrice(item.refundDue || 0)} دج
                                   </span>
                                 </td>
 
@@ -3289,7 +3290,7 @@ export default function AliOwnerDashboard({
                                     display: 'inline-block',
                                     letterSpacing: '0.3px'
                                   }}>
-                                    {Number(item.refundDue || 0).toLocaleString('ar-DZ')} دج
+                                    {formatPrice(item.refundDue || 0)} دج
                                   </span>
                                 </td>
 
@@ -3566,7 +3567,7 @@ export default function AliOwnerDashboard({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FDF2F4', padding: '16px 20px', borderRadius: '16px', border: '1px solid #FBCFE8', marginBottom: '20px' }}>
               <span style={{ fontWeight: 800, color: '#6B1D2F' }}>المبلغ الإجمالي المطلوب من الزبون:</span>
               <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#6B1D2F' }}>
-                {Number(selectedOrderDetails.price || 0).toLocaleString()} دج
+                {formatPrice(selectedOrderDetails.price || 0)} دج
               </span>
             </div>
 

@@ -3,6 +3,7 @@ import { DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Calendar, Wallet, A
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getTopSellingProducts, getTopWilayas, getDeliveryStats, getDeadStock } from '../../utils/analytics';
 import { showToast } from '../../utils/toast';
+import { formatPrice } from '../../utils/formatUtils';
 
 export default function AnalyticsTab({ orders, products, expenses, onAddExpense, onDeleteExpense, settings, onUpdateSettings }) {
   const [desc, setDesc] = useState('');
@@ -275,7 +276,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>المداخيل الإجمالية (CA Brut)</span>
             <div style={{ background: '#E3F7EB', padding: 8, borderRadius: 10, color: '#1F8A55' }}><DollarSign size={18} /></div>
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1F8A55' }}>{totalCA.toLocaleString()} DA</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1F8A55' }}>{formatPrice(totalCA)} DA</div>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sur {validOrders.length} commandes</span>
         </div>
 
@@ -284,7 +285,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>تكلفة شراء السلع (Achats)</span>
             <div style={{ background: '#FFF3E0', padding: 8, borderRadius: 10, color: '#E65100' }}><TrendingDown size={18} /></div>
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#E65100' }}>{totalCostGoods.toLocaleString()} DA</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#E65100' }}>{formatPrice(totalCostGoods)} DA</div>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Coût grossiste des pyjamas</span>
         </div>
 
@@ -293,7 +294,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>المصاريف اليومية (Masarif)</span>
             <div style={{ background: '#FFEBEE', padding: 8, borderRadius: 10, color: '#C62828' }}><Wallet size={18} /></div>
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#C62828' }}>{totalSideExpenses.toLocaleString()} DA</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#C62828' }}>{formatPrice(totalSideExpenses)} DA</div>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Transport, emballages, repas...</span>
         </div>
 
@@ -302,9 +303,9 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>رواتب العمال (Salaires)</span>
             <div style={{ background: '#EEF2FF', padding: 8, borderRadius: 10, color: '#4F46E5' }}><Users size={18} /></div>
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#4F46E5' }}>{periodSalaryCost.toLocaleString()} DA</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#4F46E5' }}>{formatPrice(periodSalaryCost)} DA</div>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            {activeEmployees.length} عمال نشطين ({totalMonthlySalary.toLocaleString()} DA/شهر)
+            {activeEmployees.length} عمال نشطين ({formatPrice(totalMonthlySalary)} DA/شهر)
           </span>
         </div>
 
@@ -314,7 +315,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
             <div style={{ background: 'rgba(255,255,255,0.15)', padding: 8, borderRadius: 10, color: '#FFD700' }}><TrendingUp size={18} /></div>
           </div>
           <div style={{ fontSize: '1.55rem', fontWeight: 900, color: netProfit >= 0 ? '#FFD700' : '#FF6B6B' }}>
-            {netProfit.toLocaleString()} DA
+            {formatPrice(netProfit)} DA
           </div>
           <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>بعد خصم السلعة والمصاريف والرواتب</span>
         </div>
@@ -530,7 +531,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
                     <tr key={e.id}>
                       <td style={{ fontWeight: 600 }}>{e.date}</td>
                       <td style={{ fontWeight: 700, color: 'var(--text-dark)' }}>{e.desc}</td>
-                      <td style={{ fontWeight: 800, color: '#C62828' }}>- {Number(e.amount).toLocaleString()} DA</td>
+                      <td style={{ fontWeight: 800, color: '#C62828' }}>- {formatPrice(e.amount)} DA</td>
                       <td>
                         <button 
                           onClick={() => onDeleteExpense(e.id)}
@@ -614,7 +615,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
               </span>
             </h3>
             <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#2E7D32', background: '#E8F5E9', padding: '6px 14px', borderRadius: '10px' }}>
-              إجمالي الرواتب: {totalMonthlySalary.toLocaleString()} DA / شهر
+              إجمالي الرواتب: {formatPrice(totalMonthlySalary)} DA / شهر
             </div>
           </div>
 
@@ -655,7 +656,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
                           </span>
                         </td>
                         <td style={{ fontWeight: 800, color: '#C62828' }}>
-                          - {Number(emp.salary || 0).toLocaleString()} DA
+                          - {formatPrice(emp.salary || 0)} DA
                         </td>
                         <td>
                           <button

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Lock, Unlock, Search, Scan, ShoppingCart, Plus, Minus, Trash2, Check, Printer, LogOut, Package, AlertCircle, ArrowLeft, ArrowRight, X, CheckCircle2, Clock } from 'lucide-react';
 import { showToast } from '../utils/toast';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { formatPrice } from '../utils/formatUtils';
 
 export default function CashierPOS({ products = [], settings = {}, onPlaceOrder, onGoBack, orders = [], onUpdateStatus, onUpdateProduct }) {
   const { isInstallable, promptInstall } = usePWAInstall();
@@ -759,7 +760,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #F1F5F9' }}>
                         <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#0284C7' }}>
-                          {Number(product.price || 0).toLocaleString('fr-DZ')} DA
+                          {formatPrice(product.price || 0)} DA
                         </span>
                         {!isOutOfStock && (
                           <span style={{ background: '#E0F2FE', color: '#0284C7', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800 }}>
@@ -816,7 +817,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                       <span style={{ background: '#E2E8F0', padding: '2px 6px', borderRadius: '4px' }}>اللون: {item.selectedColor}</span>
                     </div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#0284C7', marginTop: '6px' }}>
-                      {(item.price * item.qty).toLocaleString('fr-DZ')} DA
+                      {formatPrice(item.price * item.qty)} DA
                     </div>
                   </div>
 
@@ -855,7 +856,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
           <div style={{ padding: '20px', background: '#F1F5F9', borderTop: '2px solid #E2E8F0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <span style={{ fontSize: '1rem', fontWeight: 800, color: '#64748B' }}>المجموع:</span>
-              <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#475569' }}>{cartTotal.toLocaleString('fr-DZ')} DA</span>
+              <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#475569' }}>{formatPrice(cartTotal)} DA</span>
             </div>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -883,7 +884,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingTop: '12px', borderTop: '1px dashed #CBD5E1' }}>
               <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#0F172A' }}>المبلغ المستحق:</span>
-              <span style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0284C7' }}>{Math.max(0, cartTotal - (Number(remise) || 0)).toLocaleString('fr-DZ')} DA</span>
+              <span style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0284C7' }}>{formatPrice(Math.max(0, cartTotal - (Number(remise) || 0)))} DA</span>
             </div>
 
             <button
@@ -950,7 +951,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                     <h4 style={{ fontSize: '1.1rem', fontWeight: 900, color: '#0F172A', margin: '0 0 6px 0' }}>{selectedProductModal.title}</h4>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                       <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#0284C7' }}>
-                        {currentUnitPrice.toLocaleString('fr-DZ')} DA
+                        {formatPrice(currentUnitPrice)} DA
                       </span>
                     </div>
                   </div>
@@ -1439,7 +1440,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                     boxShadow: totalQtySelected <= 0 ? 'none' : '0 4px 14px rgba(2, 132, 199, 0.4)'
                   }}
                 >
-                  <Plus size={20} /> إضافة للسلة ({totalPriceShow.toLocaleString('fr-DZ')} DA)
+                  <Plus size={20} /> إضافة للسلة ({formatPrice(totalPriceShow)} DA)
                 </button>
               </div>
             </div>
@@ -1503,7 +1504,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                           <td style={{ padding: '12px 4px', textAlign: 'right', fontWeight: 700 }}>{item.title || item.product || 'منتج'}</td>
                           <td style={{ padding: '12px 4px' }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{item.selectedColor || item.color || '—'}</span></td>
                           <td style={{ padding: '12px 4px', fontWeight: 800 }}><span style={{ direction: 'ltr', display: 'inline-block' }}>{item.selectedSize || item.size || '—'} {itemQty > 1 ? `(x${itemQty})` : ''}</span></td>
-                          <td style={{ padding: '12px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{(itemPrice * itemQty).toLocaleString('fr-DZ')} د.ج</td>
+                          <td style={{ padding: '12px 4px', textAlign: 'left', fontWeight: 800, direction: 'ltr' }}>{formatPrice(itemPrice * itemQty)} د.ج</td>
                         </tr>
                       );
                     })}
@@ -1515,7 +1516,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
               {(Number(showReceiptModal.discount) || 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem', fontWeight: 800, color: '#D32F2F', marginBottom: '12px', padding: '4px 0' }}>
                   <span>تخفيض للزبون (Remise):</span>
-                  <span style={{ direction: 'ltr' }}>- {(Number(showReceiptModal.discount) || 0).toLocaleString('fr-DZ')} د.ج</span>
+                  <span style={{ direction: 'ltr' }}>- {formatPrice(Number(showReceiptModal.discount) || 0)} د.ج</span>
                 </div>
               )}
 
@@ -1524,7 +1525,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                 <tbody>
                   <tr>
                     <td style={{ paddingTop: '12px', border: 'none', textAlign: 'right' }}>المجموع الإجمالي:</td>
-                    <td style={{ paddingTop: '12px', border: 'none', textAlign: 'left', direction: 'ltr' }}>{(Number(showReceiptModal.total) || 0).toLocaleString('fr-DZ')} د.ج</td>
+                    <td style={{ paddingTop: '12px', border: 'none', textAlign: 'left', direction: 'ltr' }}>{formatPrice(Number(showReceiptModal.total) || 0)} د.ج</td>
                   </tr>
                 </tbody>
               </table>
@@ -1592,7 +1593,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                       <div style={{ color: '#64748B', fontSize: '0.95rem', marginTop: '6px', fontWeight: 600 }}>{selectedHistoryOrder.date}</div>
                     </div>
                     <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--burgundy)' }}>{(selectedHistoryOrder.price || 0).toLocaleString()} DA</div>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--burgundy)' }}>{formatPrice(selectedHistoryOrder.price || 0)} DA</div>
                       <div style={{ marginTop: '8px' }}>
                           {selectedHistoryOrder.status === 'livree' ? (
                             <span style={{ background: '#D1FAE5', color: '#065F46', padding: '6px 12px', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 800, border: '1px solid #A7F3D0' }}>🚚 مستلمة</span>
@@ -1621,7 +1622,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                           </div>
                         </div>
                         <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#0F172A' }}>{(Number(item.price) || 0).toLocaleString()} DA</div>
+                          <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#0F172A' }}>{formatPrice(item.price || 0)} DA</div>
                           <div style={{ fontSize: '0.9rem', color: '#64748B', fontWeight: 600, marginTop: '4px' }}>الكمية: {item.qty}</div>
                         </div>
                       </div>
@@ -1715,7 +1716,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
                           >
                             <td style={{ padding: '12px 8px', fontWeight: 800, textTransform: 'uppercase' }}>#{o.ticketNumber || o.id.toString().substring(0, 8)}</td>
                             <td style={{ padding: '12px 8px', color: '#64748B', fontSize: '0.9rem' }}>{o.date}</td>
-                            <td style={{ padding: '12px 8px', fontWeight: 800, color: '#0F172A' }}>{(o.price || 0).toLocaleString()} DA</td>
+                            <td style={{ padding: '12px 8px', fontWeight: 800, color: '#0F172A' }}>{formatPrice(o.price || 0)} DA</td>
                             <td style={{ padding: '12px 8px' }}>
                               {o.status === 'livree' ? (
                                 <span style={{ background: '#D1FAE5', color: '#065F46', padding: '4px 8px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 700 }}>🚚 مستلمة</span>
