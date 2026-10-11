@@ -727,49 +727,63 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
 
         {/* Right Column: Product Info & Actions */}
         <div className="mazyoud-pdp-details">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span 
-                className="mazyoud-pdp-category"
-                onClick={() => {
-                  if (onCategorySelect) {
-                    const matchedId = getProductCategoryGroupId(product?.category, categoriesList);
-                    onCategorySelect(matchedId);
-                  }
-                }}
-                style={{ 
-                  cursor: 'pointer',
-                  transition: 'color 0.2s',
-                  textDecoration: 'underline'
-                }}
-                onMouseOver={(e) => e.currentTarget.style.color = 'var(--burgundy)'}
-                onMouseOut={(e) => e.currentTarget.style.color = '#888'}
-              >
-                {getProductDisplayCategory(product?.category, categoriesList)}
-              </span>
-              <h1 className="mazyoud-pdp-title" style={{ margin: 0 }}>{product.title}</h1>
-
-              {/* Golden Stars Rating */}
-              <div 
-                className="mazyoud-pdp-rating" 
-                style={{ margin: 0, marginTop: '4px', cursor: 'pointer' }}
-                onClick={() => {
-                  const el = document.querySelector('.product-reviews-container');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
-                title="اضغط للانتقال إلى تقييمات وآراء الزبائن"
-              >
-                <div className="stars">
-                  <Star size={16} fill="#F59E0B" color="#F59E0B" />
-                  <Star size={16} fill="#F59E0B" color="#F59E0B" />
-                  <Star size={16} fill="#F59E0B" color="#F59E0B" />
-                  <Star size={16} fill="#F59E0B" color="#F59E0B" />
-                  <Star size={16} fill="#F59E0B" color="#F59E0B" />
-                </div>
-                <span className="rating-text" style={{ textDecoration: 'underline', textUnderlineOffset: '3px' }}>
-                  4.9 / 5 (تقييمات وآراء الزبائن ⭐)
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '14px' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+                <span 
+                  className="mazyoud-pdp-category"
+                  onClick={() => {
+                    if (onCategorySelect) {
+                      const matchedId = getProductCategoryGroupId(product?.category, categoriesList);
+                      onCategorySelect(matchedId);
+                    }
+                  }}
+                  style={{ 
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    textDecoration: 'none',
+                    margin: 0
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.color = 'var(--burgundy)'}
+                  onMouseOut={(e) => e.currentTarget.style.color = '#888'}
+                >
+                  {getProductDisplayCategory(product?.category, categoriesList)}
                 </span>
+
+                {/* Golden Stars Rating Pill */}
+                <div 
+                  className="mazyoud-pdp-rating" 
+                  style={{ 
+                    margin: 0, 
+                    cursor: 'pointer', 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '6px', 
+                    background: '#FFFBEB', 
+                    padding: '4px 10px', 
+                    borderRadius: '20px', 
+                    border: '1px solid #FDE68A' 
+                  }}
+                  onClick={() => {
+                    const el = document.querySelector('.product-reviews-container');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  title="اضغط للانتقال إلى تقييمات وآراء الزبائن"
+                >
+                  <div className="stars" style={{ display: 'flex', gap: '2px' }}>
+                    <Star size={14} fill="#F59E0B" color="#F59E0B" />
+                    <Star size={14} fill="#F59E0B" color="#F59E0B" />
+                    <Star size={14} fill="#F59E0B" color="#F59E0B" />
+                    <Star size={14} fill="#F59E0B" color="#F59E0B" />
+                    <Star size={14} fill="#F59E0B" color="#F59E0B" />
+                  </div>
+                  <span className="rating-text" style={{ fontSize: '0.8rem', color: '#B45309', fontWeight: 800 }}>
+                    4.9 / 5 (تقييمات الزبائن ⭐)
+                  </span>
+                </div>
               </div>
+
+              <h1 className="mazyoud-pdp-title" style={{ margin: 0, fontSize: '1.65rem', fontWeight: 900, color: '#1E293B', lineHeight: '1.3' }}>{product.title}</h1>
             </div>
 
             {/* Quick Linked Product Thumbnail */}
@@ -824,11 +838,31 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
             )}
           </div>
 
-          <div className="mazyoud-pdp-price-box">
-            <span className="current-price" style={{ direction: 'ltr', display: 'inline-block' }}>{formatPrice(product.price)} DA</span>
-            {Boolean(product.oldPrice && Number(product.oldPrice) > Number(product.price)) && (
-              <span className="old-price" style={{ direction: 'ltr', display: 'inline-block' }}>{formatPrice(product.oldPrice)} DA</span>
-            )}
+          <div className="mazyoud-pdp-price-box" style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '12px 18px',
+            background: 'linear-gradient(135deg, #FFF5F7 0%, #FFFFFF 100%)',
+            borderRadius: '16px',
+            border: '1.5px solid #FCE7F3',
+            margin: '12px 0 16px',
+            boxShadow: '0 2px 10px rgba(216, 108, 134, 0.08)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+              <span className="current-price" style={{ direction: 'ltr', display: 'inline-block', fontSize: '1.9rem', fontWeight: 950, color: '#C8102E' }}>
+                {formatPrice(product.price)} DA
+              </span>
+              {Boolean(product.oldPrice && Number(product.oldPrice) > Number(product.price)) && (
+                <span className="old-price" style={{ direction: 'ltr', display: 'inline-block', fontSize: '1.15rem', color: '#94A3B8', textDecoration: 'line-through' }}>
+                  {formatPrice(product.oldPrice)} DA
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ECFDF5', color: '#059669', padding: '6px 12px', borderRadius: '20px', fontSize: '0.82rem', fontWeight: 800, border: '1px solid #A7F3D0' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }}></span>
+              <span>متوفر للطلب ⚡</span>
+            </div>
           </div>
 
           {(() => {
@@ -844,7 +878,7 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
             }
             if (bulkPrice5 > 0) {
               return (
-                <div style={{ background: '#FDF2F8', color: '#DB2777', padding: '10px 16px', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 850, border: '1px solid #FBCFE8', display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '8px', marginBottom: '8px' }}>
+                <div style={{ background: '#FDF2F8', color: '#DB2777', padding: '10px 16px', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 850, border: '1px solid #FBCFE8', display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '4px', marginBottom: '12px', width: '100%', justifyContent: 'space-between' }}>
                   <span>🎁 عرض خاص:</span>
                   <span><strong style={{ direction: 'ltr', display: 'inline-block' }}>{formatPrice(bulkPrice5)} DA</strong> للقطعة عند شراء 5 حبات فما فوق!</span>
                 </div>
@@ -853,18 +887,20 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
             return null;
           })()}
 
-          <p className="mazyoud-pdp-desc">{(product.description || '').split('|||')[0]}</p>
+          <p className="mazyoud-pdp-desc" style={{ marginBottom: '16px' }}>{(product.description || '').split('|||')[0]}</p>
 
-          <hr className="mazyoud-pdp-divider" />
+          <hr className="mazyoud-pdp-divider" style={{ margin: '0 0 18px' }} />
 
           {/* Color Selection */}
           {colorVariants.length > 0 && (
-            <div className="mazyoud-pdp-option-section">
-              <div className="option-label">
-                <span>🎨 الألوان (Couleurs) :</span>
-                <strong className="selected-value" style={{ marginRight: '6px' }}>{activeVariant?.color || 'يرجى الاختيار / Veuillez choisir'}</strong>
+            <div className="mazyoud-pdp-option-section" style={{ marginBottom: '18px' }}>
+              <div className="option-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#334155' }}>🎨 الألوان (Couleurs) :</span>
+                <span style={{ background: '#F1F5F9', color: 'var(--burgundy, #6B1D2F)', padding: '3px 10px', borderRadius: '12px', fontSize: '0.82rem', fontWeight: 800, border: '1px solid #E2E8F0' }}>
+                  {activeVariant?.color || 'يرجى الاختيار / Veuillez choisir'}
+                </span>
               </div>
-              <div className="color-swatches-grid">
+              <div className="color-swatches-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                 {colorVariants.map((cv, idx) => {
                   const isSelected = selectedVariantIdx === idx;
                   return (
@@ -872,11 +908,18 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                       key={idx}
                       type="button"
                       className={`color-swatch-circle ${isSelected ? 'active' : ''}`}
-                      style={{ backgroundColor: cv.colorHex || '#CBD5E1' }}
+                      style={{ 
+                        backgroundColor: cv.colorHex || '#CBD5E1', 
+                        width: '38px', 
+                        height: '38px',
+                        border: isSelected ? '3px solid var(--burgundy, #6B1D2F)' : '2px solid #E2E8F0',
+                        boxShadow: isSelected ? '0 0 0 3px rgba(128,0,32,0.2)' : 'none',
+                        cursor: 'pointer'
+                      }}
                       onClick={() => setSelectedVariantIdx(idx)}
                       title={cv.color}
                     >
-                      {isSelected && <Check size={14} color={cv.colorHex && (cv.colorHex.toLowerCase() === '#ffffff' || cv.colorHex.toLowerCase() === '#fff') ? '#000' : '#FFF'} />}
+                      {isSelected && <Check size={16} color={cv.colorHex && (cv.colorHex.toLowerCase() === '#ffffff' || cv.colorHex.toLowerCase() === '#fff') ? '#000' : '#FFF'} />}
                     </button>
                   );
                 })}
@@ -885,12 +928,14 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
           )}
 
           {/* Size Selection */}
-          <div className="mazyoud-pdp-option-section">
-            <div className="option-label">
-              <span>📏 المقاسات (Tailles) :</span>
-              <strong className="selected-value" style={{ marginRight: '6px' }}>{selectedSize || 'يرجى الاختيار / Veuillez choisir'}</strong>
+          <div className="mazyoud-pdp-option-section" style={{ marginBottom: '18px' }}>
+            <div className="option-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#334155' }}>📏 المقاسات (Tailles) :</span>
+              <span style={{ background: selectedSize ? 'var(--burgundy, #6B1D2F)' : '#F1F5F9', color: selectedSize ? '#FFF' : '#64748B', padding: '3px 10px', borderRadius: '12px', fontSize: '0.82rem', fontWeight: 800, border: '1px solid #E2E8F0' }}>
+                {selectedSize || 'يرجى الاختيار / Veuillez choisir'}
+              </span>
             </div>
-            <div className="size-swatches-grid">
+            <div className="size-swatches-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
               {availableSizes.map((size) => {
                 const isSelected = selectedSize === size;
                 let sizeStock = null;
@@ -905,6 +950,23 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                     type="button"
                     className={`size-swatch-pill ${isSelected ? 'active' : ''}`}
                     onClick={() => setSelectedSize(size)}
+                    style={{
+                      minWidth: '64px',
+                      height: '44px',
+                      padding: '0 18px',
+                      borderRadius: '12px',
+                      border: isSelected ? '2px solid var(--burgundy, #6B1D2F)' : '1.5px solid #CBD5E1',
+                      background: isSelected ? 'var(--burgundy, #6B1D2F)' : '#FFFFFF',
+                      color: isSelected ? '#FFFFFF' : '#1E293B',
+                      fontWeight: 800,
+                      fontSize: '0.95rem',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s',
+                      boxShadow: isSelected ? '0 4px 12px rgba(107, 29, 47, 0.2)' : 'none'
+                    }}
                   >
                     {size}
                   </button>
@@ -926,19 +988,31 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
             }
 
             return (
-              <div className="mazyoud-pdp-option-section">
-                <div className="option-label">
+              <div className="mazyoud-pdp-qty-row" style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                margin: '14px 0 20px',
+                padding: '12px 16px',
+                background: '#F8FAFC',
+                borderRadius: '14px',
+                border: '1px solid #E2E8F0'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '0.92rem', color: '#1E293B' }}>
                   <span>🔢 الكمية (Quantité) :</span>
                 </div>
-                <div className="mazyoud-pdp-qty-selector">
+                <div className="mazyoud-pdp-qty-selector" style={{ direction: 'ltr', display: 'flex', alignItems: 'center', background: '#FFF', borderRadius: '10px', border: '1.5px solid #CBD5E1', overflow: 'hidden' }}>
                   <button 
                     type="button" 
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     className="qty-btn"
+                    style={{ padding: '8px 14px', border: 'none', background: '#F1F5F9', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     <Minus size={16} />
                   </button>
-                  <span className="qty-value">{quantity}</span>
+                  <span className="qty-value" style={{ padding: '0 16px', fontWeight: 900, fontSize: '1.05rem', minWidth: '40px', textAlign: 'center' }}>
+                    {quantity}
+                  </span>
                   <button 
                     type="button" 
                     onClick={() => {
@@ -949,7 +1023,16 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
                       }
                     }}
                     className="qty-btn"
-                    style={{ opacity: quantity >= maxAvailableStock ? 0.4 : 1, cursor: quantity >= maxAvailableStock ? 'not-allowed' : 'pointer' }}
+                    style={{ 
+                      padding: '8px 14px', 
+                      border: 'none', 
+                      background: '#F1F5F9', 
+                      cursor: quantity >= maxAvailableStock ? 'not-allowed' : 'pointer',
+                      opacity: quantity >= maxAvailableStock ? 0.4 : 1,
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center'
+                    }}
                   >
                     <Plus size={16} />
                   </button>
@@ -2839,7 +2922,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               <span>🚚</span>
               <strong>توصيل مجاني 100%</strong>
               <span>لجميع الولايات عند الطلب بـ</span>
-              <strong>10,000 دج</strong>
+              <strong>10000 دج</strong>
               <span>(مليون سنتيم) أو أكثر!</span>
               <span>✨🎁</span>
             </span>
@@ -2857,7 +2940,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               <span>🚚</span>
               <strong>توصيل مجاني 100%</strong>
               <span>لجميع الولايات عند الطلب بـ</span>
-              <strong>10,000 دج</strong>
+              <strong>10000 دج</strong>
               <span>(مليون سنتيم) أو أكثر!</span>
               <span>✨🎁</span>
             </span>
