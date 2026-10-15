@@ -15,26 +15,76 @@ const getParsedColorVariants = (prod) => {
   return Array.isArray(variants) ? variants : [];
 };
 
-const getProductCategoryGroupId = (prodCategory, categoriesList) => {
-  if (!Array.isArray(categoriesList)) return prodCategory;
+const findCategoryMatch = (prodCategory, categoriesList) => {
+  if (!prodCategory || !Array.isArray(categoriesList)) return null;
   
-  // Extract base category if it has a prefix
+  // Extract base category if it has a prefix (e.g. gros__satin, boutique__satin)
   let baseCat = prodCategory || '';
   if (baseCat.includes('__')) {
     baseCat = baseCat.split('__')[1] || '';
   }
-  
-  const exact = categoriesList.find(c => c && typeof c === 'object' && c.id === baseCat);
-  if (exact) return exact.id || baseCat;
-  
-  const pCat = baseCat.toLowerCase().trim();
-  if (pCat === 'satin' || pCat === 'coton' || pCat === 'ensembles' || pCat.includes('pyjama')) {
-    const pyjamasCat = categoriesList.find(c => c && typeof c === 'object' && (c.title || '').toLowerCase().includes('pyjama'));
-    if (pyjamasCat) return pyjamasCat.id || baseCat;
+  const pCat = String(baseCat).toLowerCase().trim();
+  if (!pCat) return null;
+
+  // 1. Exact ID or Title match
+  const exact = categoriesList.find(c => c && typeof c === 'object' && (
+    (c.id && c.id.toLowerCase() === pCat) ||
+    (c.title && c.title.toLowerCase().trim() === pCat) ||
+    (c.name && c.name.toLowerCase().trim() === pCat)
+  ));
+  if (exact) return exact;
+
+  // 2. Prefix / Slug match (e.g. 'bligha' matches 'bligha-mv2f70hu', 'pyjamas' matches 'pyjamas-95')
+  const prefixMatch = categoriesList.find(c => c && typeof c === 'object' && c.id && (
+    c.id.toLowerCase().startsWith(pCat + '-') ||
+    pCat.startsWith(c.id.toLowerCase().split('-')[0])
+  ));
+  if (prefixMatch) return prefixMatch;
+
+  // 3. Normalized keyword alias dictionary across all Algerian boutique collections
+  const aliasRules = [
+    { keys: ['satin', 'coton', 'pyjama', 'pyjamas', 'nuisette', 'sommeil', 'nuit'], target: ['pyjama'] },
+    { keys: ['mariee', 'abayas', 'abaya', 'robe', 'robes', 'soiree'], target: ['robe', 'mari'] },
+    { keys: ['ensemble', 'ensembles', 'set'], target: ['ensemble'] },
+    { keys: ['djebba', 'jbeb', 'katifa', 'qatifa', 'gandoura'], target: ['katifa', 'jbeb', 'djebba', 'qatifa'] },
+    { keys: ['chemise', 'chemises', 'chemisier'], target: ['chemise'] },
+    { keys: ['pantalon', 'pantalons', 'legging'], target: ['pantalon'] },
+    { keys: ['short', 'shorte', 'shorts'], target: ['short'] },
+    { keys: ['jupe', 'jupes'], target: ['jupe'] },
+    { keys: ['t-shirt', 'tshirt', 't shirt', 'top'], target: ['t-shirt', 'tshirt'] },
+    { keys: ['gardigan', 'cardigan', 'gilet', 'pull'], target: ['gardigan', 'cardigan'] },
+    { keys: ['bligha', 'babouche', 'babouches'], target: ['bligha'] },
+    { keys: ['mule', 'mules', 'les mules'], target: ['mule'] },
+    { keys: ['pantoufl', 'pantoufle', 'pantoufles', 'chausson'], target: ['pantoufl'] },
+    { keys: ['ballerine', 'ballerines', 'ballghine'], target: ['ballerine', 'ballghine'] },
+    { keys: ['sac', 'sacs', 'pochette'], target: ['sac'] },
+    { keys: ['shoes', 'basquet', 'basket', 'sneakers'], target: ['shoes', 'basquet', 'basket'] },
+    { keys: ['accessoire', 'accessoires', 'bijoux'], target: ['accessoire'] },
+  ];
+
+  for (const rule of aliasRules) {
+    const isTriggered = rule.keys.some(k => pCat === k || pCat.includes(k));
+    if (isTriggered) {
+      const matched = categoriesList.find(c => {
+        if (!c || typeof c !== 'object') return false;
+        const cId = (c.id || '').toLowerCase();
+        const cTitle = (c.title || c.name || '').toLowerCase();
+        return rule.target.some(t => cId.includes(t) || cTitle.includes(t));
+      });
+      if (matched) return matched;
+    }
   }
-  if (pCat === 'mariee' || pCat === 'abayas' || pCat.includes('robe') || pCat.includes('mari')) {
-    const robesCat = categoriesList.find(c => c && typeof c === 'object' && ((c.title || '').toLowerCase().includes('robe') || (c.title || '').toLowerCase().includes('mari')));
-    if (robesCat) return robesCat.id || baseCat;
+
+  return null;
+};
+
+const getProductCategoryGroupId = (prodCategory, categoriesList) => {
+  const match = findCategoryMatch(prodCategory, categoriesList);
+  if (match) return match.id;
+  
+  let baseCat = prodCategory || '';
+  if (baseCat.includes('__')) {
+    baseCat = baseCat.split('__')[1] || '';
   }
   return baseCat;
 };

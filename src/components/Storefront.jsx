@@ -18,39 +18,73 @@ import VirtualTryOnModal from './VirtualTryOnModal';
 import { getCurrentCustomer, setCustomerSession, fetchCustomerProfile, saveCustomerWishlist, fetchCustomerWishlist } from '../services/customerService';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { formatPrice } from '../utils/formatUtils';
+const findCategoryMatch = (prodCategory, categoriesList) => {
+  if (!prodCategory || !Array.isArray(categoriesList)) return null;
+  const pCat = String(prodCategory).toLowerCase().trim();
+  if (!pCat) return null;
+
+  // 1. Exact ID or Title match
+  const exact = categoriesList.find(c => c && typeof c === 'object' && (
+    (c.id && c.id.toLowerCase() === pCat) ||
+    (c.title && c.title.toLowerCase().trim() === pCat) ||
+    (c.name && c.name.toLowerCase().trim() === pCat)
+  ));
+  if (exact) return exact;
+
+  // 2. Prefix / Slug match (e.g. 'bligha' matches 'bligha-mv2f70hu', 'pyjamas' matches 'pyjamas-95')
+  const prefixMatch = categoriesList.find(c => c && typeof c === 'object' && c.id && (
+    c.id.toLowerCase().startsWith(pCat + '-') ||
+    pCat.startsWith(c.id.toLowerCase().split('-')[0])
+  ));
+  if (prefixMatch) return prefixMatch;
+
+  // 3. Normalized keyword alias dictionary across all Algerian boutique collections
+  const aliasRules = [
+    { keys: ['satin', 'coton', 'pyjama', 'pyjamas', 'nuisette', 'sommeil', 'nuit'], target: ['pyjama'] },
+    { keys: ['mariee', 'abayas', 'abaya', 'robe', 'robes', 'soiree'], target: ['robe', 'mari'] },
+    { keys: ['ensemble', 'ensembles', 'set'], target: ['ensemble'] },
+    { keys: ['djebba', 'jbeb', 'katifa', 'qatifa', 'gandoura'], target: ['katifa', 'jbeb', 'djebba', 'qatifa'] },
+    { keys: ['chemise', 'chemises', 'chemisier'], target: ['chemise'] },
+    { keys: ['pantalon', 'pantalons', 'legging'], target: ['pantalon'] },
+    { keys: ['short', 'shorte', 'shorts'], target: ['short'] },
+    { keys: ['jupe', 'jupes'], target: ['jupe'] },
+    { keys: ['t-shirt', 'tshirt', 't shirt', 'top'], target: ['t-shirt', 'tshirt'] },
+    { keys: ['gardigan', 'cardigan', 'gilet', 'pull'], target: ['gardigan', 'cardigan'] },
+    { keys: ['bligha', 'babouche', 'babouches'], target: ['bligha'] },
+    { keys: ['mule', 'mules', 'les mules'], target: ['mule'] },
+    { keys: ['pantoufl', 'pantoufle', 'pantoufles', 'chausson'], target: ['pantoufl'] },
+    { keys: ['ballerine', 'ballerines', 'ballghine'], target: ['ballerine', 'ballghine'] },
+    { keys: ['sac', 'sacs', 'pochette'], target: ['sac'] },
+    { keys: ['shoes', 'basquet', 'basket', 'sneakers'], target: ['shoes', 'basquet', 'basket'] },
+    { keys: ['accessoire', 'accessoires', 'bijoux'], target: ['accessoire'] },
+  ];
+
+  for (const rule of aliasRules) {
+    const isTriggered = rule.keys.some(k => pCat === k || pCat.includes(k));
+    if (isTriggered) {
+      const matched = categoriesList.find(c => {
+        if (!c || typeof c !== 'object') return false;
+        const cId = (c.id || '').toLowerCase();
+        const cTitle = (c.title || c.name || '').toLowerCase();
+        return rule.target.some(t => cId.includes(t) || cTitle.includes(t));
+      });
+      if (matched) return matched;
+    }
+  }
+
+  return null;
+};
+
 const getProductDisplayCategory = (prodCategory, categoriesList) => {
-  if (!Array.isArray(categoriesList)) return prodCategory || 'Pyjama DZ';
-  const exact = categoriesList.find(c => c && typeof c === 'object' && c.id === prodCategory);
-  if (exact) return exact.title || prodCategory || 'Pyjama DZ';
-  
-  const pCat = (prodCategory || '').toLowerCase().trim();
-  if (pCat === 'satin' || pCat === 'coton' || pCat === 'ensembles' || pCat.includes('pyjama')) {
-    const pyjamasCat = categoriesList.find(c => c && typeof c === 'object' && (c.title || '').toLowerCase().includes('pyjama'));
-    if (pyjamasCat) return pyjamasCat.title || prodCategory || 'Pyjama DZ';
-  }
-  if (pCat === 'mariee' || pCat === 'abayas' || pCat.includes('robe') || pCat.includes('mari')) {
-    const robesCat = categoriesList.find(c => c && typeof c === 'object' && ((c.title || '').toLowerCase().includes('robe') || (c.title || '').toLowerCase().includes('mari')));
-    if (robesCat) return robesCat.title || prodCategory || 'Pyjama DZ';
-  }
-  return prodCategory || 'Pyjama DZ';
+  const match = findCategoryMatch(prodCategory, categoriesList);
+  return match ? (match.title || match.name || prodCategory || 'Pyjama DZ') : (prodCategory || 'Pyjama DZ');
 };
 
 const getProductCategoryGroupId = (prodCategory, categoriesList) => {
-  if (!Array.isArray(categoriesList)) return prodCategory;
-  const exact = categoriesList.find(c => c && typeof c === 'object' && c.id === prodCategory);
-  if (exact) return exact.id || prodCategory;
-  
-  const pCat = (prodCategory || '').toLowerCase().trim();
-  if (pCat === 'satin' || pCat === 'coton' || pCat === 'ensembles' || pCat.includes('pyjama')) {
-    const pyjamasCat = categoriesList.find(c => c && typeof c === 'object' && (c.title || '').toLowerCase().includes('pyjama'));
-    if (pyjamasCat) return pyjamasCat.id || prodCategory;
-  }
-  if (pCat === 'mariee' || pCat === 'abayas' || pCat.includes('robe') || pCat.includes('mari')) {
-    const robesCat = categoriesList.find(c => c && typeof c === 'object' && ((c.title || '').toLowerCase().includes('robe') || (c.title || '').toLowerCase().includes('mari')));
-    if (robesCat) return robesCat.id || prodCategory;
-  }
-  return prodCategory;
+  const match = findCategoryMatch(prodCategory, categoriesList);
+  return match ? match.id : prodCategory;
 };
+
 
 const DeliveryTariffsPageContent = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -1402,6 +1436,19 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     }
   }, [isClerkLoaded, isClerkSignedIn, clerkUser]);
 
+  // Synchronous cache fallback ensures 0ms render latency on mobile and initial visits
+  const effectiveProducts = useMemo(() => {
+    if (Array.isArray(products) && products.length > 0) return products;
+    try {
+      const cached = localStorage.getItem('pyjama_products_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch(e) {}
+    return [];
+  }, [products]);
+
   const [realtimeCategories, setRealtimeCategories] = useState(() => {
     try {
       const cached = localStorage.getItem('pyjama_dz_categories_cache');
@@ -2285,7 +2332,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     }
 
     // Filter available retail products with stock > 0
-    const availableRetailProds = (products || []).filter(p => p && (!p.category || !p.category.includes('__')) && getProductTotalStock(p) > 0);
+    const availableRetailProds = (effectiveProducts || []).filter(p => p && (!p.category || !p.category.includes('__')) && getProductTotalStock(p) > 0);
 
     // Sort products by sales volume (Analytics) -> discount
     availableRetailProds.sort((a, b) => {
@@ -2300,16 +2347,18 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
     // Return top 8 products so HOT SALE category is NEVER empty!
     return availableRetailProds.slice(0, 8).map(p => p.id);
-  }, [settings?.hot_sale_products, orders, products]);
+  }, [settings?.hot_sale_products, orders, effectiveProducts]);
 
   const getProductsForCategory = useCallback((cat) => {
-    const availableRetail = (products || []).filter(p => p && (!p.category || !p.category.includes('__')) && getProductTotalStock(p) > 0);
+    const availableRetail = (effectiveProducts || []).filter(p => p && (!p.category || !p.category.includes('__')) && getProductTotalStock(p) > 0);
     if (!cat) return availableRetail;
 
     const cId = (cat.id || '').toLowerCase().trim();
     const cTitle = (cat.title || cat.name || '').toLowerCase().trim();
 
-    if (cId === 'hot' || cId === 'bestseller' || cTitle.includes('hot')) {
+    if (cId === 'all') return availableRetail;
+
+    if (cId === 'hot' || cId === 'bestseller' || cId === 'hot_sale' || cTitle.includes('hot')) {
       return availableRetail.filter(p => computedHotSaleIds.includes(p.id) || p.isHotSale || p.badge === 'HOT SALE');
     }
     if (cId === 'solde' || cId === 'promo' || cTitle.includes('solde')) {
@@ -2324,7 +2373,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       if (mappedGroupId && (mappedGroupId.toLowerCase().trim() === cId || mappedGroupId.toLowerCase().trim() === cTitle)) return true;
       return false;
     });
-  }, [products, computedHotSaleIds, categoriesList]);
+  }, [effectiveProducts, computedHotSaleIds, categoriesList]);
 
   // Helper: Déterminer le timestamp du produit le plus récent dans une catégorie
   const getCategoryLatestProductTime = useCallback((cat) => {
@@ -2350,15 +2399,15 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         t = Number(p.id);
       }
       if (t === 0) {
-        const idx = products.indexOf(p);
-        t = idx >= 0 ? (products.length - idx) : 0;
+        const idx = effectiveProducts.indexOf(p);
+        t = idx >= 0 ? (effectiveProducts.length - idx) : 0;
       }
       if (t > latestTime) {
         latestTime = t;
       }
     }
     return latestTime;
-  }, [getProductsForCategory, products]);
+  }, [getProductsForCategory, effectiveProducts]);
 
   // Seules les catégories qui contiennent des produits disponibles sont affichées sur le site
   // Ordre strict selon la demande de l'utilisateur:
@@ -2366,104 +2415,117 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   // 2. Les catégories triées par date d'ajout du dernier produit (la catégorie où on vient d'ajouter un produit passe immédiatement en 1ère position après Hot Sale!)
   // 3. SOLDE / PROMO toujours dernier
   const visibleCategoriesList = useMemo(() => {
-    const active = categoriesList.filter(cat => {
-      if (!cat) return false;
-      if (cat.id === 'all') return true;
-      const catProds = getProductsForCategory(cat);
-      return catProds && catProds.length > 0;
-    });
+    // If effectiveProducts has items, filter categories strictly by those that have available stock
+    if (effectiveProducts && effectiveProducts.length > 0) {
+      const active = categoriesList.filter(cat => {
+        if (!cat) return false;
+        if (cat.id === 'all') return true;
+        const catProds = getProductsForCategory(cat);
+        return catProds && catProds.length > 0;
+      });
 
-    return [...active].sort((a, b) => {
-      const aId = (a.id || '').toLowerCase().trim();
-      const aTitle = (a.title || a.name || '').toLowerCase().trim();
-      const bId = (b.id || '').toLowerCase().trim();
-      const bTitle = (b.title || b.name || '').toLowerCase().trim();
+      // Save active IDs to cache for instant 0ms subsequent renders
+      try {
+        const activeIds = active.map(c => c.id).filter(id => id && id !== 'all');
+        localStorage.setItem('pyjama_active_cat_ids', JSON.stringify(activeIds));
+      } catch(e) {}
 
-      const isAAll = aId === 'all';
-      const isBAll = bId === 'all';
-      if (isAAll) return -1;
-      if (isBAll) return 1;
+      return [...active].sort((a, b) => {
+        const aId = (a.id || '').toLowerCase().trim();
+        const aTitle = (a.title || a.name || '').toLowerCase().trim();
+        const bId = (b.id || '').toLowerCase().trim();
+        const bTitle = (b.title || b.name || '').toLowerCase().trim();
 
-      const isAHot = aId === 'hot' || aId === 'hot_sale' || aId === 'bestseller' || aTitle.includes('hot');
-      const isBHot = bId === 'hot' || bId === 'hot_sale' || bId === 'bestseller' || bTitle.includes('hot');
-      const isASolde = aId === 'solde' || aId === 'promo' || aTitle.includes('solde');
-      const isBSolde = bId === 'solde' || bId === 'promo' || bTitle.includes('solde');
+        const isAAll = aId === 'all';
+        const isBAll = bId === 'all';
+        if (isAAll) return -1;
+        if (isBAll) return 1;
 
-      // HOT SALE est TOUJOURS PREMIER
-      if (isAHot && !isBHot) return -1;
-      if (!isAHot && isBHot) return 1;
+        const isAHot = aId === 'hot' || aId === 'hot_sale' || aId === 'bestseller' || aTitle.includes('hot');
+        const isBHot = bId === 'hot' || bId === 'hot_sale' || bId === 'bestseller' || bTitle.includes('hot');
+        const isASolde = aId === 'solde' || aId === 'promo' || aTitle.includes('solde');
+        const isBSolde = bId === 'solde' || bId === 'promo' || bTitle.includes('solde');
 
-      // SOLDE / PROMO est TOUJOURS DERNIER
-      if (isASolde && !isBSolde) return 1;
-      if (!isASolde && isBSolde) return -1;
+        // HOT SALE est TOUJOURS PREMIER
+        if (isAHot && !isBHot) return -1;
+        if (!isAHot && isBHot) return 1;
 
-      // Entre les deux: la catégorie avec le produit le plus récent passe en premier
-      const timeA = getCategoryLatestProductTime(a);
-      const timeB = getCategoryLatestProductTime(b);
-      if (timeA !== timeB) {
-        return timeB - timeA;
+        // SOLDE / PROMO est TOUJOURS DERNIER
+        if (isASolde && !isBSolde) return 1;
+        if (!isASolde && isBSolde) return -1;
+
+        // Entre les deux: la catégorie avec le produit le plus récent passe en premier
+        const timeA = getCategoryLatestProductTime(a);
+        const timeB = getCategoryLatestProductTime(b);
+        if (timeA !== timeB) {
+          return timeB - timeA;
+        }
+
+        return 0;
+      });
+    }
+
+    // If products are still fetching from DB, use cached active category IDs for 0ms initial paint
+    try {
+      const cached = localStorage.getItem('pyjama_active_cat_ids');
+      if (cached) {
+        const cachedIds = JSON.parse(cached);
+        if (Array.isArray(cachedIds) && cachedIds.length > 0) {
+          const matched = categoriesList.filter(c => c && (c.id === 'all' || cachedIds.includes(c.id)));
+          if (matched.length > 1) {
+            return matched;
+          }
+        }
       }
+    } catch(e) {}
 
-      return 0;
-    });
-  }, [categoriesList, getProductsForCategory, getCategoryLatestProductTime]);
+    // Fallback while loading: keep top category placeholder so the page never renders blank
+    return categoriesList.filter(cat => cat && (cat.id === 'all' || cat.id === 'pyjamas-95' || cat.id === 'pyjamas'));
+  }, [categoriesList, getProductsForCategory, getCategoryLatestProductTime, effectiveProducts]);
 
   useEffect(() => {
-    if (selectedCategory && selectedCategory !== 'all') {
-      const exists = visibleCategoriesList.some(c => c.id === selectedCategory);
-      if (!exists) {
+    if (selectedCategory && selectedCategory !== 'all' && visibleCategoriesList.length > 1) {
+      const selCatLower = selectedCategory.toLowerCase().trim();
+      const exists = visibleCategoriesList.some(c => 
+        (c.id && c.id.toLowerCase().trim() === selCatLower) ||
+        (c.title && c.title.toLowerCase().trim() === selCatLower) ||
+        (c.name && c.name.toLowerCase().trim() === selCatLower)
+      );
+      if (!exists && effectiveProducts.length > 0) {
         setSelectedCategory('all');
       }
     }
-  }, [visibleCategoriesList, selectedCategory]);
+  }, [visibleCategoriesList, selectedCategory, effectiveProducts.length]);
 
   const filteredProducts = useMemo(() => {
-    if (!Array.isArray(products)) return [];
-    return products.filter(p => {
-      if (!p) return false;
+    if (!Array.isArray(effectiveProducts)) return [];
 
-      // Exclude wholesale (gros) and POS (boutique) products from the retail Storefront
-      if (!p.category || p.category.includes('__')) {
-        return false;
-      }
+    const availableRetail = effectiveProducts.filter(p => p && (!p.category || !p.category.includes('__')) && getProductTotalStock(p) > 0);
 
-      // Hide out-of-stock products from the retail Storefront
-      if (getProductTotalStock(p) <= 0) {
-        return false;
-      }
-
-      // If a search query is active, ignore selectedCategory and search all retail products
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
+    // If a search query is active, ignore selectedCategory and search all retail products
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      return availableRetail.filter(p => {
         const cleanDesc = (p.description || '').split('|||')[0].toLowerCase();
         return (p.title && p.title.toLowerCase().startsWith(q)) || 
                (p.category && p.category.toLowerCase().startsWith(q)) ||
                cleanDesc.includes(q);
-      }
+      });
+    }
 
-      if (selectedCategory === 'all') return true;
-      if (selectedCategory === 'promo' || selectedCategory === 'solde') return p.oldPrice && Number(p.oldPrice) > Number(p.price || 0);
-      
-      if (selectedCategory === 'hot_sale' || selectedCategory === 'hot') {
-        return computedHotSaleIds.includes(p.id) || p.isHotSale || p.badge === 'HOT SALE';
-      }
-      
-      const pCat = (p.category || '').toLowerCase().trim();
-      const pCatId = (p.categoryId || '').toLowerCase().trim();
-      const selCat = (selectedCategory || '').toLowerCase().trim();
+    if (!selectedCategory || selectedCategory === 'all') {
+      return availableRetail;
+    }
 
-      if (pCat === selCat || pCatId === selCat) return true;
-      
-      const selectedCatObj = categoriesList.find(c => c && (c.id === selectedCategory || (c.title && c.title.toLowerCase().trim() === selCat)));
-      if (selectedCatObj) {
-        const title = (selectedCatObj.title || selectedCatObj.name || '').toLowerCase().trim();
-        const id = (selectedCatObj.id || '').toLowerCase().trim();
-        return pCat === id || pCat === title || pCatId === id || pCatId === title;
-      }
-      
-      return pCat === selCat;
-    });
-  }, [products, searchQuery, selectedCategory, categoriesList, computedHotSaleIds]);
+    const selCatLower = (selectedCategory || '').toLowerCase().trim();
+    const targetCat = categoriesList.find(c => c && (
+      (c.id && c.id.toLowerCase().trim() === selCatLower) ||
+      (c.title && c.title.toLowerCase().trim() === selCatLower) ||
+      (c.name && c.name.toLowerCase().trim() === selCatLower)
+    )) || { id: selectedCategory };
+
+    return getProductsForCategory(targetCat);
+  }, [effectiveProducts, searchQuery, selectedCategory, categoriesList, getProductsForCategory]);
 
   const handleAddToCart = (product, selectedVariantIndex = 0, customOptions = null) => {
     let defaultColor = 'Couleur Standard';
@@ -2666,7 +2728,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
     const catProds = useMemo(() => {
       return getProductsForCategory(cat);
-    }, [cat]);
+    }, [cat, getProductsForCategory]);
 
     const matchingCount = catProds.length;
 
@@ -2743,7 +2805,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               {editorialMeta.tag}
             </span>
             <span className="mazyoud-framed-cat-count">
-              {matchingCount > 0 ? `${matchingCount} موديلات متوفرة` : 'تشكيلة فاخرة'}
+              {matchingCount > 0 ? `${matchingCount} موديلات متوفرة` : (effectiveProducts.length === 0 ? 'جاري التحميل...' : 'تشكيلة فاخرة')}
             </span>
           </div>
 
@@ -3237,7 +3299,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         {activeDetailProduct ? (
           <ProductDetailPage 
             product={activeDetailProduct} 
-            products={products}
+            products={effectiveProducts}
             categoriesList={categoriesList}
             isHotSale={Boolean(
               selectedCategory === 'hot_sale' || 
@@ -3636,40 +3698,53 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
                   <div className="stitch-cat-grid-3col">
                     {/* Real Categories from Admin / Database (Only those with products) */}
-                    {visibleCategoriesList
-                      .filter(cat => cat && cat.id !== 'all')
-                      .map((cat, idx) => {
-                        const catTitle = cat.name || cat.title || 'قسم';
-                        const catImg = cat.image || cat.thumbnail || (
-                          idx % 4 === 0 ? "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&q=80&w=600" :
-                          idx % 4 === 1 ? "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=600" :
-                          idx % 4 === 2 ? "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=600" :
-                          "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&q=80&w=600"
-                        );
+                    {visibleCategoriesList.filter(cat => cat && cat.id !== 'all').length > 0 ? (
+                      visibleCategoriesList
+                        .filter(cat => cat && cat.id !== 'all')
+                        .map((cat, idx) => {
+                          const catTitle = cat.name || cat.title || 'قسم';
+                          const catImg = cat.image || cat.thumbnail || (
+                            idx % 4 === 0 ? "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&q=80&w=600" :
+                            idx % 4 === 1 ? "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=600" :
+                            idx % 4 === 2 ? "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=600" :
+                            "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&q=80&w=600"
+                          );
 
-                        return (
-                          <div 
-                            key={cat.id} 
-                            className="stitch-cat-card"
-                            onClick={() => { 
-                              setSelectedCategory(cat.id); 
-                              setCategoryOrigin('shop');
-                              setVisibleProductCount(12); 
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                          >
-                            <div className="stitch-cat-img-box">
-                              <img 
-                                src={catImg} 
-                                alt={catTitle} 
-                                className="stitch-cat-img" 
-                                loading="lazy" 
-                              />
+                          return (
+                            <div 
+                              key={cat.id} 
+                              className="stitch-cat-card"
+                              onClick={() => { 
+                                setSelectedCategory(cat.id); 
+                                setCategoryOrigin('shop');
+                                setVisibleProductCount(12); 
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                            >
+                              <div className="stitch-cat-img-box">
+                                <img 
+                                  src={catImg} 
+                                  alt={catTitle} 
+                                  className="stitch-cat-img" 
+                                  loading="lazy" 
+                                />
+                              </div>
+                              <span className="stitch-cat-label">{catTitle}</span>
                             </div>
-                            <span className="stitch-cat-label">{catTitle}</span>
+                          );
+                        })
+                    ) : (
+                      [1, 2, 3].map(k => (
+                        <div key={k} className="stitch-cat-card" style={{ opacity: 0.7 }}>
+                          <div className="stitch-cat-img-box">
+                            <div className="luxury-shimmer-box" style={{ minHeight: '100px' }} />
                           </div>
-                        );
-                      })}
+                          <span className="stitch-cat-label">
+                            <div className="luxury-shimmer-bar" style={{ width: '60px', height: '14px', margin: '4px auto' }} />
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </section>
               )}
@@ -3677,10 +3752,23 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
               {/* 3. PRODUCTS SECTION */}
               <section id="stitch-products-view" className="stitch-products-section">
-                {selectedCategory === 'all' && (
+                {selectedCategory === 'all' ? (
                   <div className="stitch-section-title-row">
                     <div>
                       <h2 className="stitch-section-title">جميع الموديلات الحصرية</h2>
+                      <span className="stitch-product-count-badge">
+                        {filteredProducts.length > 0 
+                          ? `عرض ${Math.min(visibleProductCount, filteredProducts.length)} من أصل ${filteredProducts.length} موديل`
+                          : '0 موديل متاح'}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="stitch-section-title-row">
+                    <div>
+                      <h2 className="stitch-section-title">
+                        {categoriesList.find(c => c && (c.id === selectedCategory || (c.title && c.title.toLowerCase().trim() === selectedCategory.toLowerCase().trim())))?.title || selectedCategory}
+                      </h2>
                       <span className="stitch-product-count-badge">
                         {filteredProducts.length > 0 
                           ? `عرض ${Math.min(visibleProductCount, filteredProducts.length)} من أصل ${filteredProducts.length} موديل`
@@ -3780,23 +3868,24 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 <h2 className="luxury-editorial-title">L'Art de la Nuit & de l'Élégance</h2>
                 <p className="luxury-editorial-sub">تشكيلات حصرية مصممة لراحتكِ وسحركِ الدائم في المنزل</p>
               </div>
-              {visibleCategoriesList
-                .filter(cat => cat && cat.id !== 'all')
-                .map((cat, idx, arr) => (
-                  <React.Fragment key={cat.id}>
-                    <CategoryShowcaseCard 
-                      cat={cat}
-                      catProducts={products}
-                      onSelectCategory={(catId) => { 
-                        savedHomeScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
-                        setSelectedCategory(catId); 
-                        setCategoryOrigin('home');
-                        setActivePage('shop'); 
-                        setVisibleProductCount(12); 
-                        window.scrollTo({ top: 0, behavior: 'smooth' }); 
-                      }}
-                      idx={idx}
-                    />
+              {visibleCategoriesList.filter(cat => cat && cat.id !== 'all').length > 0 ? (
+                visibleCategoriesList
+                  .filter(cat => cat && cat.id !== 'all')
+                  .map((cat, idx, arr) => (
+                    <React.Fragment key={cat.id}>
+                      <CategoryShowcaseCard 
+                        cat={cat}
+                        catProducts={effectiveProducts}
+                        onSelectCategory={(catId) => { 
+                          savedHomeScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
+                          setSelectedCategory(catId); 
+                          setCategoryOrigin('home');
+                          setActivePage('shop'); 
+                          setVisibleProductCount(12); 
+                          window.scrollTo({ top: 0, behavior: 'smooth' }); 
+                        }}
+                        idx={idx}
+                      />
                     {idx < arr.length - 1 && (
                       <div className="autumn-cashmere-wave-divider" aria-hidden="true">
                         <svg width="100%" height="44" viewBox="0 0 600 44" fill="none" xmlns="http://www.w3.org/2000/svg" className="cashmere-wave-svg">
@@ -3921,7 +4010,27 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       </div>
                     )}
                   </React.Fragment>
-                ))}
+                ))
+              ) : (
+                <div style={{ width: '100%', maxWidth: '440px', margin: '0 auto' }}>
+                  <div className="mazyoud-framed-category-card mazyoud-framed-skeleton-card">
+                    <div className="mazyoud-framed-cat-header">
+                      <div className="mazyoud-framed-cat-meta-row" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                        <div className="luxury-shimmer-bar" style={{ width: '110px', height: '22px' }} />
+                        <div className="luxury-shimmer-bar" style={{ width: '90px', height: '22px' }} />
+                      </div>
+                      <div className="luxury-shimmer-bar" style={{ width: '60%', height: '26px', margin: '10px auto 6px auto' }} />
+                      <div className="luxury-shimmer-bar" style={{ width: '80%', height: '16px', margin: '0 auto' }} />
+                    </div>
+                    <div className="mazyoud-framed-image-box">
+                      <div className="luxury-shimmer-box" />
+                    </div>
+                    <div className="mazyoud-framed-cat-footer">
+                      <div className="luxury-shimmer-bar" style={{ width: '190px', height: '40px' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

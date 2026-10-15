@@ -4639,6 +4639,38 @@ textarea,
   border-color: #FFEDD5;
 }
 
+/* ========================================================
+   LUXURY EDITORIAL CATEGORY CARD SKELETON & SHIMMER
+   ======================================================== */
+.mazyoud-framed-skeleton-card {
+  pointer-events: none !important;
+  cursor: default !important;
+  user-select: none;
+}
+
+.luxury-shimmer-bar {
+  background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%);
+  background-size: 200% 100%;
+  animation: luxuryShimmerAnim 1.5s infinite;
+  border-radius: 9999px;
+  display: block;
+}
+
+.luxury-shimmer-box {
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
+  background: linear-gradient(90deg, #F8F6F2 25%, #EFEBE5 50%, #F8F6F2 75%);
+  background-size: 200% 100%;
+  animation: luxuryShimmerAnim 1.5s infinite;
+  border-radius: 18px;
+}
+
+@keyframes luxuryShimmerAnim {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 @media (max-width: 768px) {
   .mazyoud-hero-container {
     background-image: url('/hero-autumn-mobile.webp') !important;
