@@ -5196,6 +5196,9 @@ textarea,
    ========================================================================== */
 
 .product-reviews-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
   margin-top: 40px;
   background: #FFFFFF;
   border-radius: 24px;
@@ -5207,9 +5210,12 @@ textarea,
 
 @media (max-width: 768px) {
   .product-reviews-container {
-    padding: 24px 16px;
-    border-radius: 18px;
-    margin-top: 28px;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 20px 14px !important;
+    border-radius: 18px !important;
+    margin-top: 24px !important;
   }
 }
 
@@ -5232,6 +5238,20 @@ textarea,
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reviews-title-sub-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #800020;
+  background: #FFF1F2;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #FECDD3;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
 }
 
 .reviews-open-form-btn {
@@ -5255,6 +5275,27 @@ textarea,
   box-shadow: 0 6px 20px rgba(128, 0, 32, 0.3);
 }
 
+@media (max-width: 768px) {
+  .reviews-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+  }
+
+  .reviews-section-title {
+    font-size: 1.15rem !important;
+    gap: 6px;
+  }
+
+  .reviews-open-form-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 12px 18px !important;
+  }
+}
+
 /* Reviews Summary Card */
 .reviews-summary-grid {
   display: grid;
@@ -5266,13 +5307,15 @@ textarea,
   border: 1px solid #F3EBE6;
   margin-bottom: 28px;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 @media (max-width: 768px) {
   .reviews-summary-grid {
-    grid-template-columns: 1fr;
-    gap: 18px;
-    padding: 18px 14px;
+    grid-template-columns: 1fr !important;
+    gap: 18px !important;
+    padding: 18px 14px !important;
     text-align: center;
   }
 }
@@ -5313,6 +5356,8 @@ textarea,
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .reviews-bar-item {
@@ -5322,6 +5367,8 @@ textarea,
   font-size: 0.82rem;
   font-weight: 700;
   color: #475569;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .reviews-bar-label {
@@ -5330,6 +5377,7 @@ textarea,
   display: flex;
   align-items: center;
   gap: 3px;
+  direction: rtl;
 }
 
 .reviews-bar-track {
@@ -5338,6 +5386,7 @@ textarea,
   background: #E2E8F0;
   border-radius: 9999px;
   overflow: hidden;
+  direction: rtl;
 }
 
 .reviews-bar-fill {
@@ -5345,13 +5394,15 @@ textarea,
   background: linear-gradient(90deg, #F59E0B, #D97706);
   border-radius: 9999px;
   transition: width 0.4s ease;
+  margin-left: auto;
 }
 
 .reviews-bar-count {
-  width: 24px;
+  width: 28px;
   text-align: left;
   color: #94A3B8;
   font-size: 0.78rem;
+  flex-shrink: 0;
 }
 
 /* Review Submission Form */

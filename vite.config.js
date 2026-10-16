@@ -35,6 +35,8 @@ export default defineConfig({
     })
   ],
   build: {
+    target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
+    cssTarget: ['safari14', 'chrome87', 'firefox78', 'edge88'],
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {

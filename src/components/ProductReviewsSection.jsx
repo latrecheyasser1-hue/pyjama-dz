@@ -96,7 +96,9 @@ export default function ProductReviewsSection({ product }) {
       <div className="reviews-header-row">
         <div>
           <h3 className="reviews-section-title">
-            <span>⭐</span> آراء وتقييمات الزبائن (Avis & Évaluations)
+            <span>⭐</span>
+            <span>آراء وتقييمات الزبائن</span>
+            <span className="reviews-title-sub-badge">Avis & Évaluations</span>
           </h3>
           <span style={{ fontSize: '0.86rem', color: '#64748B', fontWeight: 600, display: 'block', marginTop: '4px' }}>
             تجارب حقيقية من زبائن تم توصيل الطلبات إليهم وفحصها
@@ -249,7 +251,7 @@ export default function ProductReviewsSection({ product }) {
         <div className="reviews-bars-list">
           {[5, 4, 3, 2, 1].map(stars => {
             const count = stats.distribution[stars] || 0;
-            const percentage = stats.totalCount > 0 ? Math.round((count / stats.totalCount) * 100) : (stars === 5 ? 100 : 0);
+            const percentage = stats.totalCount > 0 ? Math.round((count / stats.totalCount) * 100) : 0;
             return (
               <div key={stars} className="reviews-bar-item">
                 <span className="reviews-bar-label">
