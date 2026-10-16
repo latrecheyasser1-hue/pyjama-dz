@@ -1,5 +1,8 @@
 html {
   scroll-behavior: smooth;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .modal-overlay {
@@ -147,8 +150,17 @@ body {
   background-color: var(--bg-main);
   color: var(--text-dark);
   line-height: 1.6;
+  width: 100%;
+  max-width: 100vw;
   overflow-x: hidden;
+  position: relative;
   -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 /* Scrollbar styling */
@@ -2780,12 +2792,14 @@ tr:hover {
 
 /* Product Detail Page (PDP) Styles */
 .mazyoud-pdp-container {
-  max-width: 1200px;
+  width: 100% !important;
+  max-width: 1200px !important;
   margin: 0 auto;
   padding: 30px 24px;
   background: #FFF;
   animation: mazyoudFadeIn 0.35s ease-out;
-  box-sizing: border-box;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
 }
 
 .mazyoud-pdp-back-btn {
@@ -2811,31 +2825,64 @@ tr:hover {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   gap: 40px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 @media (max-width: 768px) {
   .mazyoud-pdp-container {
-    padding: 16px 22px 85px !important;
-    padding-right: max(22px, env(safe-area-inset-right)) !important;
-    padding-left: max(22px, env(safe-area-inset-left)) !important;
-    box-sizing: border-box;
+    width: 100% !important;
+    max-width: 100vw !important;
+    padding: 14px 14px 85px !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   .mazyoud-pdp-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  .mazyoud-pdp-gallery {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .mazyoud-pdp-thumbnails {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
   }
 
   .mazyoud-pdp-details {
-    padding-right: 8px !important;
-    padding-left: 8px !important;
-    box-sizing: border-box;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   .mazyoud-pdp-title {
-    font-size: 1.5rem !important;
-    line-height: 2rem !important;
+    font-size: 1.35rem !important;
+    line-height: 1.85rem !important;
     margin-bottom: 8px !important;
+    word-break: break-word !important;
+  }
+
+  .mazyoud-pdp-price-box {
+    padding: 10px 14px !important;
+    margin: 8px 0 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 }
 
