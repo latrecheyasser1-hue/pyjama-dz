@@ -295,22 +295,14 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       onUpdateProduct(updatedProd, null, { immediate: true });
     }
 
-    // 2. Direct Supabase write and sync: commit to DB FIRST before broadcasting
+    // 2. Direct Supabase write: commit to DB immediately and reliably
     try {
-      const { error } = await supabase
+      await supabase
         .from('products')
         .update({ description: updatedDescription })
         .eq('id', p.id);
-
-      if (!error) {
-        // 3. Broadcast instant sync to all customer devices and tabs ONLY after DB write succeeded
-        await supabase.from('settings').upsert({
-          key: 'products_last_updated',
-          value: String(Date.now())
-        });
-      }
     } catch(e) {
-      console.error('Error broadcasting product visibility:', e);
+      console.error('Error saving product visibility:', e);
     }
 
     showToast(nextHidden ? `🚫 تم إخفاء "${p.title}" من متجر الزبائن` : `👁️ تم تفعيل وإظهار "${p.title}" على متجر الزبائن مباشرة`, 'success');

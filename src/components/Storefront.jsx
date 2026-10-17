@@ -1469,6 +1469,16 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     return [];
   }, [products]);
 
+  const [isStoreReady, setIsStoreReady] = useState(false);
+
+  useEffect(() => {
+    // Graceful initial skeleton window to show shimmer loader before evaluating empty states
+    const timer = setTimeout(() => {
+      setIsStoreReady(true);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
+
   const [realtimeCategories, setRealtimeCategories] = useState(() => {
     try {
       const cached = localStorage.getItem('pyjama_dz_categories_cache');
@@ -3852,6 +3862,16 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       );
                     })}
                   </main>
+                ) : !isStoreReady ? (
+                  <div className="products-grid">
+                    {[1, 2, 3, 4].map(k => (
+                      <div key={k} className="luxury-product-card" style={{ opacity: 0.6, pointerEvents: 'none' }}>
+                        <div className="luxury-shimmer-box" style={{ height: '240px', borderRadius: '16px' }} />
+                        <div className="luxury-shimmer-bar" style={{ width: '80%', height: '16px', margin: '12px auto 6px auto' }} />
+                        <div className="luxury-shimmer-bar" style={{ width: '50%', height: '14px', margin: '0 auto' }} />
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="stitch-empty-category-card">
                     <span style={{ fontSize: '3rem', display: 'block', marginBottom: '12px' }}>📭</span>
@@ -4047,6 +4067,12 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                       </div>
                     )}
                   </React.Fragment>
+                ))
+              ) : !isStoreReady ? (
+                [1, 2].map((k) => (
+                  <div key={k} className="luxury-editorial-category-card" style={{ opacity: 0.6, pointerEvents: 'none' }}>
+                    <div className="luxury-shimmer-box" style={{ height: '360px', borderRadius: '24px' }} />
+                  </div>
                 ))
               ) : (
                 <div style={{ width: '100%', maxWidth: '440px', margin: '16px auto 32px auto', padding: '0 12px' }}>

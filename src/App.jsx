@@ -148,41 +148,44 @@ export default function App() {
     
     // 1. Subscribe to real-time database changes with instant in-memory state updates
     const isAdmin = checkIsAdminPath();
+    let productsSub = null;
 
-    const productsSub = supabase.channel('products_realtime_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
-        if (payload.eventType === 'UPDATE' && payload.new) {
-          // Prevent DB echo from reverting active user edits
-          const pending = pendingUpdatesRef.current[payload.new.id];
-          if (pending && (Date.now() - pending.timestamp < 6000)) {
-            return;
-          }
-          const incoming = normalizeProduct(payload.new);
-          setProducts(prev => {
-            const nextList = prev.map(p => p.id === incoming.id ? { ...p, ...incoming } : p);
-            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
-            return nextList;
-          });
-        } else if (payload.eventType === 'INSERT' && payload.new) {
-          const incoming = normalizeProduct(payload.new);
-          setProducts(prev => {
-            if (prev.some(p => p.id === incoming.id)) {
-              return prev.map(p => p.id === incoming.id ? { ...p, ...incoming } : p);
+    // Only subscribe to live product database updates if in admin mode
+    if (isAdmin) {
+      productsSub = supabase.channel('products_realtime_channel')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            const pending = pendingUpdatesRef.current[payload.new.id];
+            if (pending && (Date.now() - pending.timestamp < 6000)) {
+              return;
             }
-            const nextList = [incoming, ...prev];
-            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
-            return nextList;
-          });
-        } else if (payload.eventType === 'DELETE' && payload.old) {
-          setProducts(prev => {
-            const nextList = prev.filter(p => p.id !== payload.old.id);
-            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
-            return nextList;
-          });
-        } else {
-          fetchData('products', setProducts);
-        }
-      }).subscribe();
+            const incoming = normalizeProduct(payload.new);
+            setProducts(prev => {
+              const nextList = prev.map(p => p.id === incoming.id ? { ...p, ...incoming } : p);
+              try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
+              return nextList;
+            });
+          } else if (payload.eventType === 'INSERT' && payload.new) {
+            const incoming = normalizeProduct(payload.new);
+            setProducts(prev => {
+              if (prev.some(p => p.id === incoming.id)) {
+                return prev.map(p => p.id === incoming.id ? { ...p, ...incoming } : p);
+              }
+              const nextList = [incoming, ...prev];
+              try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
+              return nextList;
+            });
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            setProducts(prev => {
+              const nextList = prev.filter(p => p.id !== payload.old.id);
+              try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
+              return nextList;
+            });
+          } else {
+            fetchData('products', setProducts);
+          }
+        }).subscribe();
+    }
 
     let ordersSub = null;
     let suppliersSub = null;
@@ -224,20 +227,12 @@ export default function App() {
     const settingsSub = supabase.channel('settings_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, payload => {
         fetchSettings();
-        if (payload?.new?.key === 'products_last_updated') {
-          fetchData('products', setProducts);
-        }
       }).subscribe();
 
-    let lastFocusSync = Date.now();
     const handleFocusOrVisible = () => {
-      if (!document.hidden) {
-        const timeSinceSync = Date.now() - lastFocusSync;
-        // Whenever user returns to tab (on mobile phone or PC), refresh products automatically
-        if (timeSinceSync > 4000) {
-          lastFocusSync = Date.now();
-          fetchData('products', setProducts);
-        }
+      // Focus sync only for backoffice orders, not storefront products
+      if (!document.hidden && isAdmin) {
+        fetchData('orders', setOrders);
       }
     };
 
@@ -451,10 +446,6 @@ export default function App() {
               try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
               return nextList;
             });
-            await supabase.from('settings').upsert({
-              key: 'products_last_updated',
-              value: String(Date.now())
-            });
           }
         } catch (err) {
           console.error('Error in immediate product update:', err);
@@ -532,14 +523,6 @@ export default function App() {
             try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
             return nextList;
           });
-
-          // Broadcast instant cross-device sync to all customer devices ONLY after DB write succeeded
-          try {
-            await supabase.from('settings').upsert({
-              key: 'products_last_updated',
-              value: String(Date.now())
-            });
-          } catch(e) {}
 
           setTimeout(() => {
             if (pendingUpdatesRef.current[id] && (Date.now() - pendingUpdatesRef.current[id].timestamp >= 5000)) {
