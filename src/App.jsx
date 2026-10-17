@@ -418,15 +418,26 @@ export default function App() {
     if (!id) return;
 
     const normalized = normalizeProduct(updatedProd);
-    const now = Date.now();
-    pendingUpdatesRef.current[id] = { product: normalized, changedVariant, timestamp: now };
 
     // 1. Instant Optimistic Local Update (0ms lag!) + Immediate LocalStorage Sync (survives instant F5 refresh!)
     setProducts(prev => {
-      const nextList = prev.map(p => p.id === id ? normalized : p);
+      const nextList = prev.map(p => p.id === id ? { ...p, ...normalized } : p);
       try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
       return nextList;
     });
+
+    // If skipDb is requested, only update in-memory and local cache, cancel any debounce and never write full row to DB!
+    if (options && options.skipDb) {
+      if (updateDebounceRef.current[id]) {
+        clearTimeout(updateDebounceRef.current[id]);
+        delete updateDebounceRef.current[id];
+      }
+      delete pendingUpdatesRef.current[id];
+      return;
+    }
+
+    const now = Date.now();
+    pendingUpdatesRef.current[id] = { product: normalized, changedVariant, timestamp: now };
 
     // Immediate mode: bypass debounce, persist to Supabase immediately and broadcast only after DB commit
     if (options && options.immediate) {

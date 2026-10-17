@@ -33,7 +33,26 @@ const getParsedColorVariants = (prod) => {
   if (typeof variants === 'string') {
     try { variants = JSON.parse(variants); } catch (e) { variants = []; }
   }
-  return Array.isArray(variants) ? variants : [];
+  if (Array.isArray(variants) && variants.length > 0) return variants;
+
+  // Fallback if variants is a single object
+  if (variants && typeof variants === 'object' && !Array.isArray(variants) && (variants.color || variants.stock)) {
+    return [variants];
+  }
+
+  // Fallback if product has legacy sizes array
+  if (prod.sizes && Array.isArray(prod.sizes) && prod.sizes.length > 0) {
+    const stockObj = {};
+    prod.sizes.forEach(s => { stockObj[s] = typeof prod.stock === 'number' ? prod.stock : 10; });
+    return [{ color: 'Standard', colorHex: '#CBD5E1', image: prod.image || '', stock: stockObj }];
+  }
+
+  // Fallback if product has simple stock number
+  if (prod.stock !== undefined && prod.stock !== null && prod.stock !== '') {
+    return [{ color: 'Standard', colorHex: '#CBD5E1', image: prod.image || '', stock: { Standard: Number(prod.stock) || 0 } }];
+  }
+
+  return [];
 };
 
 const findCategoryMatch = (prodCategory, categoriesList) => {
@@ -290,12 +309,12 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       is_active: !nextHidden
     };
 
-    // 1. Optimistic Update immediately in parent memory and localStorage
+    // 1. Optimistic Update immediately in parent memory and localStorage only (skip full-row DB update)
     if (typeof onUpdateProduct === 'function') {
-      onUpdateProduct(updatedProd, null, { immediate: true });
+      onUpdateProduct(updatedProd, null, { skipDb: true });
     }
 
-    // 2. Direct Supabase write: commit to DB immediately and reliably
+    // 2. Direct Supabase write: ONLY update description column! NEVER overwrite colorVariants or stock!
     try {
       await supabase
         .from('products')
@@ -340,81 +359,86 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
   };
 
   const handleOpenEdit = (p) => {
-    setEditingId(p.id);
-    setTitle(p.title);
-    
-    let cleanCategory = p.category;
-    if (p.category && (p.category.startsWith('gros__') || p.category.startsWith('super_gros__') || p.category.startsWith('boutique__'))) {
-      cleanCategory = p.category.split('__')[1] || '';
-    }
-    setCategory(cleanCategory);
-    setPurchasePrice((p.purchasePrice !== undefined && p.purchasePrice !== null && p.purchasePrice !== '') ? p.purchasePrice : '');
-    setPrice((p.price !== undefined && p.price !== null && p.price !== '') ? p.price : '');
-    setOldPrice((p.oldPrice !== undefined && p.oldPrice !== null && p.oldPrice !== '') ? p.oldPrice : '');
-    setSupplierName(p.supplier || suppliers[0]?.name || '');
-    setImages(p.images && p.images.length > 0 ? p.images : (p.image ? [p.image] : []));
-    setBarcode(p.barcode || String(100000000000 + Math.floor(Math.random() * 900000000000)));
-    setDescription(p.description || '');
-
-    const colorVariantsArr = getParsedColorVariants(p);
-    if (colorVariantsArr.length > 0) {
-      setColorVariants(colorVariantsArr.map(cv => ({
-        color: cv.color,
-        colorHex: cv.colorHex || '#CBD5E1',
-        image: cv.image || '',
-        selectedSizes: { ...cv.stock }
-      })));
-    } else {
-      // Fallback from basic sizes
-      const sizesObj = {};
-      (p.sizes || ["M", "L"]).forEach(s => { sizesObj[s] = 10; });
-      setColorVariants([{ color: 'Standard', selectedSizes: sizesObj }]);
-    }
-
-    const descParts = (p.description || '').split('|||');
-    setDescription(descParts[0] || '');
+    if (!p) return;
     try {
-      const meta = descParts[1] ? JSON.parse(descParts[1]) : {};
-      setMinQtyGros(meta.minQtyGros || 1);
-      setMinQtySuperGros(meta.minQtySuperGros || 60);
-      setSerieConfig(meta.serieConfig || {});
-      setBulkPrice5(meta.bulkPrice5 || '');
-      setLinkedProductIds(meta.linkedProductIds || []);
-      setCrossSellSearch('');
-      const isHidden = (meta.isHidden !== undefined)
-        ? Boolean(meta.isHidden)
-        : ((meta.hidden !== undefined)
-          ? Boolean(meta.hidden)
-          : (meta.isActiveOnWebsite !== undefined ? !meta.isActiveOnWebsite : Boolean(p.isHidden || p.is_hidden)));
-      setIsActiveOnWebsite(!isHidden);
-    } catch(e) {
-      setMinQtyGros(12);
-      setMinQtySuperGros(60);
-      setSerieConfig({});
-      setBulkPrice5('');
-      setLinkedProductIds([]);
-      setCrossSellSearch('');
-      setIsActiveOnWebsite(p.isHidden !== true && p.is_hidden !== true);
-    }
-
-    setIsCustomCategory(false);
-    setCustomCategoryInput('');
-    // Attempt to detect if it's using shoes pointures
-    const firstVariantSizes = p.colorVariants?.[0]?.stock || sizesObj;
-    const sizeKeys = Object.keys(firstVariantSizes);
-    const hasNumbers = sizeKeys.some(k => !isNaN(k) && Number(k) > 20);
-    if (hasNumbers) {
-      setSizeSystem('shoes');
-      const nums = sizeKeys.filter(k => !isNaN(k)).map(Number);
-      if (nums.length > 0) {
-        setMinPointure(Math.min(...nums));
-        setMaxPointure(Math.max(...nums));
+      setEditingId(p.id);
+      setTitle(p.title || '');
+      
+      let cleanCategory = p.category || '';
+      if (cleanCategory && (cleanCategory.startsWith('gros__') || cleanCategory.startsWith('super_gros__') || cleanCategory.startsWith('boutique__'))) {
+        cleanCategory = cleanCategory.split('__')[1] || '';
       }
-    } else {
-      setSizeSystem('standard');
-    }
+      setCategory(cleanCategory);
+      setPurchasePrice((p.purchasePrice !== undefined && p.purchasePrice !== null && p.purchasePrice !== '') ? p.purchasePrice : '');
+      setPrice((p.price !== undefined && p.price !== null && p.price !== '') ? p.price : '');
+      setOldPrice((p.oldPrice !== undefined && p.oldPrice !== null && p.oldPrice !== '') ? p.oldPrice : '');
+      setSupplierName(p.supplier || suppliers[0]?.name || '');
+      setImages(p.images && p.images.length > 0 ? p.images : (p.image ? [p.image] : []));
+      setBarcode(p.barcode || String(100000000000 + Math.floor(Math.random() * 900000000000)));
+      setDescription(p.description || '');
 
-    setIsFormOpen(true);
+      let fallbackSizesObj = {};
+      const colorVariantsArr = getParsedColorVariants(p);
+      if (colorVariantsArr.length > 0) {
+        setColorVariants(colorVariantsArr.map(cv => ({
+          color: cv.color || 'Standard',
+          colorHex: cv.colorHex || '#CBD5E1',
+          image: cv.image || '',
+          selectedSizes: { ...(cv.stock || {}) }
+        })));
+      } else {
+        // Fallback from basic sizes
+        (p.sizes || ["Standard"]).forEach(s => { fallbackSizesObj[s] = 10; });
+        setColorVariants([{ color: 'Standard', colorHex: '#CBD5E1', image: '', selectedSizes: fallbackSizesObj }]);
+      }
+
+      const descParts = (p.description || '').split('|||');
+      setDescription(descParts[0] || '');
+      try {
+        const meta = descParts[1] ? JSON.parse(descParts[1]) : {};
+        setMinQtyGros(meta.minQtyGros || 1);
+        setMinQtySuperGros(meta.minQtySuperGros || 60);
+        setSerieConfig(meta.serieConfig || {});
+        setBulkPrice5(meta.bulkPrice5 || '');
+        setLinkedProductIds(meta.linkedProductIds || []);
+        setCrossSellSearch('');
+        const isHidden = (meta.isHidden !== undefined)
+          ? Boolean(meta.isHidden)
+          : ((meta.hidden !== undefined)
+            ? Boolean(meta.hidden)
+            : (meta.isActiveOnWebsite !== undefined ? !meta.isActiveOnWebsite : Boolean(p.isHidden || p.is_hidden)));
+        setIsActiveOnWebsite(!isHidden);
+      } catch(e) {
+        setMinQtyGros(12);
+        setMinQtySuperGros(60);
+        setSerieConfig({});
+        setBulkPrice5('');
+        setLinkedProductIds([]);
+        setCrossSellSearch('');
+        setIsActiveOnWebsite(p.isHidden !== true && p.is_hidden !== true);
+      }
+
+      setIsCustomCategory(false);
+      setCustomCategoryInput('');
+      const firstVariantSizes = (colorVariantsArr[0]?.stock) || fallbackSizesObj || {};
+      const sizeKeys = Object.keys(firstVariantSizes);
+      const hasNumbers = sizeKeys.some(k => !isNaN(k) && Number(k) > 20);
+      if (hasNumbers) {
+        setSizeSystem('shoes');
+        const nums = sizeKeys.filter(k => !isNaN(k)).map(Number);
+        if (nums.length > 0) {
+          setMinPointure(Math.min(...nums));
+          setMaxPointure(Math.max(...nums));
+        }
+      } else {
+        setSizeSystem('standard');
+      }
+
+      setIsFormOpen(true);
+    } catch (err) {
+      console.error('Error opening edit modal:', err);
+      setIsFormOpen(true);
+    }
   };
 
   // Multiple Image Handlers
@@ -1886,9 +1910,14 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                 ) : (
                   <div style={{ background: '#FAF8F5', padding: '10px', borderRadius: '8px', marginBottom: 14 }}>
                     <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--burgundy)' }}>📊 المخزون الحالي حسب اللون والمقاس :</span>
-                    {getParsedColorVariants(p).map((cv, cIdx) => (
-                      <div key={cIdx} style={{ marginTop: 8, borderTop: cIdx > 0 ? '1px dashed #DDD' : 'none', paddingTop: cIdx > 0 ? 6 : 0 }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#333' }}>🎨 {cv.color} :</span>
+                    {getParsedColorVariants(p).length === 0 ? (
+                      <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginTop: 6, fontStyle: 'italic' }}>
+                        لا توجد مقاسات مسجلة (اضغط "Modifier" لتحديد المقاسات والألوان)
+                      </div>
+                    ) : (
+                      getParsedColorVariants(p).map((cv, cIdx) => (
+                        <div key={cIdx} style={{ marginTop: 8, borderTop: cIdx > 0 ? '1px dashed #DDD' : 'none', paddingTop: cIdx > 0 ? 6 : 0 }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#333' }}>🎨 {cv.color} :</span>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
                           {Object.entries(cv.stock || {}).sort((a, b) => {
                             const numA = Number(a[0]);
@@ -1932,7 +1961,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                           ))}
                         </div>
                       </div>
-                    ))}
+                    )))}
                   </div>
                 )}
               </div>
