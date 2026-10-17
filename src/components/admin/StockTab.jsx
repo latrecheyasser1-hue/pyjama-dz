@@ -1158,8 +1158,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                         <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>أصغر مقاس :</label>
                         <input
                           type="number"
-                          min="15"
-                          max="60"
+                          min="1"
                           value={minPointure}
                           onChange={(e) => setMinPointure(e.target.value)}
                           style={{ padding: '6px', borderRadius: '6px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 800 }}
@@ -1169,8 +1168,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                         <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>أكبر مقاس :</label>
                         <input
                           type="number"
-                          min="15"
-                          max="60"
+                          min="1"
                           value={maxPointure}
                           onChange={(e) => setMaxPointure(e.target.value)}
                           style={{ padding: '6px', borderRadius: '6px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 800 }}
