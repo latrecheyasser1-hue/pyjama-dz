@@ -1684,19 +1684,6 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                       <img key={idx} src={img} alt={`${p.title} ${idx + 1}`} style={{ minWidth: '100%', height: '100%', objectFit: 'cover', scrollSnapAlign: 'start', backgroundColor: '#f3f4f6' }} />
                     ))}
                   </div>
-                  {stockMode !== 'boutique' ? (
-                    <span style={{ position: 'absolute', top: 10, left: 10, background: 'var(--burgundy-dark)', color: 'white', padding: '4px 10px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {(() => {
-                        const cleanCat = p.category ? p.category.replace(`${stockMode}__`, '') : '';
-                        const catObj = categoriesList.find(c => c && c.id === cleanCat);
-                        return (
-                          <>
-                            {catObj?.icon || '📦'} {catObj?.title || cleanCat.toUpperCase()}
-                          </>
-                        );
-                      })()}
-                    </span>
-                  ) : null}
               <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6 }}>
                 <button type="button" onClick={() => handlePrintBarcodeDirectly(p)} style={{ background: 'white', border: 'none', padding: 8, borderRadius: '50%', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }} title="Imprimer Code Barres">
                   <BarcodeIcon size={16} color="#4F46E5" />
