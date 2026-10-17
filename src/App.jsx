@@ -328,6 +328,51 @@ export default function App() {
     };
   }, []);
 
+  // Realtime live sync for products table across all devices (Customers & Admin)
+  useEffect(() => {
+    const productsLiveChannel = supabase
+      .channel('products_realtime_stream')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
+        if (payload.eventType === 'UPDATE' && payload.new) {
+          const dbProd = payload.new;
+          let cvs = dbProd.colorVariants;
+          if (typeof cvs === 'string') {
+            try { cvs = JSON.parse(cvs); } catch(e) { cvs = []; }
+          }
+          const formatted = { ...dbProd, colorVariants: cvs };
+          setProducts(prev => {
+            const next = prev.map(p => p.id === formatted.id ? { ...p, ...formatted } : p);
+            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(next)); } catch(e) {}
+            return next;
+          });
+        } else if (payload.eventType === 'INSERT' && payload.new) {
+          const dbProd = payload.new;
+          let cvs = dbProd.colorVariants;
+          if (typeof cvs === 'string') {
+            try { cvs = JSON.parse(cvs); } catch(e) { cvs = []; }
+          }
+          const formatted = { ...dbProd, colorVariants: cvs };
+          setProducts(prev => {
+            if (prev.some(p => p.id === formatted.id)) return prev;
+            const next = [formatted, ...prev];
+            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(next)); } catch(e) {}
+            return next;
+          });
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          setProducts(prev => {
+            const next = prev.filter(p => p.id !== payload.old.id);
+            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(next)); } catch(e) {}
+            return next;
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(productsLiveChannel);
+    };
+  }, []);
+
   const fetchData = async (table, setter) => {
     const isAdmin = checkIsAdminPath();
 

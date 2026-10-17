@@ -75,6 +75,21 @@ const findCategoryMatch = (prodCategory, categoriesList) => {
   return null;
 };
 
+export const isProductHiddenFromStore = (product) => {
+  if (!product) return false;
+  if (product.isHidden === true || product.is_hidden === true) return true;
+  if (product.isActiveOnWebsite === false || product.is_active === false) return true;
+  if (product.description && typeof product.description === 'string' && product.description.includes('|||')) {
+    try {
+      const meta = JSON.parse(product.description.split('|||')[1] || '{}');
+      if (meta.isHidden === true || meta.hidden === true || meta.isActiveOnWebsite === false) {
+        return true;
+      }
+    } catch (e) {}
+  }
+  return false;
+};
+
 const getProductDisplayCategory = (prodCategory, categoriesList) => {
   const match = findCategoryMatch(prodCategory, categoriesList);
   return match ? (match.title || match.name || prodCategory || 'Pyjama DZ') : (prodCategory || 'Pyjama DZ');
@@ -1613,6 +1628,16 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
     }
   }, [activeDetailProduct]);
 
+  // If active product gets hidden by store owner in realtime, close detail view automatically
+  useEffect(() => {
+    if (activeDetailProduct) {
+      const freshProd = (effectiveProducts || []).find(p => p.id === activeDetailProduct.id);
+      if (freshProd && isProductHiddenFromStore(freshProd)) {
+        setActiveDetailProduct(null);
+      }
+    }
+  }, [activeDetailProduct, effectiveProducts]);
+
   // 2. Active Page (About / Shop / etc.) History Handler
   useEffect(() => {
     if (activePage) {
@@ -2331,8 +2356,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       });
     }
 
-    // Filter available retail products with stock > 0
-    const availableRetailProds = (effectiveProducts || []).filter(p => p && (!p.category || !p.category.includes('__')) && getProductTotalStock(p) > 0);
+    // Filter available retail products with stock > 0 and visible on store
+    const availableRetailProds = (effectiveProducts || []).filter(p => p && (!p.category || !p.category.includes('__')) && !isProductHiddenFromStore(p) && getProductTotalStock(p) > 0);
 
     // Sort products by sales volume (Analytics) -> discount
     availableRetailProds.sort((a, b) => {
@@ -2350,7 +2375,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   }, [settings?.hot_sale_products, orders, effectiveProducts]);
 
   const getProductsForCategory = useCallback((cat) => {
-    const availableRetail = (effectiveProducts || []).filter(p => p && (!p.category || !p.category.includes('__')) && getProductTotalStock(p) > 0);
+    const availableRetail = (effectiveProducts || []).filter(p => p && (!p.category || !p.category.includes('__')) && !isProductHiddenFromStore(p) && getProductTotalStock(p) > 0);
     if (!cat) return availableRetail;
 
     const cId = (cat.id || '').toLowerCase().trim();
@@ -2500,7 +2525,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const filteredProducts = useMemo(() => {
     if (!Array.isArray(effectiveProducts)) return [];
 
-    const availableRetail = effectiveProducts.filter(p => p && (!p.category || !p.category.includes('__')) && getProductTotalStock(p) > 0);
+    const availableRetail = effectiveProducts.filter(p => p && (!p.category || !p.category.includes('__')) && !isProductHiddenFromStore(p) && getProductTotalStock(p) > 0);
 
     // If a search query is active, ignore selectedCategory and search all retail products
     if (searchQuery.trim()) {

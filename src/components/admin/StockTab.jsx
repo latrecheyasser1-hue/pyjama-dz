@@ -1,8 +1,23 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, Trash2, Edit2, Upload, Check, X, Layers, PlusCircle, MinusCircle, Printer, Image as ImageIcon, Barcode as BarcodeIcon, Pipette, Tag } from 'lucide-react';
+import { Plus, Trash2, Edit2, Upload, Check, X, Layers, PlusCircle, MinusCircle, Printer, Image as ImageIcon, Barcode as BarcodeIcon, Pipette, Tag, Eye, EyeOff } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import { showToast } from '../../utils/toast';
 import { formatPrice } from '../../utils/formatUtils';
+
+export const isProductHiddenFromStore = (product) => {
+  if (!product) return false;
+  if (product.isHidden === true || product.is_hidden === true) return true;
+  if (product.isActiveOnWebsite === false || product.is_active === false) return true;
+  if (product.description && typeof product.description === 'string' && product.description.includes('|||')) {
+    try {
+      const meta = JSON.parse(product.description.split('|||')[1] || '{}');
+      if (meta.isHidden === true || meta.hidden === true || meta.isActiveOnWebsite === false) {
+        return true;
+      }
+    } catch (e) {}
+  }
+  return false;
+};
 
 const ALL_SIZES = ["Standard", "S", "M", "L", "XL", "2XL", "3XL", "4XL"];
 
@@ -244,6 +259,32 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [products, stockMode, filteredProductsByMode, selectableCategories, suppliers, onTabChange, isFormOpen, isPosOpen]);
 
+  const handleToggleProductVisibility = (p) => {
+    const currentlyHidden = isProductHiddenFromStore(p);
+    const nextHidden = !currentlyHidden;
+
+    const descParts = (p.description || '').split('|||');
+    let meta = {};
+    try {
+      meta = descParts[1] ? JSON.parse(descParts[1]) : {};
+    } catch (e) {
+      meta = {};
+    }
+    meta.isHidden = nextHidden;
+    meta.isActiveOnWebsite = !nextHidden;
+
+    const updatedDescription = (descParts[0] || '') + '|||' + JSON.stringify(meta);
+    const updatedProd = {
+      ...p,
+      description: updatedDescription,
+      isHidden: nextHidden,
+      isActiveOnWebsite: !nextHidden
+    };
+
+    onUpdateProduct(updatedProd);
+    showToast(nextHidden ? `🚫 تم إخفاء "${p.title}" من متجر الزبائن` : `👁️ تم تفعيل وإظهار "${p.title}" على متجر الزبائن مباشرة`, 'success');
+  };
+
   const handleOpenNew = () => {
     setEditingId(null);
     setTitle('');
@@ -317,6 +358,8 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       setBulkPrice5(meta.bulkPrice5 || '');
       setLinkedProductIds(meta.linkedProductIds || []);
       setCrossSellSearch('');
+      const isHidden = meta.isHidden === true || meta.hidden === true || meta.isActiveOnWebsite === false || p.isHidden === true;
+      setIsActiveOnWebsite(!isHidden);
     } catch(e) {
       setMinQtyGros(12);
       setMinQtySuperGros(60);
@@ -324,6 +367,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       setBulkPrice5('');
       setLinkedProductIds([]);
       setCrossSellSearch('');
+      setIsActiveOnWebsite(p.isHidden !== true);
     }
 
     setIsCustomCategory(false);
@@ -720,18 +764,23 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     }
 
     // Note: Description est facultative (Optionnelle) selon la demande de l'utilisateur
+    const existingMeta = (() => {
+      try {
+        const parts = (editingId ? products.find(p => p.id === editingId)?.description : '')?.split('|||');
+        return parts && parts[1] ? JSON.parse(parts[1]) : {};
+      } catch(e) { return {}; }
+    })();
+
     const serializedDescription = (description || '') + '|||' + JSON.stringify({
+      ...existingMeta,
       minQtyGros: Number(minQtyGros || 1),
       minQtySuperGros: Number(minQtySuperGros || 60),
       serieConfig: serieConfig,
       bulkPrice5: Number(bulkPrice5 || 0),
-      linkedProductIds: linkedProductIds
+      linkedProductIds: linkedProductIds,
+      isHidden: !isActiveOnWebsite,
+      isActiveOnWebsite: isActiveOnWebsite
     });
-
-    const clonedColorVariants = formattedVariants.map(cv => ({
-      ...cv,
-      stock: Object.fromEntries(Object.keys(cv.stock || {}).map(sz => [sz, 0]))
-    }));
 
     const nowIso = new Date().toISOString();
     const productData = {
@@ -750,8 +799,10 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       image: finalImages[0] || '',
       barcode: cleanBarcode,
       description: serializedDescription,
+      isHidden: !isActiveOnWebsite,
+      isActiveOnWebsite: isActiveOnWebsite,
       sizes: Array.from(allAvailableSizesSet).length > 0 ? Array.from(allAvailableSizesSet) : ["Standard"],
-      colorVariants: (stockMode === 'livraison' && !editingId && !isActiveOnWebsite) ? clonedColorVariants : formattedVariants,
+      colorVariants: formattedVariants,
       promo: stockMode === 'gros' ? false : Number(oldPrice) > numPrice,
       badge: stockMode === 'gros' ? "Gros 📦" : (Number(oldPrice) > numPrice ? "Promo 🔥" : "Nouveau ✨")
     };
@@ -954,18 +1005,37 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                   </div>
                 )}
 
-                {stockMode === 'livraison' && !editingId && (
-                  <div className="form-group" style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '8px', background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-light)', marginBottom: '8px' }}>
+                {stockMode === 'livraison' && (
+                  <div className="form-group" style={{ 
+                    gridColumn: '1 / -1', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    background: isActiveOnWebsite ? '#F0FDF4' : '#FEF2F2', 
+                    padding: '14px 18px', 
+                    borderRadius: '10px', 
+                    border: isActiveOnWebsite ? '1.5px solid #86EFAC' : '1.5px solid #FCA5A5', 
+                    marginBottom: '8px',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>{isActiveOnWebsite ? '🌐' : '🚫'}</span>
+                      <div>
+                        <label htmlFor="isActiveOnWebsite" style={{ fontSize: '0.92rem', fontWeight: 800, color: isActiveOnWebsite ? '#15803D' : '#DC2626', cursor: 'pointer', userSelect: 'none', margin: 0, display: 'block' }}>
+                          {isActiveOnWebsite ? 'المنتج مفعل وظاهر على متجر الزبائن' : 'المنتج مخفي حالياً من المتجر (لن يظهر للزبائن)'}
+                        </label>
+                        <span style={{ fontSize: '0.78rem', color: '#64748B' }}>
+                          {isActiveOnWebsite ? 'يمكن لجميع زبائن المتجر تصفح هذا الموديل وطلبه مباشرة.' : 'المنتج مخفي تماماً على الزبائن ويبقى محفوظاً هنا في الستوك فقط.'}
+                        </span>
+                      </div>
+                    </div>
                     <input 
                       type="checkbox" 
                       id="isActiveOnWebsite" 
                       checked={isActiveOnWebsite} 
                       onChange={(e) => setIsActiveOnWebsite(e.target.checked)}
-                      style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                      style={{ width: '22px', height: '22px', cursor: 'pointer', accentColor: '#16A34A' }}
                     />
-                    <label htmlFor="isActiveOnWebsite" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--burgundy-dark)', cursor: 'pointer', userSelect: 'none', margin: 0 }}>
-                      🌐 تفعيل وعرض المنتج على موقع الزبائن (Activer sur le site web)
-                    </label>
                   </div>
                 )}
               </div>
@@ -1677,14 +1747,64 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                   </div>
                 </div>
               ) : (
-              <div key={p.id} style={{ background: 'white', borderRadius: '16px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column' }}>
+              <div key={p.id} style={{ 
+                background: 'white', 
+                borderRadius: '16px', 
+                border: (stockMode === 'livraison' && isProductHiddenFromStore(p)) ? '1.5px dashed #FCA5A5' : '1px solid var(--border-light)', 
+                overflow: 'hidden', 
+                boxShadow: 'var(--shadow-sm)', 
+                display: 'flex', 
+                flexDirection: 'column',
+                opacity: (stockMode === 'livraison' && isProductHiddenFromStore(p)) ? 0.78 : 1,
+                transition: 'all 0.2s ease'
+              }}>
                 <div style={{ position: 'relative', height: '280px' }}>
                   <div className="hide-scrollbar" style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', width: '100%', height: '100%', scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
                     {(p.images && p.images.length > 0 ? p.images : (p.image ? [p.image] : [])).map((img, idx) => (
                       <img key={idx} src={img} alt={`${p.title} ${idx + 1}`} style={{ minWidth: '100%', height: '100%', objectFit: 'cover', scrollSnapAlign: 'start', backgroundColor: '#f3f4f6' }} />
                     ))}
                   </div>
+                  {stockMode === 'livraison' && isProductHiddenFromStore(p) && (
+                    <span style={{ 
+                      position: 'absolute', 
+                      top: 10, 
+                      left: 10, 
+                      background: 'rgba(220, 38, 38, 0.92)', 
+                      color: 'white', 
+                      padding: '4px 10px', 
+                      borderRadius: 20, 
+                      fontSize: '0.76rem', 
+                      fontWeight: 800, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '4px',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                      backdropFilter: 'blur(4px)'
+                    }}>
+                      <EyeOff size={12} color="#FFF" /> مخفي من المتجر
+                    </span>
+                  )}
               <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6 }}>
+                {stockMode === 'livraison' && (
+                  <button 
+                    type="button" 
+                    onClick={(e) => { e.stopPropagation(); handleToggleProductVisibility(p); }} 
+                    style={{ 
+                      background: isProductHiddenFromStore(p) ? '#FEF2F2' : '#F0FDF4', 
+                      border: isProductHiddenFromStore(p) ? '1px solid #FCA5A5' : '1px solid #86EFAC', 
+                      padding: 8, 
+                      borderRadius: '50%', 
+                      cursor: 'pointer', 
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }} 
+                    title={isProductHiddenFromStore(p) ? "المنتج مخفي حالياً — انقر لإظهاره على المتجر للزبائن" : "المنتج ظاهر حالياً — انقر لإخفائه من المتجر للزبائن"}
+                  >
+                    {isProductHiddenFromStore(p) ? <EyeOff size={16} color="#DC2626" /> : <Eye size={16} color="#16A34A" />}
+                  </button>
+                )}
                 <button type="button" onClick={() => handlePrintBarcodeDirectly(p)} style={{ background: 'white', border: 'none', padding: 8, borderRadius: '50%', cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }} title="Imprimer Code Barres">
                   <BarcodeIcon size={16} color="#4F46E5" />
                 </button>
