@@ -77,16 +77,21 @@ const findCategoryMatch = (prodCategory, categoriesList) => {
 
 export const isProductHiddenFromStore = (product) => {
   if (!product) return false;
-  if (product.isHidden === true || product.is_hidden === true) return true;
-  if (product.isActiveOnWebsite === false || product.is_active === false) return true;
+  // 1. Authoritative: Description metadata takes highest priority
   if (product.description && typeof product.description === 'string' && product.description.includes('|||')) {
     try {
       const meta = JSON.parse(product.description.split('|||')[1] || '{}');
       if (meta.isHidden === true || meta.hidden === true || meta.isActiveOnWebsite === false) {
         return true;
       }
+      if (meta.isHidden === false || meta.hidden === false || meta.isActiveOnWebsite === true) {
+        return false;
+      }
     } catch (e) {}
   }
+  // 2. Direct boolean properties fallback
+  if (product.isHidden === true || product.is_hidden === true) return true;
+  if (product.isActiveOnWebsite === false || product.is_active === false) return true;
   return false;
 };
 

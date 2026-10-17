@@ -7,16 +7,21 @@ import { supabase } from '../../lib/supabaseClient';
 
 export const isProductHiddenFromStore = (product) => {
   if (!product) return false;
-  if (product.isHidden === true || product.is_hidden === true) return true;
-  if (product.isActiveOnWebsite === false || product.is_active === false) return true;
+  // 1. Authoritative: Description metadata takes highest priority
   if (product.description && typeof product.description === 'string' && product.description.includes('|||')) {
     try {
       const meta = JSON.parse(product.description.split('|||')[1] || '{}');
       if (meta.isHidden === true || meta.hidden === true || meta.isActiveOnWebsite === false) {
         return true;
       }
+      if (meta.isHidden === false || meta.hidden === false || meta.isActiveOnWebsite === true) {
+        return false;
+      }
     } catch (e) {}
   }
+  // 2. Direct boolean properties fallback
+  if (product.isHidden === true || product.is_hidden === true) return true;
+  if (product.isActiveOnWebsite === false || product.is_active === false) return true;
   return false;
 };
 
@@ -260,7 +265,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [products, stockMode, filteredProductsByMode, selectableCategories, suppliers, onTabChange, isFormOpen, isPosOpen]);
 
-  const handleToggleProductVisibility = (p) => {
+  const handleToggleProductVisibility = async (p) => {
     const currentlyHidden = isProductHiddenFromStore(p);
     const nextHidden = !currentlyHidden;
 
@@ -272,6 +277,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       meta = {};
     }
     meta.isHidden = nextHidden;
+    meta.hidden = nextHidden;
     meta.isActiveOnWebsite = !nextHidden;
 
     const updatedDescription = (descParts[0] || '') + '|||' + JSON.stringify(meta);
@@ -279,18 +285,33 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       ...p,
       description: updatedDescription,
       isHidden: nextHidden,
-      isActiveOnWebsite: !nextHidden
+      is_hidden: nextHidden,
+      isActiveOnWebsite: !nextHidden,
+      is_active: !nextHidden
     };
 
-    onUpdateProduct(updatedProd);
+    // 1. Optimistic Update immediately in parent memory and localStorage
+    if (typeof onUpdateProduct === 'function') {
+      onUpdateProduct(updatedProd, null, { immediate: true });
+    }
 
-    // Broadcast instant cross-device sync to all connected devices
+    // 2. Direct Supabase write and sync: commit to DB FIRST before broadcasting
     try {
-      supabase.from('settings').upsert({
-        key: 'products_last_updated',
-        value: String(Date.now())
-      }).then();
-    } catch(e) {}
+      const { error } = await supabase
+        .from('products')
+        .update({ description: updatedDescription })
+        .eq('id', p.id);
+
+      if (!error) {
+        // 3. Broadcast instant sync to all customer devices and tabs ONLY after DB write succeeded
+        await supabase.from('settings').upsert({
+          key: 'products_last_updated',
+          value: String(Date.now())
+        });
+      }
+    } catch(e) {
+      console.error('Error broadcasting product visibility:', e);
+    }
 
     showToast(nextHidden ? `🚫 تم إخفاء "${p.title}" من متجر الزبائن` : `👁️ تم تفعيل وإظهار "${p.title}" على متجر الزبائن مباشرة`, 'success');
   };
@@ -368,7 +389,11 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       setBulkPrice5(meta.bulkPrice5 || '');
       setLinkedProductIds(meta.linkedProductIds || []);
       setCrossSellSearch('');
-      const isHidden = meta.isHidden === true || meta.hidden === true || meta.isActiveOnWebsite === false || p.isHidden === true;
+      const isHidden = (meta.isHidden !== undefined)
+        ? Boolean(meta.isHidden)
+        : ((meta.hidden !== undefined)
+          ? Boolean(meta.hidden)
+          : (meta.isActiveOnWebsite !== undefined ? !meta.isActiveOnWebsite : Boolean(p.isHidden || p.is_hidden)));
       setIsActiveOnWebsite(!isHidden);
     } catch(e) {
       setMinQtyGros(12);
@@ -377,7 +402,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       setBulkPrice5('');
       setLinkedProductIds([]);
       setCrossSellSearch('');
-      setIsActiveOnWebsite(p.isHidden !== true);
+      setIsActiveOnWebsite(p.isHidden !== true && p.is_hidden !== true);
     }
 
     setIsCustomCategory(false);

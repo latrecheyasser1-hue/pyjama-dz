@@ -34,13 +34,48 @@ const GrosStorefront = lazyWithRetry(() => import('./components/GrosStorefront')
 const EmballagePOS = lazyWithRetry(() => import('./components/EmballagePOS'));
 const AliOwnerDashboard = lazyWithRetry(() => import('./components/AliOwnerDashboard'));
 
+export const normalizeProduct = (p) => {
+  if (!p) return p;
+  let meta = {};
+  if (p.description && typeof p.description === 'string' && p.description.includes('|||')) {
+    try {
+      meta = JSON.parse(p.description.split('|||')[1] || '{}');
+    } catch (e) {}
+  }
+
+  const isHidden = (meta.isHidden !== undefined)
+    ? Boolean(meta.isHidden)
+    : ((meta.hidden !== undefined)
+      ? Boolean(meta.hidden)
+      : (meta.isActiveOnWebsite !== undefined ? !meta.isActiveOnWebsite : Boolean(p.isHidden || p.is_hidden)));
+  const isActiveOnWebsite = !isHidden;
+
+  let colorVariants = p.colorVariants;
+  if (typeof colorVariants === 'string') {
+    try { colorVariants = JSON.parse(colorVariants); } catch (e) { colorVariants = []; }
+  }
+
+  return {
+    ...p,
+    colorVariants: Array.isArray(colorVariants) ? colorVariants : [],
+    isHidden,
+    is_hidden: isHidden,
+    isActiveOnWebsite,
+    is_active: isActiveOnWebsite
+  };
+};
+
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
   const [products, setProducts] = useState(() => {
     try {
       const cached = localStorage.getItem('pyjama_products_cache');
-      return cached ? JSON.parse(cached) : [];
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed.map(normalizeProduct);
+      }
+      return [];
     } catch(e) { return []; }
   });
   const [orders, setOrders] = useState(() => {
@@ -122,20 +157,14 @@ export default function App() {
           if (pending && (Date.now() - pending.timestamp < 6000)) {
             return;
           }
-          const incoming = payload.new;
-          if (typeof incoming.colorVariants === 'string') {
-            try { incoming.colorVariants = JSON.parse(incoming.colorVariants); } catch(e) {}
-          }
+          const incoming = normalizeProduct(payload.new);
           setProducts(prev => {
             const nextList = prev.map(p => p.id === incoming.id ? { ...p, ...incoming } : p);
             try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
             return nextList;
           });
         } else if (payload.eventType === 'INSERT' && payload.new) {
-          const incoming = payload.new;
-          if (typeof incoming.colorVariants === 'string') {
-            try { incoming.colorVariants = JSON.parse(incoming.colorVariants); } catch(e) {}
-          }
+          const incoming = normalizeProduct(payload.new);
           setProducts(prev => {
             if (prev.some(p => p.id === incoming.id)) {
               return prev.map(p => p.id === incoming.id ? { ...p, ...incoming } : p);
@@ -348,24 +377,21 @@ export default function App() {
     const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
     if (!error && data) {
       if (table === 'products') {
+        const now = Date.now();
+        const normalizedList = data.map(dbProd => {
+          const pending = pendingUpdatesRef.current[dbProd.id];
+          if (pending && (now - pending.timestamp < 6000)) {
+            return normalizeProduct(pending.product);
+          }
+          return normalizeProduct(dbProd);
+        });
+
         try { 
-          localStorage.setItem('pyjama_products_cache', JSON.stringify(data)); 
+          localStorage.setItem('pyjama_products_cache', JSON.stringify(normalizedList)); 
           localStorage.setItem('pyjama_products_cache_time', String(Date.now()));
         } catch(e) {}
-        const now = Date.now();
-        setter(prev => {
-          return data.map(dbProd => {
-            const pending = pendingUpdatesRef.current[dbProd.id];
-            if (pending && (now - pending.timestamp < 6000)) {
-              return pending.product;
-            }
-            let cvs = dbProd.colorVariants;
-            if (typeof cvs === 'string') {
-              try { cvs = JSON.parse(cvs); } catch(e) { cvs = []; }
-            }
-            return { ...dbProd, colorVariants: cvs };
-          });
-        });
+
+        setter(normalizedList);
       } else if (table === 'suppliers') {
         let extra = {};
         try { extra = JSON.parse(localStorage.getItem('pyjama_suppliers_extra') || '{}'); } catch(e) {}
@@ -392,19 +418,50 @@ export default function App() {
     }
   };
 
-  const handleUpdateProduct = (updatedProd, changedVariant) => {
+  const handleUpdateProduct = (updatedProd, changedVariant, options = {}) => {
     const { id } = updatedProd;
     if (!id) return;
 
+    const normalized = normalizeProduct(updatedProd);
     const now = Date.now();
-    pendingUpdatesRef.current[id] = { product: updatedProd, changedVariant, timestamp: now };
+    pendingUpdatesRef.current[id] = { product: normalized, changedVariant, timestamp: now };
 
     // 1. Instant Optimistic Local Update (0ms lag!) + Immediate LocalStorage Sync (survives instant F5 refresh!)
     setProducts(prev => {
-      const nextList = prev.map(p => p.id === id ? updatedProd : p);
+      const nextList = prev.map(p => p.id === id ? normalized : p);
       try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
       return nextList;
     });
+
+    // Immediate mode: bypass debounce, persist to Supabase immediately and broadcast only after DB commit
+    if (options && options.immediate) {
+      if (updateDebounceRef.current[id]) {
+        clearTimeout(updateDebounceRef.current[id]);
+        delete updateDebounceRef.current[id];
+      }
+      (async () => {
+        try {
+          const sanitizedProd = sanitizeProductForDb(normalized);
+          const { data, error } = await supabase.from('products').update(sanitizedProd).eq('id', id).select();
+          if (!error && data && data.length > 0) {
+            const finalProduct = normalizeProduct({ ...data[0], ...normalized });
+            pendingUpdatesRef.current[id] = { product: finalProduct, changedVariant, timestamp: Date.now() };
+            setProducts(prev => {
+              const nextList = prev.map(p => p.id === id ? finalProduct : p);
+              try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
+              return nextList;
+            });
+            await supabase.from('settings').upsert({
+              key: 'products_last_updated',
+              value: String(Date.now())
+            });
+          }
+        } catch (err) {
+          console.error('Error in immediate product update:', err);
+        }
+      })();
+      return;
+    }
 
     // 2. Single debounced trigger for low stock alert if stock drops to <= 5 or 0 (350ms debounce prevents rapid click spam)
     if (changedVariant && typeof changedVariant.qty === 'number' && changedVariant.qty <= 5) {
@@ -467,11 +524,8 @@ export default function App() {
             return;
           }
           const dbData = data[0];
-          if (typeof dbData.colorVariants === 'string') {
-            try { dbData.colorVariants = JSON.parse(dbData.colorVariants); } catch(e) {}
-          }
           // User latest edits ALWAYS have precedence over dbData
-          const finalProduct = { ...dbData, ...latestProd };
+          const finalProduct = normalizeProduct({ ...dbData, ...latestProd });
           pendingUpdatesRef.current[id] = { product: finalProduct, changedVariant: lastChangedVariant, timestamp: Date.now() };
           setProducts(prev => {
             const nextList = prev.map(p => p.id === id ? finalProduct : p);
@@ -479,12 +533,12 @@ export default function App() {
             return nextList;
           });
 
-          // Broadcast instant cross-device sync to all customer devices
+          // Broadcast instant cross-device sync to all customer devices ONLY after DB write succeeded
           try {
-            supabase.from('settings').upsert({
+            await supabase.from('settings').upsert({
               key: 'products_last_updated',
               value: String(Date.now())
-            }).then();
+            });
           } catch(e) {}
 
           setTimeout(() => {
