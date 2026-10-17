@@ -82,6 +82,17 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Decouple Admin Sidebar from Modals so Sidebar remains 100% lit, visible and clickable */
+@media (min-width: 768px) {
+  .admin-main-scroll .modal-overlay,
+  .admin-main-scroll .receipt-modal-overlay,
+  .admin-main-scroll .tariffs-modal-overlay {
+    left: 255px !important;
+    width: calc(100vw - 255px) !important;
+    right: 0 !important;
+  }
+}
+
 .admin-main-scroll::-webkit-scrollbar {
   width: 8px;
 }

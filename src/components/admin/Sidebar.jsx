@@ -53,7 +53,7 @@ export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, pendi
         flexShrink: 0,
         overflowY: 'auto',
         overflowX: 'hidden',
-        zIndex: 50
+        zIndex: 10005
       }}
     >
       <div>

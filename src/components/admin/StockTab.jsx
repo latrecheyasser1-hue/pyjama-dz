@@ -129,7 +129,7 @@ const getProductCategoryGroupId = (prodCategory, categoriesList) => {
   return baseCat;
 };
 
-export default function StockTab({ products, onAddProduct, onUpdateProduct, onDeleteProduct, suppliers, settings, stockMode = 'livraison', onTabChange, isPosOpen }) {
+export default function StockTab({ products, onAddProduct, onUpdateProduct, onDeleteProduct, suppliers, settings, stockMode = 'livraison', onTabChange, isPosOpen, isActive = true }) {
   const categoriesList = Array.isArray(settings?.categories) ? settings.categories : [];
   const selectableCategories = categoriesList.filter(c => {
     if (!c || !c.id) return false;
@@ -197,7 +197,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     let lastKeyTime = Date.now();
 
     const handleKeyDown = (e) => {
-      if (isFormOpen || isPosOpen) {
+      if (!isActive || isFormOpen || isPosOpen) {
         return;
       }
       const currentTime = Date.now();
@@ -282,7 +282,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [products, stockMode, filteredProductsByMode, selectableCategories, suppliers, onTabChange, isFormOpen, isPosOpen]);
+  }, [products, stockMode, filteredProductsByMode, selectableCategories, suppliers, onTabChange, isFormOpen, isPosOpen, isActive]);
 
   const handleToggleProductVisibility = async (p) => {
     const currentlyHidden = isProductHiddenFromStore(p);

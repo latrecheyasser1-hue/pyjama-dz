@@ -42,8 +42,19 @@ export default function AdminDashboard({
 }) {
   const { isInstallable, promptInstall } = usePWAInstall();
   const [session, setSession] = useState(null);
-  const [activeTab, setActiveTab] = useState('orders');
   const [authLoading, setAuthLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('orders');
+  const normalizedActiveTab = (activeTab === 'exchanges_returns') ? 'exchanges' : (activeTab === 'stock_super_gros' ? 'stock_gros' : activeTab);
+  const [mountedTabs, setMountedTabs] = useState(() => new Set(['orders', (activeTab === 'exchanges_returns') ? 'exchanges' : (activeTab === 'stock_super_gros' ? 'stock_gros' : activeTab)]));
+
+  useEffect(() => {
+    setMountedTabs(prev => {
+      if (prev.has(normalizedActiveTab)) return prev;
+      const next = new Set(prev);
+      next.add(normalizedActiveTab);
+      return next;
+    });
+  }, [normalizedActiveTab]);
 
   const [showPosModal, setShowPosModal] = useState(false);
   const [posCart, setPosCart] = useState([]);
@@ -239,118 +250,175 @@ export default function AdminDashboard({
         
 
 
-        {activeTab === 'orders' && (
-          <OrdersTab
-            orders={realOrders}
-            products={products}
-            settings={settings}
-            onPlaceOrder={onPlaceOrder}
-            onUpdateProduct={onUpdateProduct}
-            onUpdateStatus={onUpdateStatus}
-            onDeleteOrder={onDeleteOrder}
-            onRefreshOrders={onRefreshOrders}
-            onOpenPos={() => setShowPosModal(true)}
-          />
+        {/* Persistent Keep-Alive Tab Panels */}
+        {mountedTabs.has('orders') && (
+          <div style={{ display: normalizedActiveTab === 'orders' ? 'block' : 'none' }}>
+            <OrdersTab
+              orders={realOrders}
+              products={products}
+              settings={settings}
+              onPlaceOrder={onPlaceOrder}
+              onUpdateProduct={onUpdateProduct}
+              onUpdateStatus={onUpdateStatus}
+              onDeleteOrder={onDeleteOrder}
+              onRefreshOrders={onRefreshOrders}
+              onOpenPos={() => setShowPosModal(true)}
+            />
+          </div>
         )}
 
-        {(activeTab === 'exchanges' || activeTab === 'exchanges_returns') && (
-          <ExchangesReturnsTab
-            orders={orders}
-            products={products}
-            settings={settings}
-            mode="exchange"
-            onUpdateStatus={onUpdateStatus}
-            onTabChange={setActiveTab}
-          />
+        {mountedTabs.has('exchanges') && (
+          <div style={{ display: normalizedActiveTab === 'exchanges' ? 'block' : 'none' }}>
+            <ExchangesReturnsTab
+              orders={orders}
+              products={products}
+              settings={settings}
+              mode="exchange"
+              onUpdateStatus={onUpdateStatus}
+              onTabChange={setActiveTab}
+            />
+          </div>
         )}
 
-        {activeTab === 'retours' && (
-          <ExchangesReturnsTab
-            orders={orders}
-            products={products}
-            settings={settings}
-            mode="retour"
-            onUpdateStatus={onUpdateStatus}
-            onTabChange={setActiveTab}
-          />
+        {mountedTabs.has('retours') && (
+          <div style={{ display: normalizedActiveTab === 'retours' ? 'block' : 'none' }}>
+            <ExchangesReturnsTab
+              orders={orders}
+              products={products}
+              settings={settings}
+              mode="retour"
+              onUpdateStatus={onUpdateStatus}
+              onTabChange={setActiveTab}
+            />
+          </div>
         )}
 
-        {activeTab.startsWith('stock_') && (
-          <StockTab
-            products={products}
-            suppliers={suppliers}
-            settings={settings}
-            onAddProduct={onAddProduct}
-            onUpdateProduct={onUpdateProduct}
-            onDeleteProduct={onDeleteProduct}
-            stockMode={activeTab.replace('stock_', '')}
-            onTabChange={setActiveTab}
-            isPosOpen={showPosModal}
-          />
+        {mountedTabs.has('stock_livraison') && (
+          <div style={{ display: normalizedActiveTab === 'stock_livraison' ? 'block' : 'none' }}>
+            <StockTab
+              products={products}
+              suppliers={suppliers}
+              settings={settings}
+              onAddProduct={onAddProduct}
+              onUpdateProduct={onUpdateProduct}
+              onDeleteProduct={onDeleteProduct}
+              stockMode="livraison"
+              onTabChange={setActiveTab}
+              isPosOpen={showPosModal}
+              isActive={normalizedActiveTab === 'stock_livraison'}
+            />
+          </div>
         )}
 
-        {activeTab === 'categories' && (
-          <CategoriesTab
-            settings={settings}
-            onUpdateSettings={onUpdateSettings}
-            products={products}
-            setActiveTab={setActiveTab}
-          />
+        {mountedTabs.has('stock_boutique') && (
+          <div style={{ display: normalizedActiveTab === 'stock_boutique' ? 'block' : 'none' }}>
+            <StockTab
+              products={products}
+              suppliers={suppliers}
+              settings={settings}
+              onAddProduct={onAddProduct}
+              onUpdateProduct={onUpdateProduct}
+              onDeleteProduct={onDeleteProduct}
+              stockMode="boutique"
+              onTabChange={setActiveTab}
+              isPosOpen={showPosModal}
+              isActive={normalizedActiveTab === 'stock_boutique'}
+            />
+          </div>
         )}
 
-        {activeTab === 'suppliers' && (
-          <SuppliersTab
-            suppliers={suppliers}
-            onAddSupplier={onAddSupplier}
-            onUpdateSupplier={onUpdateSupplier}
-            onDeleteSupplier={onDeleteSupplier}
-          />
+        {mountedTabs.has('stock_gros') && (
+          <div style={{ display: (normalizedActiveTab === 'stock_gros' || normalizedActiveTab === 'stock_super_gros') ? 'block' : 'none' }}>
+            <StockTab
+              products={products}
+              suppliers={suppliers}
+              settings={settings}
+              onAddProduct={onAddProduct}
+              onUpdateProduct={onUpdateProduct}
+              onDeleteProduct={onDeleteProduct}
+              stockMode="gros"
+              onTabChange={setActiveTab}
+              isPosOpen={showPosModal}
+              isActive={normalizedActiveTab === 'stock_gros' || normalizedActiveTab === 'stock_super_gros'}
+            />
+          </div>
         )}
 
-        {activeTab === 'clients' && (
-          <ClientsTab
-            orders={orders}
-            products={products}
-          />
+        {mountedTabs.has('categories') && (
+          <div style={{ display: normalizedActiveTab === 'categories' ? 'block' : 'none' }}>
+            <CategoriesTab
+              settings={settings}
+              onUpdateSettings={onUpdateSettings}
+              products={products}
+              setActiveTab={setActiveTab}
+            />
+          </div>
         )}
 
-        {activeTab === 'reclamations' && (
-          <ReclamationsTab
-            settings={settings}
-            onUpdateSettings={onUpdateSettings}
-          />
+        {mountedTabs.has('suppliers') && (
+          <div style={{ display: normalizedActiveTab === 'suppliers' ? 'block' : 'none' }}>
+            <SuppliersTab
+              suppliers={suppliers}
+              onAddSupplier={onAddSupplier}
+              onUpdateSupplier={onUpdateSupplier}
+              onDeleteSupplier={onDeleteSupplier}
+            />
+          </div>
         )}
 
-        {activeTab === 'analytics' && (
-          <AnalyticsTab
-            orders={orders}
-            products={products}
-            expenses={expenses}
-            onAddExpense={onAddExpense}
-            onDeleteExpense={onDeleteExpense}
-            settings={settings}
-            onUpdateSettings={onUpdateSettings}
-          />
+        {mountedTabs.has('clients') && (
+          <div style={{ display: normalizedActiveTab === 'clients' ? 'block' : 'none' }}>
+            <ClientsTab
+              orders={orders}
+              products={products}
+            />
+          </div>
         )}
 
-        {activeTab === 'history' && (
-          <HistoryTab
-            orders={orders}
-            products={products}
-            settings={settings}
-            onUpdateStatus={onUpdateStatus}
-            onUpdateProduct={onUpdateProduct}
-            onDeleteOrder={onDeleteOrder}
-            onUpdateSettings={onUpdateSettings}
-          />
+        {mountedTabs.has('reclamations') && (
+          <div style={{ display: normalizedActiveTab === 'reclamations' ? 'block' : 'none' }}>
+            <ReclamationsTab
+              settings={settings}
+              onUpdateSettings={onUpdateSettings}
+            />
+          </div>
         )}
 
-        {activeTab === 'settings' && (
-          <SettingsTab
-            settings={settings}
-            onUpdateSettings={onUpdateSettings}
-            
-          />
+        {mountedTabs.has('analytics') && (
+          <div style={{ display: normalizedActiveTab === 'analytics' ? 'block' : 'none' }}>
+            <AnalyticsTab
+              orders={orders}
+              products={products}
+              expenses={expenses}
+              onAddExpense={onAddExpense}
+              onDeleteExpense={onDeleteExpense}
+              settings={settings}
+              onUpdateSettings={onUpdateSettings}
+            />
+          </div>
+        )}
+
+        {mountedTabs.has('history') && (
+          <div style={{ display: normalizedActiveTab === 'history' ? 'block' : 'none' }}>
+            <HistoryTab
+              orders={orders}
+              products={products}
+              settings={settings}
+              onUpdateStatus={onUpdateStatus}
+              onUpdateProduct={onUpdateProduct}
+              onDeleteOrder={onDeleteOrder}
+              onUpdateSettings={onUpdateSettings}
+            />
+          </div>
+        )}
+
+        {mountedTabs.has('settings') && (
+          <div style={{ display: normalizedActiveTab === 'settings' ? 'block' : 'none' }}>
+            <SettingsTab
+              settings={settings}
+              onUpdateSettings={onUpdateSettings}
+            />
+          </div>
         )}
 
         <PosModal
