@@ -300,8 +300,10 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     meta.isActiveOnWebsite = !nextHidden;
 
     const updatedDescription = (descParts[0] || '') + '|||' + JSON.stringify(meta);
+    const safeVariants = getParsedColorVariants(p);
     const updatedProd = {
       ...p,
+      colorVariants: safeVariants.length > 0 ? safeVariants : (p.colorVariants || []),
       description: updatedDescription,
       isHidden: nextHidden,
       is_hidden: nextHidden,

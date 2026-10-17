@@ -421,7 +421,16 @@ export default function App() {
 
     // 1. Instant Optimistic Local Update (0ms lag!) + Immediate LocalStorage Sync (survives instant F5 refresh!)
     setProducts(prev => {
-      const nextList = prev.map(p => p.id === id ? { ...p, ...normalized } : p);
+      const nextList = prev.map(p => {
+        if (p.id !== id) return p;
+        const existingVariants = Array.isArray(p.colorVariants) && p.colorVariants.length > 0 ? p.colorVariants : null;
+        const incomingVariants = Array.isArray(normalized.colorVariants) && normalized.colorVariants.length > 0 ? normalized.colorVariants : null;
+        return {
+          ...p,
+          ...normalized,
+          colorVariants: incomingVariants || existingVariants || []
+        };
+      });
       try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
       return nextList;
     });
