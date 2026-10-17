@@ -328,50 +328,6 @@ export default function App() {
     };
   }, []);
 
-  // Realtime live sync for products table across all devices (Customers & Admin)
-  useEffect(() => {
-    const productsLiveChannel = supabase
-      .channel('products_realtime_stream')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
-        if (payload.eventType === 'UPDATE' && payload.new) {
-          const dbProd = payload.new;
-          let cvs = dbProd.colorVariants;
-          if (typeof cvs === 'string') {
-            try { cvs = JSON.parse(cvs); } catch(e) { cvs = []; }
-          }
-          const formatted = { ...dbProd, colorVariants: cvs };
-          setProducts(prev => {
-            const next = prev.map(p => p.id === formatted.id ? { ...p, ...formatted } : p);
-            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(next)); } catch(e) {}
-            return next;
-          });
-        } else if (payload.eventType === 'INSERT' && payload.new) {
-          const dbProd = payload.new;
-          let cvs = dbProd.colorVariants;
-          if (typeof cvs === 'string') {
-            try { cvs = JSON.parse(cvs); } catch(e) { cvs = []; }
-          }
-          const formatted = { ...dbProd, colorVariants: cvs };
-          setProducts(prev => {
-            if (prev.some(p => p.id === formatted.id)) return prev;
-            const next = [formatted, ...prev];
-            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(next)); } catch(e) {}
-            return next;
-          });
-        } else if (payload.eventType === 'DELETE' && payload.old) {
-          setProducts(prev => {
-            const next = prev.filter(p => p.id !== payload.old.id);
-            try { localStorage.setItem('pyjama_products_cache', JSON.stringify(next)); } catch(e) {}
-            return next;
-          });
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(productsLiveChannel);
-    };
-  }, []);
 
   const fetchData = async (table, setter) => {
     const isAdmin = checkIsAdminPath();
@@ -522,6 +478,14 @@ export default function App() {
             try { localStorage.setItem('pyjama_products_cache', JSON.stringify(nextList)); } catch(e) {}
             return nextList;
           });
+
+          // Broadcast instant cross-device sync to all customer devices
+          try {
+            supabase.from('settings').upsert({
+              key: 'products_last_updated',
+              value: String(Date.now())
+            }).then();
+          } catch(e) {}
 
           setTimeout(() => {
             if (pendingUpdatesRef.current[id] && (Date.now() - pendingUpdatesRef.current[id].timestamp >= 5000)) {
@@ -1200,6 +1164,12 @@ export default function App() {
           return nextList;
         });
         showToast("✅ تم إضافة المنتج بنجاح", 'success');
+        try {
+          supabase.from('settings').upsert({
+            key: 'products_last_updated',
+            value: String(Date.now())
+          }).then();
+        } catch(e) {}
       }
     } catch (err) {
       console.error(err);
@@ -1254,6 +1224,14 @@ export default function App() {
       if (targetBarcode) {
         await supabase.from('products').delete().eq('barcode', targetBarcode);
       }
+
+      // Broadcast instant cross-device sync
+      try {
+        supabase.from('settings').upsert({
+          key: 'products_last_updated',
+          value: String(Date.now())
+        }).then();
+      } catch(e) {}
 
       showToast("🗑️ تم حذف المنتج وجميع نسخه نهائياً", 'info');
     } catch (err) {

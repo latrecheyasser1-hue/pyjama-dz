@@ -2440,8 +2440,12 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   // 2. Les catégories triées par date d'ajout du dernier produit (la catégorie où on vient d'ajouter un produit passe immédiatement en 1ère position après Hot Sale!)
   // 3. SOLDE / PROMO toujours dernier
   const visibleCategoriesList = useMemo(() => {
-    // If effectiveProducts has items, filter categories strictly by those that have available stock
-    if (effectiveProducts && effectiveProducts.length > 0) {
+    // Available retail products that are not hidden and have stock > 0
+    const availableRetail = (effectiveProducts || []).filter(p => 
+      p && (!p.category || !p.category.includes('__')) && !isProductHiddenFromStore(p) && getProductTotalStock(p) > 0
+    );
+
+    if (availableRetail.length > 0) {
       const active = categoriesList.filter(cat => {
         if (!cat) return false;
         if (cat.id === 'all') return true;
@@ -2449,10 +2453,23 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         return catProds && catProds.length > 0;
       });
 
-      // Save active IDs to cache for instant 0ms subsequent renders
+      // SAFETY GUARANTEE: If retail products exist with stock > 0, NEVER allow active categories to be empty!
+      const nonAll = active.filter(c => c && c.id !== 'all');
+      if (nonAll.length === 0) {
+        const fallbackCat = findCategoryMatch(availableRetail[0]?.category, categoriesList) || 
+                            categoriesList.find(c => c.id === 'pyjamas-95' || c.id === 'pyjamas') ||
+                            { id: 'pyjamas-95', title: 'pyjamas' };
+        active.push(fallbackCat);
+      }
+
+      // Save valid active IDs to cache for 0ms subsequent renders
       try {
         const activeIds = active.map(c => c.id).filter(id => id && id !== 'all');
-        localStorage.setItem('pyjama_active_cat_ids', JSON.stringify(activeIds));
+        if (activeIds.length > 0) {
+          localStorage.setItem('pyjama_active_cat_ids', JSON.stringify(activeIds));
+        } else {
+          localStorage.removeItem('pyjama_active_cat_ids');
+        }
       } catch(e) {}
 
       return [...active].sort((a, b) => {
@@ -2490,22 +2507,12 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       });
     }
 
-    // If products are still fetching from DB, use cached active category IDs for 0ms initial paint
+    // When there are no available retail products: clean stale cache so it never sticks
     try {
-      const cached = localStorage.getItem('pyjama_active_cat_ids');
-      if (cached) {
-        const cachedIds = JSON.parse(cached);
-        if (Array.isArray(cachedIds) && cachedIds.length > 0) {
-          const matched = categoriesList.filter(c => c && (c.id === 'all' || cachedIds.includes(c.id)));
-          if (matched.length > 1) {
-            return matched;
-          }
-        }
-      }
+      localStorage.removeItem('pyjama_active_cat_ids');
     } catch(e) {}
 
-    // Fallback while loading: keep top category placeholder so the page never renders blank
-    return categoriesList.filter(cat => cat && (cat.id === 'all' || cat.id === 'pyjamas-95' || cat.id === 'pyjamas'));
+    return categoriesList.filter(cat => cat && cat.id === 'all');
   }, [categoriesList, getProductsForCategory, getCategoryLatestProductTime, effectiveProducts]);
 
   useEffect(() => {
@@ -3759,7 +3766,7 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                           );
                         })
                     ) : (
-                      [1, 2, 3].map(k => (
+                      filteredProducts.length === 0 ? null : [1, 2, 3].map(k => (
                         <div key={k} className="stitch-cat-card" style={{ opacity: 0.7 }}>
                           <div className="stitch-cat-img-box">
                             <div className="luxury-shimmer-box" style={{ minHeight: '100px' }} />
@@ -4037,22 +4044,68 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                   </React.Fragment>
                 ))
               ) : (
-                <div style={{ width: '100%', maxWidth: '440px', margin: '0 auto' }}>
-                  <div className="mazyoud-framed-category-card mazyoud-framed-skeleton-card">
-                    <div className="mazyoud-framed-cat-header">
-                      <div className="mazyoud-framed-cat-meta-row" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                        <div className="luxury-shimmer-bar" style={{ width: '110px', height: '22px' }} />
-                        <div className="luxury-shimmer-bar" style={{ width: '90px', height: '22px' }} />
-                      </div>
-                      <div className="luxury-shimmer-bar" style={{ width: '60%', height: '26px', margin: '10px auto 6px auto' }} />
-                      <div className="luxury-shimmer-bar" style={{ width: '80%', height: '16px', margin: '0 auto' }} />
+                <div style={{ width: '100%', maxWidth: '440px', margin: '16px auto 32px auto', padding: '0 12px' }}>
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '36px 20px',
+                    background: 'linear-gradient(180deg, #FFFFFF 0%, #FFFDF9 100%)',
+                    borderRadius: '24px',
+                    border: '1px solid #F1E5D8',
+                    boxShadow: '0 10px 30px rgba(128, 0, 32, 0.04)'
+                  }}>
+                    <div style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '50%',
+                      background: 'rgba(128, 0, 32, 0.06)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 16px auto',
+                      color: '#800020'
+                    }}>
+                      <Sparkles size={28} />
                     </div>
-                    <div className="mazyoud-framed-image-box">
-                      <div className="luxury-shimmer-box" />
-                    </div>
-                    <div className="mazyoud-framed-cat-footer">
-                      <div className="luxury-shimmer-bar" style={{ width: '190px', height: '40px' }} />
-                    </div>
+                    <h3 style={{
+                      fontSize: '1.2rem',
+                      fontWeight: 900,
+                      color: '#262626',
+                      marginBottom: '8px',
+                      fontFamily: "'Playfair Display', serif"
+                    }}>
+                      تشكيلاتنا الجديدة قادمة قريباً
+                    </h3>
+                    <p style={{
+                      fontSize: '0.9rem',
+                      color: '#78716C',
+                      lineHeight: '1.6',
+                      maxWidth: '320px',
+                      margin: '0 auto 20px auto'
+                    }}>
+                      نقوم حالياً بتجهيز كوليكشن جديد وفاخر يليق بذوقكِ الرفيع. للطلب الخاص أو الاستفسار المباشر، تواصلي معنا:
+                    </p>
+                    <a
+                      href="https://wa.me/213771335039?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%A7%D9%84%D8%A7%D8%B3%D8%AA%D9%81%D8%B3%D8%A7%D8%B1%20%D8%B9%D9%86%20%D8%AA%D8%B4%D9%83%D9%8A%D9%84%D8%A7%D8%AA%20Pyjama%20DZ"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        background: '#25D366',
+                        color: '#FFFFFF',
+                        fontWeight: 800,
+                        fontSize: '0.92rem',
+                        padding: '12px 22px',
+                        borderRadius: '16px',
+                        textDecoration: 'none',
+                        boxShadow: '0 4px 14px rgba(37, 211, 102, 0.28)'
+                      }}
+                    >
+                      <MessageCircle size={18} />
+                      تواصل معنا عبر الواتساب
+                    </a>
                   </div>
                 </div>
               )}

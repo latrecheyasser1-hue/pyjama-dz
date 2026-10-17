@@ -3,6 +3,7 @@ import { Plus, Trash2, Edit2, Upload, Check, X, Layers, PlusCircle, MinusCircle,
 import ConfirmModal from './ConfirmModal';
 import { showToast } from '../../utils/toast';
 import { formatPrice } from '../../utils/formatUtils';
+import { supabase } from '../../lib/supabaseClient';
 
 export const isProductHiddenFromStore = (product) => {
   if (!product) return false;
@@ -282,6 +283,15 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
     };
 
     onUpdateProduct(updatedProd);
+
+    // Broadcast instant cross-device sync to all connected devices
+    try {
+      supabase.from('settings').upsert({
+        key: 'products_last_updated',
+        value: String(Date.now())
+      }).then();
+    } catch(e) {}
+
     showToast(nextHidden ? `🚫 تم إخفاء "${p.title}" من متجر الزبائن` : `👁️ تم تفعيل وإظهار "${p.title}" على متجر الزبائن مباشرة`, 'success');
   };
 
