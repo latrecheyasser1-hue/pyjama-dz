@@ -3049,9 +3049,11 @@ tr:hover {
 
 .mazyoud-pdp-desc {
   font-size: 0.95rem;
-  line-height: 1.5rem;
+  line-height: 1.65rem;
   color: #475569;
   margin: 0 0 24px;
+  white-space: pre-line;
+  word-break: break-word;
 }
 
 .mazyoud-pdp-divider {

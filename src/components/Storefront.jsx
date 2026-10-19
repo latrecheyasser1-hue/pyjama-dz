@@ -943,7 +943,23 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
             return null;
           })()}
 
-          <p className="mazyoud-pdp-desc" style={{ marginBottom: '16px' }}>{(product.description || '').split('|||')[0]}</p>
+          {(() => {
+            const mainDesc = (product.description || '').split('|||')[0];
+            if (!mainDesc || !mainDesc.trim()) return null;
+            return (
+              <p 
+                className="mazyoud-pdp-desc" 
+                style={{ 
+                  marginBottom: '16px', 
+                  whiteSpace: 'pre-line',
+                  wordBreak: 'break-word',
+                  lineHeight: '1.65'
+                }}
+              >
+                {mainDesc}
+              </p>
+            );
+          })()}
 
           <hr className="mazyoud-pdp-divider" style={{ margin: '0 0 18px' }} />
 

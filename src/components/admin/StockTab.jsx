@@ -1599,7 +1599,14 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
               <div className="form-group">
                 <label className="form-label">وصف المنتج (Description) - <span style={{ color: '#64748B', fontWeight: 600 }}>اختياري (Optionnel)</span></label>
-                <textarea rows="2" value={description} onChange={(e) => setDescription(e.target.value)} className="form-input" placeholder="وصف المنتج (اختياري)..." />
+                <textarea 
+                  rows="4" 
+                  value={description} 
+                  onChange={(e) => setDescription(e.target.value)} 
+                  className="form-input" 
+                  style={{ minHeight: '100px', lineHeight: '1.6' }}
+                  placeholder="وصف المنتج (اختياري)..." 
+                />
               </div>
 
               {stockMode === 'livraison' && (
@@ -2251,7 +2258,7 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
                 return (
                   <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
                     <h5 style={{ margin: '0 0 6px 0', fontSize: '0.88rem', fontWeight: 800, color: '#475569' }}>وصف المنتج (Description):</h5>
-                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748B', lineHeight: '1.4' }}>{mainDesc}</p>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748B', lineHeight: '1.6', whiteSpace: 'pre-line', wordBreak: 'break-word' }}>{mainDesc}</p>
                   </div>
                 );
               }
