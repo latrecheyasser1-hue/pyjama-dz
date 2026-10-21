@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Phone, Printer, CheckCircle2, Store, Search, Plus, Trash2, X, ShoppingBag, RefreshCw } from 'lucide-react';
+import { Phone, Printer, CheckCircle2, Store, Search, Plus, Trash2, X, ShoppingBag, RefreshCw, Calendar, Filter, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { getClientReputation } from '../../utils/reputation';
 import { formatPrice } from '../../utils/formatUtils';
 
@@ -9,6 +10,12 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
   const [orderFilter, setOrderFilter] = useState('livraison');
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Filter States: Status & Period
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   React.useEffect(() => {
     if (selectedOrderDetails) {
@@ -21,8 +28,19 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
     };
   }, [selectedOrderDetails]);
 
-  // Active orders: orders where archived is false, OR (archived is undefined and status is 'nouvelle')
-  const activeOrders = orders.filter(o => o.archived === false || (o.archived === undefined && o.status === 'nouvelle'));
+  // Active orders: orders matching the current status filter or active processing statuses
+  const activeOrders = orders.filter(o => {
+    // If user filtered by a specific status, include all matching orders regardless of archive flag:
+    if (statusFilter !== 'all') {
+      return o.status === statusFilter;
+    }
+    // Default 'all' view: show all active/processing orders:
+    // nouvelle, en_attente, ne_repond_pas_1, ne_repond_pas_2, and confirmee!
+    if (['nouvelle', 'en_attente', 'ne_repond_pas_1', 'ne_repond_pas_2', 'confirmee'].includes(o.status)) {
+      return true;
+    }
+    return o.archived === false;
+  });
 
   const isExchangeOrReturn = (order) => {
     if (!order) return false;
@@ -56,6 +74,207 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
     : (orderFilter === 'hanout' 
       ? hanoutOrders 
       : livraisonOrders);
+
+  // Helper function to check if order falls in specified date range
+  const isOrderMatchingDate = (order, filterType, startDateStr, endDateStr) => {
+    if (filterType === 'all' && !startDateStr && !endDateStr) return true;
+
+    let orderDate = null;
+    if (order.created_at) {
+      orderDate = new Date(order.created_at);
+    } else if (order.date) {
+      orderDate = new Date(order.date);
+    }
+
+    if (!orderDate || isNaN(orderDate.getTime())) {
+      return filterType === 'all';
+    }
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    if (filterType === 'today') {
+      return orderDate >= startOfToday && orderDate <= endOfToday;
+    }
+
+    if (filterType === 'yesterday') {
+      const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
+      const endOfYesterday = new Date(startOfToday.getTime() - 1);
+      return orderDate >= startOfYesterday && orderDate <= endOfYesterday;
+    }
+
+    if (filterType === 'week') {
+      const startOfWeek = new Date(startOfToday.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return orderDate >= startOfWeek && orderDate <= endOfToday;
+    }
+
+    if (filterType === 'month') {
+      const startOfMonth = new Date(startOfToday.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return orderDate >= startOfMonth && orderDate <= endOfToday;
+    }
+
+    if (filterType === 'custom') {
+      if (startDateStr) {
+        const [sY, sM, sD] = startDateStr.split('-').map(Number);
+        const start = new Date(sY, sM - 1, sD, 0, 0, 0, 0);
+        if (orderDate < start) return false;
+      }
+      if (endDateStr) {
+        const [eY, eM, eD] = endDateStr.split('-').map(Number);
+        const end = new Date(eY, eM - 1, eD, 23, 59, 59, 999);
+        if (orderDate > end) return false;
+      }
+      return true;
+    }
+
+    return true;
+  };
+
+  // Filtered orders taking status and date period into account
+  const filteredDisplayOrders = displayOrders.filter(order => {
+    // 1. Status filter
+    if (statusFilter !== 'all' && order.status !== statusFilter) {
+      return false;
+    }
+
+    // 2. Date filter
+    if (!isOrderMatchingDate(order, dateFilter, customStartDate, customEndDate)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // Export confirmed orders to Excel with exactly 3 aggregated columns:
+  // 1: المنتوج (Produit)
+  // 2: الباركود (Code-barres)
+  // 3: الكمية (Quantité)
+  const exportConfirmedOrdersToExcel = () => {
+    const confirmedOrders = filteredDisplayOrders.filter(o => o.status === 'confirmee');
+
+    if (confirmedOrders.length === 0) {
+      alert('لا توجد أي طلبيات مؤكدة لتصديرها في هذا الفلتر.');
+      return;
+    }
+
+    // Aggregate items across all confirmed orders
+    const itemsMap = new Map();
+
+    confirmedOrders.forEach(order => {
+      if (Array.isArray(order.items) && order.items.length > 0) {
+        order.items.forEach(it => {
+          if (it.isExchangeMeta || it.isReturnMeta) return;
+
+          const rawTitle = (it.product || it.title || it.name || '').trim();
+          if (!rawTitle) return;
+
+          // Resolve barcode
+          let barcode = (it.barcode ? String(it.barcode).trim() : '');
+          if (!barcode || barcode === '—') {
+            const found = products.find(p => 
+              (it.productId && String(p.id) === String(it.productId)) ||
+              (p.title && (p.title.trim() === rawTitle || rawTitle.includes(p.title.trim()) || p.title.trim().includes(rawTitle)))
+            );
+            if (found && found.barcode) {
+              barcode = String(found.barcode).trim();
+            }
+          }
+
+          const qty = parseInt(it.qty || it.quantity || 1, 10) || 1;
+
+          // Unique grouping key: prefer barcode if exists, otherwise lowercase title
+          const key = barcode && barcode !== '—'
+            ? `bc_${barcode}`
+            : `title_${rawTitle.toLowerCase()}`;
+
+          if (itemsMap.has(key)) {
+            const entry = itemsMap.get(key);
+            entry.qty += qty;
+            if ((!entry.barcode || entry.barcode === '—') && barcode && barcode !== '—') {
+              entry.barcode = barcode;
+            }
+          } else {
+            itemsMap.set(key, {
+              title: rawTitle,
+              barcode: barcode || '—',
+              qty: qty
+            });
+          }
+        });
+      } else if (order.product) {
+        // Fallback for orders stored as text summary
+        const parts = order.product.split(' + ');
+        parts.forEach(part => {
+          const match = part.match(/^(.*?)\s*\(x(\d+)\)$/);
+          let pTitle = part.trim();
+          let pQty = parseInt(order.quantity || order.qty || 1, 10) || 1;
+          if (match) {
+            pTitle = match[1].trim();
+            pQty = parseInt(match[2], 10) || 1;
+          }
+
+          let barcode = (order.barcode ? String(order.barcode).trim() : '');
+          if (!barcode || barcode === '—') {
+            const found = products.find(p => 
+              (order.productId && String(p.id) === String(order.productId)) ||
+              (p.title && (p.title.trim() === pTitle || pTitle.includes(p.title.trim()) || p.title.trim().includes(pTitle)))
+            );
+            if (found && found.barcode) {
+              barcode = String(found.barcode).trim();
+            }
+          }
+
+          const key = barcode && barcode !== '—'
+            ? `bc_${barcode}`
+            : `title_${pTitle.toLowerCase()}`;
+
+          if (itemsMap.has(key)) {
+            const entry = itemsMap.get(key);
+            entry.qty += pQty;
+            if ((!entry.barcode || entry.barcode === '—') && barcode && barcode !== '—') {
+              entry.barcode = barcode;
+            }
+          } else {
+            itemsMap.set(key, {
+              title: pTitle,
+              barcode: barcode || '—',
+              qty: pQty
+            });
+          }
+        });
+      }
+    });
+
+    if (itemsMap.size === 0) {
+      alert('لم يتم العثور على أي منتجات في الطلبيات المؤكدة المحددة.');
+      return;
+    }
+
+    // Build exactly the 3 requested columns
+    const exportRows = Array.from(itemsMap.values()).map(item => ({
+      'المنتوج (Produit)': item.title,
+      'الباركود (Code-barres)': item.barcode,
+      'الكمية (Quantité)': item.qty
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    worksheet['!cols'] = [
+      { wch: 45 },
+      { wch: 22 },
+      { wch: 15 }
+    ];
+    worksheet['!views'] = [{ rightToLeft: true }];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Commandes Confirmées');
+
+    const now = new Date();
+    const dateFormatted = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const filename = `commandes_confirmees_${dateFormatted}.xlsx`;
+
+    XLSX.writeFile(workbook, filename);
+  };
 
   const handleConfirmAction = (order) => {
     if (order.status === 'confirmee') {
@@ -199,72 +418,243 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
             </button>
           )}
           <div style={{ background: '#E8F5E9', color: '#2E7D32', padding: '8px 16px', borderRadius: '20px', fontWeight: 800, fontSize: '0.85rem' }}>
-            ● قيد الانتظار ({displayOrders.length} طلبية)
+            ● {statusFilter === 'confirmee' ? 'الطلبيات المؤكدة' : (statusFilter === 'all' ? 'الطلبيات النشطة' : 'الطلبيات المفلترة')} ({filteredDisplayOrders.length === displayOrders.length ? `${displayOrders.length} طلبية` : `${filteredDisplayOrders.length} من ${displayOrders.length} طلبية`})
           </div>
         </div>
       </div>
 
-      {/* Sub-tabs for separating Livraison and Gros */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', borderBottom: '2px solid #E2E8F0', paddingBottom: '12px' }}>
-        <button
-          onClick={() => setOrderFilter('livraison')}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '10px',
-            border: 'none',
-            fontWeight: 800,
-            fontSize: '0.92rem',
-            cursor: 'pointer',
-            background: orderFilter === 'livraison' ? 'var(--burgundy)' : '#F1F5F9',
-            color: orderFilter === 'livraison' ? 'white' : '#64748B',
-            transition: 'all 0.2s',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <span>🛒 طلبيات التوصيل (Livraison)</span>
-          <span style={{
-            background: orderFilter === 'livraison' ? 'white' : 'var(--burgundy)',
-            color: orderFilter === 'livraison' ? 'var(--burgundy)' : 'white',
-            padding: '2px 8px',
-            borderRadius: '12px',
-            fontSize: '0.78rem',
-            fontWeight: 900
-          }}>
-            {livraisonOrders.length}
-          </span>
-        </button>
+      {/* Sub-tabs for separating Livraison and Gros + Compact Corner Filter */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '16px',
+        borderBottom: '2px solid #E2E8F0',
+        paddingBottom: '12px',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        {/* Sub-tabs */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            onClick={() => setOrderFilter('livraison')}
+            style={{
+              padding: '9px 18px',
+              borderRadius: '10px',
+              border: 'none',
+              fontWeight: 800,
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              background: orderFilter === 'livraison' ? 'var(--burgundy)' : '#F1F5F9',
+              color: orderFilter === 'livraison' ? 'white' : '#64748B',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <span>🛒 طلبيات التوصيل (Livraison)</span>
+            <span style={{
+              background: orderFilter === 'livraison' ? 'white' : 'var(--burgundy)',
+              color: orderFilter === 'livraison' ? 'var(--burgundy)' : 'white',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '0.78rem',
+              fontWeight: 900
+            }}>
+              {livraisonOrders.length}
+            </span>
+          </button>
 
-        <button
-          onClick={() => setOrderFilter('gros')}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '10px',
-            border: 'none',
-            fontWeight: 800,
-            fontSize: '0.92rem',
-            cursor: 'pointer',
-            background: orderFilter === 'gros' ? '#4F46E5' : '#F1F5F9',
-            color: orderFilter === 'gros' ? 'white' : '#64748B',
-            transition: 'all 0.2s',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <span>📦 طلبيات الجملة (Gros)</span>
-          <span style={{
-            background: orderFilter === 'gros' ? 'white' : '#4F46E5',
-            color: orderFilter === 'gros' ? '#4F46E5' : 'white',
-            padding: '2px 8px',
-            borderRadius: '12px',
-            fontSize: '0.78rem',
-            fontWeight: 900
-          }}>
-            {grosOrders.length}
-          </span>
-        </button>
+          <button
+            onClick={() => setOrderFilter('gros')}
+            style={{
+              padding: '9px 18px',
+              borderRadius: '10px',
+              border: 'none',
+              fontWeight: 800,
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              background: orderFilter === 'gros' ? '#4F46E5' : '#F1F5F9',
+              color: orderFilter === 'gros' ? 'white' : '#64748B',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <span>📦 طلبيات الجملة (Gros)</span>
+            <span style={{
+              background: orderFilter === 'gros' ? 'white' : '#4F46E5',
+              color: orderFilter === 'gros' ? '#4F46E5' : 'white',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '0.78rem',
+              fontWeight: 900
+            }}>
+              {grosOrders.length}
+            </span>
+          </button>
+        </div>
+
+        {/* Compact Filters in the Top Corner */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          background: '#FFFFFF',
+          border: '1.5px solid #CBD5E1',
+          padding: '4px 10px',
+          borderRadius: '12px',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+        }}>
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{
+              padding: '6px 10px',
+              borderRadius: '8px',
+              border: statusFilter !== 'all' ? '1.5px solid #3B82F6' : '1px solid #E2E8F0',
+              background: statusFilter !== 'all' ? '#EFF6FF' : '#F8FAFC',
+              fontSize: '0.82rem',
+              fontWeight: 800,
+              color: statusFilter !== 'all' ? '#1D4ED8' : '#334155',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="all">🏷️ كل الحالات</option>
+            <option value="nouvelle">🆕 جديدة (Nouvelle)</option>
+            <option value="en_attente">⏳ قيد الانتظار (En attente)</option>
+            <option value="ne_repond_pas_1">📵 لا يجيب 1 (Ne répond pas 1)</option>
+            <option value="ne_repond_pas_2">📵 لا يجيب 2 (Ne répond pas 2)</option>
+            <option value="confirmee">📞 مؤكدة (Confirmée)</option>
+            <option value="livree">🚚 مستلمة (Livrée)</option>
+            <option value="annulee">❌ ملغاة (Annulée)</option>
+          </select>
+
+          {/* Period Filter */}
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            style={{
+              padding: '6px 10px',
+              borderRadius: '8px',
+              border: dateFilter !== 'all' ? '1.5px solid #F59E0B' : '1px solid #E2E8F0',
+              background: dateFilter !== 'all' ? '#FEF3C7' : '#F8FAFC',
+              fontSize: '0.82rem',
+              fontWeight: 800,
+              color: dateFilter !== 'all' ? '#B45309' : '#334155',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="all">📅 كل الأوقات</option>
+            <option value="today">⚡ اليوم</option>
+            <option value="yesterday">⏱️ البارحة</option>
+            <option value="week">📆 هذا الأسبوع (7 أيام)</option>
+            <option value="month">🗓️ هذا الشهر (30 يوم)</option>
+            <option value="custom">🎯 فترة مخصصة</option>
+          </select>
+
+          {/* Custom Date Inputs inline */}
+          {dateFilter === 'custom' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                title="من تاريخ"
+                style={{
+                  padding: '4px 6px',
+                  borderRadius: '6px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  outline: 'none'
+                }}
+              />
+              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 800 }}>-</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                title="إلى تاريخ"
+                style={{
+                  padding: '4px 6px',
+                  borderRadius: '6px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  outline: 'none'
+                }}
+              />
+            </div>
+          )}
+
+          {/* Reset button if active */}
+          {(statusFilter !== 'all' || dateFilter !== 'all' || customStartDate || customEndDate) && (
+            <button
+              onClick={() => {
+                setStatusFilter('all');
+                setDateFilter('all');
+                setCustomStartDate('');
+                setCustomEndDate('');
+              }}
+              title="تفريغ الفلتر"
+              style={{
+                background: '#FEE2E2',
+                color: '#DC2626',
+                border: 'none',
+                padding: '5px 8px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}
+            >
+              <X size={12} />
+              <span>تفريغ</span>
+            </button>
+          )}
+
+          {/* Excel Export Button: Only visible when statusFilter is 'confirmee' */}
+          {statusFilter === 'confirmee' && (
+            <button
+              type="button"
+              onClick={exportConfirmedOrdersToExcel}
+              title="تصدير السلع المؤكدة في ملف Excel (المنتوج، الباركود، الكمية)"
+              style={{
+                background: '#16A34A',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 5px rgba(22, 163, 74, 0.35)',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#15803D')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#16A34A')}
+            >
+              <FileSpreadsheet size={15} />
+              <span>تصدير ملف Excel ({filteredDisplayOrders.length})</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="table-container">
@@ -284,14 +674,16 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
               </tr>
             </thead>
             <tbody>
-              {displayOrders.length === 0 ? (
+              {filteredDisplayOrders.length === 0 ? (
                 <tr>
                   <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    لا توجد طلبيات جديدة بانتظار المعالجة.
+                    {displayOrders.length === 0 
+                      ? 'لا توجد طلبيات جديدة بانتظار المعالجة.' 
+                      : 'لا توجد طلبيات تطابق معايير الفلترة المحددة.'}
                   </td>
                 </tr>
               ) : (
-                displayOrders.map(order => (
+                filteredDisplayOrders.map(order => (
                   <tr 
                     key={order.id} 
                     style={{ background: (() => {
@@ -380,11 +772,18 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                       <select
                         onClick={(e) => e.stopPropagation()}
                         value={order.status}
-                        onChange={(e) => onUpdateStatus(order.id, e.target.value, true)}
+                        onChange={(e) => {
+                          const newStatus = e.target.value;
+                          const shouldArchive = (newStatus === 'livree');
+                          onUpdateStatus(order.id, newStatus, shouldArchive);
+                        }}
                         className={`status-badge status-${order.status}`}
-                        style={{ border: 'none', cursor: 'pointer', fontFamily: 'var(--font-primary)', fontWeight: 800 }}
+                        style={{ border: 'none', cursor: 'pointer', fontFamily: 'var(--font-primary)', fontWeight: 800, padding: '6px 12px', outline: 'none' }}
                       >
                         <option value="nouvelle">🆕 جديدة (Nouvelle)</option>
+                        <option value="en_attente">⏳ قيد الانتظار (En attente)</option>
+                        <option value="ne_repond_pas_1">📵 لا يجيب 1 (Ne répond pas 1)</option>
+                        <option value="ne_repond_pas_2">📵 لا يجيب 2 (Ne répond pas 2)</option>
                         <option value="confirmee">📞 مؤكدة (Confirmée)</option>
                         <option value="livree">🚚 تم التوصيل / مستلمة (Livrée)</option>
                         <option value="annulee">❌ ملغاة (Annulée)</option>
@@ -396,27 +795,64 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                           <span style={{ color: '#888', fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>👈 حدد الحالة</span>
                         )}
 
+                        {order.status === 'en_attente' && (
+                          <span style={{ color: '#B45309', background: '#FEF3C7', border: '1px solid #FDE68A', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                            ⏳ في الانتظار
+                          </span>
+                        )}
+
+                        {order.status === 'ne_repond_pas_1' && (
+                          <span style={{ color: '#7E22CE', background: '#F3E8FF', border: '1px solid #E9D5FF', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                            📞 محاولة ثانية لاحقاً
+                          </span>
+                        )}
+
+                        {order.status === 'ne_repond_pas_2' && (
+                          <span style={{ color: '#BE185D', background: '#FCE7F3', border: '1px solid #FBCFE8', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                            ⚠️ لا يجيب (المحاولة 2)
+                          </span>
+                        )}
+
                         {order.status === 'confirmee' && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleConfirmAction(order); }}
-                            style={{
-                              background: '#1F8A55',
-                              color: 'white',
-                              border: 'none',
-                              padding: '8px 16px',
-                              borderRadius: '8px',
-                              fontWeight: 800,
-                              fontSize: '0.85rem',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              boxShadow: '0 2px 6px rgba(31,138,85,0.25)'
-                            }}
-                          >
-                            <CheckCircle2 size={16} />
-                            <span>تأكيد النهائي</span>
-                          </button>
+                          order.archived ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ color: '#166534', background: '#DCFCE7', border: '1px solid #BBF7D0', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                ✅ مؤكدة
+                              </span>
+                              {order.shippingLabelUrl && (
+                                <a 
+                                  onClick={(e) => e.stopPropagation()} 
+                                  href={order.shippingLabelUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  style={{ background: '#1E293B', color: 'white', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, textDecoration: 'none' }}
+                                >
+                                  📄 البوليصة
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleConfirmAction(order); }}
+                              style={{
+                                background: '#1F8A55',
+                                color: 'white',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                fontWeight: 800,
+                                fontSize: '0.85rem',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                boxShadow: '0 2px 6px rgba(31,138,85,0.25)'
+                              }}
+                            >
+                              <CheckCircle2 size={16} />
+                              <span>تأكيد النهائي</span>
+                            </button>
+                          )
                         )}
 
                         {order.status === 'annulee' && (
@@ -439,6 +875,12 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                             <CheckCircle2 size={16} />
                             <span>تأكيد الإلغاء</span>
                           </button>
+                        )}
+
+                        {order.status === 'livree' && (
+                          <span style={{ color: '#00695C', background: '#E0F2F1', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                            ✅ مستلمة
+                          </span>
                         )}
                       </div>
                     </td>
@@ -700,6 +1142,9 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                 </h3>
                 <span className={`status-badge status-${selectedOrderDetails.status}`} style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '8px', fontWeight: 800, fontSize: '0.8rem' }}>
                   {selectedOrderDetails.status === 'nouvelle' && '🆕 جديدة'}
+                  {selectedOrderDetails.status === 'en_attente' && '⏳ قيد الانتظار'}
+                  {selectedOrderDetails.status === 'ne_repond_pas_1' && '📵 لا يجيب 1'}
+                  {selectedOrderDetails.status === 'ne_repond_pas_2' && '📵 لا يجيب 2'}
                   {selectedOrderDetails.status === 'confirmee' && '📞 مؤكدة'}
                   {selectedOrderDetails.status === 'annulee' && '❌ ملغاة'}
                   {selectedOrderDetails.status === 'expediee' && '🚚 تم الشحن'}

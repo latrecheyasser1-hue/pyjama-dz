@@ -1084,6 +1084,9 @@ tr:hover {
 }
 
 .status-nouvelle { background: #E3F2FD; color: #1565C0; }
+.status-en_attente { background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; }
+.status-ne_repond_pas_1 { background: #F3E8FF; color: #7E22CE; border: 1px solid #E9D5FF; }
+.status-ne_repond_pas_2 { background: #FCE7F3; color: #BE185D; border: 1px solid #FBCFE8; }
 .status-confirmee { background: #FFF3E0; color: #E65100; }
 .status-expediee { background: #E8F5E9; color: #2E7D32; }
 .status-livree { background: #E0F2F1; color: #00695C; }

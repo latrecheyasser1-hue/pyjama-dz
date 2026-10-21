@@ -49,7 +49,8 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
   };
 
   // Filter for archived orders (or old non-nouvelle orders)
-  const archivedOrders = orders.filter(o => o.archived === true || (o.archived === undefined && o.status !== 'nouvelle') || o.isPos === true);
+  const activeStatuses = ['nouvelle', 'en_attente', 'ne_repond_pas_1', 'ne_repond_pas_2'];
+  const archivedOrders = orders.filter(o => o.archived === true || (o.archived === undefined && !activeStatuses.includes(o.status)) || o.isPos === true);
 
   const filteredOrders = archivedOrders.filter(o => {
     const searchLower = search.toLowerCase();
@@ -851,6 +852,9 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
                 </h3>
                 <span className={`status-badge status-${selectedOrderDetails.status}`} style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '8px', fontWeight: 800, fontSize: '0.8rem' }}>
                   {selectedOrderDetails.status === 'nouvelle' && '🆕 جديدة'}
+                  {selectedOrderDetails.status === 'en_attente' && '⏳ قيد الانتظار'}
+                  {selectedOrderDetails.status === 'ne_repond_pas_1' && '📵 لا يجيب 1'}
+                  {selectedOrderDetails.status === 'ne_repond_pas_2' && '📵 لا يجيب 2'}
                   {selectedOrderDetails.status === 'confirmee' && '📞 مؤكدة'}
                   {selectedOrderDetails.status === 'annulee' && '❌ ملغاة'}
                   {selectedOrderDetails.status === 'expediee' && '🚚 تم الشحن'}
