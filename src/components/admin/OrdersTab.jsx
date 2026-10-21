@@ -11,8 +11,8 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Filter States: Status & Period
-  const [statusFilter, setStatusFilter] = useState('all');
+  // Filter States: Status & Period (Default: Nouvelle & All times)
+  const [statusFilter, setStatusFilter] = useState('nouvelle');
   const [dateFilter, setDateFilter] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -418,7 +418,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
             </button>
           )}
           <div style={{ background: '#E8F5E9', color: '#2E7D32', padding: '8px 16px', borderRadius: '20px', fontWeight: 800, fontSize: '0.85rem' }}>
-            ● {statusFilter === 'confirmee' ? 'الطلبيات المؤكدة' : (statusFilter === 'all' ? 'الطلبيات النشطة' : 'الطلبيات المفلترة')} ({filteredDisplayOrders.length === displayOrders.length ? `${displayOrders.length} طلبية` : `${filteredDisplayOrders.length} من ${displayOrders.length} طلبية`})
+            ● {statusFilter === 'confirmee' ? 'الطلبيات المؤكدة' : (statusFilter === 'nouvelle' ? 'الطلبيات الجديدة' : (statusFilter === 'all' ? 'كل الطلبيات النشطة' : 'الطلبيات المفلترة'))} ({filteredDisplayOrders.length === displayOrders.length ? `${displayOrders.length} طلبية` : `${filteredDisplayOrders.length} من ${displayOrders.length} طلبية`})
           </div>
         </div>
       </div>
@@ -516,17 +516,17 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
             style={{
               padding: '6px 10px',
               borderRadius: '8px',
-              border: statusFilter !== 'all' ? '1.5px solid #3B82F6' : '1px solid #E2E8F0',
-              background: statusFilter !== 'all' ? '#EFF6FF' : '#F8FAFC',
+              border: statusFilter !== 'nouvelle' ? '1.5px solid #3B82F6' : '1px solid #CBD5E1',
+              background: statusFilter !== 'nouvelle' ? '#EFF6FF' : '#F8FAFC',
               fontSize: '0.82rem',
               fontWeight: 800,
-              color: statusFilter !== 'all' ? '#1D4ED8' : '#334155',
+              color: statusFilter !== 'nouvelle' ? '#1D4ED8' : '#1E293B',
               outline: 'none',
               cursor: 'pointer'
             }}
           >
-            <option value="all">🏷️ كل الحالات</option>
             <option value="nouvelle">🆕 جديدة (Nouvelle)</option>
+            <option value="all">🏷️ كل الحالات</option>
             <option value="en_attente">⏳ قيد الانتظار (En attente)</option>
             <option value="ne_repond_pas_1">📵 لا يجيب 1 (Ne répond pas 1)</option>
             <option value="ne_repond_pas_2">📵 لا يجيب 2 (Ne répond pas 2)</option>
@@ -596,16 +596,16 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
             </div>
           )}
 
-          {/* Reset button if active */}
-          {(statusFilter !== 'all' || dateFilter !== 'all' || customStartDate || customEndDate) && (
+          {/* Reset button if not at default (nouvelle & all) */}
+          {(statusFilter !== 'nouvelle' || dateFilter !== 'all' || customStartDate || customEndDate) && (
             <button
               onClick={() => {
-                setStatusFilter('all');
+                setStatusFilter('nouvelle');
                 setDateFilter('all');
                 setCustomStartDate('');
                 setCustomEndDate('');
               }}
-              title="تفريغ الفلتر"
+              title="إعادة ضبط الفلتر إلى الافتراضي (جديدة - كل الأوقات)"
               style={{
                 background: '#FEE2E2',
                 color: '#DC2626',
