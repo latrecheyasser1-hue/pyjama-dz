@@ -6,7 +6,10 @@ import { supabase } from './lib/supabaseClient';
 import { showToast } from './utils/toast';
 import { playNotificationSound } from './utils/audio';
 
+const isSubdomainAdmin = typeof window !== 'undefined' && window.location.hostname.toLowerCase().startsWith('admin.');
+
 const checkIsAdminPath = (path = (typeof window !== 'undefined' ? window.location.pathname : '')) => {
+  if (isSubdomainAdmin) return true;
   const p = (path || '').toLowerCase();
   return p.startsWith('/admin') || p.startsWith('/ali') || p.startsWith('/pos') || p.startsWith('/emballage');
 };
@@ -118,6 +121,15 @@ export default function App() {
   const parcelCreationLockRef = useRef(new Set());
 
   useEffect(() => {
+    // Automatically redirect /admin requests on main storefront domain to dedicated admin subdomain
+    if (typeof window !== 'undefined' && !isSubdomainAdmin) {
+      const host = window.location.hostname.toLowerCase();
+      if ((host === 'pyjama-dz.net' || host === 'www.pyjama-dz.net') && window.location.pathname.toLowerCase().startsWith('/admin')) {
+        window.location.replace('https://admin.pyjama-dz.net' + window.location.search);
+        return;
+      }
+    }
+
     const handlePopState = () => setCurrentPath(window.location.pathname);
     window.addEventListener('popstate', handlePopState);
 
@@ -1421,7 +1433,7 @@ export default function App() {
     setCurrentPath(path);
   };
 
-  const isAdminRoute = currentPath.toLowerCase().startsWith('/admin');
+  const isAdminRoute = isSubdomainAdmin || currentPath.toLowerCase().startsWith('/admin');
   const isGrosRoute = currentPath.toLowerCase().startsWith('/gros');
   const isCashierRoute = currentPath.toLowerCase().startsWith('/cashier');
   const isEmballageRoute = currentPath.toLowerCase().startsWith('/embalage') || currentPath.toLowerCase().startsWith('/emballage');
@@ -1490,7 +1502,13 @@ export default function App() {
             settings={settings}
             onUpdateSettings={handleUpdateSettings}
             onRefreshOrders={() => fetchData('orders', setOrders)}
-            onSwitchToClient={() => navigateTo('/')}
+            onSwitchToClient={() => {
+              if (isSubdomainAdmin) {
+                window.location.href = 'https://www.pyjama-dz.net';
+              } else {
+                navigateTo('/');
+              }
+            }}
           />
         ) : isAliRoute ? (
           <AliOwnerDashboard
@@ -1498,7 +1516,13 @@ export default function App() {
             products={products}
             expenses={expenses}
             settings={settings}
-            onGoToStore={() => navigateTo('/')}
+            onGoToStore={() => {
+              if (isSubdomainAdmin) {
+                window.location.href = 'https://www.pyjama-dz.net';
+              } else {
+                navigateTo('/');
+              }
+            }}
           />
         ) : isCashierRoute ? (
           <CashierPOS 
