@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { ALGERIA_WILAYAS, DEFAULT_CATEGORIES } from '../data/mockData';
+import { ALGERIA_WILAYAS, DEFAULT_CATEGORIES, INITIAL_PRODUCTS } from '../data/mockData';
 import { ALGERIA_WILAYAS_COMMUNES, getCommunesForWilaya } from '../data/algeriaCities';
 import { CHLEF_DELIVERY_RATES } from '../data/algeriaDeliveryRates';
 import { YALIDINE_AGENCIES, getAgenciesForWilaya } from '../data/yalidineAgencies';
@@ -1482,25 +1482,24 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch(e) {}
-    return [];
+    return INITIAL_PRODUCTS;
   }, [products]);
 
-  const [isStoreReady, setIsStoreReady] = useState(false);
+  const [isStoreReady, setIsStoreReady] = useState(true);
 
   useEffect(() => {
-    // Graceful initial skeleton window to show shimmer loader before evaluating empty states
-    const timer = setTimeout(() => {
-      setIsStoreReady(true);
-    }, 800);
-    return () => clearTimeout(timer);
+    setIsStoreReady(true);
   }, []);
 
   const [realtimeCategories, setRealtimeCategories] = useState(() => {
     try {
       const cached = localStorage.getItem('pyjama_dz_categories_cache');
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch(e) {}
-    return null;
+    return DEFAULT_CATEGORIES;
   });
 
   useEffect(() => {
@@ -2476,8 +2475,14 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       p && (!p.category || !p.category.includes('__')) && !isProductHiddenFromStore(p) && getProductTotalStock(p) > 0
     );
 
+    const baseList = (Array.isArray(categoriesList) && categoriesList.length > 1) 
+      ? categoriesList 
+      : DEFAULT_CATEGORIES;
+
+    let active = [];
+
     if (availableRetail.length > 0) {
-      const active = categoriesList.filter(cat => {
+      active = baseList.filter(cat => {
         if (!cat) return false;
         if (cat.id === 'all') return true;
         const catProds = getProductsForCategory(cat);
@@ -2487,63 +2492,57 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
       // SAFETY GUARANTEE: If retail products exist with stock > 0, NEVER allow active categories to be empty!
       const nonAll = active.filter(c => c && c.id !== 'all');
       if (nonAll.length === 0) {
-        const fallbackCat = findCategoryMatch(availableRetail[0]?.category, categoriesList) || 
-                            categoriesList.find(c => c.id === 'pyjamas-95' || c.id === 'pyjamas') ||
+        const fallbackCat = findCategoryMatch(availableRetail[0]?.category, baseList) || 
+                            baseList.find(c => c.id === 'pyjamas-95' || c.id === 'pyjamas') ||
                             { id: 'pyjamas-95', title: 'pyjamas' };
         active.push(fallbackCat);
       }
-
-      // Save valid active IDs to cache for 0ms subsequent renders
-      try {
-        const activeIds = active.map(c => c.id).filter(id => id && id !== 'all');
-        if (activeIds.length > 0) {
-          localStorage.setItem('pyjama_active_cat_ids', JSON.stringify(activeIds));
-        } else {
-          localStorage.removeItem('pyjama_active_cat_ids');
-        }
-      } catch(e) {}
-
-      return [...active].sort((a, b) => {
-        const aId = (a.id || '').toLowerCase().trim();
-        const aTitle = (a.title || a.name || '').toLowerCase().trim();
-        const bId = (b.id || '').toLowerCase().trim();
-        const bTitle = (b.title || b.name || '').toLowerCase().trim();
-
-        const isAAll = aId === 'all';
-        const isBAll = bId === 'all';
-        if (isAAll) return -1;
-        if (isBAll) return 1;
-
-        const isAHot = aId === 'hot' || aId === 'hot_sale' || aId === 'bestseller' || aTitle.includes('hot');
-        const isBHot = bId === 'hot' || bId === 'hot_sale' || bId === 'bestseller' || bTitle.includes('hot');
-        const isASolde = aId === 'solde' || aId === 'promo' || aTitle.includes('solde');
-        const isBSolde = bId === 'solde' || bId === 'promo' || bTitle.includes('solde');
-
-        // HOT SALE est TOUJOURS PREMIER
-        if (isAHot && !isBHot) return -1;
-        if (!isAHot && isBHot) return 1;
-
-        // SOLDE / PROMO est TOUJOURS DERNIER
-        if (isASolde && !isBSolde) return 1;
-        if (!isASolde && isBSolde) return -1;
-
-        // Entre les deux: la catégorie avec le produit le plus récent passe en premier
-        const timeA = getCategoryLatestProductTime(a);
-        const timeB = getCategoryLatestProductTime(b);
-        if (timeA !== timeB) {
-          return timeB - timeA;
-        }
-
-        return 0;
-      });
+    } else {
+      // If products are loading: show all valid categories immediately at 0ms!
+      active = baseList;
     }
 
-    // When there are no available retail products: clean stale cache so it never sticks
+    // Save valid active IDs to cache for 0ms subsequent renders
     try {
-      localStorage.removeItem('pyjama_active_cat_ids');
+      const activeIds = active.map(c => c.id).filter(id => id && id !== 'all');
+      if (activeIds.length > 0) {
+        localStorage.setItem('pyjama_active_cat_ids', JSON.stringify(activeIds));
+      }
     } catch(e) {}
 
-    return categoriesList.filter(cat => cat && cat.id === 'all');
+    return [...active].sort((a, b) => {
+      const aId = (a.id || '').toLowerCase().trim();
+      const aTitle = (a.title || a.name || '').toLowerCase().trim();
+      const bId = (b.id || '').toLowerCase().trim();
+      const bTitle = (b.title || b.name || '').toLowerCase().trim();
+
+      const isAAll = aId === 'all';
+      const isBAll = bId === 'all';
+      if (isAAll) return -1;
+      if (isBAll) return 1;
+
+      const isAHot = aId === 'hot' || aId === 'hot_sale' || aId === 'bestseller' || aTitle.includes('hot');
+      const isBHot = bId === 'hot' || bId === 'hot_sale' || bId === 'bestseller' || bTitle.includes('hot');
+      const isASolde = aId === 'solde' || aId === 'promo' || aTitle.includes('solde');
+      const isBSolde = bId === 'solde' || bId === 'promo' || bTitle.includes('solde');
+
+      // HOT SALE est TOUJOURS PREMIER
+      if (isAHot && !isBHot) return -1;
+      if (!isAHot && isBHot) return 1;
+
+      // SOLDE / PROMO est TOUJOURS DERNIER
+      if (isASolde && !isBSolde) return 1;
+      if (!isASolde && isBSolde) return -1;
+
+      // Entre les deux: la catégorie avec le produit le plus récent passe en premier
+      const timeA = getCategoryLatestProductTime(a);
+      const timeB = getCategoryLatestProductTime(b);
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+
+      return 0;
+    });
   }, [categoriesList, getProductsForCategory, getCategoryLatestProductTime, effectiveProducts]);
 
   useEffect(() => {
@@ -4084,77 +4083,25 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                     )}
                   </React.Fragment>
                 ))
-              ) : !isStoreReady ? (
-                [1, 2].map((k) => (
-                  <div key={k} className="luxury-editorial-category-card" style={{ opacity: 0.6, pointerEvents: 'none' }}>
-                    <div className="luxury-shimmer-box" style={{ height: '360px', borderRadius: '24px' }} />
-                  </div>
-                ))
               ) : (
-                <div style={{ width: '100%', maxWidth: '440px', margin: '16px auto 32px auto', padding: '0 12px' }}>
-                  <div style={{
-                    textAlign: 'center',
-                    padding: '36px 20px',
-                    background: 'linear-gradient(180deg, #FFFFFF 0%, #FFFDF9 100%)',
-                    borderRadius: '24px',
-                    border: '1px solid #F1E5D8',
-                    boxShadow: '0 10px 30px rgba(128, 0, 32, 0.04)'
-                  }}>
-                    <div style={{
-                      width: '60px',
-                      height: '60px',
-                      borderRadius: '50%',
-                      background: 'rgba(128, 0, 32, 0.06)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 16px auto',
-                      color: '#800020'
-                    }}>
-                      <Sparkles size={28} />
-                    </div>
-                    <h3 style={{
-                      fontSize: '1.2rem',
-                      fontWeight: 900,
-                      color: '#262626',
-                      marginBottom: '8px',
-                      fontFamily: "'Playfair Display', serif"
-                    }}>
-                      تشكيلاتنا الجديدة قادمة قريباً
-                    </h3>
-                    <p style={{
-                      fontSize: '0.9rem',
-                      color: '#78716C',
-                      lineHeight: '1.6',
-                      maxWidth: '320px',
-                      margin: '0 auto 20px auto'
-                    }}>
-                      نقوم حالياً بتجهيز كوليكشن جديد وفاخر يليق بذوقكِ الرفيع. للطلب الخاص أو الاستفسار المباشر، تواصلي معنا:
-                    </p>
-                    <a
-                      href="https://wa.me/213771335039?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%A7%D9%84%D8%A7%D8%B3%D8%AA%D9%81%D8%B3%D8%A7%D8%B1%20%D8%B9%D9%86%20%D8%AA%D8%B4%D9%83%D9%8A%D9%84%D8%A7%D8%AA%20Pyjama%20DZ"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        background: '#25D366',
-                        color: '#FFFFFF',
-                        fontWeight: 800,
-                        fontSize: '0.92rem',
-                        padding: '12px 22px',
-                        borderRadius: '16px',
-                        textDecoration: 'none',
-                        boxShadow: '0 4px 14px rgba(37, 211, 102, 0.28)'
+                DEFAULT_CATEGORIES
+                  .filter(cat => cat && cat.id !== 'all')
+                  .map((cat, idx) => (
+                    <CategoryShowcaseCard 
+                      key={cat.id}
+                      cat={cat}
+                      catProducts={effectiveProducts}
+                      onSelectCategory={(catId) => { 
+                        savedHomeScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
+                        setSelectedCategory(catId); 
+                        setCategoryOrigin('home');
+                        setActivePage('shop'); 
+                        setVisibleProductCount(12); 
+                        window.scrollTo({ top: 0, behavior: 'smooth' }); 
                       }}
-                    >
-                      <MessageCircle size={18} />
-                      تواصل معنا عبر الواتساب
-                    </a>
-                  </div>
-                </div>
+                      idx={idx}
+                    />
+                  ))
               )}
             </div>
           )}

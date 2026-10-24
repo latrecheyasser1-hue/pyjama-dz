@@ -1,9 +1,11 @@
 export const DEFAULT_CATEGORIES = [
-  { id: 'all', title: 'TOUT VOIR', icon: '', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' },
-  { id: 'hot_sale', title: 'HOT SALE / الأكثر مبيعاً', icon: '', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=300&q=80' },
-  { id: 'pyjamas-95', title: 'pyjamas', icon: '', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=300&q=80' },
-  { id: 'shoes-3', title: 'shoes', icon: '', image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=300&q=80' },
-  { id: 'promo', title: '% SOLDES', icon: '', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=300&q=80' }
+  { id: 'all', title: 'TOUT VOIR', icon: '✨', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=400&q=80' },
+  { id: 'hot_sale', title: 'الأكثر مبيعاً (HOT SALE)', icon: '🔥', badge: '🔥 Tendance', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=80' },
+  { id: 'jbeb-qatifa-mv2fahl5', title: 'DJEBBA KATIFA', icon: '👑', badge: '✨ Collection Royale', image: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=400&q=80' },
+  { id: 'pyjamas-95', title: 'pyjamas', icon: '☁️', badge: '🌸 Confort Absolu', image: 'https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=400&q=80' },
+  { id: 'pantoufl-mv2f89yh', title: 'PANTOUFL', icon: '🧸', badge: '❄️ Cocooning', image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=400&q=80' },
+  { id: 'shoes-3', title: 'BASQUET', icon: '👟', badge: '⚡ Tendance', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80' },
+  { id: 'promo', title: '% SOLDES', icon: '🏷️', badge: '🏷️ Offres Limitées', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=400&q=80' }
 ];
 
 export const INITIAL_SUPPLIERS = [
@@ -19,6 +21,7 @@ export const INITIAL_EXPENSES = [
 ];
 
 export const INITIAL_SETTINGS = {
+  categories: DEFAULT_CATEGORIES,
   pin: "765483",
   instagram: "https://www.instagram.com/pyjama_dz",
   googleMaps: "https://maps.app.goo.gl/algeria-pyjama-dz",
@@ -28,116 +31,79 @@ export const INITIAL_SETTINGS = {
 
 export const INITIAL_PRODUCTS = [
   {
-    id: 1,
-    title: "Ensemble Satin Royale - 3 Pièces (Rose Poudre)",
-    category: "satin",
-    purchasePrice: 2800,
-    price: 4500,
-    oldPrice: 6200,
-    supplier: "Atelier Satin Luxe (Algiers)",
-    sizes: ["S", "M", "L", "XL"],
+    id: '8a5149bb-e36e-45f3-ac9c-5d1aa74274b5',
+    title: "Robe KT-260906Y",
+    category: "jbeb-qatifa-mv2fahl5",
+    purchasePrice: 2500,
+    price: 2950,
+    oldPrice: 3800,
+    supplier: "Local Youcef",
+    sizes: ["Standard"],
     colorVariants: [
-      { color: "Rose Poudre", stock: { "S": 5, "M": 12, "L": 8, "XL": 3 } },
-      { color: "Bordeaux Royal", stock: { "S": 4, "M": 10, "L": 6, "XL": 2 } }
+      { color: "Standard", stock: { "Standard": 10 } }
     ],
-    images: ["https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
-    barcode: "100858539887",
-    promo: true,
+    images: ["https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=800"],
+    barcode: "KT-260906Y",
+    promo: false,
     badge: "Top Vente 🔥",
-    description: "Ensemble somptueux en satin de soie d'une douceur incomparable. Comprend caraco, pantalon fluide et robe de chambre assortie."
+    description: "جبة قطيفة فاخرة بتصميم أنيق ومريح للمنزل والمناسبات."
   },
   {
-    id: 2,
-    title: "Pyjama Coton Bio Douceur d'Hiver (Écru & Beige)",
-    category: "coton",
-    purchasePrice: 1900,
-    price: 3200,
-    oldPrice: 4500,
-    supplier: "Importateur Coton Turc (Sétif)",
-    sizes: ["M", "L", "XL", "XXL"],
+    id: '6fac06fb-c251-409b-bae1-45b43803989b',
+    title: "Pyjama Heat Underwear Enfant",
+    category: "pyjamas-95",
+    purchasePrice: 1050,
+    price: 1400,
+    oldPrice: 1900,
+    supplier: "MEKI",
+    sizes: ["80", "100", "120", "140", "160"],
     colorVariants: [
-      { color: "Écru", stock: { "M": 15, "L": 20, "XL": 14, "2XL": 8 } }
+      { color: "Standard", stock: { "100": 8, "120": 10, "140": 6 } }
     ],
-    images: ["https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
-    barcode: "100795289030",
+    images: ["https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
+    barcode: "9268225554864",
     promo: false,
     badge: "Nouveau ✨",
-    description: "Confort absolu pour vos soirées cocooning. 100% coton turc respirant, doux sur la peau."
+    description: "بيجاما حرارية ناعمة ومريحة للأطفال بمقاسات مختلفة."
   },
   {
-    id: 3,
-    title: "Pack Trousseau de Mariée VIP - 6 Pièces (Blanc & Doré)",
-    category: "mariee",
-    purchasePrice: 8200,
-    price: 12500,
-    oldPrice: 16000,
-    supplier: "Confection Trousseau VIP (Oran)",
-    sizes: ["S", "M", "L"],
+    id: '9241a848-8fcb-498e-86bd-35f7d1416c32',
+    title: "Pyjama Heat Underwear",
+    category: "pyjamas-95",
+    purchasePrice: 1450,
+    price: 1800,
+    oldPrice: 2400,
+    supplier: "MEKI",
+    sizes: ["M", "L", "XL", "2XL"],
     colorVariants: [
-      { color: "Blanc Impérial", stock: { "S": 3, "M": 6, "L": 4 } },
-      { color: "Doré Champagne", stock: { "S": 2, "M": 5, "L": 3 } }
+      { color: "Noir", stock: { "M": 6, "L": 10, "XL": 8 } }
     ],
-    images: ["https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
-    barcode: "100902750513",
+    images: ["https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=800"],
+    barcode: "4070111775780",
     promo: true,
-    badge: "Spécial Mariée 👰",
-    description: "Le coffret prestige indispensable pour le جهاز العروسة. Finitions en dentelle fine et satin luxueux."
+    badge: "Top Vente 🔥",
+    description: "بيجاما حرارية عالية الجودة توفر الدفء والراحة الفائقة."
   },
   {
-    id: 4,
-    title: "Nuisette Satinée de Luxe avec Kimono (Bordeaux)",
-    category: "satin",
-    purchasePrice: 2200,
-    price: 3800,
-    oldPrice: 5000,
-    supplier: "Atelier Satin Luxe (Algiers)",
-    sizes: ["S", "M", "L", "XL"],
-    colorVariants: [
-      { color: "Bordeaux", stock: { "S": 8, "M": 14, "L": 10, "XL": 5 } }
-    ],
-    images: ["https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
-    barcode: "100399877873",
-    promo: true,
-    badge: "Promo -25%",
-    description: "Un toucher velours unique avec une coupe ajustée et élégante. Idéal pour offrir."
-  },
-  {
-    id: 5,
-    title: "Ensemble Loungewear Cocooning 2 Pièces (Gris Perle)",
-    category: "coton",
-    purchasePrice: 2100,
-    price: 3500,
+    id: 'eb8ac0b4-a345-4efe-9df1-f7516f986a76',
+    title: "Robe KT-261008M",
+    category: "jbeb-qatifa-mv2fahl5",
+    purchasePrice: 2700,
+    price: 3200,
     oldPrice: 4200,
-    supplier: "Importateur Coton Turc (Sétif)",
-    sizes: ["S", "M", "L", "XL", "XXL"],
+    supplier: "LOCAL MED",
+    sizes: ["Standard"],
     colorVariants: [
-      { color: "Gris Perle", stock: { "S": 10, "M": 18, "L": 15, "XL": 9, "2XL": 6 } }
+      { color: "Standard", stock: { "Standard": 8 } }
     ],
-    images: ["https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
-    barcode: "100729385180",
+    images: ["https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=800"],
+    barcode: "Kt-261008M",
     promo: false,
-    badge: "Confort 🧸",
-    description: "Tenue d'intérieur moderne, parfaite pour se détendre avec style à la maison."
-  },
-  {
-    id: 6,
-    title: "Coffret Trousseau Soie & Dentelle - 4 Pièces (Rouge Rubis)",
-    category: "mariee",
-    purchasePrice: 5600,
-    price: 8900,
-    oldPrice: 11500,
-    supplier: "Confection Trousseau VIP (Oran)",
-    sizes: ["M", "L", "XL"],
-    colorVariants: [
-      { color: "Rouge Rubis", stock: { "M": 7, "L": 8, "XL": 4 } }
-    ],
-    images: ["https://images.unsplash.com/photo-1502716119720-b23a93e5fc1b?auto=format&fit=crop&q=80&w=800", "https://images.unsplash.com/photo-1548624313-0396c75e4b1a?auto=format&fit=crop&q=80&w=800"],
-    barcode: "100671479519",
-    promo: true,
-    badge: "Recommandé ⭐",
-    description: "Élégance royale et raffinement extrême. Livré dans un coffret cadeau Pyjama DZ exclusif."
+    badge: "Édition Limitée 👑",
+    description: "روب قطيفة فاخر بتطريزات أنيقة وقماش دافئ راقي."
   }
 ];
+
 
 export const ALGERIA_WILAYAS = [
   "01 - Adrar", "02 - Chlef", "03 - Laghouat", "04 - Oum El Bouaghi", "05 - Batna",

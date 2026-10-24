@@ -5,6 +5,7 @@ import CookieConsent from './components/CookieConsent';
 import { supabase } from './lib/supabaseClient';
 import { showToast } from './utils/toast';
 import { playNotificationSound } from './utils/audio';
+import { INITIAL_PRODUCTS, DEFAULT_CATEGORIES, INITIAL_SETTINGS } from './data/mockData';
 
 const isSubdomainAdmin = typeof window !== 'undefined' && window.location.hostname.toLowerCase().startsWith('admin.');
 const isMainProductionDomain = typeof window !== 'undefined' && (window.location.hostname.toLowerCase() === 'pyjama-dz.net' || window.location.hostname.toLowerCase() === 'www.pyjama-dz.net');
@@ -78,10 +79,10 @@ export default function App() {
       const cached = localStorage.getItem('pyjama_products_cache');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) return parsed.map(normalizeProduct);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(normalizeProduct);
       }
-      return [];
-    } catch(e) { return []; }
+    } catch(e) {}
+    return INITIAL_PRODUCTS.map(normalizeProduct);
   });
   const [orders, setOrders] = useState(() => {
     try {
@@ -94,28 +95,28 @@ export default function App() {
   const [settings, setSettings] = useState(() => {
     try {
       const cached = localStorage.getItem('pyjama_settings_cache');
-      if (!cached) return {};
-      const parsed = JSON.parse(cached);
-      const isAdmin = checkIsAdminPath();
-      if (!isAdmin && typeof parsed === 'object') {
-        delete parsed.zr_express_api_key;
-        delete parsed.zr_express_token;
-        delete parsed.yalidine_api_token;
-        delete parsed.yalidine_api_id;
-        delete parsed.meta_access_token;
-        Object.keys(parsed).forEach(k => {
-          if (k.startsWith('alert_') || k.startsWith('active_msgs_') || k.startsWith('notified_')) delete parsed[k];
-        });
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const isAdmin = checkIsAdminPath();
+        if (!isAdmin && typeof parsed === 'object') {
+          delete parsed.zr_express_api_key;
+          delete parsed.zr_express_token;
+          delete parsed.yalidine_api_token;
+          delete parsed.yalidine_api_id;
+          delete parsed.meta_access_token;
+          Object.keys(parsed).forEach(k => {
+            if (k.startsWith('alert_') || k.startsWith('active_msgs_') || k.startsWith('notified_')) delete parsed[k];
+          });
+        }
+        if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
+          parsed.categories = DEFAULT_CATEGORIES;
+        }
+        return parsed;
       }
-      return parsed;
-    } catch(e) { return {}; }
+    } catch(e) {}
+    return { ...INITIAL_SETTINGS, categories: DEFAULT_CATEGORIES };
   });
-  const [loading, setLoading] = useState(() => {
-    try {
-      const cachedProds = localStorage.getItem('pyjama_products_cache');
-      return !cachedProds;
-    } catch(e) { return true; }
-  });
+  const [loading, setLoading] = useState(false);
 
   const pendingUpdatesRef = useRef({});
   const updateDebounceRef = useRef({});
