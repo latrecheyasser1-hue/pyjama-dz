@@ -18,6 +18,7 @@ const checkIsAdminPath = (path = (typeof window !== 'undefined' ? window.locatio
 };
 
 import CashierPOS from './components/CashierPOS';
+import NotFound from './components/NotFound';
 const lazyWithRetry = (componentImport) =>
   lazy(async () => {
     const pageReloaded = sessionStorage.getItem('chunk_reload_flag');
@@ -1433,11 +1434,15 @@ export default function App() {
     setCurrentPath(path);
   };
 
-  const isAdminRoute = isSubdomainAdmin || (!isMainProductionDomain && currentPath.toLowerCase().startsWith('/admin'));
-  const isGrosRoute = currentPath.toLowerCase().startsWith('/gros');
-  const isCashierRoute = currentPath.toLowerCase().startsWith('/cashier');
-  const isEmballageRoute = currentPath.toLowerCase().startsWith('/embalage') || currentPath.toLowerCase().startsWith('/emballage');
-  const isAliRoute = currentPath.toLowerCase().startsWith('/ali');
+  const cleanPath = (currentPath || '/').toLowerCase().replace(/\/+$/, '') || '/';
+  const isAdminRoute = isSubdomainAdmin || (!isMainProductionDomain && cleanPath.startsWith('/admin'));
+  const isGrosRoute = cleanPath.startsWith('/gros');
+  const isCashierRoute = cleanPath.startsWith('/cashier') || cleanPath.startsWith('/pos');
+  const isEmballageRoute = cleanPath.startsWith('/embalage') || cleanPath.startsWith('/emballage');
+  const isAliRoute = cleanPath.startsWith('/ali');
+
+  const isStorefrontRoute = cleanPath === '/' || cleanPath === '/privacy' || cleanPath === '/terms' || cleanPath === '/conditions' || cleanPath === '/tariffs' || cleanPath === '/shipping' || cleanPath === '/about' || cleanPath === '/shop';
+  const isNotFoundRoute = !isAdminRoute && !isGrosRoute && !isCashierRoute && !isEmballageRoute && !isAliRoute && !isStorefrontRoute;
 
   const enrichedOrders = useMemo(() => {
     if (!orders || !Array.isArray(orders)) return [];
@@ -1548,6 +1553,12 @@ export default function App() {
             settings={settings}
             onPlaceOrder={handlePlaceOrder}
             onGoToRetail={() => navigateTo('/')}
+          />
+        ) : isNotFoundRoute ? (
+          <NotFound 
+            onGoHome={() => navigateTo('/')}
+            onGoGros={() => navigateTo('/gros')}
+            whatsapp={settings?.whatsapp || '0554128933'}
           />
         ) : (
           <Storefront 

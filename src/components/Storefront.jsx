@@ -1617,7 +1617,16 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
   const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
-  const [activePage, setActivePage] = useState(null); // 'about', 'shop', etc.
+  const [activePage, setActivePage] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const p = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
+    if (p === '/privacy') return 'privacy';
+    if (p === '/terms' || p === '/conditions') return 'terms';
+    if (p === '/tariffs' || p === '/shipping') return 'tariffs';
+    if (p === '/about') return 'about';
+    if (p === '/shop') return 'shop';
+    return null;
+  }); // 'about', 'shop', etc.
   const [categoryOrigin, setCategoryOrigin] = useState('shop'); // 'shop' or 'home'
   // Mobile Phone Hardware / Gesture Back Button Support (History API)
   const savedHomeScrollPosRef = useRef(0);
@@ -1670,40 +1679,58 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
 
   // 2. Active Page (About / Shop / etc.) History Handler
   useEffect(() => {
+    const pageToPath = {
+      privacy: '/privacy',
+      terms: '/terms',
+      tariffs: '/tariffs',
+      about: '/about',
+      shop: '/shop'
+    };
+
     if (activePage) {
-      if (!pageBackPushedRef.current) {
-        if (!savedHomeScrollPosRef.current) {
-          savedHomeScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
-        }
-        window.history.pushState({ pyjama_modal: 'page' }, '');
+      const targetPath = pageToPath[activePage] || '/';
+      if (window.location.pathname.toLowerCase() !== targetPath) {
+        window.history.pushState({ pyjama_modal: 'page', page: activePage }, '', targetPath);
         pageBackPushedRef.current = true;
       }
 
+      if (!savedHomeScrollPosRef.current) {
+        savedHomeScrollPosRef.current = window.scrollY || document.documentElement.scrollTop || 0;
+      }
+
       const handlePopState = (e) => {
-        // If product modal is open, this popstate belongs to product, do not close activePage!
-        if (productBackPushedRef.current || e.state?.pyjama_modal === 'page' || e.state?.pyjama_modal === 'product') {
+        if (productBackPushedRef.current || e.state?.pyjama_modal === 'product') {
           return;
         }
         pageBackPushedRef.current = false;
-        setActivePage(null);
-        setSelectedCategory('all');
-        const restoreHomeY = savedHomeScrollPosRef.current || 0;
-        setTimeout(() => {
-          window.scrollTo({ top: restoreHomeY, behavior: 'instant' });
+        const currentP = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
+        if (currentP === '/privacy') setActivePage('privacy');
+        else if (currentP === '/terms' || currentP === '/conditions') setActivePage('terms');
+        else if (currentP === '/tariffs' || currentP === '/shipping') setActivePage('tariffs');
+        else if (currentP === '/about') setActivePage('about');
+        else if (currentP === '/shop') setActivePage('shop');
+        else {
+          setActivePage(null);
+          setSelectedCategory('all');
+          const restoreHomeY = savedHomeScrollPosRef.current || 0;
           setTimeout(() => {
             window.scrollTo({ top: restoreHomeY, behavior: 'instant' });
-          }, 60);
-        }, 30);
+            setTimeout(() => {
+              window.scrollTo({ top: restoreHomeY, behavior: 'instant' });
+            }, 60);
+          }, 30);
+        }
       };
 
       window.addEventListener('popstate', handlePopState);
       return () => {
         window.removeEventListener('popstate', handlePopState);
-        if (pageBackPushedRef.current && window.history.state?.pyjama_modal === 'page') {
-          pageBackPushedRef.current = false;
-          window.history.back();
-        }
       };
+    } else {
+      const currentP = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
+      if (['/privacy', '/terms', '/conditions', '/tariffs', '/shipping', '/about', '/shop'].includes(currentP)) {
+        window.history.pushState({}, '', '/');
+      }
     }
   }, [activePage]);
 
