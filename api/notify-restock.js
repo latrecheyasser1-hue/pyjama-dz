@@ -300,7 +300,7 @@ export default async function handler(req, res) {
       const prodDesc = productTitle ? ` في موديل ${productTitle}` : '';
       const sizeDesc = targetSize ? ` (${targetSize})` : '';
 
-      const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك${sizeDesc} مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://pyjama-dz.vercel.app\n\nشكراً لانتظارك معنا! 🌸`;
+      const restockMsg = `*متجر Pyjama DZ*\n\nأهلاً بك${nameGreeting}.\nبشرى سارة، توفر مقاسك${sizeDesc} مجدداً${prodDesc}!\nيمكنك الآن إتمام طلبك مباشرة وحصرياً عبر موقعنا الرسمي قبل نفاد الكمية:\nhttps://www.pyjama-dz.net\n\nشكراً لانتظارك معنا! 🌸`;
 
       await sendWhatsAppMessage(waPhone, restockMsg);
       notifiedCount++;

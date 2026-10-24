@@ -170,7 +170,7 @@ export default async function handler(req, res) {
 
     // Instant server-side low stock check trigger for this specific product (50ms execution speed)
     try {
-      fetch('https://pyjama-dz.vercel.app/api/check-low-stock', {
+      fetch('https://www.pyjama-dz.net/api/check-low-stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId: req.body?.productId || req.body?.id })
@@ -179,7 +179,7 @@ export default async function handler(req, res) {
 
     // Asynchronous check for delayed confirmations
     try {
-      fetch('https://pyjama-dz.vercel.app/api/cron-notifications?action=process_delayed_confirmations').catch(() => {});
+      fetch('https://www.pyjama-dz.net/api/cron-notifications?action=process_delayed_confirmations').catch(() => {});
     } catch (e) {}
 
     return res.status(200).json({ success: true, metaResponse: metaData, delayed: !isWaitlist });

@@ -115,9 +115,9 @@ function getProductImageUrl(p) {
   if (!img) return null;
 
   if (img.startsWith('http://') || img.startsWith('https://')) return img;
-  if (img.startsWith('/')) return `https://pyjama-dz.vercel.app${img}`;
+  if (img.startsWith('/')) return `https://www.pyjama-dz.net${img}`;
 
-  return `https://pyjama-dz.vercel.app/api/product-image?id=${p.id}&file=product.jpg`;
+  return `https://www.pyjama-dz.net/api/product-image?id=${p.id}&file=product.jpg`;
 }
 
 export default async function handler(req, res) {
@@ -262,7 +262,7 @@ export default async function handler(req, res) {
             const firstName = cleanClientName(rawName);
             const greeting = firstName ? `أهلاً وسهلاً بك ${firstName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
 
-            const captionText = `🔥 *عروض الأكثر طلباً لهذا الأسبوع (HOT SALE) ✨*\n\n${greeting}! 🌸\nجمعنالك الموديلات الأكثر طلباً ومبيعاً هذا الأسبوع في متجر Pyjama DZ:\n\n${topItemsList}\n\n🚚 التوصيل متوفر لـ 58 ولاية حتى لباب الدار والدفع عند الاستلام بعد المعاينة.\n🛒 تفضل بالطلب وتصفح كافة الموديلات والمقاسات عبر موقعنا الرسمي:\n👉 https://pyjama-dz.vercel.app`;
+            const captionText = `🔥 *عروض الأكثر طلباً لهذا الأسبوع (HOT SALE) ✨*\n\n${greeting}! 🌸\nجمعنالك الموديلات الأكثر طلباً ومبيعاً هذا الأسبوع في متجر Pyjama DZ:\n\n${topItemsList}\n\n🚚 التوصيل متوفر لـ 58 ولاية حتى لباب الدار والدفع عند الاستلام بعد المعاينة.\n🛒 تفضل بالطلب وتصفح كافة الموديلات والمقاسات عبر موقعنا الرسمي:\n👉 https://www.pyjama-dz.net`;
 
             if (heroProduct?.imageUrl) {
               await sendWhatsAppImage(phone, heroProduct.imageUrl, captionText);
@@ -271,7 +271,7 @@ export default async function handler(req, res) {
             }
 
             if (secondProduct?.imageUrl) {
-              const secondCaption = `✨ *${secondProduct.title}* — ${secondProduct.price} دج\nاطلبها الآن عبر موقعنا:\n👉 https://pyjama-dz.vercel.app`;
+              const secondCaption = `✨ *${secondProduct.title}* — ${secondProduct.price} دج\nاطلبها الآن عبر موقعنا:\n👉 https://www.pyjama-dz.net`;
               await sendWhatsAppImage(phone, secondProduct.imageUrl, secondCaption);
             }
 
@@ -331,7 +331,7 @@ export default async function handler(req, res) {
           const firstName = cleanClientName(info.name);
           const greeting = firstName ? `أهلاً وسهلاً بك ${firstName}` : `أهلاً وسهلاً بك عزيزي الزبون`;
 
-          const msg = `*متجر Pyjama DZ*\n\n${greeting}! 🌸\nمرت أسبوعان على طلبيتك من متجرنا. ✨\nيهمنا جداً معرفة رأيك وانطباعك عن جودة السلعة وخدمتنا، ورضاك هما أولويتنا دائماً. 🙏\n\nإذا كان لديك أي ملاحظة أو تقييم، يسعدنا تواصلك معنا دائماً ونتمنى أن تكون السلعة قد نالت إعجابك الكامل! ❤️\nhttps://pyjama-dz.vercel.app`;
+          const msg = `*متجر Pyjama DZ*\n\n${greeting}! 🌸\nمرت أسبوعان على طلبيتك من متجرنا. ✨\nيهمنا جداً معرفة رأيك وانطباعك عن جودة السلعة وخدمتنا، ورضاك هما أولويتنا دائماً. 🙏\n\nإذا كان لديك أي ملاحظة أو تقييم، يسعدنا تواصلك معنا دائماً ونتمنى أن تكون السلعة قد نالت إعجابك الكامل! ❤️\nhttps://www.pyjama-dz.net`;
 
           await sendWhatsAppMessage(phone, msg);
           followUpCount++;

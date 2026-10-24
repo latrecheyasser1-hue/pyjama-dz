@@ -234,7 +234,7 @@ export default async function handler(req, res) {
             await saveBureauMeta(targetOrder.id, currentMeta);
 
             if (phone) {
-              const msg = `*متجر Pyjama DZ ✨*\n\n${greeting}! 🌸\nنود إعلامك أن طلبيتك رقم #${orderNum} وصلت الآن إلى مكتب التوصيل [${officeName}] وهي جاهزة للاستلام! 🏢📦\n\nيرجى التقرب من المكتب لاستلام طردك في أقرب وقت. شكراً جزيلاً لثقتك بمتجرنا! ❤️\nhttps://pyjama-dz.vercel.app`;
+              const msg = `*متجر Pyjama DZ ✨*\n\n${greeting}! 🌸\nنود إعلامك أن طلبيتك رقم #${orderNum} وصلت الآن إلى مكتب التوصيل [${officeName}] وهي جاهزة للاستلام! 🏢📦\n\nيرجى التقرب من المكتب لاستلام طردك في أقرب وقت. شكراً جزيلاً لثقتك بمتجرنا! ❤️\nhttps://www.pyjama-dz.net`;
               await sendWhatsAppMessage(phone, msg);
             }
           } else if (!isBureau && (normStatus.includes('sorti') || normStatus.includes('livreur') || normStatus.includes('en livraison') || normStatus.includes('en route')) && !currentMeta.domicile_out_sent) {
@@ -242,7 +242,7 @@ export default async function handler(req, res) {
             await saveBureauMeta(targetOrder.id, currentMeta);
 
             if (phone) {
-              const msg = `*متجر Pyjama DZ 🚚*\n\n${greeting}! 🌸\nطردك رقم #${orderNum} خرج الآن مع الموزع (Livreur) وراه في الطريق لعنوانك! 📦💨\n\nسيتصل بك الموزع قريباً على هاتفك للاستلام، يرجى إبقاء هاتفك مفتوحاً. شكراً لثقتك بنا! ❤️\nhttps://pyjama-dz.vercel.app`;
+              const msg = `*متجر Pyjama DZ 🚚*\n\n${greeting}! 🌸\nطردك رقم #${orderNum} خرج الآن مع الموزع (Livreur) وراه في الطريق لعنوانك! 📦💨\n\nسيتصل بك الموزع قريباً على هاتفك للاستلام، يرجى إبقاء هاتفك مفتوحاً. شكراً لثقتك بنا! ❤️\nhttps://www.pyjama-dz.net`;
               await sendWhatsAppMessage(phone, msg);
             }
           }
@@ -412,7 +412,7 @@ export default async function handler(req, res) {
               metaChanged = true;
 
               if (phone) {
-                const msg = `*متجر Pyjama DZ ✨*\n\n${greeting}! 🌸\nنود إعلامك أن طلبيتك رقم #${orderNum} وصلت الآن إلى مكتب التوصيل [${officeName}] وهي جاهزة للاستلام! 🏢📦\n\nيرجى التقرب من المكتب لاستلام طردك في أقرب وقت. شكراً جزيلاً لثقتك بمتجرنا! ❤️\nhttps://pyjama-dz.vercel.app`;
+                const msg = `*متجر Pyjama DZ ✨*\n\n${greeting}! 🌸\nنود إعلامك أن طلبيتك رقم #${orderNum} وصلت الآن إلى مكتب التوصيل [${officeName}] وهي جاهزة للاستلام! 🏢📦\n\nيرجى التقرب من المكتب لاستلام طردك في أقرب وقت. شكراً جزيلاً لثقتك بمتجرنا! ❤️\nhttps://www.pyjama-dz.net`;
                 await sendWhatsAppMessage(phone, msg);
                 notifsSent++;
               }
@@ -424,7 +424,7 @@ export default async function handler(req, res) {
               metaChanged = true;
 
               if (phone) {
-                const msg = `*متجر Pyjama DZ ✨*\n\nتذكير ${firstName ? firstName : ''}! 🌸\nنود تذكيرك بأن طلبيتك رقم #${orderNum} مازالت تنتظرك في مكتب التوصيل [${officeName}] ولم يتم استلامها بعد. 🏢📦\n\nيرجى التقرب من المكتب لاستلامها في أقرب وقت متاح لتفادي إرجاعها. نتمنى لك يوماً سعيداً! 🌸\nhttps://pyjama-dz.vercel.app`;
+                const msg = `*متجر Pyjama DZ ✨*\n\nتذكير ${firstName ? firstName : ''}! 🌸\nنود تذكيرك بأن طلبيتك رقم #${orderNum} مازالت تنتظرك في مكتب التوصيل [${officeName}] ولم يتم استلامها بعد. 🏢📦\n\nيرجى التقرب من المكتب لاستلامها في أقرب وقت متاح لتفادي إرجاعها. نتمنى لك يوماً سعيداً! 🌸\nhttps://www.pyjama-dz.net`;
                 await sendWhatsAppMessage(phone, msg);
                 notifsSent++;
               }
@@ -436,7 +436,7 @@ export default async function handler(req, res) {
               metaChanged = true;
 
               if (phone) {
-                const msg = `*متجر Pyjama DZ ⚠️*\n\nتنبيه هام وأخير ${firstName ? firstName : ''}! ⚠️\nطلبيتك رقم #${orderNum} مازالت في مكتب التوصيل [${officeName}] وعلى وشك الإرجاع (Retour) لانتهاء مدة الحفظ المحددة. ⏳📦\n\nيرجى التقرب اليوم بشكل عاجل لاستلام طردك، لأنه في حال عدم استلامه سيتم إرجاعه تلقائياً (Retour). شكراً لتعاونك! 🙏\nhttps://pyjama-dz.vercel.app`;
+                const msg = `*متجر Pyjama DZ ⚠️*\n\nتنبيه هام وأخير ${firstName ? firstName : ''}! ⚠️\nطلبيتك رقم #${orderNum} مازالت في مكتب التوصيل [${officeName}] وعلى وشك الإرجاع (Retour) لانتهاء مدة الحفظ المحددة. ⏳📦\n\nيرجى التقرب اليوم بشكل عاجل لاستلام طردك، لأنه في حال عدم استلامه سيتم إرجاعه تلقائياً (Retour). شكراً لتعاونك! 🙏\nhttps://www.pyjama-dz.net`;
                 await sendWhatsAppMessage(phone, msg);
                 notifsSent++;
               }
@@ -452,7 +452,7 @@ export default async function handler(req, res) {
             metaChanged = true;
 
             if (phone) {
-              const msg = `*متجر Pyjama DZ 🚚*\n\n${greeting}! 🌸\nطردك رقم #${orderNum} خرج الآن مع الموزع (Livreur) وراه في الطريق لعنوانك! 📦💨\n\nسيتصل بك الموزع قريباً على هاتفك للاستلام، يرجى إبقاء هاتفك مفتوحاً. شكراً لثقتك بنا! ❤️\nhttps://pyjama-dz.vercel.app`;
+              const msg = `*متجر Pyjama DZ 🚚*\n\n${greeting}! 🌸\nطردك رقم #${orderNum} خرج الآن مع الموزع (Livreur) وراه في الطريق لعنوانك! 📦💨\n\nسيتصل بك الموزع قريباً على هاتفك للاستلام، يرجى إبقاء هاتفك مفتوحاً. شكراً لثقتك بنا! ❤️\nhttps://www.pyjama-dz.net`;
               await sendWhatsAppMessage(phone, msg);
               notifsSent++;
             }

@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       // Call create-parcel handler if exchange and no tracking yet (Returns are sent by customer to warehouse)
       if (!isReturn && !trackingNumber) {
         try {
-          const host = req.headers['x-forwarded-host'] || req.headers.host || 'pyjama-dz.vercel.app';
+          const host = req.headers['x-forwarded-host'] || req.headers.host || 'www.pyjama-dz.net';
           const protocol = host.includes('localhost') ? 'http' : 'https';
           const createParcelUrl = `${protocol}://${host}/api/create-parcel`;
 
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
         } catch (pe) {
           console.error('Error calling create-parcel for exchange:', pe);
           try {
-            const fallbackRes = await fetch('https://pyjama-dz.vercel.app/api/create-parcel', {
+            const fallbackRes = await fetch('https://www.pyjama-dz.net/api/create-parcel', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ order, company: deliveryCompany })
@@ -147,7 +147,7 @@ export default async function handler(req, res) {
 
       // Send WhatsApp approval notification
       try {
-        await fetch('https://pyjama-dz.vercel.app/api/send-order-whatsapp', {
+        await fetch('https://www.pyjama-dz.net/api/send-order-whatsapp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -201,7 +201,7 @@ export default async function handler(req, res) {
 
       // Send WhatsApp rejection notification
       try {
-        await fetch('https://pyjama-dz.vercel.app/api/send-order-whatsapp', {
+        await fetch('https://www.pyjama-dz.net/api/send-order-whatsapp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

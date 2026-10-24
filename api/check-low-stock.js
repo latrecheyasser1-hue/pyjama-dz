@@ -332,7 +332,7 @@ export default async function handler(req, res) {
               
               const imageUrl = (rawImg && typeof rawImg === 'string' && rawImg.startsWith('http'))
                 ? rawImg
-                : `https://pyjama-dz.vercel.app/api/product-image?id=${product.id}&idx=${cIdx}.jpg`;
+                : `https://www.pyjama-dz.net/api/product-image?id=${product.id}&idx=${cIdx}.jpg`;
 
               const itemInfo = {
                 productId: product.id,
