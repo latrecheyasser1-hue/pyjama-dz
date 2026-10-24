@@ -1,4 +1,17 @@
 {
+  "redirects": [
+    {
+      "source": "/((?!api/.*).*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "pyjama-dz.vercel.app"
+        }
+      ],
+      "destination": "https://www.pyjama-dz.net/$1",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!api/.*).*)",
