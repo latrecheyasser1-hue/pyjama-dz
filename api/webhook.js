@@ -2,8 +2,8 @@ import { YALIDINE_AGENCIES } from '../src/data/yalidineAgencies.js';
 import { ZR_AGENCIES } from '../src/data/zrAgencies.js';
 import { ZR_TERRITORIES } from '../src/data/zrTerritories.js';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://odpyxvnsufkxsnboevjr.supabase.co';
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9kcHl4dm5zdWZreHNuYm9ldmpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5NjM1NzIsImV4cCI6MjEwODUzOTU3Mn0.s-spK0zUox_KCpK7WFD8ajax5P0AILuFL9nacpjbrHg';
 
 
 const DEFAULT_TOKEN = 'EAAguaWHGlf8BSKaHVaNhbDcXWvirUZCAtEQwuHus3c6VCPYV6BzJhJMGZBv0y7LPe2UTWP1KOFKngJCRqiumnd6R27VNOZABQlmGzzbl87arKbPuvgZBag148noX6nLxjkKMO7Ue0hiLUDRS4spYopCGpuwHTZCnPW4Deyzivxg3xlphgLBdUZAWWRD5Y0HwZDZD';
