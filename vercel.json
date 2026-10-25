@@ -20,7 +20,7 @@
   ],
   "headers": [
     {
-      "source": "/((?!assets/.*|.*\\.(?:webp|png|jpg|jpeg|svg|ico|woff2)).*)",
+      "source": "/((?!assets/.*|api/products-cache|.*\\.(?:webp|png|jpg|jpeg|svg|ico|woff2)).*)",
       "headers": [
         {
           "key": "Cache-Control",
