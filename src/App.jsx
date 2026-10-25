@@ -382,7 +382,26 @@ export default function App() {
       } catch(e) {}
     }
 
-    const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
+    let data = null;
+    let error = null;
+
+    if (table === 'products' && !isAdmin) {
+      try {
+        const edgeRes = await fetch('/api/products-cache');
+        if (edgeRes.ok) {
+          const edgeData = await edgeRes.json();
+          if (Array.isArray(edgeData)) {
+            data = edgeData;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!data) {
+      const res = await supabase.from(table).select('*').order('created_at', { ascending: false });
+      data = res.data;
+      error = res.error;
+    }
     if (!error && data) {
       if (table === 'products') {
         const now = Date.now();
