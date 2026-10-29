@@ -4,6 +4,7 @@ import ConfirmModal from './ConfirmModal';
 import { showToast } from '../../utils/toast';
 import { formatPrice } from '../../utils/formatUtils';
 import { supabase } from '../../lib/supabaseClient';
+import { uploadImageToR2 } from '../../services/imageService';
 
 export const isProductHiddenFromStore = (product) => {
   if (!product) return false;
@@ -546,6 +547,12 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
 
         setImages(prev => prev.includes(compressedBase64) ? prev : [...prev, compressedBase64]);
         handleColorImageChange(index, compressedBase64);
+        uploadImageToR2(compressedBase64, 'products').then(finalUrl => {
+          if (finalUrl && finalUrl !== compressedBase64) {
+            setImages(prev => prev.map(item => item === compressedBase64 ? finalUrl : item));
+            handleColorImageChange(index, finalUrl);
+          }
+        }).catch(() => {});
       };
       img.src = reader.result;
     };

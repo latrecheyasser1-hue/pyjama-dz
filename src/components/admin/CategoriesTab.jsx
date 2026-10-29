@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { uploadImageToR2 } from '../../services/imageService';
 import { Tag, Plus, Trash2, Edit2, Check, X, ShieldAlert, Image as ImageIcon, Upload } from 'lucide-react';
 import { DEFAULT_CATEGORIES } from '../../data/mockData';
 import ConfirmModal from './ConfirmModal';
@@ -106,6 +107,13 @@ export default function CategoriesTab({ settings, onUpdateSettings, products = [
         } else {
           setNewImage(compressed);
         }
+
+        uploadImageToR2(compressed, 'categories').then(finalUrl => {
+          if (finalUrl && finalUrl !== compressed) {
+            if (isEdit) setEditImage(finalUrl);
+            else setNewImage(finalUrl);
+          }
+        }).catch(() => {});
         showToast('✅ تم ضغط الصورة وحفظها بدقة عالية HD وبحجم خفيف جداً!', 'success');
       };
       img.src = event.target?.result;
