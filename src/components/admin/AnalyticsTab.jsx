@@ -199,9 +199,34 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
     return sum + cost;
   }, 0);
 
+  // Calculate total purchase cost of stock currently in possession (شحال صارف على السلعة المتوفرة في المخزن)
+  const { totalStockCost, totalStockPieces } = useMemo(() => {
+    let cost = 0;
+    let pieces = 0;
+    (products || []).forEach(p => {
+      let pStock = 0;
+      if (p.colorVariants && Array.isArray(p.colorVariants)) {
+        p.colorVariants.forEach(cv => {
+          if (cv.stock && typeof cv.stock === 'object') {
+            Object.values(cv.stock).forEach(qty => pStock += Number(qty) || 0);
+          } else if (typeof cv.stock === 'number') {
+            pStock += cv.stock;
+          }
+        });
+      } else if (p.stock !== undefined) {
+        pStock = Number(p.stock) || 0;
+      }
+      pieces += pStock;
+      cost += (Number(p.purchasePrice) || 0) * pStock;
+    });
+    return { totalStockCost: cost, totalStockPieces: pieces };
+  }, [products]);
+
   const totalSideExpenses = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
   
-  const netProfit = totalCA - totalCostGoods - totalSideExpenses - periodSalaryCost;
+  const netProfit = validOrders.length > 0 
+    ? (totalCA - totalCostGoods - totalSideExpenses - periodSalaryCost) 
+    : 0;
 
   // Analytics
   const topProductsData = useMemo(() => getTopSellingProducts(filteredOrders), [filteredOrders]);
@@ -277,7 +302,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
             <div style={{ background: '#E3F7EB', padding: 8, borderRadius: 10, color: '#1F8A55' }}><DollarSign size={18} /></div>
           </div>
           <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1F8A55' }}>{formatPrice(totalCA)} DA</div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sur {validOrders.length} commandes</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{validOrders.length > 0 ? `Sur ${validOrders.length} commandes` : 'في انتظار أولى مبيعات الغد'}</span>
         </div>
 
         <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
@@ -285,8 +310,8 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700 }}>تكلفة شراء السلع (Achats)</span>
             <div style={{ background: '#FFF3E0', padding: 8, borderRadius: 10, color: '#E65100' }}><TrendingDown size={18} /></div>
           </div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#E65100' }}>{formatPrice(totalCostGoods)} DA</div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Coût grossiste des pyjamas</span>
+          <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#E65100' }}>{formatPrice(totalStockCost)} DA</div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>رأس مال السلعة في المخزن ({totalStockPieces} قطعة)</span>
         </div>
 
         <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
@@ -317,7 +342,9 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
           <div style={{ fontSize: '1.55rem', fontWeight: 900, color: netProfit >= 0 ? '#FFD700' : '#FF6B6B' }}>
             {formatPrice(netProfit)} DA
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>بعد خصم السلعة والمصاريف والرواتب</span>
+          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>
+            {validOrders.length > 0 ? 'بعد خصم السلعة والمصاريف والرواتب' : 'يحسب تلقائياً مع انطلاق المبيعات'}
+          </span>
         </div>
       </div>
 
@@ -416,7 +443,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
           </p>
           
           <div style={{ flex: 1, overflowY: 'auto', background: 'white', borderRadius: '8px', border: '1px solid #FFE4E6' }}>
-            {deadStockData.length > 0 ? (
+            {validOrders.length > 0 && deadStockData.length > 0 ? (
               <table style={{ width: '100%', fontSize: '0.85rem' }}>
                 <thead style={{ background: '#FFF1F2', borderBottom: '1px solid #FFE4E6' }}>
                   <tr>
@@ -433,6 +460,10 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
                   ))}
                 </tbody>
               </table>
+            ) : validOrders.length === 0 ? (
+              <div style={{ padding: 32, textAlign: 'center', color: '#10B981', fontWeight: 700 }}>
+                ✨ السلعة جديدة ومتوفرة في المخزن ({totalStockPieces} قطعة جاهزة للانطلاق)
+              </div>
             ) : (
               <div style={{ padding: 32, textAlign: 'center', color: '#10B981', fontWeight: 700 }}>
                 ✨ ممتاز! لا توجد سلع راكدة (Aucun stock mort)
