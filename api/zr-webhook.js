@@ -75,8 +75,12 @@ async function saveBureauMeta(identifier, meta) {
   }
 }
 
-const ZR_WEBHOOK_SECRET = process.env.ZR_WEBHOOK_SECRET || 'pyjama_dz_zr_wh_sec_2026';
 const ADMIN_PARCEL_SECRET = process.env.ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3';
+const KNOWN_ZR_SECRETS = [
+  process.env.ZR_WEBHOOK_SECRET,
+  'whsec_aqXZkgxYOEwcoMbZ2ZjlvuUyM7pK6tEu',
+  'pyjama_dz_zr_wh_sec_2026'
+].filter(Boolean);
 
 function verifyZRWebhook(req) {
   // 1. Check Svix headers if provided by ZR Express
@@ -88,12 +92,17 @@ function verifyZRWebhook(req) {
     try {
       const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
       const toSign = `${svixId}.${svixTimestamp}.${rawBody}`;
-      const secret = ZR_WEBHOOK_SECRET.startsWith('whsec_') 
-        ? Buffer.from(ZR_WEBHOOK_SECRET.slice(6), 'base64') 
-        : Buffer.from(ZR_WEBHOOK_SECRET);
-      const expectedSig = 'v1,' + crypto.createHmac('sha256', secret).update(toSign).digest('base64');
       const passedSigs = svixSignature.split(' ');
-      if (passedSigs.includes(expectedSig)) return true;
+
+      for (const secretStr of KNOWN_ZR_SECRETS) {
+        try {
+          const secret = secretStr.startsWith('whsec_') 
+            ? Buffer.from(secretStr.slice(6), 'base64') 
+            : Buffer.from(secretStr);
+          const expectedSig = 'v1,' + crypto.createHmac('sha256', secret).update(toSign).digest('base64');
+          if (passedSigs.includes(expectedSig)) return true;
+        } catch (_) {}
+      }
     } catch (e) {
       console.error('[ZR Webhook] Svix verification error:', e);
     }
@@ -102,20 +111,20 @@ function verifyZRWebhook(req) {
   // 2. Check secret token via query parameter (?secret=... or ?token=...)
   const query = req.query || {};
   const queryToken = query.secret || query.token;
-  if (queryToken && (queryToken === ZR_WEBHOOK_SECRET || queryToken === ADMIN_PARCEL_SECRET)) {
+  if (queryToken && (KNOWN_ZR_SECRETS.includes(queryToken) || queryToken === ADMIN_PARCEL_SECRET)) {
     return true;
   }
 
   // 3. Check secret token via header (x-webhook-secret or x-admin-token or authorization)
   const headerToken = req.headers['x-webhook-secret'] || req.headers['x-admin-token'] || req.headers['x-api-key'] || '';
-  if (headerToken && (headerToken === ZR_WEBHOOK_SECRET || headerToken === ADMIN_PARCEL_SECRET)) {
+  if (headerToken && (KNOWN_ZR_SECRETS.includes(headerToken) || headerToken === ADMIN_PARCEL_SECRET)) {
     return true;
   }
 
   const authHeader = req.headers['authorization'] || '';
   if (authHeader.startsWith('Bearer ')) {
     const bearer = authHeader.slice(7).trim();
-    if (bearer === ZR_WEBHOOK_SECRET || bearer === ADMIN_PARCEL_SECRET) {
+    if (KNOWN_ZR_SECRETS.includes(bearer) || bearer === ADMIN_PARCEL_SECRET) {
       return true;
     }
   }
