@@ -339,14 +339,17 @@ export default function App() {
           }
         }).subscribe();
 
-      // Robust 20-second background polling to ensure orders arrive even if WebSocket disconnects
-      const syncInterval = setInterval(() => {
-        fetchData('orders', setOrders);
-      }, 20000);
+      // Re-fetch only when user switches back to the tab (0 bandwidth when idle in background)
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          fetchData('orders', setOrders);
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
 
       return () => {
         supabase.removeChannel(ordersLiveChannel);
-        clearInterval(syncInterval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     }
   }, [currentPath]);
