@@ -90,7 +90,7 @@ export default function App() {
     try {
       const isAdmin = checkIsAdminPath();
       if (!isAdmin) return [];
-      const cached = localStorage.getItem('pyjama_orders_cache');
+      const cached = localStorage.getItem('pyjama_orders_cache_v2');
       return cached ? JSON.parse(cached) : [];
     } catch(e) { return []; }
   });
@@ -454,7 +454,7 @@ export default function App() {
         setter(mergedSuppliers);
       } else {
         if (table === 'orders') {
-          try { localStorage.setItem('pyjama_orders_cache', JSON.stringify(data)); } catch(e) {}
+          try { localStorage.setItem('pyjama_orders_cache_v2', JSON.stringify(data)); } catch(e) {}
         }
         setter(data);
       }

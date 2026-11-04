@@ -89,7 +89,7 @@ export default function AliOwnerDashboard({
   const [liveOrders, setLiveOrders] = useState(() => {
     if (Array.isArray(propOrders) && propOrders.length > 0) return propOrders;
     try {
-      const cached = localStorage.getItem('pyjama_orders_cache');
+      const cached = localStorage.getItem('pyjama_orders_cache_v2');
       return cached ? JSON.parse(cached) : [];
     } catch(e) { return []; }
   });
@@ -110,7 +110,7 @@ export default function AliOwnerDashboard({
           .order('created_at', { ascending: false });
         if (!error && data && isMounted) {
           setLiveOrders(data);
-          try { localStorage.setItem('pyjama_orders_cache', JSON.stringify(data)); } catch(e) {}
+          try { localStorage.setItem('pyjama_orders_cache_v2', JSON.stringify(data)); } catch(e) {}
         }
       } catch(err) {
         console.error('AliOwnerDashboard: error fetching live orders', err);
