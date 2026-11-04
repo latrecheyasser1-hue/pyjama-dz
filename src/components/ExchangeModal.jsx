@@ -276,7 +276,7 @@ export default function ExchangeModal({
     try {
       // 1. Query Supabase orders table by valid column trackingNumber (or id if cleanTracking is a valid UUID)
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanTracking);
-      let query = supabase.from('orders').select('*');
+      let query = supabase.from('orders').select('id,trackingNumber,phone,status,items,delivered_at,date_livraison,date,created_at,clientName,wilaya,commune,deliveryCompany,totalPrice,product');
       if (isUUID) {
         query = query.or(`trackingNumber.ilike.%${cleanTracking}%,id.eq.${cleanTracking}`);
       } else {

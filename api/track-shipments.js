@@ -2,11 +2,13 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuej
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 
-const DEFAULT_TOKEN = 'EAAguaWHGlf8BSKaHVaNhbDcXWvirUZCAtEQwuHus3c6VCPYV6BzJhJMGZBv0y7LPe2UTWP1KOFKngJCRqiumnd6R27VNOZABQlmGzzbl87arKbPuvgZBag148noX6nLxjkKMO7Ue0hiLUDRS4spYopCGpuwHTZCnPW4Deyzivxg3xlphgLBdUZAWWRD5Y0HwZDZD';
 
 async function getMetaAccessToken() {
   if (process.env.META_ACCESS_TOKEN && process.env.META_ACCESS_TOKEN.length > 20) {
-    return process.env.META_ACCESS_TOKEN;
+    return process.env.META_ACCESS_TOKEN.trim();
+  }
+  if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_TOKEN.length > 20) {
+    return process.env.WHATSAPP_TOKEN.trim();
   }
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.meta_access_token&select=value`, {
@@ -17,7 +19,7 @@ async function getMetaAccessToken() {
       return data[0].value.trim();
     }
   } catch (err) {}
-  return DEFAULT_TOKEN;
+  return null;
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
@@ -104,6 +106,43 @@ async function saveBureauMeta(identifier, meta) {
   }
 }
 
+
+const CRON_SECRET = process.env.CRON_SECRET || 'pyjama_dz_cron_sec_88f9e0a1b2c3';
+const ADMIN_SECRET = process.env.ADMIN_PARCEL_SECRET || process.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3';
+
+// IP Rate limiter for single tracking query
+const singleTrackRateMap = new Map();
+function isSingleTrackRateLimited(ip) {
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const maxLimit = 30;
+  const item = singleTrackRateMap.get(ip);
+  if (!item || now > item.resetTime) {
+    singleTrackRateMap.set(ip, { count: 1, resetTime: now + windowMs });
+    return false;
+  }
+  item.count++;
+  return item.count > maxLimit;
+}
+
+function isAuthorizedCronOrAdmin(req) {
+  const authHeader = req.headers['authorization'] || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.slice(7).trim();
+    if (bearer === CRON_SECRET || bearer === ADMIN_SECRET) return true;
+  }
+  const tokenHeader = req.headers['x-cron-secret'] || 
+                      req.headers['x-admin-token'] || 
+                      req.headers['x-internal-secret'] || '';
+  if (tokenHeader === CRON_SECRET || tokenHeader === ADMIN_SECRET) return true;
+
+  const query = req.query || {};
+  const queryToken = query.cron_secret || query.secret || query.token;
+  if (queryToken && (queryToken === CRON_SECRET || queryToken === ADMIN_SECRET)) return true;
+
+  return false;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -125,6 +164,10 @@ export default async function handler(req, res) {
   // Handle Single Tracking Lookup (For Exchange / Return 3-Day Receipt Eligibility Check)
   const singleTracking = req.query?.tracking || searchParams.get('tracking') || req.query?.check_tracking;
   if (singleTracking) {
+    const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+    if (isSingleTrackRateLimited(clientIp)) {
+      return res.status(429).json({ error: 'Too many tracking requests. Please wait a minute.' });
+    }
     try {
       const cleanTrack = String(singleTracking).trim();
       const oRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?or=(trackingNumber.ilike.%25${encodeURIComponent(cleanTrack)}%25,id.eq.${encodeURIComponent(cleanTrack)})&limit=1`, {
@@ -254,6 +297,13 @@ export default async function handler(req, res) {
     }
   }
 
+  // Security Shield (VULN-08): Batch shipment tracking automation requires Cron or Admin authorization
+  if (!isAuthorizedCronOrAdmin(req)) {
+    const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+    console.warn(`[track-shipments] Blocked unauthorized batch tracking run attempt from IP: ${clientIp}`);
+    return res.status(401).json({ error: 'Unauthorized: Valid CRON_SECRET or Admin authorization token required to run batch tracking.' });
+  }
+
   try {
     // 1. Fetch Shipping API Settings from Supabase
     const settingsRes = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=in.(yalidine_api_id,yalidine_api_token,zr_express_api_key,zr_express_token)&select=key,value`, {
@@ -265,9 +315,9 @@ export default async function handler(req, res) {
       settingsRows.forEach(r => { creds[r.key] = r.value; });
     }
 
-    const yalidineId = creds.yalidine_api_id || '91765086053360408544';
-    const yalidineToken = creds.yalidine_api_token || 'oB2eO7XJ51b0fJm2s4188w9w5uI4068s4o1m8B2aN650bW4vP548fR5m1wJ8';
-    const zrApiKey = creds.zr_express_api_key || 'Z7Hc9ysXDHbjfztqASk0YevJumND6TOFpH7tC8DKLpCFsX5ZfV2kjdSplyiktz3d';
+    const yalidineId = creds.yalidine_api_id || process.env.YALIDINE_API_ID || '';
+    const yalidineToken = creds.yalidine_api_token || process.env.YALIDINE_API_TOKEN || '';
+    const zrApiKey = creds.zr_express_api_key || process.env.ZR_EXPRESS_API_KEY || '';
     const zrTenantId = 'c84d4b7b-9252-45c0-8339-5be6cfd9bc91';
 
     // 2. Fetch Active Dispatched Orders (confirmee, expediee)

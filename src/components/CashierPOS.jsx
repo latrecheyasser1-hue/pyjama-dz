@@ -140,7 +140,7 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
 
   const storePhone = Array.isArray(settings?.phoneOrders) && settings.phoneOrders.length > 0 ? settings.phoneOrders[0] : (settings?.phoneOrders || '0555123456');
   const storeAddress = settings?.address || 'الجزائر العاصمة';
-  const validPin = settings?.cashierPin || '0000';
+  const validPin = settings?.cashierPin || null;
 
   // Global robust barcode scanner listener
   useEffect(() => {
@@ -195,6 +195,11 @@ export default function CashierPOS({ products = [], settings = {}, onPlaceOrder,
   // Handle PIN Login
   const handlePinLogin = (e) => {
     if (e) e.preventDefault();
+    if (!validPin) {
+      setPinError(true);
+      showToast('⚠️ يرجى تعيين كود PIN للكاشير أولاً من لوحة تحكم المسؤول!', 'warning');
+      return;
+    }
     if (pinInput === validPin) {
       setIsAuthenticated(true);
       sessionStorage.setItem('pyjama_dz_pos_auth', 'true');

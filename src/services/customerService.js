@@ -127,17 +127,19 @@ export const getCustomerOrders = async (phone) => {
   const core9 = cleanPhone.slice(-9);
 
   try {
+    // Security Fix (DEEP-02): Filter directly by customer phone in DB & restrict columns
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
-      .order('created_at', { ascending: true });
+      .select('id, clientName, phone, wilaya, commune, deliveryCompany, deliveryMode, trackingNumber, shippingLabelUrl, status, items, totalPrice, price, created_at, date')
+      .or(`phone.ilike.%${core9}%,whatsapp.ilike.%${core9}%`)
+      .order('created_at', { ascending: false });
 
     if (error || !data) {
       console.warn('Orders fetch note:', error);
       return [];
     }
 
-    // Filter out system account records (status === 'account' or product === '_CUSTOMER_ACCOUNT_')
+    // Filter out internal system account records
     const realOrdersOnly = data.filter(order => {
       if (order.status === 'account') return false;
       if (order.product === '_CUSTOMER_ACCOUNT_') return false;
@@ -145,29 +147,7 @@ export const getCustomerOrders = async (phone) => {
       return true;
     });
 
-    // Sort chronologically ascending to calculate global ticketNumber (1, 2, 3... 341) matching Admin dashboard
-    const sortedAll = [...realOrdersOnly].sort((a, b) => {
-      const dateA = new Date(a.created_at || a.date || 0).getTime();
-      const dateB = new Date(b.created_at || b.date || 0).getTime();
-      return dateA - dateB;
-    });
-
-    const enrichedAll = sortedAll.map((order, idx) => {
-      const ticketNum = idx + 1;
-      return {
-        ...order,
-        ticketNumber: order.ticketNumber || order.order_number || order.orderNum || ticketNum
-      };
-    });
-
-    // Filter strictly by phone matching core 9 digits
-    const matched = enrichedAll.filter(order => {
-      const p = formatPhoneNumber(order.phone || order.clientPhone || order.whatsapp);
-      return p && p.slice(-9) === core9;
-    });
-
-    // Return newest orders first for customer view
-    return matched.reverse();
+    return realOrdersOnly;
   } catch (err) {
     console.error('Error fetching customer orders:', err);
     return [];

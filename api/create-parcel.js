@@ -179,10 +179,59 @@ const WILAYA_IDS = {
   'Djanet': 56, 'El M\'Ghair': 57, 'El Meniaa': 58
 };
 
+const ADMIN_PARCEL_SECRET = process.env.ADMIN_PARCEL_SECRET || process.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3';
+
+// In-memory rate limiting: max 20 parcel creation requests per minute per IP
+const rateLimitMap = new Map();
+function isRateLimited(ip) {
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const maxLimit = 20;
+
+  const item = rateLimitMap.get(ip);
+  if (!item || now > item.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
+    return false;
+  }
+  item.count++;
+  return item.count > maxLimit;
+}
+
+function isAuthorized(req) {
+  const tokenHeader = req.headers['x-admin-token'] || req.headers['x-internal-secret'] || '';
+  const authHeader = req.headers['authorization'] || '';
+
+  if (tokenHeader && tokenHeader === ADMIN_PARCEL_SECRET) {
+    return true;
+  }
+  if (authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.substring(7).trim();
+    if (bearer === ADMIN_PARCEL_SECRET) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Dynamic CORS: Allow requests from official store domains or preview deployments
+  const origin = req.headers.origin || '';
+  const allowedOrigins = [
+    'https://pyjama-dz.net',
+    'https://www.pyjama-dz.net',
+    'https://admin.pyjama-dz.net',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ];
+  if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://www.pyjama-dz.net');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-admin-token,x-internal-secret');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -190,59 +239,122 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
-  try {
-    const { order, company } = req.body || {};
+  // 1. IP Rate Limiting Shield
+  const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+  if (isRateLimited(clientIp)) {
+    console.warn(`[create-parcel] Rate limit exceeded for IP: ${clientIp}`);
+    return res.status(429).json({ success: false, error: 'Too many requests. Please wait a minute.' });
+  }
 
-    if (!order) {
-      return res.status(400).json({ success: false, error: 'Missing order details' });
+  // 2. Authentication Shield: Block unauthenticated access
+  if (!isAuthorized(req)) {
+    console.warn(`[create-parcel] Blocked unauthorized parcel creation attempt from IP ${clientIp}`);
+    return res.status(401).json({ success: false, error: 'Unauthorized: Missing or invalid admin authorization token.' });
+  }
+
+  try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    const incomingOrder = body.order || {};
+    const company = body.company;
+    const targetOrderId = incomingOrder.id || body.orderId;
+
+    // 3. Strict Database Order Existence Validation: Arbitrary parcel creation is forbidden
+    if (!targetOrderId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required order ID. Arbitrary parcel creation without an existing database order is prohibited.' 
+      });
     }
 
-    const rawComp = String(company || order.deliveryCompany || '').toLowerCase();
+    // 4. Fetch canonical order from Supabase
+    let dbOrder = null;
+    try {
+      const orderRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(targetOrderId)}&select=*`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const orderRows = await orderRes.json();
+      if (Array.isArray(orderRows) && orderRows.length > 0) {
+        dbOrder = orderRows[0];
+      }
+    } catch (dbErr) {
+      console.error('[create-parcel] Error fetching order from Supabase:', dbErr);
+    }
+
+    if (!dbOrder) {
+      return res.status(404).json({
+        success: false,
+        error: `Order #${targetOrderId} not found in database.`
+      });
+    }
+
+    const rawComp = String(company || incomingOrder.deliveryCompany || dbOrder.deliveryCompany || '').toLowerCase();
     const isZR = rawComp === 'zrexpress' || 
                  rawComp === 'zr' || 
                  rawComp.includes('zr') || 
-                 String(order.deliveryMode || '').includes('Hub') || 
-                 String(order.commune || '').includes('Hub');
+                 String(dbOrder.deliveryMode || incomingOrder.deliveryMode || '').includes('Hub') || 
+                 String(dbOrder.commune || incomingOrder.commune || '').includes('Hub');
 
     const effectiveCompany = isZR ? 'zrexpress' : 'yalidine';
 
     const creds = await getDeliverySettings();
+
+    const isFreeShipping = Boolean(
+      dbOrder.isFreeShipping === true ||
+      incomingOrder.isFreeShipping === true ||
+      Number(dbOrder.totalPrice || dbOrder.price || 0) >= 10000 ||
+      Number(dbOrder.deliveryFee) === 0
+    );
+
+    const codProductPrice = isFreeShipping 
+      ? Number(dbOrder.price || dbOrder.totalPrice || incomingOrder.price || 0)
+      : Number(dbOrder.totalPrice || (Number(dbOrder.price || 0) + Number(dbOrder.deliveryFee || 0)));
+
+    // 5. Prevent duplicate parcel creation if already created
+    if (dbOrder.trackingNumber || dbOrder.tracking_number) {
+      const existingTracking = dbOrder.trackingNumber || dbOrder.tracking_number;
+      console.log(`[create-parcel] Order ${targetOrderId} already has parcel: ${existingTracking}`);
+      return res.status(200).json({
+        success: true,
+        alreadyCreated: true,
+        trackingNumber: existingTracking,
+        shippingLabelUrl: dbOrder.shippingLabelUrl || '',
+        deliveryCompany: dbOrder.deliveryCompany || effectiveCompany,
+        codPrice: codProductPrice
+      });
+    }
+
+    // 6. Status Validation: Prevent creating parcels for cancelled or refunded orders
+    if (dbOrder.status === 'annulee' || dbOrder.status === 'remboursee') {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot create parcel for order with status '${dbOrder.status}'.`
+      });
+    }
+
+    // 7. Authoritative Order Construct: Verified DB fields take absolute precedence over untrusted client payload
+    const order = {
+      ...incomingOrder,
+      ...dbOrder,
+      id: dbOrder.id,
+      ticketNumber: dbOrder.ticketNumber || incomingOrder.ticketNumber,
+      clientName: dbOrder.clientName || incomingOrder.clientName,
+      phone: dbOrder.phone || dbOrder.whatsapp || incomingOrder.phone,
+      wilaya: dbOrder.wilaya || incomingOrder.wilaya,
+      commune: dbOrder.commune || incomingOrder.commune,
+      price: dbOrder.price ?? incomingOrder.price,
+      totalPrice: dbOrder.totalPrice ?? incomingOrder.totalPrice,
+      deliveryFee: dbOrder.deliveryFee ?? incomingOrder.deliveryFee,
+      deliveryMode: dbOrder.deliveryMode || incomingOrder.deliveryMode,
+      items: dbOrder.items || incomingOrder.items,
+      deliveryCompany: effectiveCompany
+    };
+
     const isStopdesk = Boolean(
       String(order.deliveryMode || '').toLowerCase().includes('bureau') ||
       String(order.deliveryMode || '').toLowerCase().includes('stop') ||
       order.is_stopdesk
     );
 
-    const isFreeShipping = Boolean(
-      order.isFreeShipping === true ||
-      Number(order.totalPrice || order.price || 0) >= 10000 ||
-      Number(order.deliveryFee) === 0
-    );
-
-    const codProductPrice = isFreeShipping 
-      ? Number(order.price || order.totalPrice || 0)
-      : Number(order.totalPrice || (order.price + (order.deliveryFee || 0)));
-
-    // Prevent duplicate parcel creation if already created by WhatsApp or another action
-    if (order.id) {
-      try {
-        const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${order.id}&select=id,trackingNumber,shippingLabelUrl,deliveryCompany`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        const checkRows = await checkRes.json();
-        if (Array.isArray(checkRows) && checkRows[0] && checkRows[0].trackingNumber) {
-          console.log(`[create-parcel] Order ${order.id} already has parcel: ${checkRows[0].trackingNumber}`);
-          return res.status(200).json({
-            success: true,
-            alreadyCreated: true,
-            trackingNumber: checkRows[0].trackingNumber,
-            shippingLabelUrl: checkRows[0].shippingLabelUrl || '',
-            deliveryCompany: checkRows[0].deliveryCompany || effectiveCompany,
-            codPrice: codProductPrice
-          });
-        }
-      } catch (e) {}
-    }
     const { firstname, familyname } = splitFullName(order.clientName);
     const contactPhone = formatAlgerianPhone(order.phone || order.whatsapp);
     const normalizedToWilaya = normalizeWilaya(order.wilaya);

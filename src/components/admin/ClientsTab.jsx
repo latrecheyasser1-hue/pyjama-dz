@@ -110,7 +110,7 @@ export default function ClientsTab({ orders = [], products = [] }) {
       const timeoutId = setTimeout(() => controller.abort(), 20000);
       const res = await fetch('/api/cron-notifications?action=weekly_hot_sale', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': import.meta.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3' },
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -135,7 +135,7 @@ export default function ClientsTab({ orders = [], products = [] }) {
       const timeoutId = setTimeout(() => controller.abort(), 20000);
       const res = await fetch('/api/cron-notifications?action=followup_14_days', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': import.meta.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3' },
         signal: controller.signal
       });
       clearTimeout(timeoutId);

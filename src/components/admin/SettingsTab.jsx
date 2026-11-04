@@ -145,7 +145,7 @@ export default function SettingsTab({ settings, onUpdateSettings, currentPin, on
   const handleManualSyncTracking = async () => {
     setIsSyncingTracking(true);
     try {
-      const res = await fetch('/api/track-shipments');
+      const res = await fetch('/api/track-shipments', { headers: { 'x-admin-token': import.meta.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3' } });
       const data = await res.json();
       if (data.success) {
         alert(`✅ تمت المزامنة بنجاح!\n• عدد الطرود المفحوصة: ${data.activeOrdersChecked}\n• عدد الطرود المحدثة: ${data.ordersUpdated}\n• عدد الإشعارات المرسلة للزبائن: ${data.notificationsSent} إشعار 📦✨`);

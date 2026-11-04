@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { YALIDINE_AGENCIES } from '../src/data/yalidineAgencies.js';
 import { ZR_AGENCIES } from '../src/data/zrAgencies.js';
 import { ZR_TERRITORIES } from '../src/data/zrTerritories.js';
@@ -6,7 +7,6 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuej
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
 
-const DEFAULT_TOKEN = 'EAAguaWHGlf8BSKaHVaNhbDcXWvirUZCAtEQwuHus3c6VCPYV6BzJhJMGZBv0y7LPe2UTWP1KOFKngJCRqiumnd6R27VNOZABQlmGzzbl87arKbPuvgZBag148noX6nLxjkKMO7Ue0hiLUDRS4spYopCGpuwHTZCnPW4Deyzivxg3xlphgLBdUZAWWRD5Y0HwZDZD';
 
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'pyjama_dz_secret_verify_token';
@@ -15,6 +15,12 @@ let cachedToken = null;
 let lastTokenFetch = 0;
 
 async function getMetaAccessToken() {
+  if (process.env.META_ACCESS_TOKEN && process.env.META_ACCESS_TOKEN.length > 20) {
+    return process.env.META_ACCESS_TOKEN.trim();
+  }
+  if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_TOKEN.length > 20) {
+    return process.env.WHATSAPP_TOKEN.trim();
+  }
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.meta_access_token`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -26,7 +32,7 @@ async function getMetaAccessToken() {
   } catch (err) {
     console.error('Error fetching token from Supabase:', err);
   }
-  return DEFAULT_TOKEN;
+  return null;
 }
 
 async function saveStockAlertRecord(msgId, phone, productId, colorIdx, size) {
@@ -231,8 +237,7 @@ async function downloadMetaMedia(mediaId) {
   const tokens = [];
   const dynToken = await getMetaAccessToken();
   if (dynToken) tokens.push(dynToken);
-  if (DEFAULT_TOKEN && !tokens.includes(DEFAULT_TOKEN)) tokens.push(DEFAULT_TOKEN);
-
+  
   for (const token of tokens) {
     try {
       const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
@@ -2871,15 +2876,23 @@ export default async function handler(req, res) {
       return res.end(String(crcToken));
     }
 
-    // Check Meta webhook verification
+    // Check Meta webhook verification with strict token match
     const mode = query['hub.mode'] || searchParams.get('hub.mode');
     const challenge = query['hub.challenge'] || searchParams.get('hub.challenge');
-    if (mode === 'subscribe' || challenge) {
-      res.setHeader('Content-Type', 'text/plain');
-      res.statusCode = 200;
-      const respVal = String(challenge || 'OK');
-      if (typeof res.send === 'function') return res.send(respVal);
-      return res.end(respVal);
+    const verifyToken = query['hub.verify_token'] || searchParams.get('hub.verify_token');
+
+    if (mode === 'subscribe') {
+      if (verifyToken === VERIFY_TOKEN) {
+        res.setHeader('Content-Type', 'text/plain');
+        res.statusCode = 200;
+        const respVal = String(challenge || 'OK');
+        if (typeof res.send === 'function') return res.send(respVal);
+        return res.end(respVal);
+      } else {
+        console.warn('[Meta Webhook] Verify token mismatch:', verifyToken);
+        res.statusCode = 403;
+        return res.end('Verification token mismatch');
+      }
     }
 
     // Fallback: If query contains any key, echo it or diagnostic
@@ -2898,6 +2911,28 @@ export default async function handler(req, res) {
 
     // Handle Yalidine parcel status webhook
     if (body && Array.isArray(body.events)) {
+      const webhookSecret = process.env.WEBHOOK_SECRET || 'pyjama_dz_wh_sec_77a1b2c3d4e5';
+      const adminSecret = process.env.ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3';
+      
+      const rawUrl = req.url || '';
+      const qIndex = rawUrl.indexOf('?');
+      const searchParams = new URLSearchParams(qIndex !== -1 ? rawUrl.slice(qIndex + 1) : '');
+      const query = req.query || {};
+      const queryToken = query.secret || query.token || searchParams.get('secret') || searchParams.get('token');
+      const headerSecret = req.headers['x-webhook-secret'] || req.headers['x-admin-token'];
+      const yalidineApiId = req.headers['x-api-id'];
+      const yalidineApiToken = req.headers['x-api-token'];
+
+      const isAuthorizedYalidine = 
+        (queryToken && (queryToken === webhookSecret || queryToken === adminSecret)) ||
+        (headerSecret && (headerSecret === webhookSecret || headerSecret === adminSecret)) ||
+        (yalidineApiId && yalidineApiToken && yalidineApiId === process.env.YALIDINE_API_ID);
+
+      if (!isAuthorizedYalidine) {
+        const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+        console.warn(`[Yalidine Webhook] Blocked unauthorized status event from IP: ${clientIp}`);
+        return res.status(401).json({ error: 'Unauthorized: Invalid Yalidine webhook credentials or token' });
+      }
       try {
         for (const ev of body.events) {
           const tracking = ev.data?.tracking;
@@ -2949,6 +2984,18 @@ export default async function handler(req, res) {
     }
 
     if (body) {
+      const hubSig = req.headers['x-hub-signature-256'];
+      if (process.env.META_APP_SECRET && hubSig) {
+        try {
+          const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+          const expected = 'sha256=' + crypto.createHmac('sha256', process.env.META_APP_SECRET).update(raw).digest('hex');
+          if (hubSig !== expected) {
+            console.warn('[Meta Webhook] Signature mismatch');
+            return res.status(401).json({ error: 'Invalid HMAC signature' });
+          }
+        } catch (e) {}
+      }
+
       try {
         await processIncomingPayload(body);
       } catch (err) {

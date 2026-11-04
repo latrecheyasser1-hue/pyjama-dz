@@ -22,7 +22,7 @@ export const INITIAL_EXPENSES = [
 
 export const INITIAL_SETTINGS = {
   categories: DEFAULT_CATEGORIES,
-  pin: "765483",
+  pin: "",
   instagram: "https://www.instagram.com/pyjama_dz",
   googleMaps: "https://maps.app.goo.gl/algeria-pyjama-dz",
   phones: ["0554 12 89 33", "0661 98 23 45"],

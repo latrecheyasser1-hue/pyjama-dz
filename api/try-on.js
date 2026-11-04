@@ -80,7 +80,30 @@ function resolveStudioModel(color = '', bodyType = 'regular') {
   return '/models/satin_navy.jpg';
 }
 
+const tryOnIpTracker = new Map();
+const TRY_ON_WINDOW_MS = 5 * 60 * 1000;
+const MAX_TRY_ON_PER_IP = 10;
+
+function checkTryOnRateLimit(ip) {
+  const now = Date.now();
+  const record = tryOnIpTracker.get(ip) || { count: 0, resetAt: now + TRY_ON_WINDOW_MS };
+  if (now > record.resetAt) {
+    record.count = 0;
+    record.resetAt = now + TRY_ON_WINDOW_MS;
+  }
+  record.count += 1;
+  tryOnIpTracker.set(ip, record);
+  return record.count <= MAX_TRY_ON_PER_IP;
+}
+
 export default async function handler(req, res) {
+  // Security Fix (DEEP-04): IP Rate Limiting to prevent DoS & API burn
+  const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || '127.0.0.1';
+  if (req.method === 'POST' && !checkTryOnRateLimit(clientIp)) {
+    console.warn(`[try-on] Rate limit exceeded for IP: ${clientIp}`);
+    return res.status(429).json({ error: 'تم تجاوز الحد المسموح لتجربة الملابس. يرجى الانتظار بضع دقائق.' });
+  }
+
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');

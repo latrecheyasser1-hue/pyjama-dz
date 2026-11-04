@@ -24,6 +24,8 @@ import { showToast } from '../../utils/toast';
 import { supabase } from '../../lib/supabaseClient';
 import ExchangeOrderCard from './ExchangeOrderCard';
 
+const ADMIN_PARCEL_SECRET = import.meta.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3';
+
 export default function ExchangesReturnsTab({ 
   orders = [], 
   products = [], 
@@ -85,7 +87,7 @@ export default function ExchangesReturnsTab({
     setIsSyncingCourier(true);
     showToast('⏳ جاري فحص ومزامنة حالة طرود الاستبدال مع شركات التوصيل...', 'info');
     try {
-      const res = await fetch('/api/track-shipments', { method: 'GET' });
+      const res = await fetch('/api/track-shipments', { method: 'GET', headers: { 'x-admin-token': import.meta.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3' } });
       const data = await res.json();
       if (data && data.success) {
         showToast('✅ تم فحص وتحديث طرود الاستبدال مع شركات التوصيل بنجاح!', 'success');
@@ -445,7 +447,10 @@ export default function ExchangesReturnsTab({
 
       const res = await fetch('/api/approve-exchange', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-token': ADMIN_PARCEL_SECRET
+        },
         body: JSON.stringify({
           orderId: order.id,
           action: 'approve'
@@ -480,7 +485,10 @@ export default function ExchangesReturnsTab({
 
       const res = await fetch('/api/approve-exchange', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-token': ADMIN_PARCEL_SECRET
+        },
         body: JSON.stringify({
           orderId: order.id,
           action: 'reject',

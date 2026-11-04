@@ -1,14 +1,18 @@
+import crypto from 'crypto';
+
 // ZR Express Svix Webhook Handler
 // Completely isolated from Yalidine
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
-const DEFAULT_TOKEN = 'EAAguaWHGlf8BSKaHVaNhbDcXWvirUZCAtEQwuHus3c6VCPYV6BzJhJMGZBv0y7LPe2UTWP1KOFKngJCRqiumnd6R27VNOZABQlmGzzbl87arKbPuvgZBag148noX6nLxjkKMO7Ue0hiLUDRS4spYopCGpuwHTZCnPW4Deyzivxg3xlphgLBdUZAWWRD5Y0HwZDZD';
 
 async function getMetaAccessToken() {
   if (process.env.META_ACCESS_TOKEN && process.env.META_ACCESS_TOKEN.length > 20) {
-    return process.env.META_ACCESS_TOKEN;
+    return process.env.META_ACCESS_TOKEN.trim();
+  }
+  if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_TOKEN.length > 20) {
+    return process.env.WHATSAPP_TOKEN.trim();
   }
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.meta_access_token&select=value`, {
@@ -19,7 +23,7 @@ async function getMetaAccessToken() {
       return data[0].value.trim();
     }
   } catch (err) {}
-  return DEFAULT_TOKEN;
+  return null;
 }
 
 async function sendWhatsAppMessage(toPhone, textBody) {
@@ -71,6 +75,54 @@ async function saveBureauMeta(identifier, meta) {
   }
 }
 
+const ZR_WEBHOOK_SECRET = process.env.ZR_WEBHOOK_SECRET || 'pyjama_dz_zr_wh_sec_2026';
+const ADMIN_PARCEL_SECRET = process.env.ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3';
+
+function verifyZRWebhook(req) {
+  // 1. Check Svix headers if provided by ZR Express
+  const svixId = req.headers['svix-id'];
+  const svixTimestamp = req.headers['svix-timestamp'];
+  const svixSignature = req.headers['svix-signature'];
+
+  if (svixId && svixTimestamp && svixSignature) {
+    try {
+      const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      const toSign = `${svixId}.${svixTimestamp}.${rawBody}`;
+      const secret = ZR_WEBHOOK_SECRET.startsWith('whsec_') 
+        ? Buffer.from(ZR_WEBHOOK_SECRET.slice(6), 'base64') 
+        : Buffer.from(ZR_WEBHOOK_SECRET);
+      const expectedSig = 'v1,' + crypto.createHmac('sha256', secret).update(toSign).digest('base64');
+      const passedSigs = svixSignature.split(' ');
+      if (passedSigs.includes(expectedSig)) return true;
+    } catch (e) {
+      console.error('[ZR Webhook] Svix verification error:', e);
+    }
+  }
+
+  // 2. Check secret token via query parameter (?secret=... or ?token=...)
+  const query = req.query || {};
+  const queryToken = query.secret || query.token;
+  if (queryToken && (queryToken === ZR_WEBHOOK_SECRET || queryToken === ADMIN_PARCEL_SECRET)) {
+    return true;
+  }
+
+  // 3. Check secret token via header (x-webhook-secret or x-admin-token or authorization)
+  const headerToken = req.headers['x-webhook-secret'] || req.headers['x-admin-token'] || req.headers['x-api-key'] || '';
+  if (headerToken && (headerToken === ZR_WEBHOOK_SECRET || headerToken === ADMIN_PARCEL_SECRET)) {
+    return true;
+  }
+
+  const authHeader = req.headers['authorization'] || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.slice(7).trim();
+    if (bearer === ZR_WEBHOOK_SECRET || bearer === ADMIN_PARCEL_SECRET) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({ status: 'ZR Express Webhook Active' });
@@ -78,6 +130,13 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  // Security Shield: Verify webhook signature or authorized token
+  if (!verifyZRWebhook(req)) {
+    const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+    console.warn(`[ZR Webhook] Blocked unauthorized webhook call from IP: ${clientIp}`);
+    return res.status(401).json({ error: 'Unauthorized: Invalid ZR webhook signature or secret token' });
   }
 
   try {

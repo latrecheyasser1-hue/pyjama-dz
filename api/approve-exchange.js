@@ -1,14 +1,41 @@
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuejwtp.supabase.co';
+const ADMIN_PARCEL_SECRET = process.env.ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3';
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 
+function isAuthorized(req) {
+  const tokenHeader = req.headers['x-admin-token'] || req.headers['x-internal-secret'] || '';
+  const authHeader = req.headers['authorization'] || '';
+
+  if (tokenHeader && tokenHeader === ADMIN_PARCEL_SECRET) {
+    return true;
+  }
+  if (authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.substring(7).trim();
+    if (bearer === ADMIN_PARCEL_SECRET) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  const origin = req.headers.origin || '';
+  const allowedOrigins = [
+    'https://pyjama-dz.net',
+    'https://www.pyjama-dz.net',
+    'https://admin.pyjama-dz.net',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ];
+  if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://www.pyjama-dz.net');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-admin-token');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -16,6 +43,42 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Handle Server-Side PIN Verification (NEW-01)
+  const body = req.body || {};
+  if (body.action === 'verify_pin') {
+    const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+    if (!global._pinAttemptsMap) global._pinAttemptsMap = new Map();
+    const now = Date.now();
+    const attempt = global._pinAttemptsMap.get(clientIp) || { count: 0, lockedUntil: 0 };
+    if (attempt.lockedUntil && attempt.lockedUntil > now) {
+      const remainingSec = Math.ceil((attempt.lockedUntil - now) / 1000);
+      return res.status(429).json({ error: `محاولات خاطئة متعددة. يرجى الانتظار ${remainingSec} ثانية.`, locked: true, remainingSec });
+    }
+
+    const enteredPin = String(body.pin || '').trim();
+    const validPin = process.env.ADMIN_PIN || '765483';
+
+    if (enteredPin === validPin) {
+      global._pinAttemptsMap.delete(clientIp);
+      return res.status(200).json({ success: true, role: 'admin', token: ADMIN_PARCEL_SECRET });
+    } else {
+      attempt.count += 1;
+      if (attempt.count >= 5) {
+        attempt.lockedUntil = now + 15 * 60 * 1000;
+        attempt.count = 0;
+      }
+      global._pinAttemptsMap.set(clientIp, attempt);
+      return res.status(401).json({ success: false, error: 'رمز الدخول غير صحيح (Code PIN incorrect)!' });
+    }
+  }
+
+  // Security Shield: Admin authorization token check
+  if (!isAuthorized(req)) {
+    const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+    console.warn(`[approve-exchange] Blocked unauthorized attempt from IP ${clientIp}`);
+    return res.status(401).json({ error: 'Unauthorized: Admin authentication token required to approve or reject exchanges.' });
   }
 
   try {
@@ -49,6 +112,15 @@ export default async function handler(req, res) {
     // ACTION: APPROVE & CREATE PARCEL
     // ==========================================
     if (action === 'approve') {
+      if (order.exchangeStatus === 'approved' && order.trackingNumber) {
+        return res.status(200).json({
+          success: true,
+          alreadyApproved: true,
+          action: 'approved',
+          trackingNumber: order.trackingNumber,
+          deliveryCompany: order.deliveryCompany || 'zrexpress'
+        });
+      }
       let trackingNumber = order.trackingNumber || null;
       let shippingLabelUrl = order.shippingLabelUrl || null;
       let deliveryCompany = order.deliveryCompany || 'zrexpress';
@@ -62,7 +134,7 @@ export default async function handler(req, res) {
 
           const parcelRes = await fetch(createParcelUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_PARCEL_SECRET },
             body: JSON.stringify({ order, company: deliveryCompany })
           });
           const parcelData = await parcelRes.json();
@@ -78,7 +150,7 @@ export default async function handler(req, res) {
           try {
             const fallbackRes = await fetch('https://www.pyjama-dz.net/api/create-parcel', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_PARCEL_SECRET },
               body: JSON.stringify({ order, company: deliveryCompany })
             });
             const fallbackData = await fallbackRes.json();
@@ -149,7 +221,7 @@ export default async function handler(req, res) {
       try {
         await fetch('https://www.pyjama-dz.net/api/send-order-whatsapp', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_PARCEL_SECRET },
           body: JSON.stringify({
             phone: order.phone,
             clientName: String(order.clientName || '').replace(/\[.*?\]/g, '').trim(),
@@ -179,6 +251,14 @@ export default async function handler(req, res) {
     // ACTION: REJECT
     // ==========================================
     if (action === 'reject') {
+      if (order.exchangeStatus === 'rejected') {
+        return res.status(200).json({
+          success: true,
+          alreadyRejected: true,
+          action: 'rejected',
+          reason: order.exchange_rejection_reason || reason || 'Already rejected'
+        });
+      }
       const rejectionReason = reason || (isReturn ? 'تعذر استرجاع هذا المنتج وفق سياسة المتجر' : 'تعذر استبدال هذا المنتج وفق سياسة المتجر');
 
       const updatePayload = {
@@ -203,7 +283,7 @@ export default async function handler(req, res) {
       try {
         await fetch('https://www.pyjama-dz.net/api/send-order-whatsapp', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_PARCEL_SECRET },
           body: JSON.stringify({
             phone: order.phone,
             clientName: String(order.clientName || '').replace(/\[.*?\]/g, '').trim(),

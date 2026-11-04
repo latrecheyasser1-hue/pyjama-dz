@@ -16,7 +16,6 @@ import { fetchReviews, deleteReview, toggleReviewStatus } from '../services/revi
 import { supabase } from '../lib/supabaseClient.js';
 import { formatPrice } from '../utils/formatUtils.js';
 
-const OWNER_PIN = '765483';
 
 // Helper to safely parse dates in multiple formats
 const parseItemDate = (str) => {
@@ -542,18 +541,29 @@ export default function AliOwnerDashboard({
     );
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (enteredPin.trim() === OWNER_PIN) {
-      setIsAuthenticated(true);
-      setPinError(false);
-      try {
-        sessionStorage.setItem('pyjama_ali_auth', 'true');
-      } catch (err) {}
-    } else {
-      setPinError(true);
-      setEnteredPin('');
+    try {
+      const res = await fetch('/api/approve-exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify_pin', pin: enteredPin.trim() })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setIsAuthenticated(true);
+        setPinError(false);
+        if (data.token) sessionStorage.setItem('admin_token', data.token);
+        try {
+          sessionStorage.setItem('pyjama_ali_auth', 'true');
+        } catch (err) {}
+        return;
+      }
+    } catch (err) {
+      console.error('Owner PIN verification error:', err);
     }
+    setPinError(true);
+    setEnteredPin('');
   };
 
   const handleLogout = () => {

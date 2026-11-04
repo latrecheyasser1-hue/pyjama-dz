@@ -4,6 +4,8 @@
  * Returns high-speed CDN URLs and falls back gracefully if network fails.
  */
 
+const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3';
+
 export const uploadImageToR2 = async (base64Data, folder = 'products') => {
   if (!base64Data || typeof base64Data !== 'string') return base64Data;
   
@@ -15,7 +17,10 @@ export const uploadImageToR2 = async (base64Data, folder = 'products') => {
   try {
     const res = await fetch('/api/product-image', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-admin-token': ADMIN_TOKEN
+      },
       body: JSON.stringify({ image: base64Data, folder })
     });
 

@@ -671,7 +671,10 @@ export default function StockTab({ products, onAddProduct, onUpdateProduct, onDe
       try {
         const res = await fetch('/api/notify-restock', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-token': sessionStorage.getItem('admin_token') || import.meta.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3'
+          },
           body: JSON.stringify(payload)
         });
         if (res.ok) {

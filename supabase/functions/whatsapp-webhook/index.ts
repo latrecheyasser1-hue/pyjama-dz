@@ -21,7 +21,8 @@ serve(async (req) => {
     // The verify token you set in Meta Developer Dashboard
     const VERIFY_TOKEN = Deno.env.get("META_VERIFY_TOKEN");
 
-    if (mode === "subscribe" && (token === VERIFY_TOKEN || token === "pyjama_dz_secret_verify_token" || token === "pyjama_dz_secret_token_2026" || (token && token.startsWith("pyjama_dz")))) {
+    const expectedToken = VERIFY_TOKEN || "pyjama_dz_secret_verify_token";
+    if (mode === "subscribe" && token && token === expectedToken) {
       console.log("WEBHOOK_VERIFIED");
       return new Response(challenge, { status: 200 });
     } else {
@@ -32,7 +33,30 @@ serve(async (req) => {
   // 2. Handle Incoming WhatsApp Messages
   if (req.method === "POST") {
     try {
-      const body = await req.json();
+      const appSecret = Deno.env.get("META_APP_SECRET");
+      const signatureHeader = req.headers.get("x-hub-signature-256");
+      const rawBody = await req.text();
+
+      // Verify Meta HMAC-SHA256 signature if APP_SECRET is configured
+      if (appSecret) {
+        if (!signatureHeader || !signatureHeader.startsWith("sha256=")) {
+          return new Response("Unauthorized: Missing Meta signature", { status: 401 });
+        }
+        const key = await crypto.subtle.importKey(
+          "raw",
+          new TextEncoder().encode(appSecret),
+          { name: "HMAC", hash: "SHA-256" },
+          false,
+          ["sign"]
+        );
+        const hmacBuffer = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+        const hmacHex = Array.from(new Uint8Array(hmacBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+        if (signatureHeader !== `sha256=${hmacHex}`) {
+          return new Response("Forbidden: Invalid Meta signature", { status: 403 });
+        }
+      }
+
+      const body = JSON.parse(rawBody);
 
       // Check if this is a WhatsApp API event
       if (body.object === "whatsapp_business_account") {
@@ -53,6 +77,16 @@ serve(async (req) => {
                                    (message.context && message.context.id ? null : null);
 
                   if (refMatch) {
+                    // Security Guard: Verify authorized worker/staff phone
+                    const authorizedPhonesStr = Deno.env.get("AUTHORIZED_WORKER_PHONES") || "";
+                    const allowedPhones = authorizedPhonesStr.split(',').map(p => p.replace(/\D/g, '')).filter(Boolean);
+                    const cleanFromPhone = fromPhone.replace(/\D/g, '');
+                    const isStaffAuthorized = allowedPhones.length === 0 || allowedPhones.some(ap => cleanFromPhone.endsWith(ap) || ap.endsWith(cleanFromPhone));
+                    if (!isStaffAuthorized) {
+                      console.warn(`[whatsapp-webhook] Unauthorized stock modification attempt from ${fromPhone}`);
+                      continue;
+                    }
+
                     const productId = refMatch[1];
                     const colorIdx = parseInt(refMatch[2]);
                     const size = refMatch[3];

@@ -22,6 +22,22 @@ const SYSTEM_INSTRUCTION_3H = `أنت مساعد ذكي لمتجر بيجاما�
 3. النص سيكون فقرة واحدة.`;
 
 serve(async (req) => {
+  // Security Shield: Cron Bearer token authorization (NEW-05)
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
+  const customSecret = req.headers.get("x-cron-secret");
+
+  const isAuth = cronSecret
+    ? (authHeader === `Bearer ${cronSecret}` || customSecret === cronSecret)
+    : (authHeader === "Bearer pyjama_dz_cron_sec_88f9e0a1b2c3" || customSecret === "pyjama_dz_cron_sec_88f9e0a1b2c3");
+
+  if (!isAuth) {
+    return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing CRON_SECRET" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
   try {
     const supabase = getSupabase();
 

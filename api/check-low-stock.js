@@ -2,11 +2,13 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuej
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 
-const DEFAULT_TOKEN = 'EAAguaWHGlf8BSKaHVaNhbDcXWvirUZCAtEQwuHus3c6VCPYV6BzJhJMGZBv0y7LPe2UTWP1KOFKngJCRqiumnd6R27VNOZABQlmGzzbl87arKbPuvgZBag148noX6nLxjkKMO7Ue0hiLUDRS4spYopCGpuwHTZCnPW4Deyzivxg3xlphgLBdUZAWWRD5Y0HwZDZD';
 
 async function getMetaAccessToken() {
   if (process.env.META_ACCESS_TOKEN && process.env.META_ACCESS_TOKEN.length > 20) {
     return process.env.META_ACCESS_TOKEN.trim();
+  }
+  if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_TOKEN.length > 20) {
+    return process.env.WHATSAPP_TOKEN.trim();
   }
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.meta_access_token&select=value`, {
@@ -17,7 +19,7 @@ async function getMetaAccessToken() {
       return data[0].value.trim();
     }
   } catch (err) {}
-  return DEFAULT_TOKEN;
+  return null;
 }
 
 async function sendWhatsAppTemplate(toPhone, templateName = 'hello_world', languageCode = 'en_US') {
@@ -154,6 +156,28 @@ async function notifyWaitingCustomers(productId, colorIdx, size, newQty, variant
   return;
 }
 
+
+const CRON_SECRET = process.env.CRON_SECRET || 'pyjama_dz_cron_sec_88f9e0a1b2c3';
+const ADMIN_SECRET = process.env.ADMIN_PARCEL_SECRET || process.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3';
+
+function isAuthorizedCronOrAdmin(req) {
+  const authHeader = req.headers['authorization'] || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.slice(7).trim();
+    if (bearer === CRON_SECRET || bearer === ADMIN_SECRET) return true;
+  }
+  const tokenHeader = req.headers['x-cron-secret'] || 
+                      req.headers['x-admin-token'] || 
+                      req.headers['x-internal-secret'] || '';
+  if (tokenHeader === CRON_SECRET || tokenHeader === ADMIN_SECRET) return true;
+
+  const query = req.query || {};
+  const queryToken = query.cron_secret || query.secret || query.token;
+  if (queryToken && (queryToken === CRON_SECRET || queryToken === ADMIN_SECRET)) return true;
+
+  return false;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -161,6 +185,13 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // Security Shield (VULN-08): Reject unauthorized low-stock trigger requests
+  if (!isAuthorizedCronOrAdmin(req)) {
+    const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+    console.warn(`[check-low-stock] Blocked unauthorized trigger attempt from IP: ${clientIp}`);
+    return res.status(401).json({ error: 'Unauthorized: Valid CRON_SECRET or Admin authorization token required.' });
   }
 
   try {

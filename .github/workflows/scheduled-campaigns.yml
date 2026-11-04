@@ -17,7 +17,7 @@ jobs:
       - name: Trigger Automated Shipment Tracking & Anti-Retour Alerts
         run: |
           echo "🚚 Triggering Shipping & Anti-Retour WhatsApp Automation..."
-          curl -s -X GET "https://pyjama-dz.vercel.app/api/track-shipments?action=run"
+          curl -s -X GET "https://pyjama-dz.vercel.app/api/track-shipments?action=run" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
       - name: Trigger Weekly Top 10 Hot Sale (Fridays at 10:00 UTC only)
         run: |
@@ -25,7 +25,7 @@ jobs:
           HOUR=$(date +%H)
           if ([ "$DAY_OF_WEEK" -eq 5 ] && [ "$HOUR" -eq 10 ]) || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "🚀 Triggering Weekly Top 10 Hot Sale Campaign..."
-            curl -s -X GET "https://pyjama-dz.vercel.app/api/cron-notifications?action=weekly_hot_sale"
+            curl -s -X GET "https://pyjama-dz.vercel.app/api/cron-notifications?action=weekly_hot_sale" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
           else
             echo "ℹ️ Skipping Weekly Hot Sale (only runs on Friday at 10:00 AM UTC / 11:00 AM DZ)."
           fi
@@ -35,7 +35,7 @@ jobs:
           HOUR=$(date +%H)
           if [ "$HOUR" -eq 11 ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "🌸 Triggering 14-Day Customer Follow-up Check..."
-            curl -s -X GET "https://pyjama-dz.vercel.app/api/cron-notifications?action=followup_14_days"
+            curl -s -X GET "https://pyjama-dz.vercel.app/api/cron-notifications?action=followup_14_days" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
           else
             echo "ℹ️ Skipping Follow-up Check (only runs at 11:00 AM UTC / 12:00 PM DZ)."
           fi

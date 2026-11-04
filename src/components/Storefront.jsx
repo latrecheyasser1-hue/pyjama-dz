@@ -679,14 +679,18 @@ function ProductDetailPage({ product, products, categoriesList, onBack, onAddToC
 
   // Sync main image when variant changes
   useEffect(() => {
+    const imgList = Array.isArray(product?.images) && product.images.length > 0 ? product.images : [product?.image || ''];
     if (activeVariant?.image) {
-      const imgList = Array.isArray(product?.images) && product.images.length > 0 ? product.images : [product?.image || ''];
       const matchedIdx = imgList.indexOf(activeVariant.image);
       if (matchedIdx !== -1) {
         setActiveImageIdx(matchedIdx);
+        return;
       }
     }
-  }, [selectedVariantIdx]);
+    if (selectedVariantIdx !== null && selectedVariantIdx < imgList.length) {
+      setActiveImageIdx(selectedVariantIdx);
+    }
+  }, [selectedVariantIdx, activeVariant]);
 
   const allImages = Array.isArray(product?.images) && product.images.length > 0 
     ? product.images 

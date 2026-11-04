@@ -2,7 +2,6 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://qnbwyblbxtwubmuej
 const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuYnd5YmxieHR3dWJtdWVqd3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDEwMDUsImV4cCI6MjA5ODY3NzAwNX0.CyhfuvI0IW1hxwDEkcih54uIH6T2kSU1pH_OPOz7Eoo';
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || '1280420541815907';
 
-const DEFAULT_TOKEN = 'EAAguaWHGlf8BSKaHVaNhbDcXWvirUZCAtEQwuHus3c6VCPYV6BzJhJMGZBv0y7LPe2UTWP1KOFKngJCRqiumnd6R27VNOZABQlmGzzbl87arKbPuvgZBag148noX6nLxjkKMO7Ue0hiLUDRS4spYopCGpuwHTZCnPW4Deyzivxg3xlphgLBdUZAWWRD5Y0HwZDZD';
 
 function normalizeText(text) {
   if (!text) return "";
@@ -33,7 +32,7 @@ async function getMetaAccessToken() {
       return data[0].value.trim();
     }
   } catch (e) {}
-  return process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || DEFAULT_TOKEN;
+  return process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || null;
 }
 
 // Helper to format phone numbers to Meta WhatsApp international format (213XXXXXXXXX)
@@ -125,12 +124,32 @@ function isSizeMatch(targetSize, orderSize) {
   return normOrderSize === normTargetSize || normOrderSize === 'STANDARD' || normTargetSize === 'STANDARD';
 }
 
+function isAuthorizedAdminOrCron(req) {
+  const adminSecret = process.env.ADMIN_PARCEL_SECRET || process.env.VITE_ADMIN_PARCEL_SECRET;
+  const cronSecret = process.env.CRON_SECRET;
+  const headers = req.headers || {};
+  const authHeader = headers['authorization'] || headers['Authorization'] || '';
+  const adminTokenHeader = headers['x-admin-token'] || headers['x-admin-secret'] || '';
+
+  if (adminSecret && adminTokenHeader && adminTokenHeader === adminSecret) return true;
+  if (adminSecret && authHeader === `Bearer ${adminSecret}`) return true;
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true;
+  return false;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-token');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Security Shield: Restock notifications must be triggered by Admin or Cron
+  if (!isAuthorizedAdminOrCron(req)) {
+    const clientIp = (req.headers?.['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+    console.warn(`[notify-restock] Blocked unauthorized restock notification request from IP: ${clientIp}`);
+    return res.status(401).json({ error: 'Unauthorized: Admin authentication token required to trigger restock notifications.' });
+  }
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || req.query || {});

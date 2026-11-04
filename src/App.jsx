@@ -87,6 +87,8 @@ export default function App() {
   });
   const [orders, setOrders] = useState(() => {
     try {
+      const isAdmin = checkIsAdminPath();
+      if (!isAdmin) return [];
       const cached = localStorage.getItem('pyjama_orders_cache');
       return cached ? JSON.parse(cached) : [];
     } catch(e) { return []; }
@@ -105,8 +107,12 @@ export default function App() {
           delete parsed.yalidine_api_token;
           delete parsed.yalidine_api_id;
           delete parsed.meta_access_token;
+          delete parsed.groq_api_key;
+          delete parsed.cashierPin;
+          delete parsed.reclamations;
+          delete parsed.employees;
           Object.keys(parsed).forEach(k => {
-            if (k.startsWith('alert_') || k.startsWith('active_msgs_') || k.startsWith('notified_')) delete parsed[k];
+            if (k.startsWith('alert_') || k.startsWith('active_msgs_') || k.startsWith('notified_') || k.startsWith('lock_')) delete parsed[k];
           });
         }
         if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
@@ -369,6 +375,12 @@ export default function App() {
   const fetchData = async (table, setter) => {
     const isAdmin = checkIsAdminPath();
 
+    // Security Barrier (VULN-07): Non-admin public visitors are strictly blocked from fetching private tables
+    if (!isAdmin && table !== 'products') {
+      console.warn(`[Security Barrier] Blocked unauthenticated data fetch for private table: ${table}`);
+      return;
+    }
+
     // Instant initial render from cache (stale-while-revalidate: ALWAYS fetches fresh data from database)
     if (table === 'products' && !isAdmin) {
       try {
@@ -516,7 +528,7 @@ export default function App() {
         delete lowStockDebounceRef.current[alertKey];
         fetch('/api/check-low-stock', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': import.meta.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3' },
           body: JSON.stringify({ product: updatedProd, changedVariant })
         }).catch(err => console.error('Low stock check error:', err));
       }, 350);
@@ -533,7 +545,10 @@ export default function App() {
         const targetCv = (updatedProd.colorVariants || [])[changedVariant.colorIdx];
         fetch('/api/notify-restock', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-admin-token': sessionStorage.getItem('admin_token') || import.meta.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3'
+          },
           body: JSON.stringify({
             productId: id,
             productTitle: updatedProd.title,
@@ -589,6 +604,30 @@ export default function App() {
   };
 
   const fetchSettings = async () => {
+    const isAdmin = checkIsAdminPath();
+
+    // Whitelist of safe, non-sensitive configuration keys needed by the public storefront
+    const PUBLIC_SETTINGS_KEYS = [
+      'storeName',
+      'categories',
+      'whatsapp',
+      'phoneOrders',
+      'instagramUrl',
+      'facebookUrl',
+      'tiktokUrl',
+      'address',
+      'googleMapsUrl',
+      'googleMaps',
+      'facebook',
+      'tiktok',
+      'hot_sale_products',
+      'free_shipping_threshold',
+      'announcement_bar',
+      'banner_text',
+      'banner_active',
+      'shipping_rates'
+    ];
+
     try {
       const { data: catData } = await supabase.from('settings').select('*').eq('key', 'categories');
       if (catData && catData.length > 0 && catData[0].value) {
@@ -602,24 +641,20 @@ export default function App() {
       }
     } catch (e) {}
 
-    const isAdmin = checkIsAdminPath();
-
     let settingsQuery = supabase.from('settings').select('key,value');
-    
-    // Always exclude backend-only internal message logs from frontend memory
-    settingsQuery = settingsQuery
-      .not('key', 'like', 'alert_%')
-      .not('key', 'like', 'active_msgs_%')
-      .not('key', 'like', 'notified_%')
-      .not('key', 'like', 'lock_%')
-      .not('key', 'like', 'meta_%')
-      .not('key', 'like', 'groq_%');
 
-    // On public storefront (non-admin), also strictly exclude delivery credentials
     if (!isAdmin) {
+      // Security Shield: Public shoppers only query explicit public store parameters
+      settingsQuery = settingsQuery.in('key', PUBLIC_SETTINGS_KEYS);
+    } else {
+      // In admin/staff mode, exclude backend internal message logs
       settingsQuery = settingsQuery
-        .not('key', 'like', 'zr_express_%')
-        .not('key', 'like', 'yalidine_%');
+        .not('key', 'like', 'alert_%')
+        .not('key', 'like', 'active_msgs_%')
+        .not('key', 'like', 'notified_%')
+        .not('key', 'like', 'lock_%')
+        .not('key', 'like', 'meta_%')
+        .not('key', 'like', 'groq_%');
     }
 
     const { data, error } = await settingsQuery.limit(100);
@@ -628,14 +663,8 @@ export default function App() {
       data.forEach(item => {
         if (!item || !item.key) return;
 
-        // Security shield: Never inject private tokens into public client state or localStorage
-        if (!isAdmin && (
-          item.key.startsWith('zr_express_') || 
-          item.key.startsWith('yalidine_') || 
-          item.key.startsWith('meta_') || 
-          item.key.startsWith('alert_') ||
-          item.key.startsWith('active_msgs_')
-        )) {
+        // Security shield: Strict verification against private keys in public state
+        if (!isAdmin && !PUBLIC_SETTINGS_KEYS.includes(item.key)) {
           return;
         }
 
@@ -656,61 +685,63 @@ export default function App() {
       });
     }
 
-    // Also fetch dedicated 'reclamations' table and RLS-free 'orders' reclamations from Supabase DB to ensure instant mobile delivery
-    try {
-      const { data: recsDb } = await supabase.from('reclamations').select('*').neq('status', 'resolue').order('created_at', { ascending: false });
-      let mapped = [];
-      if (recsDb && recsDb.length > 0) {
-        mapped = recsDb.map(r => ({
-          id: r.id || 'REC-' + (r.created_at ? new Date(r.created_at).getTime() : Date.now()),
-          clientName: r.clientName || r.client_name || 'زائر المتجر',
-          whatsappNumber: r.whatsappNumber || r.whatsapp_number || r.phone || '',
-          message: r.message || '',
-          status: r.status || 'nouvelle',
-          createdAt: r.created_at || r.createdAt || new Date().toISOString()
-        }));
-      }
+    // Reclamations and order complaints are strictly private and accessible only on admin routes
+    if (isAdmin) {
+      try {
+        const { data: recsDb } = await supabase.from('reclamations').select('*').neq('status', 'resolue').order('created_at', { ascending: false });
+        let mapped = [];
+        if (recsDb && recsDb.length > 0) {
+          mapped = recsDb.map(r => ({
+            id: r.id || 'REC-' + (r.created_at ? new Date(r.created_at).getTime() : Date.now()),
+            clientName: r.clientName || r.client_name || 'زائر المتجر',
+            whatsappNumber: r.whatsappNumber || r.whatsapp_number || r.phone || '',
+            message: r.message || '',
+            status: r.status || 'nouvelle',
+            createdAt: r.created_at || r.createdAt || new Date().toISOString()
+          }));
+        }
 
-      const { data: recsFromOrders } = await supabase.from('orders').select('*').or('deliveryMode.eq.reclamation,deliveryCompany.eq.RECLAMATION').neq('status', 'resolue').order('created_at', { ascending: false });
-      let mappedOrderRecs = [];
-      if (recsFromOrders && recsFromOrders.length > 0) {
-        mappedOrderRecs = recsFromOrders.map(o => ({
-          id: o.id || 'REC-' + (o.created_at ? new Date(o.created_at).getTime() : Date.now()),
-          clientName: o.clientName || 'زائر المتجر',
-          whatsappNumber: o.phone || '',
-          message: o.product || o.commune || '',
-          status: o.status || 'nouvelle',
-          createdAt: o.created_at || o.date || new Date().toISOString()
-        }));
-      }
+        const { data: recsFromOrders } = await supabase.from('orders').select('*').or('deliveryMode.eq.reclamation,deliveryCompany.eq.RECLAMATION').neq('status', 'resolue').order('created_at', { ascending: false });
+        let mappedOrderRecs = [];
+        if (recsFromOrders && recsFromOrders.length > 0) {
+          mappedOrderRecs = recsFromOrders.map(o => ({
+            id: o.id || 'REC-' + (o.created_at ? new Date(o.created_at).getTime() : Date.now()),
+            clientName: o.clientName || 'زائر المتجر',
+            whatsappNumber: o.phone || '',
+            message: o.product || o.commune || '',
+            status: o.status || 'nouvelle',
+            createdAt: o.created_at || o.date || new Date().toISOString()
+          }));
+        }
 
-      const existingRecs = Array.isArray(obj.reclamations) ? obj.reclamations : [];
-      const merged = [...mappedOrderRecs, ...mapped, ...existingRecs];
-      const seen = new Set();
-      const uniqueRecs = [];
-      for (const item of merged) {
-        const normPhone = String(item.whatsappNumber || item.phone || '').replace(/\D/g, '').slice(-9);
-        const normMsg = String(item.message || '').trim().toLowerCase();
-        const dedupKey = (normPhone && normMsg) ? `${normPhone}_${normMsg}` : String(item.id || item.createdAt);
-        if (seen.has(dedupKey)) continue;
-        seen.add(dedupKey);
-        uniqueRecs.push(item);
+        const existingRecs = Array.isArray(obj.reclamations) ? obj.reclamations : [];
+        const merged = [...mappedOrderRecs, ...mapped, ...existingRecs];
+        const seen = new Set();
+        const uniqueRecs = [];
+        for (const item of merged) {
+          const normPhone = String(item.whatsappNumber || item.phone || '').replace(/\D/g, '').slice(-9);
+          const normMsg = String(item.message || '').trim().toLowerCase();
+          const dedupKey = (normPhone && normMsg) ? `${normPhone}_${normMsg}` : String(item.id || item.createdAt);
+          if (seen.has(dedupKey)) continue;
+          seen.add(dedupKey);
+          uniqueRecs.push(item);
+        }
+        obj.reclamations = uniqueRecs;
+
+        setSettings(prev => {
+          const newSettings = { ...prev, ...obj };
+          try { localStorage.setItem('pyjama_settings_cache', JSON.stringify(newSettings)); } catch(e) {}
+          const prevRecs = Array.isArray(prev?.reclamations) ? prev.reclamations : [];
+          const newRecs = Array.isArray(obj?.reclamations) ? obj.reclamations : [];
+          if (prevRecs.length > 0 && newRecs.length > prevRecs.length) {
+            try { playNotificationSound(); } catch(e) {}
+          }
+          return newSettings;
+        });
+      } catch (e) {
+        console.warn('Reclamations query notice:', e);
       }
-      obj.reclamations = uniqueRecs;
-    } catch (e) {
-      console.warn('Reclamations query notice:', e);
     }
-
-    setSettings(prev => {
-      const newSettings = { ...prev, ...obj };
-      try { localStorage.setItem('pyjama_settings_cache', JSON.stringify(newSettings)); } catch(e) {}
-      const prevRecs = Array.isArray(prev?.reclamations) ? prev.reclamations : [];
-      const newRecs = Array.isArray(obj?.reclamations) ? obj.reclamations : [];
-      if (prevRecs.length > 0 && newRecs.length > prevRecs.length) {
-        try { playNotificationSound(); } catch(e) {}
-      }
-      return newSettings;
-    });
   };
 
   const sanitizeProductForDb = (prodObj) => {
@@ -972,7 +1003,7 @@ export default function App() {
 
         fetch('/api/check-low-stock', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': import.meta.env.VITE_ADMIN_PARCEL_SECRET || 'pyjama_dz_sec_99a8b7c6d5e4f3' },
           body: JSON.stringify({ isPos: isPosOrder, productIds: soldProductIds, soldItems: soldItemsCollected })
         }).catch(e => console.error("Low stock check error:", e));
       }

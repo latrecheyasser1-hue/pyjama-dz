@@ -11,7 +11,6 @@ export default function AdminLogin({ onLoginSuccess, onSwitchToClient }) {
   });
   const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0);
 
-  const CORRECT_PIN = "765483"; // Le code PIN souhaité (6 chiffres)
 
   useEffect(() => {
     const checkLockout = () => {
@@ -64,27 +63,46 @@ export default function AdminLogin({ onLoginSuccess, onSwitchToClient }) {
   const verifyPin = async (enteredPin) => {
     if (lockoutTimeLeft > 0) return;
     setLoading(true);
-    if (enteredPin === CORRECT_PIN) {
-      localStorage.removeItem('admin_login_failed_attempts');
-      localStorage.removeItem('admin_login_lockout_until');
-      setFailedAttempts(0);
-      onLoginSuccess({ user: { role: 'admin' } });
-    } else {
-      const nextFailCount = failedAttempts + 1;
-      setFailedAttempts(nextFailCount);
-      localStorage.setItem('admin_login_failed_attempts', String(nextFailCount));
-
-      if (nextFailCount >= 5) {
-        const lockUntil = Date.now() + 5 * 60 * 1000; // 5 minutes lockout!
-        localStorage.setItem('admin_login_lockout_until', String(lockUntil));
-        localStorage.setItem('admin_login_failed_attempts', '0');
+    try {
+      const res = await fetch('/api/approve-exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify_pin', pin: enteredPin })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        localStorage.removeItem('admin_login_failed_attempts');
+        localStorage.removeItem('admin_login_lockout_until');
         setFailedAttempts(0);
-        setLockoutTimeLeft(300);
+        if (data.token) {
+          sessionStorage.setItem('admin_token', data.token);
+        }
+        onLoginSuccess({ user: { role: 'admin' } });
+        return;
       }
 
-      setError(true);
-      setTimeout(() => setPin(''), 500);
+      if (res.status === 429 && data.remainingSec) {
+        setLockoutTimeLeft(data.remainingSec);
+        localStorage.setItem('admin_login_lockout_until', String(Date.now() + data.remainingSec * 1000));
+      }
+    } catch (err) {
+      console.error('PIN verification error:', err);
     }
+
+    const nextFailCount = failedAttempts + 1;
+    setFailedAttempts(nextFailCount);
+    localStorage.setItem('admin_login_failed_attempts', String(nextFailCount));
+
+    if (nextFailCount >= 5) {
+      const lockUntil = Date.now() + 5 * 60 * 1000; // 5 minutes lockout!
+      localStorage.setItem('admin_login_lockout_until', String(lockUntil));
+      localStorage.setItem('admin_login_failed_attempts', '0');
+      setFailedAttempts(0);
+      setLockoutTimeLeft(300);
+    }
+
+    setError(true);
+    setTimeout(() => setPin(''), 500);
     setLoading(false);
   };
 

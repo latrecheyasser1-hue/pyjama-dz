@@ -76,15 +76,28 @@ export const getLocalReviews = () => {
 export const saveReviews = async (reviewsList) => {
   if (!Array.isArray(reviewsList)) return;
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reviewsList));
-    // Trigger local storage event for reactive updates across tabs/components
-    window.dispatchEvent(new CustomEvent('pyjama_reviews_updated', { detail: reviewsList }));
+    // Security Fix (DEEP-06): Sanitize & clamp reviews to prevent payload inflation or injection
+    const sanitizedList = reviewsList.slice(0, 100).map(r => ({
+      id: String(r.id || '').slice(0, 50),
+      productId: String(r.productId || '').slice(0, 50),
+      productTitle: String(r.productTitle || '').slice(0, 100),
+      customerName: String(r.customerName || 'زبونة المتجر').slice(0, 50),
+      wilaya: String(r.wilaya || 'الجزائر').slice(0, 50),
+      rating: Math.min(5, Math.max(1, Number(r.rating) || 5)),
+      comment: String(r.comment || '').slice(0, 500),
+      date: r.date || new Date().toISOString(),
+      verifiedPurchase: Boolean(r.verifiedPurchase),
+      status: r.status === 'pending' ? 'pending' : 'approved',
+      likes: Number(r.likes) || 0
+    }));
 
-    // Persist to Supabase in settings table (key: 'product_reviews')
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sanitizedList));
+    window.dispatchEvent(new CustomEvent('pyjama_reviews_updated', { detail: sanitizedList }));
+
     if (supabase) {
       await supabase
         .from('settings')
-        .upsert({ key: 'product_reviews', value: JSON.stringify(reviewsList) }, { onConflict: 'key' });
+        .upsert({ key: 'product_reviews', value: JSON.stringify(sanitizedList) }, { onConflict: 'key' });
     }
   } catch (e) {
     console.error('Error saving reviews:', e);
