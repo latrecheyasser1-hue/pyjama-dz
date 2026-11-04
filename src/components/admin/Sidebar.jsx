@@ -14,17 +14,7 @@ export default function Sidebar({ activeTab, setActiveTab, newOrdersCount, pendi
     { id: 'orders', label: '📥 الطلبيات الجديدة', desc: 'Commandes en temps réel', badge: newOrdersCount > 0 ? newOrdersCount : null },
     { id: 'exchanges', label: '🔄 طلبات الاستبدال', desc: 'Échanges de produits', badge: pendingExchangesCount > 0 ? pendingExchangesCount : null },
     { id: 'retours', label: '↩️ طلبات الاسترجاع', desc: 'Retours & Remboursements', badge: pendingRetoursCount > 0 ? pendingRetoursCount : null },
-    {
-      id: 'stock',
-      label: '📦 المخزون والمنتجات',
-      desc: 'Gestion catalogue & tailles',
-      isFolder: true,
-      subItems: [
-        { id: 'stock_livraison', label: '🚚 مخزن التوصيل (Livraison)', desc: 'Stock site web' },
-        { id: 'stock_boutique', label: '🏪 مخزن المحل (Boutique)', desc: 'Stock magasin physique' },
-        { id: 'stock_gros', label: '📦 مخزن الجملة (Gros & Super Gros)', desc: 'Ventes en gros et super gros' }
-      ]
-    },
+    { id: 'stock_livraison', label: '📦 المخزون والمنتجات', desc: 'Gestion catalogue & tailles' },
     { id: 'categories', label: '🏷️ الأقسام والتصنيفات', desc: 'Gestion des catégories' },
     { id: 'suppliers', label: '🤝 الموردين', desc: 'Annuaire fournisseurs' },
     { id: 'clients', label: '👥 إدارة الزبائن', desc: 'Bon / Mauvais Clients' },

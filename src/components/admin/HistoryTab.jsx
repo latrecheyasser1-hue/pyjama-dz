@@ -408,12 +408,7 @@ export default function HistoryTab({ orders, products, settings, onUpdateProduct
                   style={{ paddingLeft: '44px' }}
                 />
               </div>
-              <select value={orderTypeFilter} onChange={(e) => setOrderTypeFilter(e.target.value)} className="form-select" style={{ width: '200px', fontWeight: 800 }}>
-                <option value="all">كل الأنواع (Tous les types)</option>
-                <option value="livraison">🚚 توصيل (Livraison)</option>
-                <option value="gros">📦 جملة (Gros)</option>
-                <option value="hanout">🏪 حضوري (Boutique)</option>
-              </select>
+              <div style={{ fontWeight: 800, color: "var(--burgundy-dark)", padding: "8px 12px", background: "#FDF2F4", borderRadius: "8px", fontSize: "0.9rem" }}>🚚 طلبيات التوصيل (Livraison)</div>
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="form-select" style={{ width: '200px', fontWeight: 800 }}>
                 <option value="all">الكل (Tous les statuts)</option>
                 <option value="confirmee">✅ مؤكدة (Confirmée)</option>

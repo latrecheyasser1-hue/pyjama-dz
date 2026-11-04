@@ -3269,16 +3269,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               <span style={{ fontSize: '1.15rem', lineHeight: 1 }}>📢</span>
             </button>
 
-            {/* Wholesale Portal Button */}
-            <a 
-              href="/gros"
-              onClick={(e) => { e.preventDefault(); onGoToGros && onGoToGros(); }}
-              className="mazyoud-circle-btn"
-              title="Wholesale / الجملة"
-              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <ShoppingBag size={22} />
-            </a>
 
             {/* Shopping Cart Button */}
             <button 
@@ -5875,20 +5865,6 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 <ChevronRight size={18} color="#94A3B8" />
               </button>
 
-              <a 
-                href="/gros"
-                className="mobile-drawer-item"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setIsMobileMenuOpen(false);
-                  onGoToGros && onGoToGros();
-                }}
-              >
-                <div className="mobile-drawer-item-left">
-                  <span>- ESPACE GROS / مبيعات الجملة</span>
-                </div>
-                <span className="mobile-drawer-badge" style={{ background: '#EEF2FF', color: '#4338CA' }}>Gros</span>
-              </a>
 
               {/* Information Links */}
               <button 

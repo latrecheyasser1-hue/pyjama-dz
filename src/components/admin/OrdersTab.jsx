@@ -466,35 +466,6 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
             </span>
           </button>
 
-          <button
-            onClick={() => setOrderFilter('gros')}
-            style={{
-              padding: '9px 18px',
-              borderRadius: '10px',
-              border: 'none',
-              fontWeight: 800,
-              fontSize: '0.9rem',
-              cursor: 'pointer',
-              background: orderFilter === 'gros' ? '#4F46E5' : '#F1F5F9',
-              color: orderFilter === 'gros' ? 'white' : '#64748B',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-          >
-            <span>📦 طلبيات الجملة (Gros)</span>
-            <span style={{
-              background: orderFilter === 'gros' ? 'white' : '#4F46E5',
-              color: orderFilter === 'gros' ? '#4F46E5' : 'white',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              fontSize: '0.78rem',
-              fontWeight: 900
-            }}>
-              {grosOrders.length}
-            </span>
-          </button>
         </div>
 
         {/* Compact Filters in the Top Corner */}

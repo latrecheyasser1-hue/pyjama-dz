@@ -11,7 +11,6 @@ import AnalyticsTab from './admin/AnalyticsTab';
 import HistoryTab from './admin/HistoryTab';
 import SettingsTab from './admin/SettingsTab';
 import CategoriesTab from './admin/CategoriesTab';
-import PosModal from './admin/PosModal';
 import ClientsTab from './admin/ClientsTab';
 import ReclamationsTab from './admin/ReclamationsTab';
 import ExchangesReturnsTab from './admin/ExchangesReturnsTab';
@@ -44,8 +43,8 @@ export default function AdminDashboard({
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('orders');
-  const normalizedActiveTab = (activeTab === 'exchanges_returns') ? 'exchanges' : (activeTab === 'stock_super_gros' ? 'stock_gros' : activeTab);
-  const [mountedTabs, setMountedTabs] = useState(() => new Set(['orders', (activeTab === 'exchanges_returns') ? 'exchanges' : (activeTab === 'stock_super_gros' ? 'stock_gros' : activeTab)]));
+  const normalizedActiveTab = (activeTab === 'exchanges_returns') ? 'exchanges' : (activeTab === 'stock' ? 'stock_livraison' : activeTab);
+  const [mountedTabs, setMountedTabs] = useState(() => new Set(['orders', (activeTab === 'exchanges_returns') ? 'exchanges' : (activeTab === 'stock' ? 'stock_livraison' : activeTab)]));
 
   useEffect(() => {
     setMountedTabs(prev => {
@@ -56,87 +55,7 @@ export default function AdminDashboard({
     });
   }, [normalizedActiveTab]);
 
-  const [showPosModal, setShowPosModal] = useState(false);
-  const [posCart, setPosCart] = useState([]);
-
-  const addProductToPosCart = (prod) => {
-    setPosCart(prevCart => {
-      const existingIndex = prevCart.findIndex(item => item.productId === prod.id || (prod.barcode && item._productRef?.barcode === prod.barcode));
-      if (existingIndex !== -1) {
-        const updated = [...prevCart];
-        const existingItem = updated[existingIndex];
-        const newQty = (Number(existingItem.qty) || 0) + 1;
-        updated[existingIndex] = {
-          ...existingItem,
-          qty: newQty,
-          total: (Number(existingItem.price) || 0) * newQty
-        };
-        return updated;
-      } else {
-        const defColor = prod.colorVariants?.[0]?.color || 'Standard';
-        const defColObj = prod.colorVariants?.find(cv => cv.color === defColor);
-        const availSizes = defColObj?.stock ? Object.keys(defColObj.stock) : (prod.sizes || ['Standard']);
-        const defSize = availSizes[0] || 'Standard';
-        const itemPrice = Number(prod.price) || 0;
-
-        const newItem = {
-          productId: prod.id,
-          product: prod.title,
-          image: (prod.images && prod.images.length > 0 ? prod.images[0] : prod.image) || "",
-          color: defColor,
-          size: defSize,
-          qty: 1,
-          price: itemPrice,
-          total: itemPrice,
-          _productRef: prod
-        };
-        return [...prevCart, newItem];
-      }
-    });
-  };
-
-  const barcodeBufferRef = useRef('');
-  const lastKeyTimeRef = useRef(0);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (!showPosModal) return;
-      const currentTime = Date.now();
-      if (currentTime - lastKeyTimeRef.current > 150) {
-        barcodeBufferRef.current = '';
-      }
-      lastKeyTimeRef.current = currentTime;
-
-      if (e.key === 'Enter') {
-        const scannedCode = barcodeBufferRef.current.trim();
-        if (scannedCode.length >= 3) {
-          const matchedProd = products.find(p => 
-            (p.barcode && String(p.barcode).trim() === scannedCode) ||
-            (p.id && String(p.id).trim() === scannedCode)
-          );
-
-          if (matchedProd) {
-            e.preventDefault();
-            addProductToPosCart(matchedProd);
-            setShowPosModal(true);
-            barcodeBufferRef.current = '';
-            return;
-          } else if (barcodeBufferRef.current.length >= 6) {
-            e.preventDefault();
-            showToast(`⚠️ تنبيه: الكود بار الممسوح (${scannedCode}) غير مسجل في المخزون!`, 'warning');
-            barcodeBufferRef.current = '';
-            return;
-          }
-        }
-        barcodeBufferRef.current = '';
-      } else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        barcodeBufferRef.current += e.key;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [products, showPosModal]);
+  // POS modal and scanner removed as requested
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -242,7 +161,6 @@ export default function AdminDashboard({
         onLock={async () => await supabase.auth.signOut()}
         onSwitchToClient={onSwitchToClient}
         playNotificationSound={playNotificationSound}
-        onOpenPos={() => setShowPosModal(true)}
       />
 
       {/* Main Content Area */}
@@ -262,7 +180,6 @@ export default function AdminDashboard({
               onUpdateStatus={onUpdateStatus}
               onDeleteOrder={onDeleteOrder}
               onRefreshOrders={onRefreshOrders}
-              onOpenPos={() => setShowPosModal(true)}
             />
           </div>
         )}
@@ -304,42 +221,7 @@ export default function AdminDashboard({
               onDeleteProduct={onDeleteProduct}
               stockMode="livraison"
               onTabChange={setActiveTab}
-              isPosOpen={showPosModal}
               isActive={normalizedActiveTab === 'stock_livraison'}
-            />
-          </div>
-        )}
-
-        {mountedTabs.has('stock_boutique') && (
-          <div style={{ display: normalizedActiveTab === 'stock_boutique' ? 'block' : 'none' }}>
-            <StockTab
-              products={products}
-              suppliers={suppliers}
-              settings={settings}
-              onAddProduct={onAddProduct}
-              onUpdateProduct={onUpdateProduct}
-              onDeleteProduct={onDeleteProduct}
-              stockMode="boutique"
-              onTabChange={setActiveTab}
-              isPosOpen={showPosModal}
-              isActive={normalizedActiveTab === 'stock_boutique'}
-            />
-          </div>
-        )}
-
-        {mountedTabs.has('stock_gros') && (
-          <div style={{ display: (normalizedActiveTab === 'stock_gros' || normalizedActiveTab === 'stock_super_gros') ? 'block' : 'none' }}>
-            <StockTab
-              products={products}
-              suppliers={suppliers}
-              settings={settings}
-              onAddProduct={onAddProduct}
-              onUpdateProduct={onUpdateProduct}
-              onDeleteProduct={onDeleteProduct}
-              stockMode="gros"
-              onTabChange={setActiveTab}
-              isPosOpen={showPosModal}
-              isActive={normalizedActiveTab === 'stock_gros' || normalizedActiveTab === 'stock_super_gros'}
             />
           </div>
         )}
@@ -421,18 +303,7 @@ export default function AdminDashboard({
           </div>
         )}
 
-        <PosModal
-          show={showPosModal}
-          onClose={() => setShowPosModal(false)}
-          products={products}
-          settings={settings}
-          posCart={posCart}
-          setPosCart={setPosCart}
-          addProductToPosCart={addProductToPosCart}
-          onPlaceOrder={onPlaceOrder}
-          onUpdateProduct={onUpdateProduct}
-        />
-      </main>
+        </main>
     </div>
   );
 }

@@ -266,16 +266,7 @@ export default function AnalyticsTab({ orders, products, expenses, onAddExpense,
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <select 
-            value={saleType} 
-            onChange={(e) => setSaleType(e.target.value)}
-            className="form-select"
-            style={{ fontWeight: 800, padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-light)', cursor: 'pointer' }}
-          >
-            <option value="all">كل المبيعات (Toutes les ventes)</option>
-            <option value="retail">التجزئة والحضوري (Détail & Boutique)</option>
-            <option value="gros">الجملة فقط (Gros uniquement)</option>
-          </select>
+          
           <select 
             value={period} 
             onChange={(e) => setPeriod(e.target.value)}
