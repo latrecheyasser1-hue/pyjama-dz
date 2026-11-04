@@ -514,7 +514,7 @@ export default async function handler(req, res) {
           codPrice: codProductPrice
         });
       } else {
-        const errMsg = result?.message || yData.message || 'Yalidine parcel creation failed';
+        const errMsg = yData.error?.message || result?.message || yData.message || (typeof yData === 'string' ? yData : 'Yalidine parcel creation failed');
         return res.status(400).json({
           success: false,
           error: errMsg,
