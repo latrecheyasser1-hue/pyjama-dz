@@ -6,6 +6,7 @@ import { supabase } from './lib/supabaseClient';
 import { showToast } from './utils/toast';
 import { playNotificationSound } from './utils/audio';
 import { INITIAL_PRODUCTS, DEFAULT_CATEGORIES, INITIAL_SETTINGS } from './data/mockData';
+import { processOrderDelivery } from './services/deliveryApi';
 
 const isSubdomainAdmin = typeof window !== 'undefined' && window.location.hostname.toLowerCase().startsWith('admin.');
 const isMainProductionDomain = typeof window !== 'undefined' && (window.location.hostname.toLowerCase() === 'pyjama-dz.net' || window.location.hostname.toLowerCase() === 'www.pyjama-dz.net');
@@ -1230,17 +1231,21 @@ export default function App() {
           if (!alreadyHasTracking && !parcelCreationLockRef.current.has(orderId)) {
             parcelCreationLockRef.current.add(orderId);
             try {
+              showToast('⏳ جاري إنشاء بوليصة الشحن لدى شركة التوصيل...', 'info');
               const deliveryResult = await processOrderDelivery(orderToUpdate);
               if (deliveryResult && deliveryResult.success && deliveryResult.trackingNumber) {
                 const compName = deliveryResult.deliveryCompany || orderToUpdate.deliveryCompany || 'yalidine';
                 updatePayload.trackingNumber = deliveryResult.trackingNumber;
                 updatePayload.shippingLabelUrl = deliveryResult.shippingLabelUrl || '';
                 updatePayload.deliveryCompany = compName;
+                showToast(`✅ تم إنشاء الطرد بنجاح لدى ${compName === 'zrexpress' ? 'ZR Express' : 'Yalidine'} (تتبع: ${deliveryResult.trackingNumber})`, 'success');
               } else {
                 console.error('Failed to process delivery API:', deliveryResult?.error);
+                showToast(`⚠️ تعذر إنشاء الطرد تلقائياً: ${deliveryResult?.error || 'يرجى مراجعة بيانات الطلب'}`, 'error');
               }
             } catch (err) {
               console.error('Failed to process delivery API:', err);
+              showToast(`⚠️ خطأ في الاتصال أثناء إنشاء الطرد: ${err.message}`, 'error');
             } finally {
               parcelCreationLockRef.current.delete(orderId);
             }

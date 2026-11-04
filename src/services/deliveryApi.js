@@ -20,7 +20,7 @@ export const createYalidineParcel = async (order) => {
         'Content-Type': 'application/json',
         'x-admin-token': ADMIN_PARCEL_SECRET
       },
-      body: JSON.stringify({ order, company: 'yalidine' })
+      body: JSON.stringify({ order, orderId: order?.id, company: 'yalidine' })
     });
     const data = await res.json();
     if (res.ok && data.success) {
@@ -53,7 +53,7 @@ export const createZRExpressParcel = async (order) => {
         'Content-Type': 'application/json',
         'x-admin-token': ADMIN_PARCEL_SECRET
       },
-      body: JSON.stringify({ order, company: 'zrexpress' })
+      body: JSON.stringify({ order, orderId: order?.id, company: 'zrexpress' })
     });
     const data = await res.json();
     if (res.ok && data.success) {

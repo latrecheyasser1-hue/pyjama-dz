@@ -819,7 +819,7 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                               <span style={{ color: '#166534', background: '#DCFCE7', border: '1px solid #BBF7D0', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
                                 ✅ مؤكدة
                               </span>
-                              {order.shippingLabelUrl && (
+                              {order.shippingLabelUrl ? (
                                 <a 
                                   onClick={(e) => e.stopPropagation()} 
                                   href={order.shippingLabelUrl} 
@@ -829,29 +829,62 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                                 >
                                   📄 البوليصة
                                 </a>
+                              ) : (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); onUpdateStatus(order.id, 'confirmee', true); }}
+                                  style={{
+                                    background: '#D97706',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '4px 10px',
+                                    borderRadius: '6px',
+                                    fontWeight: 700,
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                  title="إنشاء بوليصة الشحن لدى شركة التوصيل"
+                                >
+                                  📦 إنشاء الطرد
+                                </button>
                               )}
                             </div>
                           ) : (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleConfirmAction(order); }}
-                              style={{
-                                background: '#1F8A55',
-                                color: 'white',
-                                border: 'none',
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                fontWeight: 800,
-                                fontSize: '0.85rem',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                boxShadow: '0 2px 6px rgba(31,138,85,0.25)'
-                              }}
-                            >
-                              <CheckCircle2 size={16} />
-                              <span>تأكيد النهائي</span>
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleConfirmAction(order); }}
+                                style={{
+                                  background: '#1F8A55',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '8px 16px',
+                                  borderRadius: '8px',
+                                  fontWeight: 800,
+                                  fontSize: '0.85rem',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  boxShadow: '0 2px 6px rgba(31,138,85,0.25)'
+                                }}
+                              >
+                                <CheckCircle2 size={16} />
+                                <span>تأكيد النهائي</span>
+                              </button>
+                              {order.shippingLabelUrl && (
+                                <a 
+                                  onClick={(e) => e.stopPropagation()} 
+                                  href={order.shippingLabelUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  style={{ background: '#1E293B', color: 'white', padding: '6px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, textDecoration: 'none' }}
+                                >
+                                  📄 البوليصة
+                                </a>
+                              )}
+                            </div>
                           )
                         )}
 
@@ -1180,6 +1213,34 @@ export default function OrdersTab({ orders, products = [], settings, onPlaceOrde
                   <span style={{ fontSize: '0.8rem', color: '#64748B', display: 'block' }}>طريقة التوصيل (Mode):</span>
                   <strong style={{ fontSize: '0.95rem', color: '#1E293B' }}>{selectedOrderDetails.deliveryMode || 'غير محدد'}</strong>
                 </div>
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: '#64748B', display: 'block' }}>شركة التوصيل ورقم التتبع:</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                    <strong style={{ fontSize: '0.95rem', color: '#1E293B' }}>
+                      {selectedOrderDetails.deliveryCompany === 'zrexpress' ? 'ZR Express' : (selectedOrderDetails.deliveryCompany || 'Yalidine')}
+                    </strong>
+                    {selectedOrderDetails.trackingNumber ? (
+                      <span style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 800, border: '1px solid #BFDBFE' }}>
+                        📦 {selectedOrderDetails.trackingNumber}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#94A3B8', fontSize: '0.8rem', fontWeight: 600 }}>لم ينشأ بعد</span>
+                    )}
+                  </div>
+                </div>
+                {selectedOrderDetails.shippingLabelUrl && (
+                  <div>
+                    <span style={{ fontSize: '0.8rem', color: '#64748B', display: 'block' }}>بوليصة الشحن (Bordereau):</span>
+                    <a 
+                      href={selectedOrderDetails.shippingLabelUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#1E293B', color: 'white', padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, textDecoration: 'none', marginTop: '4px' }}
+                    >
+                      📄 فتح وتحميل البوليصة PDF
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 
