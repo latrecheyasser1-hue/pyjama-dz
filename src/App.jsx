@@ -210,6 +210,7 @@ export default function App() {
     let ordersSub = null;
     let suppliersSub = null;
     let expensesSub = null;
+    let settingsSub = null;
 
     // Only subscribe to private backoffice data if on an admin/staff route (saves massive client bandwidth)
     if (isAdmin) {
@@ -242,12 +243,12 @@ export default function App() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, payload => {
           fetchData('expenses', setExpenses);
         }).subscribe();
-    }
 
-    const settingsSub = supabase.channel('settings_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, payload => {
-        fetchSettings();
-      }).subscribe();
+      settingsSub = supabase.channel('settings_channel')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, payload => {
+          fetchSettings();
+        }).subscribe();
+    }
 
     const handleFocusOrVisible = () => {
       // Focus sync only for backoffice orders, not storefront products
@@ -278,7 +279,7 @@ export default function App() {
       if (ordersSub) supabase.removeChannel(ordersSub);
       if (suppliersSub) supabase.removeChannel(suppliersSub);
       if (expensesSub) supabase.removeChannel(expensesSub);
-      supabase.removeChannel(settingsSub);
+      if (settingsSub) supabase.removeChannel(settingsSub);
       window.removeEventListener('focus', handleFocusOrVisible);
       document.removeEventListener('visibilitychange', handleFocusOrVisible);
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -354,26 +355,6 @@ export default function App() {
     }
   }, [currentPath]);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('settings_realtime_sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
-        if (payload.new && payload.new.key === 'categories') {
-          let val = payload.new.value;
-          if (typeof val === 'string') {
-            try { val = JSON.parse(val); } catch(e) {}
-          }
-          if (Array.isArray(val)) {
-            setSettings(prev => ({ ...prev, categories: val }));
-          }
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
 
   const fetchData = async (table, setter) => {
@@ -631,19 +612,6 @@ export default function App() {
       'banner_active',
       'shipping_rates'
     ];
-
-    try {
-      const { data: catData } = await supabase.from('settings').select('*').eq('key', 'categories');
-      if (catData && catData.length > 0 && catData[0].value) {
-        let val = catData[0].value;
-        if (typeof val === 'string') {
-          try { val = JSON.parse(val); } catch(e) {}
-        }
-        if (Array.isArray(val)) {
-          setSettings(prev => ({ ...prev, categories: val }));
-        }
-      }
-    } catch (e) {}
 
     let settingsQuery = supabase.from('settings').select('key,value');
 

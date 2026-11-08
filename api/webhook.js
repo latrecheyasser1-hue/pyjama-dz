@@ -186,9 +186,16 @@ function cleanProductText(prod) {
   return String(prod).replace(/\(\(/g, '').replace(/\)\)/g, '');
 }
 
+let _cachedStoreSettings = null;
+let _cachedStoreSettingsTime = 0;
+
 async function getStoreSettings() {
+  const now = Date.now();
+  if (_cachedStoreSettings && (now - _cachedStoreSettingsTime < 120000)) {
+    return _cachedStoreSettings;
+  }
   try {
-    const url = `${SUPABASE_URL}/rest/v1/settings?select=*`;
+    const url = `${SUPABASE_URL}/rest/v1/settings?select=key,value`;
     const res = await fetch(url, {
       headers: {
         'apikey': SUPABASE_KEY,
@@ -203,12 +210,14 @@ async function getStoreSettings() {
           settingsMap[item.key] = item.value;
         }
       });
+      _cachedStoreSettings = settingsMap;
+      _cachedStoreSettingsTime = now;
       return settingsMap;
     }
-    return {};
+    return _cachedStoreSettings || {};
   } catch (err) {
     console.error('Error fetching settings from Supabase:', err);
-    return {};
+    return _cachedStoreSettings || {};
   }
 }
 
