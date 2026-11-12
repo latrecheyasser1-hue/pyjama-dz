@@ -4350,6 +4350,49 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
               Termes & Conditions
             </button>
           </div>
+
+          {/* B2B Systems & E-commerce Development Link for Merchants & Competitors */}
+          <div style={{ marginTop: '22px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <a
+              href="https://wa.me/213771335039?text=%D8%A7%D9%84%D8%B3%D9%84%D8%A7%D9%85%20%D8%B9%D9%84%D9%8A%D9%83%D9%85%20%D8%AE%D9%88%D9%8A%D8%A7%D8%8C%20%D8%B4%D9%81%D8%AA%20%D9%86%D8%B8%D8%A7%D9%85%20%D9%85%D8%AA%D8%AC%D8%B1%20Pyjama%20DZ%20%D9%88%D8%B9%D8%AC%D8%A8%D9%86%D9%8A%D8%8C%20%D8%AD%D8%A7%D8%A8%20%D9%86%D8%B3%D8%AA%D9%81%D8%B3%D8%B1%20%D8%B9%D9%84%D9%89%20%D8%AE%D8%AF%D9%85%D8%A9%20%D8%A8%D9%86%D8%A7%D8%A1%20%D9%88%D8%AA%D8%B7%D9%88%D9%8A%D8%B1%20%D9%85%D8%AA%D8%AC%D8%B1%20%2F%20%D9%86%D8%B8%D8%A7%D9%85%20%D8%A5%D9%84%D9%83%D8%AA%D8%B1%D9%88%D9%86%D9%8A%20%D8%AE%D8%A7%D8%B5%20%D8%A8%D9%85%D8%B4%D8%B1%D9%88%D8%B9%D9%8A."
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '9px 20px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.16)',
+                borderRadius: '30px',
+                color: '#E2E8F0',
+                textDecoration: 'none',
+                fontSize: '0.86rem',
+                fontWeight: 700,
+                letterSpacing: '0.2px',
+                maxWidth: '92%',
+                textAlign: 'center',
+                transition: 'all 0.25s ease',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(37, 211, 102, 0.15)';
+                e.currentTarget.style.borderColor = '#25D366';
+                e.currentTarget.style.color = '#25D366';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.16)';
+                e.currentTarget.style.color = '#E2E8F0';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <span>💼</span>
+              <span>لخدمات البرمجة وبناء الأنظمة للتجار (تواصل معنا)</span>
+            </a>
+          </div>
         </div>
 
         {/* Sub-Footer Bar */}
