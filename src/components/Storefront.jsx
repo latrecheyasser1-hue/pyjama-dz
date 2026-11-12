@@ -4351,8 +4351,8 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
             </button>
           </div>
 
-          {/* B2B Systems & E-commerce Development Link for Merchants & Competitors */}
-          <div style={{ marginTop: '22px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          {/* B2B Systems & E-commerce Development Button for Merchants & Competitors */}
+          <div style={{ marginTop: '26px', marginBottom: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <a
               href="https://wa.me/213771335039?text=%D8%A7%D9%84%D8%B3%D9%84%D8%A7%D9%85%20%D8%B9%D9%84%D9%8A%D9%83%D9%85%20%D8%AE%D9%88%D9%8A%D8%A7%D8%8C%20%D8%B4%D9%81%D8%AA%20%D9%86%D8%B8%D8%A7%D9%85%20%D9%85%D8%AA%D8%AC%D8%B1%20Pyjama%20DZ%20%D9%88%D8%B9%D8%AC%D8%A8%D9%86%D9%8A%D8%8C%20%D8%AD%D8%A7%D8%A8%20%D9%86%D8%B3%D8%AA%D9%81%D8%B3%D8%B1%20%D8%B9%D9%84%D9%89%20%D8%AE%D8%AF%D9%85%D8%A9%20%D8%A8%D9%86%D8%A7%D8%A1%20%D9%88%D8%AA%D8%B7%D9%88%D9%8A%D8%B1%20%D9%85%D8%AA%D8%AC%D8%B1%20%2F%20%D9%86%D8%B8%D8%A7%D9%85%20%D8%A5%D9%84%D9%83%D8%AA%D8%B1%D9%88%D9%86%D9%8A%20%D8%AE%D8%A7%D8%B5%20%D8%A8%D9%85%D8%B4%D8%B1%D9%88%D8%B9%D9%8A."
               target="_blank"
@@ -4361,36 +4361,40 @@ export default function Storefront({ products, orders = [], settings, onPlaceOrd
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px',
-                padding: '9px 20px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.16)',
-                borderRadius: '30px',
-                color: '#E2E8F0',
+                gap: '12px',
+                padding: '13px 28px',
+                background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                border: '1.5px solid rgba(255, 255, 255, 0.45)',
+                borderRadius: '50px',
+                color: '#FFFFFF',
                 textDecoration: 'none',
-                fontSize: '0.86rem',
-                fontWeight: 700,
-                letterSpacing: '0.2px',
+                fontSize: '0.94rem',
+                fontWeight: 800,
+                letterSpacing: '0.3px',
                 maxWidth: '92%',
                 textAlign: 'center',
-                transition: 'all 0.25s ease',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                cursor: 'pointer',
+                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                boxShadow: '0 6px 22px rgba(37, 211, 102, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3)',
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.25)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(37, 211, 102, 0.15)';
-                e.currentTarget.style.borderColor = '#25D366';
-                e.currentTarget.style.color = '#25D366';
-                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)';
+                e.currentTarget.style.boxShadow = '0 10px 30px rgba(37, 211, 102, 0.7), 0 4px 12px rgba(0, 0, 0, 0.4)';
+                e.currentTarget.style.background = 'linear-gradient(135deg, #2bf075 0%, #15a392 100%)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.16)';
-                e.currentTarget.style.color = '#E2E8F0';
-                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                e.currentTarget.style.boxShadow = '0 6px 22px rgba(37, 211, 102, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3)';
+                e.currentTarget.style.background = 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)';
               }}
             >
-              <span>💼</span>
-              <span>لخدمات البرمجة وبناء الأنظمة للتجار (تواصل معنا)</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', background: 'rgba(255, 255, 255, 0.22)', borderRadius: '50%', flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="#FFFFFF">
+                  <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 0 0 1.333 4.982L2 22l5.233-1.372a9.948 9.948 0 0 0 4.777 1.217h.005c5.505 0 9.989-4.478 9.99-9.984A9.974 9.974 0 0 0 12.012 2zm5.727 14.126c-.304.857-1.47 1.57-2.029 1.631-.56.06-1.12.083-4.256-1.22-3.136-1.303-5.132-4.502-5.289-4.71-.157-.209-1.282-1.709-1.282-3.262 0-1.554.811-2.317 1.101-2.617.29-.3.633-.375.845-.375.213 0 .426.002.612.011.196.01.46-.073.719.553.266.641.91 2.223.988 2.385.079.162.132.35.025.564-.107.214-.162.348-.321.533-.159.186-.334.412-.477.553-.159.157-.326.329-.142.646.184.318.82 1.353 1.758 2.193.937.84 1.728 1.103 2.106 1.293.379.19.601.157.822-.1.22-.257.939-1.092 1.192-1.467.254-.376.508-.314.857-.183.349.131 2.22 1.05 2.599 1.24.38.19.633.284.724.444.092.16.092.923-.212 1.78z" />
+                </svg>
+              </span>
+              <span>💼 لخدمات البرمجة وبناء الأنظمة للتجار (تواصل معنا)</span>
             </a>
           </div>
         </div>
